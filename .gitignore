@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Next.js / build output
+.next/
+out/
+build/
+dist/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local tooling
+*.log
+coverage/
+.turbo/
+.cache/
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+

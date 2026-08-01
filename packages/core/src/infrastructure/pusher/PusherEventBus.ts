@@ -1,0 +1,81 @@
+import { LockEventBus } from '../../application/ports/LockEventBus.js';
+import { Lock } from '../../domain/models/Lock.js';
+import Pusher from 'pusher';
+
+export interface PusherConfig {
+  appId: string;
+  key: string;
+  secret: string;
+  cluster: string;
+  useTLS?: boolean;
+  host?: string;
+  port?: string;
+}
+
+export class PusherEventBus implements LockEventBus {
+  private readonly pusher: Pusher | null = null;
+
+  constructor(config: PusherConfig) {
+    if (config.appId && config.key && config.secret && config.cluster) {
+      this.pusher = new Pusher({
+        appId: config.appId,
+        key: config.key,
+        secret: config.secret,
+        cluster: config.cluster,
+        useTLS: config.useTLS ?? true,
+        host: config.host,
+        port: config.port,
+      });
+    } else {
+      console.warn('[PusherEventBus] Pusher is disabled because configuration is missing.');
+    }
+  }
+
+  private getChannelName(resourceType: string, resourceId: string): string {
+    return `private-locks-${resourceType}-${resourceId}`;
+  }
+
+  async publishLockAcquired(lock: Lock): Promise<void> {
+    if (!this.pusher) return;
+    
+    console.log(`[PusherEventBus] Triggering lock:acquired for ${lock.resourceType}-${lock.resourceId} to userId ${lock.userId}`);
+    await this.pusher.trigger(
+      this.getChannelName(lock.resourceType, lock.resourceId),
+      'lock:acquired',
+      {
+        resourceType: lock.resourceType,
+        resourceId: lock.resourceId,
+        userId: lock.userId,
+        expiresAt: lock.expiresAt.toISOString()
+      }
+    );
+  }
+
+  async publishLockReleased(resourceType: string, resourceId: string, userId: string): Promise<void> {
+    if (!this.pusher) return;
+
+    await this.pusher.trigger(
+      this.getChannelName(resourceType, resourceId),
+      'lock:released',
+      {
+        resourceType,
+        resourceId,
+        userId
+      }
+    );
+  }
+
+  async publishLockForceReleased(resourceType: string, resourceId: string): Promise<void> {
+    if (!this.pusher) return;
+
+    await this.pusher.trigger(
+      this.getChannelName(resourceType, resourceId),
+      'lock:force-released',
+      {
+        resourceType,
+        resourceId,
+        byAdmin: true
+      }
+    );
+  }
+}

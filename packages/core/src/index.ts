@@ -1,0 +1,305 @@
+// ─── Domain Models ───────────────────────────────────────────────────────────
+export { PasswordHasher } from './domain/policies/PasswordHasher.js';
+export { Node } from './domain/models/Node.js';
+export { Entity } from './domain/models/Entity.js';
+export { Lock } from './domain/models/Lock.js';
+export { NodeType } from './domain/models/NodeType.js';
+export { EntityType } from './domain/models/EntityType.js';
+export { ManagedTypeDefinition } from './domain/models/ManagedTypeDefinition.js';
+export { ManagedTypeField } from './domain/models/ManagedTypeField.js';
+export { ManagedTypeFieldConstraint } from './domain/models/ManagedTypeFieldConstraint.js';
+
+// ─── Domain & Application Errors ─────────────────────────────────────────────
+export { AppError } from './domain/errors/AppError.js';
+export {
+  UnauthorizedError,
+  ForbiddenError,
+  ValidationError,
+  CapabilityDisabledError,
+  LockConflictError,
+  LockNotFoundError,
+  LockExpiredError,
+  LockForbiddenError,
+} from './domain/errors/ApplicationErrors.js';
+export {
+  NodeNotFoundError,
+  NodeTypeNotFoundError as NodeDomainTypeNotFoundError,
+  NodePathCollisionError,
+  RowVersionMismatchError,
+  NodeCyclicMoveError,
+} from './domain/errors/DomainErrors.js';
+export {
+  EntityNotFoundError,
+  EntityTypeNotFoundError,
+  EntitySchemaValidationError,
+  EntityCommandValidationError,
+} from './domain/errors/EntityErrors.js';
+export {
+  UnsupportedFieldDataTypeError,
+  SchemaCompilationError,
+} from './domain/errors/SchemaErrors.js';
+export {
+  TypeAdminValidationError,
+  TypeDefinitionNotFoundError,
+  TypeFieldNotFoundError,
+  TypeFieldConstraintNotFoundError,
+  TypeKeyAlreadyExistsError,
+  TypeFieldKeyAlreadyExistsError,
+  TypeFieldColumnNameAlreadyExistsError,
+  SystemTypeModificationError,
+  SystemFieldModificationError,
+  TypeHasInstancesError,
+} from './domain/errors/TypeAdminErrors.js';
+
+// ─── Application DTOs & Commands ──────────────────────────────────────────────
+export {
+  TypeDomain,
+  ConstraintType,
+  TypeFieldConstraint,
+  TypeFieldDefinition,
+  TypeDefinition,
+} from './application/dto/TypeFieldDefinition.js';
+export {
+  TypeKind,
+  FieldDataType,
+  FieldConstraintDto,
+  FieldDto,
+  TypeListItemDto,
+  TypeDetailDto,
+  CreateTypeCommand as CreateTypeAdminCommand,
+  CreateTypeCommandSchema as CreateTypeAdminCommandSchema,
+  CreateTypeUiCommand,
+  UpdateTypeCommand as UpdateTypeAdminCommand,
+  UpdateTypeCommandSchema as UpdateTypeAdminCommandSchema,
+  UpdateTypeUiCommand,
+  DisableTypeCommand as DisableTypeAdminCommand,
+  DisableTypeCommandSchema as DisableTypeAdminCommandSchema,
+  DisableTypeUiCommand,
+  CreateFieldCommand as CreateFieldAdminCommand,
+  CreateFieldCommandSchema as CreateFieldAdminCommandSchema,
+  CreateFieldUiCommand,
+  UpdateFieldCommand as UpdateFieldAdminCommand,
+  UpdateFieldCommandSchema as UpdateFieldAdminCommandSchema,
+  UpdateFieldUiCommand,
+  DeleteFieldCommand as DeleteFieldAdminCommand,
+  DeleteFieldCommandSchema as DeleteFieldAdminCommandSchema,
+  DeleteFieldUiCommand,
+  ReorderFieldsCommand,
+  ReorderFieldsCommandSchema,
+  ReorderFieldsUiCommand,
+  ApiErrorDetail,
+  ApiErrorResponse,
+} from './application/dto/AdminContractDtos.js';
+export {
+  CreateNodeCommand,
+  CreateNodeCommandSchema,
+  UpdateNodeCommand,
+  UpdateNodeCommandSchema,
+  MoveNodeCommand,
+  MoveNodeCommandSchema,
+} from './application/commands/NodeCommands.js';
+export {
+  CreateEntityCommand,
+  CreateEntityCommandSchema,
+  UpdateEntityCommand,
+  UpdateEntityCommandSchema,
+  DeleteEntityCommand,
+  DeleteEntityCommandSchema,
+} from './application/commands/EntityCommands.js';
+export {
+  CreateTypeCommand,
+  CreateTypeCommandSchema,
+  UpdateTypeCommand,
+  UpdateTypeCommandSchema,
+  DisableTypeCommand,
+  DisableTypeCommandSchema,
+  AddFieldCommand,
+  AddFieldCommandSchema,
+  UpdateFieldCommand,
+  UpdateFieldCommandSchema,
+  RemoveFieldCommand,
+  RemoveFieldCommandSchema,
+  AddConstraintCommand,
+  AddConstraintCommandSchema,
+  UpdateConstraintCommand,
+  UpdateConstraintCommandSchema,
+  RemoveConstraintCommand,
+  RemoveConstraintCommandSchema,
+} from './application/commands/TypeAdminCommands.js';
+
+// ─── Application Ports ────────────────────────────────────────────────────────
+export { AccessControlPort } from './application/ports/AccessControlPort.js';
+export { AuditPort } from './application/ports/AuditPort.js';
+export { EntityRepository } from './application/ports/EntityRepository.js';
+export { EntityTypeRepository } from './application/ports/EntityTypeRepository.js';
+export { NodeRepository } from './application/ports/NodeRepository.js';
+export { NodeTypeRepository } from './application/ports/NodeTypeRepository.js';
+export { RevisionPort } from './application/ports/RevisionPort.js';
+export { RuntimeConfigurationPort } from './application/ports/RuntimeConfigurationPort.js';
+export { TransactionPort } from './application/ports/TransactionPort.js';
+export { LockRepository } from './application/ports/LockRepository.js';
+export { LockEventBus } from './application/ports/LockEventBus.js';
+export { SessionRepositoryPort } from './application/ports/SessionRepositoryPort.js';
+export { IdGeneratorPort } from './application/ports/IdGeneratorPort.js';
+export { SchemaRegistry } from './application/ports/SchemaRegistry.js';
+export { TypeDefinitionReader } from './application/ports/TypeDefinitionReader.js';
+export { TypeDefinitionAdminRepository } from './application/ports/TypeDefinitionAdminRepository.js';
+export { StorageTableManagementPort } from './application/ports/StorageTableManagementPort.js';
+export { SchemaInvalidationPort } from './application/ports/SchemaInvalidationPort.js';
+export { SystemSeedPort } from './application/ports/SystemSeedPort.js';
+export {
+  EntitySubtreeQueryPort,
+  SubtreeEntityDto,
+  SubtreeCursor,
+  EntitySubtreeQueryParams,
+  EntitySubtreePaginatedResult,
+} from './application/ports/EntitySubtreeQueryPort.js';
+
+// ─── Application Services ────────────────────────────────────────────────────
+export { AuthApplicationService } from './application/services/AuthApplicationService.js';
+export { NodeApplicationService } from './application/services/NodeApplicationService.js';
+export { EntityApplicationService } from './application/services/EntityApplicationService.js';
+export { TypeAdminApplicationService } from './application/services/TypeAdminApplicationService.js';
+export { LockService } from './application/services/LockService.js';
+
+// ─── Infrastructure (PostgreSQL & Compilers) ──────────────────────────────────
+export { PgExecutor } from './infrastructure/postgres/PgExecutor.js';
+export { PgTransactionContext } from './infrastructure/postgres/PgTransactionContext.js';
+export { TransactionPortPostgres } from './infrastructure/postgres/TransactionPortPostgres.js';
+export { NodeRepositoryPostgres } from './infrastructure/postgres/NodeRepositoryPostgres.js';
+export { NodeTypeRepositoryPostgres } from './infrastructure/postgres/NodeTypeRepositoryPostgres.js';
+export { EntityRepositoryPostgres } from './infrastructure/postgres/EntityRepositoryPostgres.js';
+export { EntityTypeRepositoryPostgres } from './infrastructure/postgres/EntityTypeRepositoryPostgres.js';
+export { TypeDefinitionReaderPostgres } from './infrastructure/postgres/TypeDefinitionReaderPostgres.js';
+export { TypeDefinitionAdminRepositoryPostgres } from './infrastructure/postgres/TypeDefinitionAdminRepositoryPostgres.js';
+export { StorageTableManagementPostgres } from './infrastructure/postgres/StorageTableManagementPostgres.js';
+export { SystemSeedPostgres } from './infrastructure/postgres/SystemSeedPostgres.js';
+export { AuditPortPostgres } from './infrastructure/postgres/AuditPortPostgres.js';
+export { RevisionPortPostgres } from './infrastructure/postgres/RevisionPortPostgres.js';
+export { LockRepositoryPostgres } from './infrastructure/postgres/LockRepositoryPostgres.js';
+export { PusherEventBus } from './infrastructure/pusher/PusherEventBus.js';
+export { RuntimeConfigurationPortPostgres } from './infrastructure/postgres/RuntimeConfigurationPortPostgres.js';
+export { AccessControlPortPostgres } from './infrastructure/postgres/AccessControlPortPostgres.js';
+export { EntitySubtreeQueryPortPostgres } from './infrastructure/postgres/EntitySubtreeQueryPortPostgres.js';
+
+export { FieldSchemaCompiler } from './infrastructure/schema/FieldSchemaCompiler.js';
+export { CachingSchemaRegistry } from './infrastructure/schema/CachingSchemaRegistry.js';
+export { EntitySchemaRegistryBridge } from './infrastructure/schema/EntitySchemaRegistryBridge.js';
+export { SchemaInvalidationAdapter } from './infrastructure/schema/SchemaInvalidationAdapter.js';
+export { SessionRepositoryPostgres } from './infrastructure/postgres/SessionRepositoryPostgres.js';
+
+export { User } from './domain/models/User.js';
+export { Role } from './domain/models/Role.js';
+
+export {
+  UserNotFoundError,
+  UserEmailAlreadyExistsError,
+  UserAdminValidationError,
+} from './domain/errors/UserAdminErrors.js';
+
+export {
+  RoleNotFoundError,
+  RoleKeyAlreadyExistsError,
+  SystemRoleForbiddenError,
+  SecurityAdminValidationError,
+} from './domain/errors/SecurityAdminErrors.js';
+
+export {
+  UserRoleDto,
+  UserListItemDto,
+  UserDetailDto,
+  CreateUserUiCommand,
+  UpdateUserStatusUiCommand,
+  AssignUserRolesUiCommand,
+  UpdateUserUiCommand,
+  ResetUserPasswordUiCommand,
+} from './application/dto/UserAdminDtos.js';
+
+export {
+  PermissionDto,
+  RoleListItemDto,
+  RoleDetailDto,
+  ScopeAssignmentDto,
+  CreateRoleUiCommand,
+  UpdateRolePermissionsUiCommand,
+  CreateScopeAssignmentUiCommand,
+  DeleteScopeAssignmentUiCommand,
+  UpdateScopeAssignmentUiCommand,
+} from './application/dto/SecurityAdminDtos.js';
+
+export {
+  CreateUserCommand, CreateUserCommandSchema,
+  UpdateUserStatusCommand, UpdateUserStatusCommandSchema,
+  AssignUserRolesCommand, AssignUserRolesCommandSchema,
+  UpdateUserCommand, UpdateUserCommandSchema,
+  ResetUserPasswordCommand, ResetUserPasswordCommandSchema,
+  UserPasswordSchema,
+} from './application/commands/UserAdminCommands.js';
+
+export {
+  CreateRoleCommand, CreateRoleCommandSchema,
+  UpdateRolePermissionsCommand, UpdateRolePermissionsCommandSchema,
+  CreateScopeAssignmentCommand, CreateScopeAssignmentCommandSchema,
+  DeleteScopeAssignmentCommand, DeleteScopeAssignmentCommandSchema,
+  UpdateScopeAssignmentCommand, UpdateScopeAssignmentCommandSchema,
+} from './application/commands/SecurityAdminCommands.js';
+
+export { UserRepository } from './application/ports/UserRepository.js';
+export { UserAdminApplicationService } from './application/services/UserAdminApplicationService.js';
+export { UserRepositoryPostgres } from './infrastructure/postgres/UserRepositoryPostgres.js';
+
+export { SecurityRepository } from './application/ports/SecurityRepository.js';
+export { SecurityAdminApplicationService } from './application/services/SecurityAdminApplicationService.js';
+export { SecurityRepositoryPostgres } from './infrastructure/postgres/SecurityRepositoryPostgres.js';
+
+export {
+  PlacementPolicyNotFoundError,
+  PlacementPolicyKeyAlreadyExistsError,
+  SystemConfigValidationError,
+} from './domain/errors/SystemAdminErrors.js';
+
+export {
+  CapabilityStatus,
+  SettingValueType,
+  PolicyMode,
+  RuleType,
+  RuntimeCapabilityDto,
+  SystemSettingDto,
+  PlacementPolicyRuleDto,
+  PlacementPolicyListItemDto,
+  PlacementPolicyDetailDto,
+  UpdateCapabilityStatusUiCommand,
+  UpdateSystemSettingUiCommand,
+  CreatePlacementPolicyUiCommand,
+  UpdatePlacementPolicyUiCommand,
+  DeletePlacementPolicyUiCommand,
+  CreatePlacementRuleUiCommand,
+  DeletePlacementRuleUiCommand,
+} from './application/dto/SystemConfigDtos.js';
+
+export {
+  UpdateCapabilityStatusCommand, UpdateCapabilityStatusCommandSchema,
+  UpdateSystemSettingCommand, UpdateSystemSettingCommandSchema,
+  CreatePlacementPolicyCommand, CreatePlacementPolicyCommandSchema,
+  UpdatePlacementPolicyCommand, UpdatePlacementPolicyCommandSchema,
+  DeletePlacementPolicyCommand, DeletePlacementPolicyCommandSchema,
+  CreatePlacementRuleCommand, CreatePlacementRuleCommandSchema,
+  DeletePlacementRuleCommand, DeletePlacementRuleCommandSchema,
+} from './application/commands/SystemConfigCommands.js';
+
+export { SystemConfigRepository } from './application/ports/SystemConfigRepository.js';
+export { SystemAdminApplicationService } from './application/services/SystemAdminApplicationService.js';
+export { SystemConfigRepositoryPostgres } from './infrastructure/postgres/SystemConfigRepositoryPostgres.js';
+
+export { LtreeNodePathPolicy } from './domain/policies/LtreeNodePathPolicy.js';
+export { NodePathPolicy } from './domain/policies/NodePathPolicy.js';
+
+export {
+  AuditLogListItemDto,
+  AuditLogDetailDto,
+  AuditLogFilterDto,
+  PaginatedResultDto,
+} from './application/dto/AuditQueryDtos.js';
+export { AuditQueryPort } from './application/ports/AuditQueryPort.js';
+export { AuditAdminApplicationService } from './application/services/AuditAdminApplicationService.js';
+export { AuditQueryPortPostgres } from './infrastructure/postgres/AuditQueryPortPostgres.js';

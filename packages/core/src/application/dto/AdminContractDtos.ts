@@ -1,0 +1,179 @@
+import { z } from 'zod';
+
+// ─── Domain Types & Enums ───────────────────────────────────────────────────
+
+export type TypeKind = 'node' | 'entity';
+
+export type FieldDataType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'uuid';
+
+export type ConstraintType = 
+  | 'min' 
+  | 'max' 
+  | 'min_length' 
+  | 'max_length' 
+  | 'regex' 
+  | 'enum' 
+  | 'precision' 
+  | 'scale';
+
+// ─── Read DTOs ──────────────────────────────────────────────────────────────
+
+export interface FieldConstraintDto {
+  id: string;
+  constraintType: ConstraintType;
+  constraintValueText: string;
+}
+
+export interface FieldDto {
+  id: string;
+  fieldKey: string;
+  label: string;
+  columnName: string;
+  dataType: FieldDataType;
+  isRequired: boolean;
+  isUnique: boolean;
+  isIndexed: boolean;
+  defaultValueText: string | null;
+  position: number;
+  isSystem: boolean;
+  constraints: FieldConstraintDto[];
+  updatedAt: string; // ISO 8601
+}
+
+export interface TypeListItemDto {
+  id: string;
+  kind: TypeKind;
+  typeKey: string;
+  name: string;
+  description: string;
+  storageTable: string | null;
+  currentSchemaVersion: number;
+  isActive: boolean;
+  isSystem: boolean;
+  rowVersion: number;
+  fieldCount: number;
+  updatedAt: string; // ISO 8601
+}
+
+export interface TypeDetailDto {
+  id: string;
+  kind: TypeKind;
+  typeKey: string;
+  name: string;
+  description: string;
+  storageTable: string | null;
+  placementPolicyId: string | null;
+  currentSchemaVersion: number;
+  isActive: boolean;
+  isSystem: boolean;
+  rowVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  fields: FieldDto[];
+  // Metadata per la UX
+  isEditable: boolean;
+  isDeletable: boolean;
+  instanceCount: number;
+}
+
+// ─── Write Commands & Zod Schemas ───────────────────────────────────────────
+
+export const CreateTypeCommandSchema = z.object({
+  kind: z.enum(['node', 'entity']),
+  typeKey: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/),
+  name: z.string().min(2).max(128),
+  description: z.string().max(500).optional(),
+  storageTable: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/).optional(),
+  placementPolicyId: z.string().uuid().optional(),
+});
+export type CreateTypeCommand = z.infer<typeof CreateTypeCommandSchema>;
+export type CreateTypeUiCommand = CreateTypeCommand;
+
+export const UpdateTypeCommandSchema = z.object({
+  name: z.string().min(2).max(128),
+  description: z.string().max(500),
+  expectedRowVersion: z.number().int().positive(),
+});
+export type UpdateTypeCommand = z.infer<typeof UpdateTypeCommandSchema>;
+export type UpdateTypeUiCommand = UpdateTypeCommand;
+
+export const DisableTypeCommandSchema = z.object({
+  expectedRowVersion: z.number().int().positive(),
+});
+export type DisableTypeCommand = z.infer<typeof DisableTypeCommandSchema>;
+export type DisableTypeUiCommand = DisableTypeCommand;
+
+export const CreateFieldCommandSchema = z.object({
+  fieldKey: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/),
+  label: z.string().min(1).max(128),
+  columnName: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/),
+  dataType: z.enum(['string', 'integer', 'number', 'boolean', 'date', 'uuid']),
+  isRequired: z.boolean().optional(),
+  isUnique: z.boolean().optional(),
+  isIndexed: z.boolean().optional(),
+  defaultValueText: z.string().nullable().optional(),
+  position: z.number().int().nonnegative().optional(),
+  expectedTypeRowVersion: z.number().int().positive(),
+});
+export type CreateFieldCommand = z.infer<typeof CreateFieldCommandSchema>;
+export type CreateFieldUiCommand = CreateFieldCommand;
+
+export const UpdateFieldCommandSchema = z.object({
+  fieldId: z.string().uuid(),
+  label: z.string().min(1).max(128).optional(),
+  isRequired: z.boolean().optional(),
+  isUnique: z.boolean().optional(),
+  isIndexed: z.boolean().optional(),
+  defaultValueText: z.string().nullable().optional(),
+  position: z.number().int().nonnegative().optional(),
+  expectedTypeRowVersion: z.number().int().positive(),
+});
+export type UpdateFieldCommand = z.infer<typeof UpdateFieldCommandSchema>;
+export type UpdateFieldUiCommand = UpdateFieldCommand;
+
+export const DeleteFieldCommandSchema = z.object({
+  fieldId: z.string().uuid(),
+  expectedTypeRowVersion: z.number().int().positive(),
+});
+export type DeleteFieldCommand = z.infer<typeof DeleteFieldCommandSchema>;
+export type DeleteFieldUiCommand = DeleteFieldCommand;
+
+export const ReorderFieldsCommandSchema = z.object({
+  orderedFieldIds: z.array(z.string().uuid()).min(1),
+  expectedTypeRowVersion: z.number().int().positive(),
+});
+export type ReorderFieldsCommand = z.infer<typeof ReorderFieldsCommandSchema>;
+export type ReorderFieldsUiCommand = ReorderFieldsCommand;
+
+// ─── Error Response Contract ────────────────────────────────────────────────
+
+export interface ApiErrorDetail {
+  field?: string;
+  code: string;
+  message: string;
+}
+
+export interface ApiErrorResponse {
+  code: 
+    | 'ROW_VERSION_MISMATCH'
+    | 'SYSTEM_TYPE_FORBIDDEN'
+    | 'SYSTEM_FIELD_FORBIDDEN'
+    | 'DUPLICATE_TYPE_KEY'
+    | 'DUPLICATE_FIELD_KEY'
+    | 'DUPLICATE_COLUMN_NAME'
+    | 'TYPE_HAS_INSTANCES'
+    | 'DUPLICATE_EMAIL'
+    | 'USER_NOT_FOUND'
+    | 'PLACEMENT_POLICY_NOT_FOUND'
+    | 'DUPLICATE_PLACEMENT_POLICY_KEY'
+    | 'AUDIT_LOG_NOT_FOUND'
+    | 'VALIDATION_ERROR'
+    | 'NOT_FOUND'
+    | 'INTERNAL_ERROR'
+    | 'UNKNOWN_ERROR';
+  message: string;
+  target?: string;
+  expectedRowVersion?: number;
+  currentRowVersion?: number;
+  details?: ApiErrorDetail[];
+}

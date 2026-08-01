@@ -1,0 +1,8 @@
+{
+  "name": "dashboard-ultimate",
+  "private": true,
+  "scripts": {
+    "test": "pnpm --filter @dashboard/core exec vitest run",
+    "typecheck": "pnpm --filter @dashboard/core exec tsc --noEmit"
+  }
+}
