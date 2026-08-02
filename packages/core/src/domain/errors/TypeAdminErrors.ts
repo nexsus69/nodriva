@@ -105,3 +105,14 @@ export class TypeHasInstancesError extends AppError {
     );
   }
 }
+
+export class TypeFieldHasValuesError extends AppError {
+  constructor(fieldId: string, fieldKey: string, domain: TypeDomain, cause?: unknown) {
+    super(
+      'TYPE_FIELD_HAS_VALUES',
+      `Cannot remove field '${fieldKey}' in domain '${domain}': values found in existing instances.`,
+      { fieldId, fieldKey, domain },
+      cause
+    );
+  }
+}

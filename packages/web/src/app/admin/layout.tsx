@@ -67,10 +67,10 @@ export default function AdminLayout({
   // Generazione Breadcrumbs dal Pathname
   const getBreadcrumbs = () => {
     const segments = pathname.split('/').filter(Boolean);
-    const crumbs = [{ label: 'Dashboard', href: '/' }];
+    const crumbs: Array<{ label: string; href: string | null }> = [{ label: 'Dashboard', href: '/' }];
     let currentPath = '';
 
-    for (const segment of segments) {
+    for (const [index, segment] of segments.entries()) {
       currentPath += `/${segment}`;
       let label = segment.charAt(0).toUpperCase() + segment.slice(1);
       if (segment === 'admin') label = 'Pannello di Amministrazione';
@@ -84,7 +84,13 @@ export default function AdminLayout({
       if (segment === 'placement-policies') label = 'Policy di Posizionamento';
       if (segment === 'audit') label = 'Registro Audit';
 
-      crumbs.push({ label, href: currentPath });
+      // Questi segmenti descrivono una sezione o un parametro dinamico,
+      // ma non corrispondono a una pagina raggiungibile autonomamente.
+      const isVirtualSection = segment === 'security'
+        || segment === 'system'
+        || (segments[1] === 'types' && index === 2);
+
+      crumbs.push({ label, href: isVirtualSection ? null : currentPath });
     }
     return crumbs;
   };
@@ -92,21 +98,21 @@ export default function AdminLayout({
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-950 text-slate-100 font-sans">
+    <div className="admin-page flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900 font-sans">
       {/* ─── SIDEBAR AMMINISTRATIVA ─────────────────────────────────────── */}
-      <aside className="w-72 flex-shrink-0 border-r border-slate-800/80 bg-slate-900/60 backdrop-blur-xl flex flex-col justify-between z-20">
+      <aside className="w-72 flex-shrink-0 border-r border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col justify-between z-20">
         <div>
           {/* Header Sidebar / Brand */}
-          <div className="h-16 px-6 border-b border-slate-800/80 flex items-center justify-between">
+          <div className="h-16 px-6 border-b border-slate-200 flex items-center justify-between">
             <Link href="/admin" className="flex items-center gap-2.5 group">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
                 ⚙️
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-wide text-slate-100">
+                <span className="font-bold text-sm tracking-wide text-slate-900">
                   Centro di Controllo
                 </span>
-                <span className="text-[10px] text-indigo-400 font-mono tracking-wider uppercase">
+                <span className="text-[10px] text-indigo-600 font-mono tracking-wider uppercase">
                   Livello Amministrativo V2
                 </span>
               </div>
@@ -133,7 +139,7 @@ export default function AdminLayout({
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                         isActive
                           ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-sm shadow-indigo-500/10 font-semibold'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                       }`}
                     >
                       <span className="text-base">{item.icon}</span>
@@ -147,10 +153,10 @@ export default function AdminLayout({
         </div>
 
         {/* Footer Sidebar: Torna alla Workspace Operativa */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-900/40">
+        <div className="p-4 border-t border-slate-200 bg-slate-50">
           <Link
             href="/"
-            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-xs font-semibold text-slate-300 bg-slate-800/60 border border-slate-700/60 hover:bg-slate-700/80 hover:text-white transition-all shadow-sm"
+            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-900 transition-all shadow-sm"
           >
             <span>🌐</span>
             <span>Area Operativa (Workspace)</span>
@@ -161,16 +167,16 @@ export default function AdminLayout({
       {/* ─── CORPO PRINCIPALE / WORKSPACE ADMIN ──────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header Superiore */}
-        <header className="h-16 border-b border-slate-800/80 bg-slate-900/30 backdrop-blur-md px-8 flex items-center justify-between z-10 flex-shrink-0">
+        <header className="h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-8 flex items-center justify-between z-10 flex-shrink-0">
           {/* Breadcrumb Navigation */}
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
             {breadcrumbs.map((crumb, idx) => (
-              <React.Fragment key={crumb.href}>
-                {idx > 0 && <span className="text-slate-600">/</span>}
-                {idx === breadcrumbs.length - 1 ? (
-                  <span className="text-slate-100 font-semibold">{crumb.label}</span>
+              <React.Fragment key={`${crumb.label}-${idx}`}>
+                {idx > 0 && <span className="text-slate-400">/</span>}
+                {idx === breadcrumbs.length - 1 || !crumb.href ? (
+                  <span className="text-slate-900 font-semibold">{crumb.label}</span>
                 ) : (
-                  <Link href={crumb.href} className="hover:text-slate-200 transition-colors">
+                  <Link href={crumb.href} className="hover:text-slate-900 transition-colors">
                     {crumb.label}
                   </Link>
                 )}
@@ -184,16 +190,16 @@ export default function AdminLayout({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Motore Core Attivo
             </div>
-            <div className="h-4 w-px bg-slate-800"></div>
+            <div className="h-4 w-px bg-slate-200"></div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 font-bold text-xs flex items-center justify-center">
                 {status === 'loading' ? '..' : userInitials}
               </div>
               <div className="flex flex-col text-right">
-                <span className="text-xs font-semibold text-slate-200">
+                <span className="text-xs font-semibold text-slate-800">
                   {status === 'loading' ? 'Caricamento...' : userEmail}
                 </span>
-                <span className="text-[10px] text-purple-400 font-mono">Utente di Sistema</span>
+                <span className="text-[10px] text-indigo-600 font-mono">Utente di Sistema</span>
               </div>
             </div>
             
@@ -202,7 +208,7 @@ export default function AdminLayout({
         </header>
 
         {/* Viewport Contenuto Pagina */}
-        <main className="flex-1 overflow-y-auto p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/10 via-slate-950 to-slate-950">
+        <main className="flex-1 overflow-y-auto p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/70 via-slate-50 to-slate-100">
           <div className="max-w-7xl mx-auto space-y-6">
             {children}
           </div>

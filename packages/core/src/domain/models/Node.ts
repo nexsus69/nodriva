@@ -16,7 +16,8 @@ export class Node {
     public readonly updatedAt: Date,
     public readonly deletedAt: Date | null,
     public readonly createdBy: string | null,
-    public readonly updatedBy: string | null
+    public readonly updatedBy: string | null,
+    public readonly payload: Record<string, unknown> = {}
   ) {}
 
   public static create(
@@ -26,7 +27,8 @@ export class Node {
     name: string,
     description: string,
     actorUserId: string,
-    pathPolicy: NodePathPolicy
+    pathPolicy: NodePathPolicy,
+    payload: Record<string, unknown> = {}
   ): Node {
     const pathLabel = pathPolicy.generateLabel(name);
     const path = pathPolicy.buildPath(parent ? parent.path : null, pathLabel);
@@ -47,7 +49,8 @@ export class Node {
       now,
       null, // deletedAt
       actorUserId,
-      actorUserId
+      actorUserId,
+      payload
     );
   }
 
@@ -66,7 +69,8 @@ export class Node {
       new Date(),
       this.deletedAt,
       this.createdBy,
-      actorUserId
+      actorUserId,
+      this.payload
     );
   }
 }

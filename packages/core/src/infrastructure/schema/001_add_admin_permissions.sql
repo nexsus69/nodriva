@@ -17,6 +17,9 @@ INSERT INTO permissions (permission_key, name, description, resource_kind) VALUE
   ('node_type.create', 'Create Node Type', 'Allows defining new node types.', 'node_type'),
   ('node_type.update', 'Update Node Type', 'Allows modifying node types.', 'node_type'),
   ('node_type.delete', 'Delete Node Type', 'Allows disabling or deleting node types.', 'node_type'),
+  ('entity_type.create', 'Create Entity Type', 'Allows defining new entity types.', 'entity_type'),
+  ('entity_type.update', 'Update Entity Type', 'Allows modifying entity types.', 'entity_type'),
+  ('entity_type.delete', 'Delete Entity Type', 'Allows disabling or deleting entity types.', 'entity_type'),
   
   ('system.config', 'System Configuration', 'Allows updating runtime capabilities and system settings.', 'system_setting'),
   

@@ -2,6 +2,7 @@
 
 import { userAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
+import { mapAuthorizationError } from './errorMapping';
 import {
   CreateUserUiCommand,
   UpdateUserStatusUiCommand,
@@ -57,10 +58,13 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
     };
   }
 
-  const msg = err instanceof Error ? err.message : String(err);
+  const authorizationError = mapAuthorizationError(err);
+  if (authorizationError) return authorizationError;
+
+  console.error('[UserActions] Unexpected backend error:', err);
   return {
-    code: 'VALIDATION_ERROR',
-    message: msg,
+    code: 'INTERNAL_ERROR',
+    message: 'Si è verificato un errore interno. Riprova più tardi.',
   };
 }
 

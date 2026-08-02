@@ -264,6 +264,14 @@ export class DomainCacheClient<T extends { id: string }> {
     }
   }
 
+  /** Marks a cached projection stale while preserving the current value for the UI. */
+  public invalidate(id: string): void {
+    const entry = this.entries.get(id);
+    if (!entry) return;
+    entry.isPartial = true;
+    this.notifySubscribers(id);
+  }
+
   private notifySubscribers(id: string) {
     const entry = this.entries.get(id);
     if (entry) {

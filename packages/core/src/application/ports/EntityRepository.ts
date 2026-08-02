@@ -5,5 +5,5 @@ export interface EntityRepository {
   listByNode(parentNodeId: string, limit?: number, offset?: number): Promise<Entity[]>;
   create(entity: Entity): Promise<void>;
   update(entity: Entity): Promise<void>;
-  softDelete(id: string, actorUserId: string): Promise<void>;
+  softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void>;
 }

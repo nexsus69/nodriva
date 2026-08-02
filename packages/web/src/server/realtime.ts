@@ -12,7 +12,7 @@ type RealtimeChangeInput = Omit<
 
 export async function publishRealtimeChange(input: RealtimeChangeInput): Promise<void> {
   try {
-    const { realtimeScopeResolver, pusherEventBus } = await import('./db');
+    const { realtimeScopeResolver, pusherEventBus, realtimeOutbox } = await import('./db');
     const event: RealtimeDataChangedEvent = {
       ...input,
       eventId: randomUUID(),
@@ -27,16 +27,25 @@ export async function publishRealtimeChange(input: RealtimeChangeInput): Promise
       event.scopeNodeIds = fallback ? [fallback] : [];
     }
 
-    const maxAttempts = 3;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    await realtimeOutbox.enqueue(event);
+
+    const pendingEvents = await realtimeOutbox.listPending(25);
+    for (const pending of pendingEvents) {
       try {
-        await pusherEventBus.publishDataChanged(event);
-        return;
+        await pusherEventBus.publishDataChanged(pending);
+        await realtimeOutbox.markPublished(pending.eventId);
       } catch (error) {
-        if (attempt === maxAttempts) throw error;
-        await new Promise((resolve) => setTimeout(resolve, attempt * 250));
+        const message = error instanceof Error ? error.message : String(error);
+        await realtimeOutbox.markFailed(pending.eventId, message);
+        console.error('[Realtime] Outbox delivery failed', {
+          eventId: pending.eventId,
+          attempts: 'incremented',
+          message,
+        });
+        if (pending.eventId === event.eventId) return;
       }
     }
+    return;
   } catch (error: unknown) {
     console.error('[Realtime] Failed to publish data change after retries:', error);
   }

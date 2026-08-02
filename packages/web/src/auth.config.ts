@@ -33,12 +33,16 @@ export const authConfig = {
       if (user) {
         token.userId = user.id;
         token.dbToken = user.dbToken;
+        if (user.email) token.email = user.email;
       }
       return token;
     },
     async session({ session, token }) {
       if (token.userId) {
         session.userId = String(token.userId);
+      }
+      if (typeof token.email === 'string') {
+        session.user = { ...session.user, email: token.email };
       }
       return session;
     },

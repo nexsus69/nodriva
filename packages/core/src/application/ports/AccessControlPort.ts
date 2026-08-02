@@ -4,6 +4,7 @@ export interface AccessControlPort {
   assertCanReadNode(actorUserId: string, nodeId: string | null): Promise<void>;
   assertCanCreateEntity(actorUserId: string, parentNodeId: string, entityTypeKey: string): Promise<void>;
   assertCanEditEntity(actorUserId: string, entityId: string): Promise<void>;
+  assertCanDeleteEntity(actorUserId: string, entityId: string): Promise<void>;
   assertCanMoveEntity(actorUserId: string, entityId: string, newParentNodeId: string): Promise<void>;
 
   /**

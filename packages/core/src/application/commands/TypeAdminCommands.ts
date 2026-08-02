@@ -38,10 +38,13 @@ export type DisableTypeCommand = z.infer<typeof DisableTypeCommandSchema>;
 export const AddFieldCommandSchema = z.object({
   domain: DomainSchema,
   typeId: z.string().uuid(),
-  fieldKey: z.string().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/),
+  fieldKey: z.string().min(1, 'La chiave campo è obbligatoria.').max(100).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
   label: z.string().min(1).max(150),
-  columnName: z.string().min(1).max(100).regex(/^[a-z][a-z0-9_]*$/),
+  columnName: z.string().min(1, 'Il nome colonna è obbligatorio.').max(100).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
   dataType: z.string().min(1).max(50),
+  relationTargetDomain: DomainSchema.nullable().optional(),
+  relationTargetTypeKey: z.string().min(2, 'Il type key target deve contenere almeno 2 caratteri.').max(64).regex(/^[a-z][a-z0-9_-]*$/, 'Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.').nullable().optional(),
+  enumMode: z.enum(['static', 'managed']).nullable().optional(),
   isRequired: z.boolean().default(false),
   isUnique: z.boolean().default(false),
   isIndexed: z.boolean().default(false),
@@ -51,6 +54,18 @@ export const AddFieldCommandSchema = z.object({
   actorUserId: z.string().uuid(),
 });
 export type AddFieldCommand = z.input<typeof AddFieldCommandSchema>;
+
+export const AddEnumOptionCommandSchema = z.object({
+  domain: DomainSchema,
+  typeId: z.string().uuid(),
+  fieldId: z.string().uuid(),
+  value: z.string().min(1).max(100).regex(/^[a-z][a-z0-9_-]*$/),
+  label: z.string().min(1).max(150),
+  position: z.number().int().nonnegative().default(0),
+  expectedTypeRowVersion: z.number().int().positive().optional(),
+  actorUserId: z.string().uuid(),
+});
+export type AddEnumOptionCommand = z.input<typeof AddEnumOptionCommandSchema>;
 
 export const UpdateFieldCommandSchema = z.object({
   domain: DomainSchema,

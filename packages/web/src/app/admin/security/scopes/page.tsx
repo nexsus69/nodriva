@@ -9,15 +9,7 @@ import {
   UpdateScopeAssignmentUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  listScopeAssignmentsAction,
-  createScopeAssignmentAction,
-  updateScopeAssignmentAction,
-  deleteScopeAssignmentAction,
-  listRolesAction,
-} from '../../../actions/securityActions';
-import { listUsersAction } from '../../../actions/userActions';
-import { listChildrenAction } from '../../../actions/nodeActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export default function SecurityScopesPage() {
   const [scopes, setScopes] = useState<ScopeAssignmentDto[]>([]);
@@ -43,10 +35,10 @@ export default function SecurityScopesPage() {
     setLoading(true);
     setError(null);
     const [resScopes, resUsers, resRoles, rootNodes] = await Promise.all([
-      listScopeAssignmentsAction(),
-      listUsersAction(),
-      listRolesAction(),
-      listChildrenAction(null),
+      AppCache.admin.listScopeAssignments(),
+      AppCache.users.listUsers().then((data) => ({ success: true, data })),
+      AppCache.admin.listRoles(),
+      AppCache.admin.listChildren(null),
     ]);
 
     if (resScopes.success && resScopes.data) setScopes(resScopes.data);
@@ -96,7 +88,7 @@ export default function SecurityScopesPage() {
           assignmentEffect,
           propagation,
         };
-        const res = await updateScopeAssignmentAction(cmd);
+        const res = await AppCache.admin.updateScopeAssignment(cmd);
         if (res.success) {
           setShowCreateModal(false);
           await loadData();
@@ -111,7 +103,7 @@ export default function SecurityScopesPage() {
           assignmentEffect,
           propagation,
         };
-        const res = await createScopeAssignmentAction(cmd);
+      const res = await AppCache.admin.createScopeAssignment(cmd);
         if (res.success) {
           setShowCreateModal(false);
           await loadData();
@@ -125,7 +117,7 @@ export default function SecurityScopesPage() {
   const handleDeleteScope = (assignmentId: string) => {
     setError(null);
     startTransition(async () => {
-      const res = await deleteScopeAssignmentAction({ assignmentId });
+      const res = await AppCache.admin.deleteScopeAssignment({ assignmentId });
       if (res.success) {
         await loadData();
       } else if (res.error) {

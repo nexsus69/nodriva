@@ -4,6 +4,7 @@ import { TypeListItemDto, TypeDetailDto, FieldDto, FieldConstraintDto, FieldData
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
+import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { TypeDefinitionNotFoundError } from '../../domain/errors/TypeAdminErrors.js';
 import { PgExecutor } from './PgExecutor.js';
@@ -72,6 +73,9 @@ interface FieldRow {
   default_value_text: string | null;
   position: number;
   is_system: boolean;
+  relation_target_domain: TypeDomain | null;
+  relation_target_type_key: string | null;
+  enum_mode: 'static' | 'managed';
   created_at: Date;
   updated_at: Date;
 }
@@ -125,6 +129,9 @@ interface FieldDetailRow {
   defaultValueText: string | null;
   position: number;
   isSystem: boolean;
+  relationTargetDomain: TypeDomain | null;
+  relationTargetTypeKey: string | null;
+  enumMode: 'static' | 'managed';
   updatedAt: Date;
 }
 
@@ -133,6 +140,15 @@ interface ConstraintDetailRow {
   fieldId: string;
   constraintType: string;
   constraintValueText: string;
+}
+
+interface EnumOptionDetailRow {
+  id: string;
+  fieldId: string;
+  value: string;
+  label: string;
+  position: number;
+  isActive: boolean;
 }
 
 interface CountRow {
@@ -228,12 +244,16 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
 
     // 2. Campi del tipo
     const fieldsQuery = `
-      SELECT 
+       SELECT
         id, field_key AS "fieldKey", label, column_name AS "columnName",
         data_type AS "dataType", is_required AS "isRequired",
         is_unique AS "isUnique", is_indexed AS "isIndexed",
         default_value_text AS "defaultValueText", position,
-        is_system AS "isSystem", updated_at AS "updatedAt"
+        is_system AS "isSystem",
+        relation_target_domain AS "relationTargetDomain",
+        relation_target_type_key AS "relationTargetTypeKey",
+        enum_mode AS "enumMode",
+        updated_at AS "updatedAt"
       FROM ${cfg.fieldsTable}
       WHERE ${cfg.fieldForeignKey} = $1
       ORDER BY position ASC
@@ -262,6 +282,17 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       }
     }
 
+    const enumOptionsByField: Record<string, EnumOptionDetailRow[]> = {};
+    if (fieldIds.length > 0) {
+      const enumTable = domain === 'entity' ? 'entity_type_field_enum_options' : 'node_type_field_enum_options';
+      const enumRes = await this.executor.query<EnumOptionDetailRow>(
+        `SELECT id, field_id AS "fieldId", value, label, position, is_active AS "isActive"
+         FROM ${enumTable} WHERE field_id = ANY($1::uuid[]) ORDER BY position ASC`,
+        [fieldIds]
+      );
+      for (const option of enumRes.rows) (enumOptionsByField[option.fieldId] ??= []).push(option);
+    }
+
     // 4. Conteggio istanze
     const countQuery = `
       SELECT COUNT(*)::int AS count
@@ -283,6 +314,10 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       defaultValueText: f.defaultValueText ?? null,
       position: Number(f.position),
       isSystem: Boolean(f.isSystem),
+      relationTargetDomain: f.relationTargetDomain ?? null,
+      relationTargetTypeKey: f.relationTargetTypeKey ?? null,
+      enumMode: f.enumMode ?? 'static',
+      enumOptions: enumOptionsByField[f.id] ?? [],
       constraints: constraintsByField[f.id] ?? [],
       updatedAt: new Date(f.updatedAt).toISOString(),
     }));
@@ -365,6 +400,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     const query = `
       SELECT id, ${cfg.fieldForeignKey} AS type_fk_id, field_key, label, column_name, data_type,
              is_required, is_unique, is_indexed, default_value_text, position, is_system,
+             relation_target_domain, relation_target_type_key, enum_mode,
              created_at, updated_at
       FROM ${cfg.fieldsTable}
       WHERE id = $1
@@ -380,11 +416,12 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       `INSERT INTO ${cfg.fieldsTable}
          (id, ${cfg.fieldForeignKey}, field_key, label, column_name, data_type,
           is_required, is_unique, is_indexed, default_value_text, position, is_system,
-          created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          relation_target_domain, relation_target_type_key, enum_mode, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [field.id, field.typeDefinitionId, field.fieldKey, field.label, field.columnName,
        field.dataType, field.isRequired, field.isUnique, field.isIndexed,
        field.defaultValueText, field.position, field.isSystem,
+       field.relationTargetDomain, field.relationTargetTypeKey, field.enumMode,
        field.createdAt, field.updatedAt]
     );
   }
@@ -460,6 +497,21 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     await this.executor.query(`DELETE FROM ${cfg.constraintsTable} WHERE id = $1`, [constraintId]);
   }
 
+  async existsEnumOption(domain: TypeDomain, fieldId: string, value: string): Promise<boolean> {
+    const table = domain === 'entity' ? 'entity_type_field_enum_options' : 'node_type_field_enum_options';
+    const result = await this.executor.query(`SELECT 1 FROM ${table} WHERE field_id = $1 AND value = $2 LIMIT 1`, [fieldId, value]);
+    return result.rows.length > 0;
+  }
+
+  async createEnumOption(domain: TypeDomain, option: ManagedEnumOption): Promise<void> {
+    const table = domain === 'entity' ? 'entity_type_field_enum_options' : 'node_type_field_enum_options';
+    await this.executor.query(
+      `INSERT INTO ${table} (id, field_id, value, label, position, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [option.id, option.fieldId, option.value, option.label, option.position, option.isActive, option.createdAt, option.updatedAt]
+    );
+  }
+
   // ─── Integrity ───────────────────────────────────────────────
 
   async hasInstancesOfType(domain: TypeDomain, typeId: string): Promise<boolean> {
@@ -471,11 +523,49 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     return result.rows.length > 0;
   }
 
+  async hasValuesInField(domain: TypeDomain, typeId: string, fieldKey: string, columnName: string): Promise<boolean> {
+    if (domain === 'node') {
+      const result = await this.executor.query(
+        `SELECT 1 FROM nodes
+         WHERE node_type_id = $1 AND deleted_at IS NULL
+           AND payload ? $2 AND payload -> $2 IS NOT NULL
+         LIMIT 1`,
+        [typeId, fieldKey]
+      );
+      return result.rows.length > 0;
+    }
+
+    const typeResult = await this.executor.query<{ storage_table: string }>(
+      'SELECT storage_table FROM entity_types WHERE id = $1 AND deleted_at IS NULL',
+      [typeId]
+    );
+    const storageTable = typeResult.rows[0]?.storage_table;
+    if (!storageTable) return false;
+
+    const escapedTable = this.escapeIdentifier(storageTable);
+    const escapedColumn = this.escapeIdentifier(columnName);
+    const result = await this.executor.query(
+      `SELECT 1
+       FROM ${escapedTable} s
+       JOIN entities e ON e.id = s.entity_id
+       WHERE e.entity_type_id = $1
+         AND e.deleted_at IS NULL
+         AND s.${escapedColumn} IS NOT NULL
+       LIMIT 1`,
+      [typeId]
+    );
+    return result.rows.length > 0;
+  }
+
   // ─── Mapping ─────────────────────────────────────────────────
 
   private typeSelectColumns(domain: TypeDomain): string {
     const base = 'id, type_key, name, description, current_schema_version, is_active, is_system, row_version, created_at, updated_at, deleted_at';
     return domain === 'entity' ? `${base}, storage_table, placement_policy_id` : base;
+  }
+
+  private escapeIdentifier(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
   }
 
   private mapTypeToDomain(domain: TypeDomain, row: TypeRowBase & Partial<EntityTypeRowExtra>): ManagedTypeDefinition {
@@ -493,7 +583,8 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       row.id, row.type_fk_id, row.field_key, row.label, row.column_name,
       row.data_type, row.is_required, row.is_unique, row.is_indexed,
       row.default_value_text, row.position, row.is_system,
-      row.created_at, row.updated_at
+      row.created_at, row.updated_at,
+      row.relation_target_domain, row.relation_target_type_key, row.enum_mode
     );
   }
 

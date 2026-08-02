@@ -67,6 +67,7 @@ describe('EntityApplicationService', () => {
       create: vi.fn(),
       update: vi.fn(),
       moveSubtree: vi.fn(),
+      listSubtree: vi.fn().mockResolvedValue([]),
       existsByParentAndPathLabel: vi.fn().mockResolvedValue(false),
       listAncestorIds: vi.fn().mockResolvedValue([]),
       isDescendantOf: vi.fn().mockResolvedValue(false),
@@ -87,6 +88,7 @@ describe('EntityApplicationService', () => {
       assertCanReadNode: vi.fn(),
       assertCanCreateEntity: vi.fn(),
       assertCanEditEntity: vi.fn(),
+      assertCanDeleteEntity: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn(),
     };
@@ -258,6 +260,7 @@ describe('EntityApplicationService', () => {
         payloadDelta: {
           voltage: 220,
         },
+        expectedRowVersion: 1,
       };
 
       const updated = await service.updateEntity(cmd);
@@ -301,11 +304,13 @@ describe('EntityApplicationService', () => {
       const cmd: DeleteEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
         entityId: '00000000-0000-0000-0000-000000000002',
+        expectedRowVersion: 1,
       };
 
       await service.deleteEntity(cmd);
 
-      expect(mockEntityRepository.softDelete).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000002', cmd.actorUserId);
+      expect(mockAccessControlPort.assertCanDeleteEntity).toHaveBeenCalledWith(cmd.actorUserId, existingEntity.id);
+      expect(mockEntityRepository.softDelete).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000002', cmd.actorUserId, cmd.expectedRowVersion);
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalled();
       expect(mockAuditPort.record).toHaveBeenCalled();
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(

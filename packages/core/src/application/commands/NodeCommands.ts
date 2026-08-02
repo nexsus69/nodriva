@@ -6,6 +6,7 @@ export const CreateNodeCommandSchema = z.object({
   nodeTypeKey: z.string().min(1).max(100),
   name: z.string().min(1).max(255),
   description: z.string().optional(),
+  payload: z.record(z.unknown()).optional(),
   expectedParentRowVersion: z.number().int().positive().optional(),
 });
 
@@ -16,7 +17,8 @@ export const UpdateNodeCommandSchema = z.object({
   nodeId: z.string().uuid(),
   name: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
-  expectedRowVersion: z.number().int().positive().optional(),
+  expectedRowVersion: z.number().int().positive(),
+  payloadDelta: z.record(z.unknown()).optional(),
 });
 
 export type UpdateNodeCommand = z.infer<typeof UpdateNodeCommandSchema>;

@@ -50,6 +50,7 @@ describe('SystemAdminApplicationService', () => {
       assertCanReadNode: vi.fn(),
       assertCanCreateEntity: vi.fn(),
       assertCanEditEntity: vi.fn(),
+      assertCanDeleteEntity: vi.fn(),
       assertCanCreateNode: vi.fn(),
       assertCanMoveNode: vi.fn(),
       assertCanMoveEntity: vi.fn(),

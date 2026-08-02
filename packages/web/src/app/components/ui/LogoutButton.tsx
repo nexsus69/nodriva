@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { logoutAction } from '../../actions/authActions';
 import { AppCache } from '../../cache/GlobalCacheClient';
 
@@ -12,6 +13,7 @@ interface LogoutButtonProps {
 export function LogoutButton({ className }: LogoutButtonProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
+  const { update: refreshSession } = useSession();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -24,8 +26,11 @@ export function LogoutButton({ className }: LogoutButtonProps) {
       AppCache.purgeAll();
 
       if (res.success) {
-        // 3. Reindirizza al login in modo coerente col router Next.js
-        router.push('/login');
+        // Aggiorna lo snapshot client prima della navigazione, altrimenti il
+        // SessionProvider può mostrare per un attimo l'utente precedente.
+        await refreshSession();
+        router.replace('/login');
+        router.refresh();
       } else {
         // Fallback: se success è falso per qualche motivo, forziamo un window reload 
         // per far scattare il middleware che farà redirect in base all'assenza del cookie

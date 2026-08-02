@@ -2,6 +2,7 @@
 
 import { systemAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
+import { mapAuthorizationError } from './errorMapping';
 import {
   RuntimeCapabilityDto,
   SystemSettingDto,
@@ -35,6 +36,8 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
   if (err instanceof SystemConfigValidationError) {
     return { message: err.message, code: 'VALIDATION_ERROR' };
   }
+  const authorizationError = mapAuthorizationError(err);
+  if (authorizationError) return authorizationError;
   if (err instanceof Error) {
     return { message: err.message, code: 'INTERNAL_ERROR' };
   }

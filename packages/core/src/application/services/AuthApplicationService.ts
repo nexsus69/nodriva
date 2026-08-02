@@ -46,6 +46,11 @@ export class AuthApplicationService {
     return userId;
   }
 
+  /** Reads the current user profile for session claims that may have changed. */
+  async getUserById(userId: string) {
+    return await this.userRepository.findById(userId);
+  }
+
   async logout(token: string): Promise<void> {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
     await this.sessionRepository.deleteSession(hashedToken);

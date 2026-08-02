@@ -8,7 +8,7 @@ import {
   CreateTypeUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
-import { listTypesAction, createTypeAction } from '../../actions/typeActions';
+import { AppCache } from '../../cache/GlobalCacheClient';
 
 export default function AdminTypesListPage() {
   const [kind, setKind] = useState<TypeKind>('node');
@@ -28,7 +28,7 @@ export default function AdminTypesListPage() {
   const loadTypes = async (selectedKind: TypeKind) => {
     setLoading(true);
     setError(null);
-    const res = await listTypesAction(selectedKind);
+    const res = await AppCache.admin.listTypes(selectedKind);
     if (res.success && res.data) {
       setTypes(res.data);
     } else if (res.error) {
@@ -55,7 +55,7 @@ export default function AdminTypesListPage() {
     };
 
     startTransition(async () => {
-      const res = await createTypeAction(cmd);
+      const res = await AppCache.admin.createType(cmd);
       if (res.success && res.data) {
         setShowCreateModal(false);
         setNewTypeKey('');
@@ -120,14 +120,16 @@ export default function AdminTypesListPage() {
 
       {/* Errore principale */}
       {error && (
-        <div className="p-4 bg-red-950/40 border border-red-500/30 rounded-xl text-red-300 text-sm flex items-center justify-between">
-          <span>⚠️ {error.message}</span>
-          <button
-            onClick={() => loadTypes(kind)}
-            className="px-3 py-1 bg-red-900/40 hover:bg-red-800/40 text-red-200 rounded text-xs"
-          >
-            Ricarica
-          </button>
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300 flex items-center justify-between gap-4">
+          <span><span className="font-bold">Errore [{error.code}]:</span> {error.message}</span>
+          {error.code !== 'ACCESS_FORBIDDEN' && (
+            <button
+              onClick={() => loadTypes(kind)}
+              className="shrink-0 px-3 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs hover:bg-rose-500/20"
+            >
+              Ricarica
+            </button>
+          )}
         </div>
       )}
 

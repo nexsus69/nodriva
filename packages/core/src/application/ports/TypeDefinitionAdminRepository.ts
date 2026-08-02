@@ -3,6 +3,7 @@ import { TypeListItemDto, TypeDetailDto } from '../dto/AdminContractDtos.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
+import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 
 /**
  * Repository write/read side unificato per tipi, campi e vincoli.
@@ -33,4 +34,7 @@ export interface TypeDefinitionAdminRepository {
 
   // --- Integrity ---
   hasInstancesOfType(domain: TypeDomain, typeId: string): Promise<boolean>;
+  hasValuesInField(domain: TypeDomain, typeId: string, fieldKey: string, columnName: string): Promise<boolean>;
+  existsEnumOption(domain: TypeDomain, fieldId: string, value: string): Promise<boolean>;
+  createEnumOption(domain: TypeDomain, option: ManagedEnumOption): Promise<void>;
 }

@@ -3,6 +3,7 @@ import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
+import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 import { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
 import { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
 import { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
@@ -22,6 +23,7 @@ import {
   SystemTypeModificationError,
   SystemFieldModificationError,
   TypeHasInstancesError,
+  TypeFieldHasValuesError,
 } from '../../domain/errors/TypeAdminErrors.js';
 import {
   CreateTypeCommand, CreateTypeCommandSchema,
@@ -31,6 +33,7 @@ import {
   UpdateFieldCommand, UpdateFieldCommandSchema,
   RemoveFieldCommand, RemoveFieldCommandSchema,
   AddConstraintCommand, AddConstraintCommandSchema,
+  AddEnumOptionCommand, AddEnumOptionCommandSchema,
   UpdateConstraintCommand, UpdateConstraintCommandSchema,
   RemoveConstraintCommand, RemoveConstraintCommandSchema,
 } from '../commands/TypeAdminCommands.js';
@@ -48,12 +51,16 @@ export class TypeAdminApplicationService {
     private readonly accessControlPort: AccessControlPort
   ) {}
 
+  private permission(domain: TypeDomain, action: 'create' | 'update' | 'delete' | 'read'): string {
+    return `${domain === 'node' ? 'node' : 'entity'}_type.${action}`;
+  }
+
   // ─── Query Operations ──────────────────────────────────────────
 
   async listTypes(actorUserId: string, domain: TypeDomain): Promise<TypeListItemDto[]> {
     await this.accessControlPort.assertHasPermission(
       actorUserId,
-      domain === 'node' ? 'node_type.read' : 'entity_type.read',
+      this.permission(domain, 'read'),
       null
     );
     return await this.adminRepository.listTypes(domain);
@@ -62,7 +69,7 @@ export class TypeAdminApplicationService {
   async getTypeDetail(actorUserId: string, domain: TypeDomain, typeKey: string): Promise<TypeDetailDto | null> {
     await this.accessControlPort.assertHasPermission(
       actorUserId,
-      domain === 'node' ? 'node_type.read' : 'entity_type.read',
+      this.permission(domain, 'read'),
       null
     );
     return await this.adminRepository.getTypeDetail(domain, typeKey);
@@ -72,7 +79,7 @@ export class TypeAdminApplicationService {
 
   async createType(cmd: CreateTypeCommand): Promise<ManagedTypeDefinition> {
     const v = this.validateCommand(CreateTypeCommandSchema, cmd, 'creating type');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.create', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'create'), null);
 
     if (v.domain === 'entity' && !v.storageTable) {
       throw new TypeAdminValidationError('storageTable is required for entity types.', {
@@ -120,7 +127,7 @@ export class TypeAdminApplicationService {
 
   async updateType(cmd: UpdateTypeCommand): Promise<ManagedTypeDefinition> {
     const v = this.validateCommand(UpdateTypeCommandSchema, cmd, 'updating type');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const updated = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedRowVersion);
@@ -157,7 +164,7 @@ export class TypeAdminApplicationService {
 
   async disableType(cmd: DisableTypeCommand): Promise<void> {
     const v = this.validateCommand(DisableTypeCommandSchema, cmd, 'disabling type');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.delete', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'delete'), null);
 
     const typeKey = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedRowVersion);
@@ -190,7 +197,7 @@ export class TypeAdminApplicationService {
 
   async addField(cmd: AddFieldCommand): Promise<ManagedTypeField> {
     const v = this.validateCommand(AddFieldCommandSchema, cmd, 'adding field');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const { field, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -202,11 +209,23 @@ export class TypeAdminApplicationService {
         throw new TypeFieldColumnNameAlreadyExistsError(v.columnName, type.id, v.domain);
       }
 
+      if (v.dataType === 'relation') {
+        const target = await this.adminRepository.findTypeByKey(
+          v.relationTargetDomain!,
+          v.relationTargetTypeKey!
+        );
+        if (!target || !target.isActive) {
+          throw new TypeDefinitionNotFoundError(v.relationTargetTypeKey!, v.relationTargetDomain!);
+        }
+      }
+
       const now = new Date();
       const newField = new ManagedTypeField(
         this.idGenerator.generate(), type.id, v.fieldKey, v.label, v.columnName,
         v.dataType, v.isRequired ?? false, v.isUnique ?? false, v.isIndexed ?? false,
-        v.defaultValueText ?? null, v.position, false, now, now
+        v.defaultValueText ?? null, v.position, false, now, now,
+        v.relationTargetDomain ?? null, v.relationTargetTypeKey ?? null
+        , v.enumMode ?? 'static'
       );
 
       await this.adminRepository.createField(v.domain, newField);
@@ -237,7 +256,7 @@ export class TypeAdminApplicationService {
 
   async updateField(cmd: UpdateFieldCommand): Promise<ManagedTypeField> {
     const v = this.validateCommand(UpdateFieldCommandSchema, cmd, 'updating field');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const { field, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -300,7 +319,7 @@ export class TypeAdminApplicationService {
 
   async removeField(cmd: RemoveFieldCommand): Promise<void> {
     const v = this.validateCommand(RemoveFieldCommandSchema, cmd, 'removing field');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const typeKey = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -313,9 +332,14 @@ export class TypeAdminApplicationService {
         throw new SystemFieldModificationError(v.fieldId, v.domain);
       }
 
-      const hasInstances = await this.adminRepository.hasInstancesOfType(v.domain, type.id);
-      if (hasInstances) {
-        throw new TypeHasInstancesError(type.id, v.domain, 'remove field from');
+      const hasFieldValues = await this.adminRepository.hasValuesInField(
+        v.domain,
+        type.id,
+        existing.fieldKey,
+        existing.columnName
+      );
+      if (hasFieldValues) {
+        throw new TypeFieldHasValuesError(existing.id, existing.fieldKey, v.domain);
       }
 
       await this.adminRepository.deleteField(v.domain, v.fieldId);
@@ -340,7 +364,7 @@ export class TypeAdminApplicationService {
     expectedTypeRowVersion?: number;
     actorUserId: string;
   }): Promise<void> {
-    await this.accessControlPort.assertHasPermission(cmd.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(cmd.actorUserId, this.permission(cmd.domain, 'update'), null);
 
     const typeKey = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(cmd.domain, cmd.typeId, cmd.expectedTypeRowVersion);
@@ -384,9 +408,39 @@ export class TypeAdminApplicationService {
 
   // ─── Constraint Operations ─────────────────────────────────────
 
+  async addEnumOption(cmd: AddEnumOptionCommand): Promise<ManagedEnumOption> {
+    const v = this.validateCommand(AddEnumOptionCommandSchema, cmd, 'adding enum option');
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
+
+    const { option, typeKey } = await this.transactionPort.runInTransaction(async () => {
+      const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
+      const field = await this.adminRepository.findFieldById(v.domain, v.fieldId);
+      if (!field || field.typeDefinitionId !== type.id) throw new TypeFieldNotFoundError(v.fieldId, v.domain);
+      if (field.dataType.toLowerCase() !== 'enum') {
+        throw new TypeAdminValidationError('Enum options can only be added to enum fields.', { fieldId: ['Field is not enum.'] });
+      }
+      if (field.enumMode !== 'managed') {
+        throw new TypeAdminValidationError('This enum is static and cannot be extended from the frontend.', { fieldId: ['Enum mode is static.'] });
+      }
+      if (await this.adminRepository.existsEnumOption(v.domain, field.id, v.value)) {
+        throw new TypeAdminValidationError('The enum option value already exists.', { value: ['Value already exists for this field.'] });
+      }
+      const now = new Date();
+      const option = new ManagedEnumOption(this.idGenerator.generate(), field.id, v.value, v.label, v.position ?? 0, true, now, now);
+      await this.adminRepository.createEnumOption(v.domain, option);
+      await this.bumpTypeSchemaVersion(v.domain, type);
+      await this.auditPort.record(v.actorUserId, 'type_admin.add_enum_option', v.domain === 'entity' ? 'entity_type' : 'node_type', type.id, null, null, {
+        fieldId: field.id, value: option.value, label: option.label,
+      });
+      return { option, typeKey: type.typeKey };
+    });
+    this.schemaInvalidation.invalidate(v.domain, typeKey);
+    return option;
+  }
+
   async addConstraint(cmd: AddConstraintCommand): Promise<ManagedTypeFieldConstraint> {
     const v = this.validateCommand(AddConstraintCommandSchema, cmd, 'adding constraint');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const { constraint, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -416,7 +470,7 @@ export class TypeAdminApplicationService {
 
   async updateConstraint(cmd: UpdateConstraintCommand): Promise<ManagedTypeFieldConstraint> {
     const v = this.validateCommand(UpdateConstraintCommandSchema, cmd, 'updating constraint');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const { constraint, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -446,7 +500,7 @@ export class TypeAdminApplicationService {
 
   async removeConstraint(cmd: RemoveConstraintCommand): Promise<void> {
     const v = this.validateCommand(RemoveConstraintCommandSchema, cmd, 'removing constraint');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'node_type.update', null);
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
 
     const typeKey = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);

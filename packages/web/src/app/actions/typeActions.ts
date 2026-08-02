@@ -13,7 +13,11 @@ import {
   TypeKeyAlreadyExistsError,
   TypeFieldKeyAlreadyExistsError,
   TypeFieldColumnNameAlreadyExistsError,
+  TypeFieldConstraintNotFoundError,
+  UnsupportedFieldDataTypeError,
+  SchemaCompilationError,
   TypeHasInstancesError,
+  TypeFieldHasValuesError,
   TypeAdminValidationError,
   TypeDefinitionNotFoundError,
   TypeFieldNotFoundError,
@@ -27,8 +31,10 @@ import {
   UpdateFieldUiCommand,
   DeleteFieldUiCommand,
   ReorderFieldsUiCommand,
+  EnumOptionDto,
   TypeKind,
 } from '@dashboard/core';
+import { mapAuthorizationError } from './errorMapping';
 
 
 /** Helper per mappare le eccezioni del Core alla forma ApiErrorResponse */
@@ -89,6 +95,13 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
       target: typeId,
     };
   }
+  if (err instanceof TypeFieldHasValuesError) {
+    return {
+      code: 'TYPE_FIELD_HAS_VALUES',
+      message: 'Impossibile eliminare il campo perché contiene valori nelle istanze esistenti.',
+      target: typeof err.details?.fieldKey === 'string' ? err.details.fieldKey : undefined,
+    };
+  }
   if (err instanceof TypeAdminValidationError) {
     const issuesObj = (err.details?.issues as Record<string, string[]> | undefined) ?? {};
     const details = Object.entries(issuesObj).map(([field, msgs]) => ({
@@ -102,17 +115,30 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
       details,
     };
   }
-  if (err instanceof TypeDefinitionNotFoundError || err instanceof TypeFieldNotFoundError) {
+  if (
+    err instanceof TypeDefinitionNotFoundError
+    || err instanceof TypeFieldNotFoundError
+    || err instanceof TypeFieldConstraintNotFoundError
+  ) {
     return {
       code: 'NOT_FOUND',
       message: 'La risorsa richiesta non è stata trovata.',
     };
   }
+  if (err instanceof UnsupportedFieldDataTypeError || err instanceof SchemaCompilationError) {
+    return {
+      code: 'VALIDATION_ERROR',
+      message: err.message,
+    };
+  }
 
-  const msg = err instanceof Error ? err.message : String(err);
+  const authorizationError = mapAuthorizationError(err);
+  if (authorizationError) return authorizationError;
+
+  console.error('[TypeActions] Unexpected backend error:', err);
   return {
-    code: 'VALIDATION_ERROR',
-    message: msg,
+    code: 'INTERNAL_ERROR',
+    message: 'Si è verificato un errore interno. Riprova più tardi.',
   };
 }
 
@@ -149,9 +175,14 @@ export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string)
     description: definition.description,
     currentSchemaVersion: definition.currentSchemaVersion,
     fields: definition.fields.map((f) => ({
+      id: f.id,
       fieldKey: f.fieldKey,
       dataType: f.dataType,
       isRequired: f.isRequired,
+      relationTargetDomain: f.relationTargetDomain,
+      relationTargetTypeKey: f.relationTargetTypeKey,
+      enumOptions: f.enumOptions,
+      enumMode: f.enumMode,
       constraints: f.constraints.map((c) => ({
         constraintType: c.constraintType,
         constraintValueText: c.value,
@@ -294,6 +325,9 @@ export async function createFieldAction(
       isUnique: cmd.isUnique ?? false,
       isIndexed: cmd.isIndexed ?? false,
       defaultValueText: cmd.defaultValueText ?? null,
+      relationTargetDomain: cmd.relationTargetDomain ?? null,
+      relationTargetTypeKey: cmd.relationTargetTypeKey ?? null,
+      enumMode: cmd.enumMode ?? null,
       position: cmd.position ?? current.data.fields.length,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId: await AuthResolver.resolveActorUserId(),
@@ -301,6 +335,32 @@ export async function createFieldAction(
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+export async function addEnumOptionAction(
+  kind: TypeKind,
+  typeKey: string,
+  fieldId: string,
+  value: string,
+  label: string
+): Promise<{ success: boolean; data?: EnumOptionDto; error?: ApiErrorResponse }> {
+  try {
+    const current = await getTypeDetailAction(kind, typeKey);
+    if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
+    const option = await typeAdminService.addEnumOption({
+      domain: kind,
+      typeId: current.data.id,
+      fieldId,
+      value,
+      label,
+      position: current.data.fields.find((field) => field.id === fieldId)?.enumOptions?.length ?? 0,
+      expectedTypeRowVersion: current.data.rowVersion,
+      actorUserId: await AuthResolver.resolveActorUserId(),
+    });
+    return { success: true, data: { id: option.id, value: option.value, label: option.label, position: option.position, isActive: option.isActive } };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

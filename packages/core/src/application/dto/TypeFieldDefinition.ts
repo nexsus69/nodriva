@@ -27,6 +27,13 @@ export class TypeFieldConstraint {
   ) {}
 }
 
+export interface EnumOptionDefinition {
+  value: string;
+  label: string;
+  isActive: boolean;
+  position: number;
+}
+
 /**
  * Definizione di un campo all'interno di un tipo dinamico.
  * Indipendente dal dominio (node o entity).
@@ -36,7 +43,12 @@ export class TypeFieldDefinition {
     readonly fieldKey: string,
     readonly dataType: string,
     readonly isRequired: boolean,
-    readonly constraints: readonly TypeFieldConstraint[]
+    readonly constraints: readonly TypeFieldConstraint[],
+    readonly relationTargetDomain: TypeDomain | null = null,
+    readonly relationTargetTypeKey: string | null = null,
+    readonly enumOptions: readonly EnumOptionDefinition[] = [],
+    readonly enumMode: 'static' | 'managed' = 'static',
+    readonly id: string | null = null
   ) {}
 }
 

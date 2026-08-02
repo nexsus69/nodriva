@@ -36,7 +36,8 @@ import {
   LtreeNodePathPolicy,
   SessionRepositoryPostgres,
   AuthApplicationService,
-  RealtimeScopeResolverPostgres
+  RealtimeScopeResolverPostgres,
+  RealtimeOutboxPostgres,
 } from '@dashboard/core';
 import crypto from 'crypto';
 
@@ -66,6 +67,7 @@ export const pusherEventBus = new PusherEventBus({
   port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
 });
+export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
 export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
 
@@ -110,7 +112,8 @@ export const nodeService = new NodeApplicationService(
   runtimeConfigPort,
   idGenerator,
   new LtreeNodePathPolicy(),
-  transactionPort
+  transactionPort,
+  schemaRegistry
 );
 
 export const entityService = new EntityApplicationService(
@@ -170,6 +173,10 @@ export const auditAdminService = new AuditAdminApplicationService(
 
 export const entitySubtreeQueryPort = new EntitySubtreeQueryPortPostgres(pgExecutor);
 
-export const systemSeedService = new SystemSeedPostgres(pgExecutor);
+export const systemSeedService = new SystemSeedPostgres(
+  pgExecutor,
+  transactionPort,
+  process.env.SEED_ADMIN_PASSWORD
+);
 
 export const authApplicationService = new AuthApplicationService(sessionRepository, userRepository);

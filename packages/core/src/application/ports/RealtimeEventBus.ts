@@ -14,6 +14,8 @@ export interface RealtimeDataChangedEvent {
   previousParentNodeId?: string | null;
   entityTypeId?: string;
   data?: unknown;
+  /** All resources changed by an aggregate mutation, including the root resourceId. */
+  affectedResourceIds?: string[];
 }
 
 export interface RealtimeEventBus {

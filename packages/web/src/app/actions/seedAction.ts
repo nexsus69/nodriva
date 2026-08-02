@@ -9,6 +9,9 @@ export async function checkDatabaseSeededAction() {
 }
 
 export async function seedDatabaseAction() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Database seeding is disabled in production.');
+  }
   const actorUserId = await AuthResolver.resolveActorUserId();
   const { systemSeedService, accessControlPort } = await import('../../server/db');
   await accessControlPort.assertHasPermission(actorUserId, 'system.config', null);

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { RoleListItemDto, CreateRoleUiCommand, ApiErrorResponse } from '@dashboard/core';
-import { listRolesAction, createRoleAction } from '../../../actions/securityActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export default function SecurityRolesListPage() {
   const [roles, setRoles] = useState<RoleListItemDto[]>([]);
@@ -21,7 +21,7 @@ export default function SecurityRolesListPage() {
   const loadRoles = async () => {
     setLoading(true);
     setError(null);
-    const res = await listRolesAction();
+    const res = await AppCache.admin.listRoles();
     if (res.success && res.data) {
       setRoles(res.data);
     } else if (res.error) {
@@ -46,7 +46,7 @@ export default function SecurityRolesListPage() {
     };
 
     startTransition(async () => {
-      const res = await createRoleAction(cmd);
+      const res = await AppCache.admin.createRole(cmd);
       if (res.success && res.data) {
         setShowCreateModal(false);
         setRoleKey('');

@@ -18,7 +18,7 @@ export const UpdateEntityCommandSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
   payloadDelta: z.record(z.unknown()).optional(),
-  expectedRowVersion: z.number().int().positive().optional(),
+  expectedRowVersion: z.number().int().positive(),
 });
 
 export type UpdateEntityCommand = z.infer<typeof UpdateEntityCommandSchema>;
@@ -26,6 +26,7 @@ export type UpdateEntityCommand = z.infer<typeof UpdateEntityCommandSchema>;
 export const DeleteEntityCommandSchema = z.object({
   actorUserId: z.string().uuid(),
   entityId: z.string().uuid(),
+  expectedRowVersion: z.number().int().positive(),
 });
 
 export type DeleteEntityCommand = z.infer<typeof DeleteEntityCommandSchema>;

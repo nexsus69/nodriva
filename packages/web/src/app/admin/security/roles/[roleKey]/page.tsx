@@ -4,10 +4,7 @@ import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { RoleDetailDto, ApiErrorResponse } from '@dashboard/core';
-import {
-  getRoleByKeyAction,
-  updateRolePermissionsAction,
-} from '../../../../actions/securityActions';
+import { AppCache } from '../../../../cache/GlobalCacheClient';
 
 export default function RoleDetailPage() {
   const params = useParams();
@@ -24,7 +21,7 @@ export default function RoleDetailPage() {
   useEffect(() => {
     if (!roleKey) return;
     const timer = window.setTimeout(() => {
-      getRoleByKeyAction(roleKey).then((res) => {
+      AppCache.admin.getRoleByKey(roleKey).then((res) => {
         if (res.success && res.data) {
           setRole(res.data);
           setSelectedPermissionIds(res.data.permissions.map((p) => p.id));
@@ -51,7 +48,7 @@ export default function RoleDetailPage() {
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await updateRolePermissionsAction({
+      const res = await AppCache.admin.updateRolePermissions({
         roleKey: role.roleKey,
         permissionIds: selectedPermissionIds,
         expectedRowVersion: role.rowVersion,

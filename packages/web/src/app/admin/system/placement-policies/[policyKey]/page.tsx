@@ -11,15 +11,8 @@ import {
   RuleType,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  getPlacementPolicyByKeyAction,
-  updatePlacementPolicyAction,
-  deletePlacementPolicyAction,
-  createPlacementRuleAction,
-  deletePlacementRuleAction,
-} from '../../../../actions/systemActions';
-import { listChildrenAction } from '../../../../actions/nodeActions';
-import { listTypesAction } from '../../../../actions/typeActions';
+import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 
 export default function PlacementPolicyDetailPage() {
   const params = useParams();
@@ -34,6 +27,7 @@ export default function PlacementPolicyDetailPage() {
   const [error, setError] = useState<ApiErrorResponse | null>(null);
 
   const [showEditPolicyModal, setShowEditPolicyModal] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [editName, setEditName] = useState<string>('');
   const [editDescription, setEditDescription] = useState<string>('');
   const [editPolicyMode, setEditPolicyMode] = useState<PolicyMode>('allow_all');
@@ -52,9 +46,9 @@ export default function PlacementPolicyDetailPage() {
     setLoading(true);
     setError(null);
     const [resPolicy, rootNodes, resNodeTypes] = await Promise.all([
-      getPlacementPolicyByKeyAction(policyKey),
-      listChildrenAction(null),
-      listTypesAction('node'),
+      AppCache.admin.getPlacementPolicyByKey(policyKey),
+      AppCache.admin.listChildren(null),
+      AppCache.admin.listTypes('node'),
     ]);
 
     if (resPolicy.success && resPolicy.data) {
@@ -76,9 +70,9 @@ export default function PlacementPolicyDetailPage() {
     if (!policyKey) return;
     const timer = window.setTimeout(() => {
       Promise.all([
-        getPlacementPolicyByKeyAction(policyKey),
-        listChildrenAction(null),
-        listTypesAction('node'),
+        AppCache.admin.getPlacementPolicyByKey(policyKey),
+        AppCache.admin.listChildren(null),
+        AppCache.admin.listTypes('node'),
       ]).then(([resPolicy, rootNodes, resNodeTypes]) => {
         if (resPolicy.success && resPolicy.data) {
           setPolicy(resPolicy.data);
@@ -112,7 +106,7 @@ export default function PlacementPolicyDetailPage() {
     };
 
     startTransition(async () => {
-      const res = await updatePlacementPolicyAction(cmd);
+      const res = await AppCache.admin.updatePlacementPolicy(cmd);
       if (res.success) {
         setShowEditPolicyModal(false);
         await loadData();
@@ -124,10 +118,15 @@ export default function PlacementPolicyDetailPage() {
 
   const handleDeletePolicy = () => {
     if (!policy) return;
-    if (!confirm(`Sei sicuro di voler eliminare la Placement Policy '${policy.name}'?`)) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeletePolicy = () => {
+    if (!policy) return;
+    setShowDeleteConfirm(false);
 
     startTransition(async () => {
-      const res = await deletePlacementPolicyAction({
+      const res = await AppCache.admin.deletePlacementPolicy({
         policyKey: policy.policyKey,
         expectedRowVersion: policy.rowVersion,
       });
@@ -153,7 +152,7 @@ export default function PlacementPolicyDetailPage() {
     };
 
     startTransition(async () => {
-      const res = await createPlacementRuleAction(cmd);
+      const res = await AppCache.admin.createPlacementRule(cmd);
       if (res.success) {
         setShowAddRuleModal(false);
         setRuleType('allow_node_type');
@@ -170,7 +169,7 @@ export default function PlacementPolicyDetailPage() {
 
   const handleDeleteRule = (ruleId: string) => {
     startTransition(async () => {
-      const res = await deletePlacementRuleAction({ ruleId });
+      const res = await AppCache.admin.deletePlacementRule({ ruleId });
       if (res.success) {
         await loadData();
       } else if (res.error) {
@@ -205,6 +204,15 @@ export default function PlacementPolicyDetailPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="Elimina placement policy"
+        message={`Sei sicuro di voler eliminare la Placement Policy '${policy.name}'?`}
+        confirmLabel="Elimina"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDeletePolicy}
+        busy={isPending}
+      />
       {/* Breadcrumb */}
       <Link
         href="/admin/system/placement-policies"

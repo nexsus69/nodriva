@@ -11,6 +11,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user?.id && user.dbToken) {
         token.userId = user.id;
         token.dbToken = user.dbToken;
+        if (user.email) token.email = user.email;
         return token;
       }
 
@@ -20,7 +21,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
 
       try {
-        token.userId = await authApplicationService.resolveSession(token.dbToken);
+        const resolvedUserId = await authApplicationService.resolveSession(token.dbToken);
+        token.userId = resolvedUserId;
+        const currentUser = await authApplicationService.getUserById(resolvedUserId);
+        if (!currentUser) throw new Error('Authenticated user no longer exists');
+        token.email = currentUser.email;
       } catch {
         delete token.userId;
         delete token.dbToken;
@@ -30,6 +35,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (token.userId) {
         session.userId = String(token.userId);
+      }
+      if (typeof token.email === 'string') {
+        session.user = { ...session.user, email: token.email };
       }
       return session;
     },

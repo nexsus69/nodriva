@@ -7,12 +7,7 @@ import {
   CapabilityStatus,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  listCapabilitiesAction,
-  updateCapabilityStatusAction,
-  listSettingsAction,
-  updateSettingAction,
-} from '../../../actions/systemActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export default function SystemConfigPage() {
   const [capabilities, setCapabilities] = useState<RuntimeCapabilityDto[]>([]);
@@ -30,8 +25,8 @@ export default function SystemConfigPage() {
     setLoading(true);
     setError(null);
     const [resCap, resSet] = await Promise.all([
-      listCapabilitiesAction(),
-      listSettingsAction(),
+      AppCache.admin.listCapabilities(),
+      AppCache.admin.listSettings(),
     ]);
 
     if (resCap.success && resCap.data) setCapabilities(resCap.data);
@@ -49,7 +44,7 @@ export default function SystemConfigPage() {
 
   const handleStatusChange = (capabilityKey: string, newStatus: CapabilityStatus) => {
     startTransition(async () => {
-      const res = await updateCapabilityStatusAction({
+      const res = await AppCache.admin.updateCapabilityStatus({
         capabilityKey,
         status: newStatus,
       });
@@ -73,7 +68,7 @@ export default function SystemConfigPage() {
     setFormError(null);
 
     startTransition(async () => {
-      const res = await updateSettingAction({
+      const res = await AppCache.admin.updateSetting({
         settingKey: editingSetting.settingKey,
         settingValueText: settingValue,
         expectedRowVersion: editingSetting.rowVersion,

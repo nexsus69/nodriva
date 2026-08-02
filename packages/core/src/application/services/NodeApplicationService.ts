@@ -8,6 +8,7 @@ import { RevisionPort } from '../ports/RevisionPort.js';
 import { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
 import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { TransactionPort } from '../ports/TransactionPort.js';
+import { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 
 import { CreateNodeCommand, CreateNodeCommandSchema, UpdateNodeCommand, UpdateNodeCommandSchema, MoveNodeCommand, MoveNodeCommandSchema } from '../commands/NodeCommands.js';
@@ -25,7 +26,8 @@ export class NodeApplicationService {
     private readonly runtimeConfigPort: RuntimeConfigurationPort,
     private readonly idGenerator: IdGeneratorPort,
     private readonly pathPolicy: NodePathPolicy,
-    private readonly transactionPort: TransactionPort
+    private readonly transactionPort: TransactionPort,
+    private readonly schemaRegistry?: SchemaRegistry
   ) {}
 
   async createNode(cmd: CreateNodeCommand): Promise<Node> {
@@ -88,6 +90,21 @@ export class NodeApplicationService {
 
       // 6. Generazione ID tecnico e costruzione del modello tramite Domain Factory
       const nodeId = this.idGenerator.generate();
+      const payload = validatedCmd.payload ?? {};
+      if (this.schemaRegistry) {
+        const dynamicSchema = await this.schemaRegistry.getSchema('node', validatedCmd.nodeTypeKey);
+        if (dynamicSchema) {
+          const payloadResult = dynamicSchema.safeParse(payload);
+          if (!payloadResult.success) {
+            const issues: Record<string, string[]> = {};
+            for (const issue of payloadResult.error.issues) {
+              const path = issue.path.join('.') || 'payload';
+              (issues[path] ??= []).push(issue.message);
+            }
+            throw new ValidationError('Dynamic schema validation failed for node payload.', issues);
+          }
+        }
+      }
       const node = Node.create(
         nodeId,
         parentNode,
@@ -95,7 +112,8 @@ export class NodeApplicationService {
         validatedCmd.name,
         validatedCmd.description ?? '',
         validatedCmd.actorUserId,
-        this.pathPolicy
+        this.pathPolicy,
+        payload
       );
 
       // 7. Controllo collisione pathLabel tra sibling
@@ -130,7 +148,7 @@ export class NodeApplicationService {
     });
   }
 
-  async moveNode(cmd: MoveNodeCommand): Promise<void> {
+  async moveNode(cmd: MoveNodeCommand): Promise<string[]> {
     // 1. Validazione strutturale del command
     const parseResult = MoveNodeCommandSchema.safeParse(cmd);
     if (!parseResult.success) {
@@ -224,8 +242,9 @@ export class NodeApplicationService {
       // 8. Revisione e audit
       // Ricarichiamo il nodo aggiornato per la revisione
       const movedNode = await this.nodeRepository.findById(validatedCmd.nodeId);
-      if (movedNode) {
-        await this.revisionPort.recordNodeRevision(movedNode, 'moved', validatedCmd.actorUserId);
+      const movedSubtree = await this.nodeRepository.listSubtree(validatedCmd.nodeId);
+      for (const subtreeNode of movedSubtree) {
+        await this.revisionPort.recordNodeRevision(subtreeNode, 'moved', validatedCmd.actorUserId);
       }
       await this.auditPort.record(
         validatedCmd.actorUserId,
@@ -236,6 +255,7 @@ export class NodeApplicationService {
         { parentId: node.parentId, path: node.path },
         { parentId: validatedCmd.newParentNodeId, path: movedNode?.path ?? null }
       );
+      return movedSubtree.map((subtreeNode) => subtreeNode.id);
     });
   }
 
@@ -266,7 +286,7 @@ export class NodeApplicationService {
         throw new NodeNotFoundError(validatedCmd.nodeId);
       }
 
-      if (validatedCmd.expectedRowVersion !== undefined && node.rowVersion !== validatedCmd.expectedRowVersion) {
+      if (node.rowVersion !== validatedCmd.expectedRowVersion) {
         throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, node.rowVersion);
       }
 
@@ -287,8 +307,35 @@ export class NodeApplicationService {
         validatedCmd.actorUserId
       );
 
-      await this.nodeRepository.update(updated);
-      await this.revisionPort.recordNodeRevision(updated, 'updated', validatedCmd.actorUserId);
+      const updatedPayload = validatedCmd.payloadDelta
+        ? { ...node.payload, ...validatedCmd.payloadDelta }
+        : node.payload;
+      if (this.schemaRegistry && validatedCmd.payloadDelta) {
+        const nodeType = await this.nodeTypeRepository.findById(node.nodeTypeId);
+        const dynamicSchema = nodeType
+          ? await this.schemaRegistry.getSchema('node', nodeType.typeKey)
+          : null;
+        if (dynamicSchema) {
+          const payloadResult = dynamicSchema.safeParse(updatedPayload);
+          if (!payloadResult.success) {
+            const issues: Record<string, string[]> = {};
+            for (const issue of payloadResult.error.issues) {
+              const path = issue.path.join('.') || 'payload';
+              (issues[path] ??= []).push(issue.message);
+            }
+            throw new ValidationError('Dynamic schema validation failed for node payload.', issues);
+          }
+        }
+      }
+      const updatedWithPayload = new Node(
+        updated.id, updated.parentId, updated.path, updated.pathLabel, updated.depth,
+        updated.nodeTypeId, updated.name, updated.description, updated.rowVersion,
+        updated.createdAt, updated.updatedAt, updated.deletedAt, updated.createdBy,
+        updated.updatedBy, updatedPayload
+      );
+
+      await this.nodeRepository.update(updatedWithPayload);
+      await this.revisionPort.recordNodeRevision(updatedWithPayload, 'updated', validatedCmd.actorUserId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
         'node.update',
@@ -299,7 +346,7 @@ export class NodeApplicationService {
         { name: updated.name, description: updated.description }
       );
 
-      return updated;
+      return updatedWithPayload;
     });
   }
 

@@ -24,6 +24,12 @@ interface UpdateEntityActionInput {
   payload?: Record<string, unknown>;
 }
 
+interface DeleteEntityActionInput {
+  entityId?: string;
+  id?: string;
+  expectedRowVersion: number;
+}
+
 export async function createEntityAction(input: CreateEntityActionInput) {
   const { entityService } = await import('../../server/db');
   const entityTypeKey = input.entityTypeKey || input.entityTypeId;
@@ -69,12 +75,16 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
   if (!entityId) {
     throw new Error('entityId is required');
   }
+  const expectedRowVersion = input.expectedRowVersion ?? input.rowVersion;
+  if (expectedRowVersion === undefined) {
+    throw new Error('expectedRowVersion is required');
+  }
   const cmd = {
     actorUserId: await AuthResolver.resolveActorUserId(),
     entityId,
     name: input.name,
     description: input.description,
-    expectedRowVersion: input.expectedRowVersion || input.rowVersion,
+    expectedRowVersion,
     payloadDelta: input.payloadDelta || input.payload,
   };
   const e = await entityService.updateEntity(cmd);
@@ -101,9 +111,9 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
   return result;
 }
 
-export async function deleteEntityAction(input: string | { entityId?: string; id?: string }) {
+export async function deleteEntityAction(input: DeleteEntityActionInput) {
   const { entityService, lockService, runtimeConfigPort } = await import('../../server/db');
-  const entityId = typeof input === 'string' ? input : input.entityId || input.id;
+  const entityId = input.entityId || input.id;
   if (!entityId) {
     throw new Error('entityId is required');
   }
@@ -112,6 +122,7 @@ export async function deleteEntityAction(input: string | { entityId?: string; id
   const cmd = {
     actorUserId,
     entityId,
+    expectedRowVersion: input.expectedRowVersion,
   };
   await entityService.deleteEntity(cmd);
   await publishRealtimeChange({

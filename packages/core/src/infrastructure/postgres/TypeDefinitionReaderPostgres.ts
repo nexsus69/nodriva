@@ -5,6 +5,7 @@ import {
   TypeFieldDefinition,
   TypeFieldConstraint,
   ConstraintType,
+  EnumOptionDefinition,
 } from '../../application/dto/TypeFieldDefinition.js';
 import { PgExecutor } from './PgExecutor.js';
 
@@ -23,11 +24,16 @@ interface TypeMetaRow {
  * Riga restituita dalla query di campi + vincoli.
  */
 interface FieldWithConstraintRow {
+  id: string;
   field_key: string;
   data_type: string;
   is_required: boolean;
+  relation_target_domain: TypeDomain | null;
+  relation_target_type_key: string | null;
+  enum_mode: 'static' | 'managed';
   constraint_type: string | null;
   constraint_value_text: string | null;
+  enum_options: EnumOptionDefinition[] | null;
 }
 
 /**
@@ -39,6 +45,7 @@ interface DomainTableConfig {
   fieldsTable: string;
   constraintsTable: string;
   fieldForeignKey: string;
+  enumOptionsTable: string;
 }
 
 const DOMAIN_TABLES: Record<TypeDomain, DomainTableConfig> = {
@@ -47,12 +54,14 @@ const DOMAIN_TABLES: Record<TypeDomain, DomainTableConfig> = {
     fieldsTable: 'node_type_fields',
     constraintsTable: 'node_type_field_constraints',
     fieldForeignKey: 'node_type_id',
+    enumOptionsTable: 'node_type_field_enum_options',
   },
   entity: {
     typesTable: 'entity_types',
     fieldsTable: 'entity_type_fields',
     constraintsTable: 'entity_type_field_constraints',
     fieldForeignKey: 'entity_type_id',
+    enumOptionsTable: 'entity_type_field_enum_options',
   },
 };
 
@@ -106,9 +115,16 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
   ): Promise<TypeFieldDefinition[]> {
     const query = `
       SELECT
+        f.id,
         f.field_key,
         f.data_type,
         f.is_required,
+        f.relation_target_domain,
+        f.relation_target_type_key,
+        f.enum_mode,
+        COALESCE((SELECT json_agg(json_build_object(
+          'value', eo.value, 'label', eo.label, 'isActive', eo.is_active, 'position', eo.position
+        ) ORDER BY eo.position) FROM ${config.enumOptionsTable} eo WHERE eo.field_id = f.id AND eo.is_active = TRUE), '[]'::json) AS enum_options,
         c.constraint_type,
         c.constraint_value_text
       FROM ${config.fieldsTable} f
@@ -122,6 +138,11 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
     const fieldMap = new Map<string, {
       dataType: string;
       isRequired: boolean;
+      relationTargetDomain: TypeDomain | null;
+      relationTargetTypeKey: string | null;
+      enumMode: 'static' | 'managed';
+      enumOptions: EnumOptionDefinition[];
+      id: string;
       constraints: TypeFieldConstraint[];
     }>();
 
@@ -130,6 +151,11 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
         fieldMap.set(row.field_key, {
           dataType: row.data_type,
           isRequired: row.is_required,
+          relationTargetDomain: row.relation_target_domain,
+          relationTargetTypeKey: row.relation_target_type_key,
+          enumMode: row.enum_mode ?? 'static',
+          enumOptions: row.enum_options ?? [],
+          id: row.id,
           constraints: [],
         });
       }
@@ -153,7 +179,12 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           fieldKey,
           entry.dataType,
           entry.isRequired,
-          entry.constraints
+          entry.constraints,
+          entry.relationTargetDomain,
+          entry.relationTargetTypeKey
+          , entry.enumOptions
+          , entry.enumMode
+          , entry.id
         )
       );
     }

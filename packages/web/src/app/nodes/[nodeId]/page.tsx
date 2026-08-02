@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
@@ -23,13 +23,16 @@ export default function NodeDetailPage() {
     retentionClass: 'persistent',
   });
   const { entities: nodeEntities, isLoading: isEntitiesLoading, error: entitiesError } = useSemanticEntityCollection(nodeId);
-  const { entityTypes } = useSemanticMetadata();
+  const { entityTypes, nodeTypes } = useSemanticMetadata();
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSavingNode, startNodeUpdate] = useTransition();
   const [nodeName, setNodeName] = useState('');
   const [nodeDescription, setNodeDescription] = useState('');
+  type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
+  const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
+  const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
 
   // --- LOCK STATE ---
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({ resourceType: 'node', resourceId: nodeId });
@@ -38,6 +41,19 @@ export default function NodeDetailPage() {
   // --- REACTIVE READS FROM APPCACHE ---
   const { data: cachedCurrentNode, isLoading: isLoadingNode } = useCacheNode(nodeId);
   const currentNode = cachedCurrentNode;
+
+  useEffect(() => {
+    const nodeTypeKey = currentNode ? nodeTypes[currentNode.nodeTypeId]?.typeKey : undefined;
+    if (!currentNode || !nodeTypeKey) return;
+    const node = currentNode;
+    const timer = window.setTimeout(() => {
+      AppCache.admin.getTypeDefinition('node', nodeTypeKey).then((definition) => {
+        setDynamicNodeFields(definition?.fields ?? []);
+        setDynamicNodePayload(node.payload ?? {});
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [currentNode, nodeTypes]);
   
   // Combine readModel pending fetch with cache pending fetch
   const isNodeLoading = isLoadingNode || !currentNode;
@@ -95,6 +111,7 @@ export default function NodeDetailPage() {
           name: nodeName.trim(),
           description: nodeDescription.trim(),
           expectedRowVersion: currentNode.rowVersion,
+          payloadDelta: dynamicNodePayload,
         });
         await releaseLock();
         setSuccessMsg('Nodo aggiornato con successo.');
@@ -153,7 +170,7 @@ export default function NodeDetailPage() {
   }, 0);
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="workspace-page space-y-6 pb-8">
       {/* Breadcrumb / Navigazione Superiore */}
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <NodeBreadcrumb nodeId={nodeId} />
@@ -230,6 +247,25 @@ export default function NodeDetailPage() {
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
               </p>
             </div>
+            {dynamicNodeFields.length > 0 && (
+              <div className="space-y-3 border-t border-slate-200 pt-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Campi dinamici</h3>
+                {dynamicNodeFields.map((field) => field.dataType.toLowerCase() === 'boolean' ? (
+                  <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-700">
+                    <input type="checkbox" checked={Boolean(dynamicNodePayload[field.fieldKey])}
+                      onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.checked })} />
+                    {field.fieldKey} {field.isRequired ? '*' : ''}
+                  </label>
+                ) : (
+                  <div key={field.fieldKey}>
+                    <label className="mb-1 block text-xs font-medium text-slate-600">{field.fieldKey} {field.isRequired ? '*' : ''}</label>
+                    <input value={String(dynamicNodePayload[field.fieldKey] ?? '')}
+                      onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.value })}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono uppercase text-slate-500">

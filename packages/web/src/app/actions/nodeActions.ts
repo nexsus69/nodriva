@@ -23,6 +23,7 @@ export async function listChildrenAction(parentId: string | null) {
     name: n.name,
     description: n.description,
     rowVersion: n.rowVersion,
+    payload: n.payload,
   }));
 }
 
@@ -41,6 +42,7 @@ export async function getNodeByIdAction(id: string) {
     name: n.name,
     description: n.description,
     rowVersion: n.rowVersion,
+    payload: n.payload,
   };
 }
 
@@ -67,6 +69,7 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
     name: node.name,
     description: node.description,
     rowVersion: node.rowVersion,
+    payload: node.payload,
   };
   await publishRealtimeChange({
     resourceType: 'node',
@@ -96,6 +99,7 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
     name: node.name,
     description: node.description,
     rowVersion: node.rowVersion,
+    payload: node.payload,
   };
   await publishRealtimeChange({
     resourceType: 'node',
@@ -115,7 +119,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
     actorUserId: await AuthResolver.resolveActorUserId(),
   };
   const previous = await nodeService.getNodeById(input.nodeId, cmd.actorUserId);
-  await nodeService.moveNode(cmd);
+  const affectedNodeIds = await nodeService.moveNode(cmd);
   const moved = await getNodeByIdAction(input.nodeId);
   if (moved) {
     await publishRealtimeChange({
@@ -125,6 +129,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
       actorUserId: cmd.actorUserId,
       parentNodeId: moved.parentId,
       previousParentNodeId: previous?.parentId,
+      affectedResourceIds: affectedNodeIds,
       data: moved,
     });
   }

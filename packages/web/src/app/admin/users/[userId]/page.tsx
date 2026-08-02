@@ -7,13 +7,7 @@ import {
   UserDetailDto,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  getUserByIdAction,
-  updateUserStatusAction,
-  assignUserRolesAction,
-  updateUserAction,
-  resetUserPasswordAction,
-} from '../../../actions/userActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -37,16 +31,16 @@ export default function UserDetailPage() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    getUserByIdAction(userId).then((res) => {
+    AppCache.users.getUser(userId).then((data) => {
       if (cancelled) return;
-      if (res.success && res.data) {
-        setUser(res.data);
-        setSelectedRoleIds(res.data.roles.map((r) => r.id));
-        setEditEmail(res.data.email);
-        setEditIsSuperAdmin(res.data.isSuperAdmin);
-      } else if (res.error) {
-        setError(res.error);
-      }
+      setUser(data);
+      setSelectedRoleIds(data.roles.map((r) => r.id));
+      setEditEmail(data.email);
+      setEditIsSuperAdmin(data.isSuperAdmin);
+      setLoading(false);
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(err as ApiErrorResponse);
       setLoading(false);
     });
     return () => {
@@ -60,20 +54,20 @@ export default function UserDetailPage() {
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await updateUserStatusAction({
-        userId: user.id,
-        isActive: !user.isActive,
-        expectedRowVersion: user.rowVersion,
-      });
-      if (res.success && res.data) {
-        setUser(res.data);
+      try {
+        const data = await AppCache.users.updateUserStatus({
+          userId: user.id,
+          isActive: !user.isActive,
+          expectedRowVersion: user.rowVersion,
+        });
+        setUser(data);
         setSuccessMsg(
-          res.data.isActive
+          data.isActive
             ? 'Account attivato con successo.'
             : 'Account disabilitato con successo.'
         );
-      } else if (res.error) {
-        setError(res.error);
+      } catch (err) {
+        setError(err as ApiErrorResponse);
       }
     });
   };
@@ -93,17 +87,17 @@ export default function UserDetailPage() {
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await assignUserRolesAction({
-        userId: user.id,
-        roleIds: selectedRoleIds,
-        expectedRowVersion: user.rowVersion,
-      });
-      if (res.success && res.data) {
-        setUser(res.data);
-        setSelectedRoleIds(res.data.roles.map((r) => r.id));
+      try {
+        const data = await AppCache.users.assignUserRoles({
+          userId: user.id,
+          roleIds: selectedRoleIds,
+          expectedRowVersion: user.rowVersion,
+        });
+        setUser(data);
+        setSelectedRoleIds(data.roles.map((r) => r.id));
         setSuccessMsg('Ruoli utente aggiornati con successo.');
-      } else if (res.error) {
-        setError(res.error);
+      } catch (err) {
+        setError(err as ApiErrorResponse);
       }
     });
   };
@@ -115,18 +109,18 @@ export default function UserDetailPage() {
     setSuccessMsg(null);
 
     startTransition(async () => {
-      const res = await updateUserAction({
-        userId: user.id,
-        email: editEmail.trim(),
-        isSuperAdmin: editIsSuperAdmin,
-        expectedRowVersion: user.rowVersion,
-      });
-      if (res.success && res.data) {
-        setUser(res.data);
+      try {
+        const data = await AppCache.users.updateUser({
+          userId: user.id,
+          email: editEmail.trim(),
+          isSuperAdmin: editIsSuperAdmin,
+          expectedRowVersion: user.rowVersion,
+        });
+        setUser(data);
         setShowEditModal(false);
         setSuccessMsg('Dati utente aggiornati con successo.');
-      } else if (res.error) {
-        setError(res.error);
+      } catch (err) {
+        setError(err as ApiErrorResponse);
       }
     });
   };
@@ -142,19 +136,19 @@ export default function UserDetailPage() {
     }
 
     startTransition(async () => {
-      const res = await resetUserPasswordAction({
-        userId: user.id,
-        newPassword,
-        expectedRowVersion: user.rowVersion,
-      });
-      if (res.success && res.data) {
-        setUser(res.data);
+      try {
+        const data = await AppCache.users.resetUserPassword({
+          userId: user.id,
+          newPassword,
+          expectedRowVersion: user.rowVersion,
+        });
+        setUser(data);
         setNewPassword('');
         setConfirmPassword('');
         setShowPasswordModal(false);
         setSuccessMsg('Password aggiornata e sessioni attive revocate.');
-      } else if (res.error) {
-        setError(res.error);
+      } catch (err) {
+        setError(err as ApiErrorResponse);
       }
     });
   };

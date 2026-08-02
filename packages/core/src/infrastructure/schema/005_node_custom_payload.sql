@@ -1,0 +1,2 @@
+ALTER TABLE nodes
+  ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}'::jsonb;

@@ -112,7 +112,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
     });
-    await AppCache.deleteEntity(entity.id, entity.entityTypeId);
+    await AppCache.deleteEntity(entity.id, entity.entityTypeId, entity.rowVersion);
     expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
   });
 

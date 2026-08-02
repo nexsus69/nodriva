@@ -177,7 +177,7 @@ await AppCache.updateEntity({ entityId, name, payloadDelta, expectedRowVersion }
 ### Delete
 
 ```ts
-await AppCache.deleteEntity(entityId, entity.entityTypeId);
+await AppCache.deleteEntity(entityId, entity.entityTypeId, entity.rowVersion);
 ```
 
 1. Il backend elimina il record.

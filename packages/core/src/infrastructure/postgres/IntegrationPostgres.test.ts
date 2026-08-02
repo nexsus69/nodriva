@@ -363,7 +363,7 @@ describe('PostgreSQL Integration Tests', () => {
       expect(listMatch!.payload.email).toBe('jane.doe.updated@integration.com');
 
       // 5. Soft Delete
-      await entityRepo.softDelete(entityId, testUserId);
+      await entityRepo.softDelete(entityId, testUserId, 2);
       const deletedEntity = await entityRepo.findById(entityId);
       expect(deletedEntity).toBeNull();
     });

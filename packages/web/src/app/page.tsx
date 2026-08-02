@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { seedDatabaseAction, checkDatabaseSeededAction } from './actions/seedAction';
+import { AppCache } from './cache/GlobalCacheClient';
 import { useSemanticNodeList } from './hooks/useSemanticNodeList';
 
 export default function WorkspaceOperationalHub() {
@@ -15,7 +15,7 @@ export default function WorkspaceOperationalHub() {
 
   // 1. Controllo inizializzazione DB
   useEffect(() => {
-    checkDatabaseSeededAction().then((seeded) => {
+    AppCache.admin.checkDatabaseSeeded().then((seeded) => {
       setDbSeeded(seeded);
       setIsCheckingSeed(false);
     });
@@ -27,7 +27,7 @@ export default function WorkspaceOperationalHub() {
     setIsSeeding(true);
     setErrorMsg(null);
     try {
-      await seedDatabaseAction();
+      await AppCache.admin.seedDatabase();
       setDbSeeded(true);
       window.location.reload();
     } catch (err: unknown) {

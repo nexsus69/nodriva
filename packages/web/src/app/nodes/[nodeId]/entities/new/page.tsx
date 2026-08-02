@@ -3,15 +3,21 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { getTypeDefinitionAction } from '../../../../actions/typeActions';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../hooks/useLock';
 import { LockBadge } from '../../../../components/LockBadge';
+import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
+
+function getEnumOptions(field: { enumOptions?: readonly { value: string; label: string; isActive: boolean }[]; constraints: readonly { constraintType: string; constraintValueText: string }[] }) {
+  if (field.enumOptions && field.enumOptions.length > 0) return field.enumOptions;
+  const legacy = field.constraints.find((constraint) => constraint.constraintType === 'enum');
+  return legacy ? legacy.constraintValueText.split(',').map((value) => value.trim()).filter(Boolean).map((value) => ({ value, label: value, isActive: true })) : [];
+}
 
 export default function CreateEntityPage() {
   const params = useParams();
@@ -21,15 +27,26 @@ export default function CreateEntityPage() {
   const [isPending, startTransition] = useTransition();
 
   const { entityTypesList } = useSemanticMetadata();
+  const { entities: siblingEntities } = useSemanticEntityCollection(parentNodeId);
   const [entityName, setEntityName] = useState('');
   const [entityDesc, setEntityDesc] = useState('');
   const [entityTypeKey, setEntityTypeKey] = useState('');
   const selectedEntityTypeKey = entityTypeKey || entityTypesList[0]?.typeKey || '';
-  type TypeDefinition = NonNullable<Awaited<ReturnType<typeof getTypeDefinitionAction>>>;
+  type TypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
   type DynamicField = TypeDefinition['fields'][number];
   const [fieldsDef, setFieldsDef] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [relationField, setRelationField] = useState<DynamicField | null>(null);
+  const [enumField, setEnumField] = useState<DynamicField | null>(null);
+  const [enumOptionValue, setEnumOptionValue] = useState('');
+  const [enumOptionLabel, setEnumOptionLabel] = useState('');
+  const [isAddingEnumOption, setIsAddingEnumOption] = useState(false);
+  const [relationFieldsDef, setRelationFieldsDef] = useState<DynamicField[]>([]);
+  const [relationPayload, setRelationPayload] = useState<Record<string, unknown>>({});
+  const [relationName, setRelationName] = useState('');
+  const [relationDescription, setRelationDescription] = useState('');
+  const [isCreatingRelation, setIsCreatingRelation] = useState(false);
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
     resourceId: parentNodeId,
@@ -42,7 +59,7 @@ export default function CreateEntityPage() {
 
   useEffect(() => {
     if (selectedEntityTypeKey) {
-      getTypeDefinitionAction('entity', selectedEntityTypeKey).then((def) => {
+      AppCache.admin.getTypeDefinition('entity', selectedEntityTypeKey).then((def) => {
         if (def && def.fields) {
           setFieldsDef(def.fields);
           const initial: Record<string, unknown> = {};
@@ -54,6 +71,24 @@ export default function CreateEntityPage() {
       });
     }
   }, [selectedEntityTypeKey]);
+
+  useEffect(() => {
+    if (!relationField?.relationTargetTypeKey || relationField.relationTargetDomain !== 'entity') {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      AppCache.admin.getTypeDefinition('entity', relationField.relationTargetTypeKey!).then((definition) => {
+        const fields = definition?.fields ?? [];
+        setRelationFieldsDef(fields);
+        const initial: Record<string, unknown> = {};
+        for (const field of fields) {
+          initial[field.fieldKey] = field.dataType.toLowerCase() === 'boolean' ? false : '';
+        }
+        setRelationPayload(initial);
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [relationField]);
 
   const handleCreateEntity = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +136,7 @@ export default function CreateEntityPage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
+    <div className="workspace-page max-w-xl mx-auto space-y-6">
       {/* Breadcrumb */}
       <Link
         href={`/nodes/${parentNodeId}`}
@@ -183,7 +218,64 @@ export default function CreateEntityPage() {
                   <label className="block text-xs font-medium text-slate-400 mb-1 font-mono">
                     {field.fieldKey} {field.isRequired ? '*' : ''}
                   </label>
-                  {field.dataType.toLowerCase() === 'boolean' ? (
+                  {field.dataType.toLowerCase() === 'enum' ? (
+                    <>
+                      <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')}
+                        onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.value })}
+                        className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100">
+                        <option value="">Seleziona un valore</option>
+                        {getEnumOptions(field).filter((option) => option.isActive).map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      {field.enumMode === 'managed' && (
+                        <button type="button" onClick={() => {
+                          setEnumField(field);
+                          setEnumOptionValue('');
+                          setEnumOptionLabel('');
+                        }} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                          + Aggiungi opzione
+                        </button>
+                      )}
+                    </>
+                  ) : field.dataType.toLowerCase() === 'relation' ? (() => {
+                    const targetType = entityTypesList.find((type) =>
+                      type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey
+                    );
+                    const options = field.relationTargetDomain === 'entity' && targetType
+                      ? siblingEntities.filter((entity) => entity.entityTypeId === targetType.id || entity.entityTypeId === targetType.typeKey)
+                      : [];
+                    return (
+                      <>
+                        <select
+                          required={field.isRequired}
+                          value={String(payload[field.fieldKey] ?? '')}
+                          onChange={(e) => setPayload({ ...payload, [field.fieldKey]: e.target.value })}
+                          className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="">Seleziona un valore</option>
+                          {options.map((entity) => (
+                            <option key={entity.id} value={entity.id}>{entity.name}</option>
+                          ))}
+                        </select>
+                        {field.relationTargetDomain === 'entity' && targetType && (
+                          <button type="button" onClick={() => {
+                            setRelationField(field);
+                            setRelationFieldsDef([]);
+                            setRelationPayload({});
+                            setRelationName('');
+                            setRelationDescription('');
+                            setErrorMsg(null);
+                          }} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                            + Crea nuova istanza di {targetType.name}
+                          </button>
+                        )}
+                        {field.relationTargetDomain === 'node' && (
+                          <p className="mt-1 text-xs text-slate-500">Selezione nodi non ancora disponibile in questo form.</p>
+                        )}
+                      </>
+                    );
+                  })() : field.dataType.toLowerCase() === 'boolean' ? (
                     <input
                       type="checkbox"
                       checked={Boolean(payload[field.fieldKey])}
@@ -222,6 +314,129 @@ export default function CreateEntityPage() {
           </div>
         </form>
       </div>
+
+      {relationField && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md space-y-5 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-100">Nuova istanza collegata</h2>
+                <p className="mt-1 text-xs text-slate-400">Crea l&apos;istanza target e usala automaticamente nella relazione.</p>
+              </div>
+              <button type="button" onClick={() => setRelationField(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setErrorMsg(null);
+                setIsCreatingRelation(true);
+                void (async () => {
+                  try {
+                    if (!relationField?.relationTargetTypeKey) return;
+                    const processedRelationPayload = { ...relationPayload };
+                    for (const field of relationFieldsDef) {
+                      if (NUMBER_TYPES.has(field.dataType.toLowerCase()) && processedRelationPayload[field.fieldKey] !== '') {
+                        const numberValue = Number(processedRelationPayload[field.fieldKey]);
+                        if (!Number.isNaN(numberValue)) processedRelationPayload[field.fieldKey] = numberValue;
+                      }
+                    }
+                    const created = await AppCache.createEntity({
+                      parentNodeId,
+                      entityTypeKey: relationField.relationTargetTypeKey,
+                      name: relationName.trim(),
+                      description: relationDescription.trim(),
+                      payload: processedRelationPayload,
+                    });
+                    setPayload((current) => ({ ...current, [relationField.fieldKey]: created.id }));
+                    setRelationField(null);
+                  } catch (error: unknown) {
+                    setErrorMsg(error instanceof Error ? error.message : 'Impossibile creare l\'istanza collegata.');
+                  } finally {
+                    setIsCreatingRelation(false);
+                  }
+                })();
+              }}
+            >
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-300">Nome *</label>
+                <input required value={relationName} onChange={(event) => setRelationName(event.target.value)}
+                  placeholder="es. Cliente Rossi" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-300">Descrizione</label>
+                <textarea value={relationDescription} onChange={(event) => setRelationDescription(event.target.value)} rows={2}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+              </div>
+              {relationFieldsDef.length > 0 && (
+                <div className="space-y-3 border-t border-slate-800 pt-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Campi dell&apos;istanza collegata</h3>
+                  {relationFieldsDef.map((field) => field.dataType.toLowerCase() === 'boolean' ? (
+                    <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-300">
+                      <input type="checkbox" checked={Boolean(relationPayload[field.fieldKey])}
+                        onChange={(event) => setRelationPayload({ ...relationPayload, [field.fieldKey]: event.target.checked })}
+                        className="rounded bg-slate-950 border-slate-700 text-indigo-600" />
+                      {field.fieldKey} {field.isRequired ? '*' : ''}
+                    </label>
+                  ) : (
+                    <div key={field.fieldKey}>
+                      <label className="mb-1 block text-xs font-medium text-slate-300">{field.fieldKey} {field.isRequired ? '*' : ''}</label>
+                      <input required={field.isRequired}
+                        type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : 'text'}
+                        value={String(relationPayload[field.fieldKey] ?? '')}
+                        onChange={(event) => setRelationPayload({ ...relationPayload, [field.fieldKey]: event.target.value })}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-white" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setRelationField(null)} className="rounded-lg px-4 py-2 text-xs text-slate-300 hover:bg-slate-800">Annulla</button>
+                <button type="submit" disabled={isCreatingRelation} className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">
+                  {isCreatingRelation ? 'Creazione...' : 'Crea e seleziona'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {enumField && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <form className="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setIsAddingEnumOption(true);
+              void (async () => {
+                try {
+                  const result = await AppCache.admin.addEnumOption('entity', selectedEntityTypeKey, enumField.id!, enumOptionValue.trim(), enumOptionLabel.trim());
+                  if (!result.success || !result.data) {
+                    setErrorMsg(result.error?.message ?? 'Impossibile aggiungere l\'opzione.');
+                    return;
+                  }
+                  setFieldsDef((current) => current.map((field) => field.id === enumField.id
+                    ? { ...field, enumOptions: [...(field.enumOptions ?? []), result.data!] }
+                    : field));
+                  setEnumField(null);
+                } catch (error: unknown) {
+                  setErrorMsg(error instanceof Error ? error.message : 'Impossibile aggiungere l\'opzione.');
+                } finally {
+                  setIsAddingEnumOption(false);
+                }
+              })();
+            }}>
+            <h2 className="text-lg font-bold text-slate-100">Nuova opzione enum</h2>
+            <input required pattern="[a-z][a-z0-9_-]*" value={enumOptionValue} onChange={(event) => setEnumOptionValue(event.target.value)}
+              placeholder="Valore tecnico, es. vip" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white" />
+            <input required value={enumOptionLabel} onChange={(event) => setEnumOptionLabel(event.target.value)}
+              placeholder="Etichetta, es. Cliente VIP" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setEnumField(null)} className="rounded-lg px-4 py-2 text-xs text-slate-300">Annulla</button>
+              <button type="submit" disabled={isAddingEnumOption} className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">Salva opzione</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

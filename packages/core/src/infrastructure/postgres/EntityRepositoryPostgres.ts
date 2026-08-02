@@ -211,15 +211,20 @@ export class EntityRepositoryPostgres implements EntityRepository {
     }
   }
 
-  async softDelete(id: string, actorUserId: string): Promise<void> {
+  async softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
     const query = `
       UPDATE entities
       SET deleted_at = now(), updated_at = now(), updated_by = $1
-      WHERE id = $2 AND deleted_at IS NULL
+      WHERE id = $2 AND row_version = $3 AND deleted_at IS NULL
     `;
-    const result = await this.executor.query(query, [actorUserId, id]);
+    const result = await this.executor.query(query, [actorUserId, id, expectedRowVersion]);
     if (result.rowCount === 0) {
-      throw new EntityNotFoundError(id);
+      const current = await this.executor.query<{ row_version: number; deleted_at: Date | null }>(
+        'SELECT row_version, deleted_at FROM entities WHERE id = $1', [id]
+      );
+      const row = current.rows[0];
+      if (!row || row.deleted_at !== null) throw new EntityNotFoundError(id);
+      throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
     }
   }
 

@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: dashboard
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: masterpass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     ports:
       - "5433:5432" # Mappato sulla 5433 per evitare conflitti con l'altro DB sulla 5432
     volumes:

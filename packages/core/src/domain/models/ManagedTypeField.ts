@@ -18,6 +18,9 @@ export class ManagedTypeField {
     readonly position: number,
     readonly isSystem: boolean,
     readonly createdAt: Date,
-    readonly updatedAt: Date
+    readonly updatedAt: Date,
+    readonly relationTargetDomain: 'node' | 'entity' | null = null,
+    readonly relationTargetTypeKey: string | null = null,
+    readonly enumMode: 'static' | 'managed' = 'static'
   ) {}
 }

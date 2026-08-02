@@ -7,7 +7,7 @@ import {
   CreateUserUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
-import { listUsersAction, createUserAction } from '../../actions/userActions';
+import { AppCache } from '../../cache/GlobalCacheClient';
 
 export default function UserAdminListPage() {
   const [users, setUsers] = useState<UserListItemDto[]>([]);
@@ -28,24 +28,24 @@ export default function UserAdminListPage() {
   const loadUsers = async () => {
     setLoading(true);
     setError(null);
-    const res = await listUsersAction();
-    if (res.success && res.data) {
-      setUsers(res.data);
-    } else if (res.error) {
-      setError(res.error);
+    try {
+      setUsers(await AppCache.users.listUsers());
+    } catch (err) {
+      setError(err as ApiErrorResponse);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     let cancelled = false;
-    listUsersAction().then((res) => {
+    AppCache.users.listUsers().then((data) => {
       if (cancelled) return;
-      if (res.success && res.data) {
-        setUsers(res.data);
-      } else if (res.error) {
-        setError(res.error);
-      }
+      setUsers(data);
+      setLoading(false);
+    }).catch((err) => {
+      if (cancelled) return;
+      setError(err as ApiErrorResponse);
       setLoading(false);
     });
     return () => {
@@ -64,15 +64,15 @@ export default function UserAdminListPage() {
     };
 
     startTransition(async () => {
-      const res = await createUserAction(cmd);
-      if (res.success && res.data) {
+      try {
+        await AppCache.users.createUser(cmd);
         setShowCreateModal(false);
         setNewEmail('');
         setNewPassword('');
         setNewIsSuperAdmin(false);
         await loadUsers();
-      } else if (res.error) {
-        setFormError(res.error);
+      } catch (err) {
+        setFormError(err as ApiErrorResponse);
       }
     });
   };

@@ -8,6 +8,7 @@ export interface ClientNode {
   name: string;
   description: string;
   rowVersion: number;
+  payload?: Record<string, unknown>;
 }
 
 export interface ClientEntity {

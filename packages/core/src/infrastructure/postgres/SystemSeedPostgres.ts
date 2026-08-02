@@ -1,10 +1,15 @@
 import crypto from 'crypto';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
+import { TransactionPort } from '../../application/ports/TransactionPort.js';
 import { PgExecutor } from './PgExecutor.js';
 
 export class SystemSeedPostgres implements SystemSeedPort {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(
+    private readonly executor: PgExecutor,
+    private readonly transactionPort: TransactionPort,
+    private readonly seedAdminPassword?: string
+  ) {}
 
   async checkSeeded(): Promise<boolean> {
     try {
@@ -22,6 +27,13 @@ export class SystemSeedPostgres implements SystemSeedPort {
   }
 
   async seedDatabase(): Promise<void> {
+    if (!this.seedAdminPassword) {
+      throw new Error('SEED_ADMIN_PASSWORD must be configured before seeding the database.');
+    }
+    await this.transactionPort.runInTransaction(() => this.seedDatabaseInTransaction());
+  }
+
+  private async seedDatabaseInTransaction(): Promise<void> {
     const actorId = '00000000-0000-0000-0000-000000000001';
 
     // Eseguiamo la pulizia delle tabelle per ripartire da uno stato noto ed allineato
@@ -33,7 +45,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
     await this.executor.query("DELETE FROM users WHERE id = $1", [actorId]);
 
     // 1. Inserimento Utente Olivia Williams (Super Admin)
-    const hash = PasswordHasher.hash('password123');
+    const hash = PasswordHasher.hash(this.seedAdminPassword!);
     await this.executor.query(`
       INSERT INTO users (id, email, password_hash, is_active, is_super_admin)
       VALUES ($1, 'olivia.williams@mate.com', $2, true, true)
@@ -47,12 +59,38 @@ export class SystemSeedPostgres implements SystemSeedPort {
     `, [adminRoleId]);
 
     const permissionsList = [
+      { key: 'audit.access', name: 'Access Audit Logs', kind: 'system_setting' },
       { key: 'node.create', name: 'Create Node', kind: 'node' },
       { key: 'node.move', name: 'Move Node', kind: 'node' },
       { key: 'node.edit', name: 'Edit Node', kind: 'node' },
+      { key: 'node.read', name: 'Read Nodes', kind: 'node' },
+      { key: 'node.test_integration', name: 'Test Node Integration', kind: 'node' },
       { key: 'entity.create', name: 'Create Entity', kind: 'entity' },
       { key: 'entity.edit', name: 'Edit Entity', kind: 'entity' },
-      { key: 'entity.delete', name: 'Delete Entity', kind: 'entity' }
+      { key: 'entity.delete', name: 'Delete Entity', kind: 'entity' },
+      { key: 'entity.move', name: 'Move Entity', kind: 'entity' },
+      { key: 'entity_type.read', name: 'Read Entity Types', kind: 'entity_type' },
+      { key: 'node_type.create', name: 'Create Node Type', kind: 'node_type' },
+      { key: 'node_type.update', name: 'Update Node Type', kind: 'node_type' },
+      { key: 'node_type.delete', name: 'Delete Node Type', kind: 'node_type' },
+      { key: 'node_type.read', name: 'Read Node Types', kind: 'node_type' },
+      { key: 'entity_type.create', name: 'Create Entity Type', kind: 'entity_type' },
+      { key: 'entity_type.update', name: 'Update Entity Type', kind: 'entity_type' },
+      { key: 'entity_type.delete', name: 'Delete Entity Type', kind: 'entity_type' },
+      { key: 'user.create', name: 'Create User', kind: 'user' },
+      { key: 'user.update', name: 'Update User', kind: 'user' },
+      { key: 'user.delete', name: 'Delete User', kind: 'user' },
+      { key: 'user.assign_roles', name: 'Assign User Roles', kind: 'user' },
+      { key: 'user.read', name: 'Read Users', kind: 'user' },
+      { key: 'role.create', name: 'Create Role', kind: 'role' },
+      { key: 'role.update', name: 'Update Role', kind: 'role' },
+      { key: 'role.delete', name: 'Delete Role', kind: 'role' },
+      { key: 'role.read', name: 'Read Roles', kind: 'role' },
+      { key: 'scope.assign', name: 'Assign Scope', kind: 'permission' },
+      { key: 'scope.delete', name: 'Delete Scope', kind: 'permission' },
+      { key: 'scope.read', name: 'Read Scope Assignments', kind: 'permission' },
+      { key: 'system.config', name: 'System Configuration', kind: 'system_setting' },
+      { key: 'system.config.read', name: 'Read System Configuration', kind: 'system_setting' }
     ];
 
     for (const p of permissionsList) {

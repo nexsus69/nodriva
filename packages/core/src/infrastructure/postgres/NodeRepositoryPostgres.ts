@@ -18,6 +18,7 @@ interface NodeRow {
   deleted_at: Date | null;
   created_by: string | null;
   updated_by: string | null;
+  payload: Record<string, unknown>;
 }
 
 export class NodeRepositoryPostgres implements NodeRepository {
@@ -27,7 +28,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     const query = `
       SELECT id, parent_id, path, path_label, depth, node_type_id,
              name, description, row_version,
-             created_at, updated_at, deleted_at, created_by, updated_by
+             created_at, updated_at, deleted_at, created_by, updated_by, payload
       FROM nodes
       WHERE id = $1 AND deleted_at IS NULL
     `;
@@ -44,7 +45,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     let query = `
       SELECT id, parent_id, path, path_label, depth, node_type_id,
              name, description, row_version,
-             created_at, updated_at, deleted_at, created_by, updated_by
+             created_at, updated_at, deleted_at, created_by, updated_by, payload
       FROM nodes
       WHERE ${isRoot ? 'parent_id IS NULL' : 'parent_id = $1'} AND deleted_at IS NULL
       ORDER BY path ASC, name ASC
@@ -69,8 +70,8 @@ export class NodeRepositoryPostgres implements NodeRepository {
       INSERT INTO nodes (
         id, parent_id, path, path_label, depth, node_type_id,
         name, description, row_version,
-        created_at, updated_at, deleted_at, created_by, updated_by
-      ) VALUES ($1, $2, $3::ltree, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        created_at, updated_at, deleted_at, created_by, updated_by, payload
+      ) VALUES ($1, $2, $3::ltree, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     `;
     await this.executor.query(query, [
       node.id,
@@ -87,21 +88,23 @@ export class NodeRepositoryPostgres implements NodeRepository {
       node.deletedAt,
       node.createdBy,
       node.updatedBy,
+      node.payload,
     ]);
   }
 
   async update(node: Node): Promise<void> {
     const query = `
       UPDATE nodes
-      SET name = $1, description = $2, row_version = $3,
-          updated_at = $4, updated_by = $5
-      WHERE id = $6 AND row_version = $7 AND deleted_at IS NULL
+      SET name = $1, description = $2, payload = $3, row_version = $4,
+          updated_at = $5, updated_by = $6
+      WHERE id = $7 AND row_version = $8 AND deleted_at IS NULL
     `;
 
     const previousRowVersion = node.rowVersion - 1;
     const result = await this.executor.query(query, [
       node.name,
       node.description,
+      node.payload,
       node.rowVersion,
       node.updatedAt,
       node.updatedBy,
@@ -127,7 +130,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     const nodeResult = await this.executor.query<NodeRow>(
       `SELECT id, parent_id, path, path_label, depth, node_type_id,
               name, description, row_version,
-              created_at, updated_at, deleted_at, created_by, updated_by
+              created_at, updated_at, deleted_at, created_by, updated_by, payload
        FROM nodes WHERE id = $1 AND deleted_at IS NULL`,
       [nodeId]
     );
@@ -187,6 +190,20 @@ export class NodeRepositoryPostgres implements NodeRepository {
          AND deleted_at IS NULL`,
       [newNodePath, oldPath, depthDelta, actorUserId, nodeId]
     );
+  }
+
+  async listSubtree(nodeId: string): Promise<Node[]> {
+    const result = await this.executor.query<NodeRow>(
+      `SELECT id, parent_id, path, path_label, depth, node_type_id,
+              name, description, row_version, created_at, updated_at,
+              deleted_at, created_by, updated_by, payload
+       FROM nodes
+       WHERE path <@ (SELECT path FROM nodes WHERE id = $1)
+         AND deleted_at IS NULL
+       ORDER BY path ASC`,
+      [nodeId]
+    );
+    return result.rows.map((row) => this.mapToDomain(row));
   }
 
   async existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean> {
@@ -251,7 +268,8 @@ export class NodeRepositoryPostgres implements NodeRepository {
       row.updated_at,
       row.deleted_at,
       row.created_by,
-      row.updated_by
+      row.updated_by,
+      row.payload ?? {}
     );
   }
 }

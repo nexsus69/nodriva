@@ -7,6 +7,8 @@ import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
 import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
 import type { LockChannelEvent } from './RealtimeCacheBridge';
+import { UserCacheClient } from './UserCacheClient';
+import { AdminCacheClient } from './AdminCacheClient';
 
 export interface CachedLockState {
   locked: boolean;
@@ -22,6 +24,7 @@ export interface CreateNodeInput {
   name: string;
   description?: string;
   expectedParentRowVersion?: number;
+  payload?: Record<string, unknown>;
 }
 
 export interface UpdateNodeInput {
@@ -29,6 +32,7 @@ export interface UpdateNodeInput {
   name?: string;
   description?: string;
   expectedRowVersion: number;
+  payloadDelta?: Record<string, unknown>;
 }
 
 export interface MoveNodeInput {
@@ -183,12 +187,12 @@ export class GlobalCacheClient {
         this.invalidateEntityViews();
       }
     } else if (event.data && event.changeType !== 'deleted') {
-      this.nodes.inject(
-        event.resourceId,
-        event.data as ClientNode,
-        false,
-        'realtime:data-changed'
-      );
+      const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
+      this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
+      for (const id of ids) {
+        if (id !== event.resourceId) this.nodes.invalidate(id);
+      }
+      if (ids.length > 1) this.invalidateEntityViews();
     }
   }
 
@@ -214,6 +218,9 @@ export class GlobalCacheClient {
   public entityTypes = new DomainCacheClient<EntityTypeMeta>('entity-types', async () => {
     throw new Error('Entity types must be fetched via METADATA_LIST semantic view');
   }, this.notifyCacheSubscribers);
+
+  public readonly users = new UserCacheClient(this.notifyCacheSubscribers);
+  public readonly admin = new AdminCacheClient();
 
   private entityCaches = new Map<string, DomainCacheClient<ClientEntity>>();
 
@@ -274,9 +281,9 @@ export class GlobalCacheClient {
     }
   }
 
-  public async deleteEntity(entityId: string, entityTypeKey: string) {
+  public async deleteEntity(entityId: string, entityTypeKey: string, expectedRowVersion: number) {
     try {
-      await deleteEntityAction({ entityId });
+      await deleteEntityAction({ entityId, expectedRowVersion });
       // Aggiorna lo store
       const cache = this.getEntityCache(entityTypeKey);
       cache.remove(entityId);
@@ -339,6 +346,8 @@ export class GlobalCacheClient {
     this.lists?.purge();
     this.nodeTypes?.purge();
     this.entityTypes?.purge();
+    this.users.purge();
+    this.admin.invalidate();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

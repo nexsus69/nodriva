@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AuditLogDetailDto, ApiErrorResponse } from '@dashboard/core';
-import { getAuditLogByIdAction } from '../../../actions/auditActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export default function AuditLogDetailPage() {
   const params = useParams();
@@ -20,7 +20,7 @@ export default function AuditLogDetailPage() {
     const loadData = async () => {
       setLoading(true);
       setError(null);
-      const res = await getAuditLogByIdAction(auditId);
+      const res = await AppCache.admin.getAuditLogById(auditId);
       if (res.success && res.data) {
         setLog(res.data);
       } else if (res.error) {

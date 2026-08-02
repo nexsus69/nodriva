@@ -7,7 +7,7 @@ export default function AdminOverviewPage() {
   return (
     <div className="space-y-8">
       {/* Banner di Benvenuto / Titolo Sezione */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl glass-panel border border-slate-800 bg-gradient-to-r from-slate-900/80 via-indigo-950/20 to-slate-900/80">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl glass-panel border border-slate-200 bg-gradient-to-r from-white via-indigo-50/70 to-white">
         <div>
           <h1 className="text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
             <span>⚙️</span> Centro di Controllo Amministrativo

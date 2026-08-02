@@ -43,7 +43,7 @@ describe('FieldSchemaCompiler', () => {
       expect(() => schema.parse({ slug: 'Hello World!' })).toThrow();
     });
 
-    it('should compile a string field with enum constraint', () => {
+  it('should compile a string field with enum constraint', () => {
       const fields = [
         new TypeFieldDefinition('status', 'string', true, [
           new TypeFieldConstraint('enum', 'active, inactive, archived'),
@@ -69,6 +69,20 @@ describe('FieldSchemaCompiler', () => {
       expect(schema.parse({ priority: 'low' })).toEqual({ priority: 'low' });
       expect(() => schema.parse({ priority: 'critical' })).toThrow();
     });
+  });
+
+  it('should compile managed enum options from the dedicated catalog', () => {
+    const compiler = new FieldSchemaCompiler();
+    const schema = compiler.compile([
+      new TypeFieldDefinition('status', 'enum', true, [], null, null, [
+        { value: 'draft', label: 'Bozza', isActive: true, position: 0 },
+        { value: 'published', label: 'Pubblicato', isActive: true, position: 1 },
+        { value: 'archived', label: 'Archiviato', isActive: false, position: 2 },
+      ], 'managed'),
+    ], 'article');
+
+    expect(schema.safeParse({ status: 'draft' }).success).toBe(true);
+    expect(schema.safeParse({ status: 'archived' }).success).toBe(false);
   });
 
   describe('number fields', () => {

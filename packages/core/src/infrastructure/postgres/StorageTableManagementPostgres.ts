@@ -170,8 +170,11 @@ export class StorageTableManagementPostgres implements StorageTableManagementPor
     if (['date', 'datetime', 'timestamp'].includes(dt)) {
       return 'TIMESTAMPTZ';
     }
-    if (dt === 'uuid') {
+    if (['uuid', 'relation'].includes(dt)) {
       return 'UUID';
+    }
+    if (['json', 'array', 'enum'].includes(dt)) {
+      return dt === 'enum' ? 'TEXT' : 'JSONB';
     }
 
     throw new UnsupportedFieldDataTypeError(fieldKey, dataType, typeKey);

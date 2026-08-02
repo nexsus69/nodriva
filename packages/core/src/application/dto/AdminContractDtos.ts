@@ -4,7 +4,22 @@ import { z } from 'zod';
 
 export type TypeKind = 'node' | 'entity';
 
-export type FieldDataType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'uuid';
+export type FieldDataType =
+  | 'string'
+  | 'text'
+  | 'integer'
+  | 'number'
+  | 'decimal'
+  | 'boolean'
+  | 'date'
+  | 'datetime'
+  | 'uuid'
+  | 'json'
+  | 'enum'
+  | 'relation'
+  | 'array';
+export type RelationTargetDomain = 'node' | 'entity';
+export type EnumMode = 'static' | 'managed';
 
 export type ConstraintType = 
   | 'min' 
@@ -24,12 +39,24 @@ export interface FieldConstraintDto {
   constraintValueText: string;
 }
 
+export interface EnumOptionDto {
+  id: string;
+  value: string;
+  label: string;
+  position: number;
+  isActive: boolean;
+}
+
 export interface FieldDto {
   id: string;
   fieldKey: string;
   label: string;
   columnName: string;
   dataType: FieldDataType;
+  relationTargetDomain?: RelationTargetDomain | null;
+  relationTargetTypeKey?: string | null;
+  enumMode?: EnumMode | null;
+  enumOptions?: EnumOptionDto[];
   isRequired: boolean;
   isUnique: boolean;
   isIndexed: boolean;
@@ -104,16 +131,26 @@ export type DisableTypeCommand = z.infer<typeof DisableTypeCommandSchema>;
 export type DisableTypeUiCommand = DisableTypeCommand;
 
 export const CreateFieldCommandSchema = z.object({
-  fieldKey: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/),
+  fieldKey: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
   label: z.string().min(1).max(128),
-  columnName: z.string().min(2).max(64).regex(/^[a-z0-9_]+$/),
-  dataType: z.enum(['string', 'integer', 'number', 'boolean', 'date', 'uuid']),
+  columnName: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
+  dataType: z.enum([
+    'string', 'text', 'integer', 'number', 'decimal', 'boolean',
+    'date', 'datetime', 'uuid', 'json', 'enum', 'relation', 'array',
+  ]),
+  relationTargetDomain: z.enum(['node', 'entity']).optional(),
+  relationTargetTypeKey: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_-]*$/, 'Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.').optional(),
+  enumMode: z.enum(['static', 'managed']).optional(),
   isRequired: z.boolean().optional(),
   isUnique: z.boolean().optional(),
   isIndexed: z.boolean().optional(),
   defaultValueText: z.string().nullable().optional(),
   position: z.number().int().nonnegative().optional(),
   expectedTypeRowVersion: z.number().int().positive(),
+}).superRefine((value, ctx) => {
+  if (value.dataType === 'relation' && (!value.relationTargetDomain || !value.relationTargetTypeKey)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['relationTargetTypeKey'], message: 'Il tipo target è obbligatorio per una relazione.' });
+  }
 });
 export type CreateFieldCommand = z.infer<typeof CreateFieldCommandSchema>;
 export type CreateFieldUiCommand = CreateFieldCommand;
@@ -162,12 +199,15 @@ export interface ApiErrorResponse {
     | 'DUPLICATE_FIELD_KEY'
     | 'DUPLICATE_COLUMN_NAME'
     | 'TYPE_HAS_INSTANCES'
+    | 'TYPE_FIELD_HAS_VALUES'
     | 'DUPLICATE_EMAIL'
     | 'USER_NOT_FOUND'
     | 'PLACEMENT_POLICY_NOT_FOUND'
     | 'DUPLICATE_PLACEMENT_POLICY_KEY'
     | 'AUDIT_LOG_NOT_FOUND'
     | 'VALIDATION_ERROR'
+    | 'ACCESS_FORBIDDEN'
+    | 'AUTH_UNAUTHORIZED'
     | 'NOT_FOUND'
     | 'INTERNAL_ERROR'
     | 'UNKNOWN_ERROR';

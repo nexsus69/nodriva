@@ -49,7 +49,9 @@ export {
   SystemTypeModificationError,
   SystemFieldModificationError,
   TypeHasInstancesError,
+  TypeFieldHasValuesError,
 } from './domain/errors/TypeAdminErrors.js';
+export { ManagedEnumOption } from './domain/models/ManagedEnumOption.js';
 
 // ─── Application DTOs & Commands ──────────────────────────────────────────────
 export {
@@ -59,10 +61,14 @@ export {
   TypeFieldDefinition,
   TypeDefinition,
 } from './application/dto/TypeFieldDefinition.js';
+export type { RealtimeOutboxPort } from './application/ports/RealtimeOutboxPort.js';
+export { RealtimeOutboxPostgres } from './infrastructure/postgres/RealtimeOutboxPostgres.js';
 export {
   TypeKind,
   FieldDataType,
   FieldConstraintDto,
+  EnumOptionDto,
+  EnumMode,
   FieldDto,
   TypeListItemDto,
   TypeDetailDto,

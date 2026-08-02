@@ -187,7 +187,7 @@ export class EntityApplicationService {
       }
 
       // Concurrency check (optimistic lock)
-      if (validatedCmd.expectedRowVersion !== undefined && entity.rowVersion !== validatedCmd.expectedRowVersion) {
+      if (entity.rowVersion !== validatedCmd.expectedRowVersion) {
         throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, entity.rowVersion);
       }
 
@@ -239,6 +239,17 @@ export class EntityApplicationService {
 
         const validatedDelta = payloadParseResult.data as Record<string, unknown>;
         updatedPayload = { ...entity.payload, ...validatedDelta };
+
+        const completePayloadResult = dynamicSchema.safeParse(updatedPayload);
+        if (!completePayloadResult.success) {
+          const issues: Record<string, string[]> = {};
+          for (const issue of completePayloadResult.error.issues) {
+            const path = issue.path.join('.') || 'payload';
+            (issues[path] ??= []).push(issue.message);
+          }
+          throw new EntitySchemaValidationError('Updated entity payload violates the complete dynamic schema.', issues);
+        }
+        updatedPayload = completePayloadResult.data as Record<string, unknown>;
       }
 
       // Aggiornamento tramite metodo di dominio (name e description sono controllati top-level)
@@ -290,7 +301,7 @@ export class EntityApplicationService {
       }
 
       // 3. Autorizzazioni
-      await this.accessControlPort.assertCanEditEntity(
+      await this.accessControlPort.assertCanDeleteEntity(
         validatedCmd.actorUserId,
         entity.id
       );
@@ -302,7 +313,7 @@ export class EntityApplicationService {
       }
 
       // 5. Persistenza (Soft Delete)
-      await this.entityRepository.softDelete(entity.id, validatedCmd.actorUserId);
+      await this.entityRepository.softDelete(entity.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion);
 
       // Creiamo l'entità nello stato eliminata per revisioni/audit
       const deletedEntity = new Entity(

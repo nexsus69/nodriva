@@ -152,6 +152,25 @@ export class AccessControlPortPostgres implements AccessControlPort {
     }
   }
 
+  async assertCanDeleteEntity(actorUserId: string, entityId: string): Promise<void> {
+    const result = await this.executor.query<{ parent_node_id: string }>(
+      'SELECT parent_node_id FROM entities WHERE id = $1 AND deleted_at IS NULL',
+      [entityId]
+    );
+    const parentNodeId = result.rows[0]?.parent_node_id;
+    if (!parentNodeId) {
+      throw new ForbiddenError(`Entity '${entityId}' was not found or is deleted.`, { actorUserId, entityId });
+    }
+
+    const isAllowed = await this.hasPermission(actorUserId, 'entity.delete', parentNodeId);
+    if (!isAllowed) {
+      throw new ForbiddenError(
+        `User '${actorUserId}' does not have permission 'entity.delete' on parent node '${parentNodeId}'.`,
+        { actorUserId, entityId, parentNodeId }
+      );
+    }
+  }
+
   async assertCanMoveEntity(actorUserId: string, entityId: string, newParentNodeId: string): Promise<void> {
     // 1. Resolve entity's current parent node
     const queryParent = `

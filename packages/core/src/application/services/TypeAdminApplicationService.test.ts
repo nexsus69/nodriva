@@ -92,6 +92,7 @@ describe('TypeAdminApplicationService', () => {
     updateConstraint: ReturnType<typeof vi.fn>;
     deleteConstraint: ReturnType<typeof vi.fn>;
     hasInstancesOfType: ReturnType<typeof vi.fn>;
+      hasValuesInField: ReturnType<typeof vi.fn>;
   };
   let mockInvalidation: { invalidate: ReturnType<typeof vi.fn> };
   let mockAudit: { record: ReturnType<typeof vi.fn> };
@@ -112,6 +113,7 @@ describe('TypeAdminApplicationService', () => {
     assertCanReadNode: ReturnType<typeof vi.fn>;
     assertCanCreateEntity: ReturnType<typeof vi.fn>;
     assertCanEditEntity: ReturnType<typeof vi.fn>;
+    assertCanDeleteEntity: ReturnType<typeof vi.fn>;
     assertCanCreateNode: ReturnType<typeof vi.fn>;
     assertCanMoveNode: ReturnType<typeof vi.fn>;
     assertCanMoveEntity: ReturnType<typeof vi.fn>;
@@ -142,6 +144,7 @@ describe('TypeAdminApplicationService', () => {
       updateConstraint: vi.fn().mockResolvedValue(undefined),
       deleteConstraint: vi.fn().mockResolvedValue(undefined),
       hasInstancesOfType: vi.fn().mockResolvedValue(false),
+      hasValuesInField: vi.fn().mockResolvedValue(false),
     };
 
     mockInvalidation = {
@@ -183,6 +186,7 @@ describe('TypeAdminApplicationService', () => {
       assertCanReadNode: vi.fn(),
       assertCanCreateEntity: vi.fn(),
       assertCanEditEntity: vi.fn(),
+      assertCanDeleteEntity: vi.fn(),
       assertCanCreateNode: vi.fn(),
       assertCanMoveNode: vi.fn(),
       assertCanMoveEntity: vi.fn(),
@@ -487,14 +491,16 @@ describe('TypeAdminApplicationService', () => {
       expect(mockRepo.deleteField).toHaveBeenCalledWith('node', FIELD_ID);
     });
 
-    it('should throw if type has instances', async () => {
+    it('should not block a node custom field merely because the type has instances', async () => {
       mockRepo.findTypeById.mockResolvedValue(makeType());
       mockRepo.findFieldById.mockResolvedValue(makeField());
       mockRepo.hasInstancesOfType.mockResolvedValue(true);
+      mockRepo.hasValuesInField.mockResolvedValue(false);
 
-      await expect(service.removeField({
+      await service.removeField({
         domain: 'node', typeId: TYPE_ID, fieldId: FIELD_ID, actorUserId: ACTOR,
-      })).rejects.toThrow(TypeHasInstancesError);
+      });
+      expect(mockRepo.deleteField).toHaveBeenCalledWith('node', FIELD_ID);
     });
 
     it('should throw on system field', async () => {

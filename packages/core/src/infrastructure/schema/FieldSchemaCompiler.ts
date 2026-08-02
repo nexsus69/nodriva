@@ -11,6 +11,10 @@ const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float'
 const BOOLEAN_TYPES = new Set(['boolean']);
 const DATE_TYPES = new Set(['date', 'datetime', 'timestamp']);
 const UUID_TYPES = new Set(['uuid']);
+const JSON_TYPES = new Set(['json']);
+const ARRAY_TYPES = new Set(['array']);
+const ENUM_TYPES = new Set(['enum']);
+const RELATION_TYPES = new Set(['relation']);
 
 /**
  * Compilatore puro: trasforma una lista di TypeFieldDefinition in uno z.ZodObject.
@@ -66,6 +70,22 @@ export class FieldSchemaCompiler {
       return z.coerce.date();
     }
     if (UUID_TYPES.has(dt)) {
+      return z.string().uuid();
+    }
+    if (JSON_TYPES.has(dt)) {
+      return z.unknown();
+    }
+    if (ARRAY_TYPES.has(dt)) {
+      return z.array(z.unknown());
+    }
+    if (ENUM_TYPES.has(dt)) {
+      if (field.enumOptions.length > 0) {
+        const values = field.enumOptions.filter((option) => option.isActive).map((option) => option.value);
+        if (values.length > 0) return z.enum(values as [string, ...string[]]);
+      }
+      return this.compileStringField(field);
+    }
+    if (RELATION_TYPES.has(dt)) {
       return z.string().uuid();
     }
 

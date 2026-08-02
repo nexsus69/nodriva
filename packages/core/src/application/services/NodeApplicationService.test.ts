@@ -37,6 +37,7 @@ describe('NodeApplicationService', () => {
       create: vi.fn(),
       update: vi.fn(),
       moveSubtree: vi.fn(),
+      listSubtree: vi.fn().mockResolvedValue([]),
       existsByParentAndPathLabel: vi.fn().mockResolvedValue(false),
       listAncestorIds: vi.fn().mockResolvedValue([]),
       isDescendantOf: vi.fn().mockResolvedValue(false),
@@ -54,6 +55,7 @@ describe('NodeApplicationService', () => {
       assertCanReadNode: vi.fn(),
       assertCanCreateEntity: vi.fn(),
       assertCanEditEntity: vi.fn(),
+      assertCanDeleteEntity: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn(),
     };
@@ -282,6 +284,9 @@ describe('NodeApplicationService', () => {
         );
 
       mockNodeRepository.isDescendantOf = vi.fn().mockResolvedValue(false);
+      mockNodeRepository.listSubtree = vi.fn().mockResolvedValue([
+        new Node(childNode.id, siblingNode.id, 'root.sibling.child', 'child', 2, 'type-123', 'Child', '', 2, new Date(), new Date(), null, 'user-1', 'user-1'),
+      ]);
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',

@@ -9,6 +9,7 @@ import { GlobalViewStore } from '../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../hooks/useLock';
 import { LockBadge } from '../../../../components/LockBadge';
+import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 
 export default function EntityDetailPage() {
   const params = useParams();
@@ -24,6 +25,7 @@ export default function EntityDetailPage() {
   const [payloadJsonText, setPayloadJsonText] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const {
     lockedByOther,
     isMyLock,
@@ -72,13 +74,18 @@ export default function EntityDetailPage() {
 
   const handleDeleteEntity = () => {
     if (!isMyLock || !entity) return;
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteEntity = () => {
+    if (!entity) return;
     const entityTypeId = entity.entityTypeId;
-    if (!confirm('Sei sicuro di voler eliminare questa entità?')) return;
+    setShowDeleteConfirm(false);
     setErrorMsg(null);
 
     startTransition(async () => {
       try {
-        await AppCache.deleteEntity(entityId, entityTypeId);
+        await AppCache.deleteEntity(entityId, entityTypeId, entity.rowVersion);
         
         // Invalidate Node Entity Collection Semantic View
         const listKey = ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId });
@@ -108,7 +115,16 @@ export default function EntityDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="workspace-page max-w-2xl mx-auto space-y-6">
+      <ConfirmModal
+        open={showDeleteConfirm}
+        title="Elimina entità"
+        message="Sei sicuro di voler eliminare questa entità?"
+        confirmLabel="Elimina"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={confirmDeleteEntity}
+        busy={isPending}
+      />
       {/* Breadcrumb */}
       <Link
         href={`/nodes/${parentNodeId}`}

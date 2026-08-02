@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Suspense } from 'react';
 import { loginAction } from '../actions/authActions';
 import { AppCache } from '../cache/GlobalCacheClient';
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { update: refreshSession } = useSession();
 
   // Cintura di Sicurezza Difensiva: Se l'utente arriva sulla pagina di login,
   // garantiamo che non ci siano dati in memoria di un'altra sessione.
@@ -45,7 +47,12 @@ export default function LoginPage() {
 
       const res = await loginAction(email, password);
       if (res.success) {
-        router.push('/');
+        // La Server Action aggiorna il cookie, ma il SessionProvider client
+        // conserva lo snapshot precedente finché non viene sincronizzato.
+        AppCache.purgeAll();
+        await refreshSession();
+        router.replace('/');
+        router.refresh();
       } else {
         setError(res.error || 'Errore durante il login');
         setIsLoading(false);

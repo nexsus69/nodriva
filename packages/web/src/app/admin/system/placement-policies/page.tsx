@@ -9,12 +9,8 @@ import {
   UpdatePlacementPolicyUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  listPlacementPoliciesAction,
-  createPlacementPolicyAction,
-  updatePlacementPolicyAction,
-  deletePlacementPolicyAction,
-} from '../../../actions/systemActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
+import { ConfirmModal } from '../../../components/ui/ConfirmModal';
 
 export default function PlacementPoliciesPage() {
   const [policies, setPolicies] = useState<PlacementPolicyListItemDto[]>([]);
@@ -23,6 +19,7 @@ export default function PlacementPoliciesPage() {
 
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [editingPolicy, setEditingPolicy] = useState<PlacementPolicyListItemDto | null>(null);
+  const [policyToDelete, setPolicyToDelete] = useState<PlacementPolicyListItemDto | null>(null);
 
   const [policyKey, setPolicyKey] = useState<string>('');
   const [name, setName] = useState<string>('');
@@ -35,7 +32,7 @@ export default function PlacementPoliciesPage() {
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    const res = await listPlacementPoliciesAction();
+    const res = await AppCache.admin.listPlacementPolicies();
     if (res.success && res.data) setPolicies(res.data);
     else if (res.error) setError(res.error);
     setLoading(false);
@@ -79,7 +76,7 @@ export default function PlacementPoliciesPage() {
           policyMode,
           expectedRowVersion: editingPolicy.rowVersion,
         };
-        const res = await updatePlacementPolicyAction(cmd);
+        const res = await AppCache.admin.updatePlacementPolicy(cmd);
         if (res.success) {
           setShowCreateModal(false);
           await loadData();
@@ -93,7 +90,7 @@ export default function PlacementPoliciesPage() {
           description,
           policyMode,
         };
-        const res = await createPlacementPolicyAction(cmd);
+        const res = await AppCache.admin.createPlacementPolicy(cmd);
         if (res.success) {
           setShowCreateModal(false);
           await loadData();
@@ -105,11 +102,17 @@ export default function PlacementPoliciesPage() {
   };
 
   const handleDeletePolicy = (p: PlacementPolicyListItemDto) => {
-    if (!confirm(`Sei sicuro di voler eliminare la Placement Policy '${p.name}'?`)) return;
+    setPolicyToDelete(p);
+  };
+
+  const confirmDeletePolicy = () => {
+    if (!policyToDelete) return;
+    const p = policyToDelete;
+    setPolicyToDelete(null);
     setError(null);
 
     startTransition(async () => {
-      const res = await deletePlacementPolicyAction({
+      const res = await AppCache.admin.deletePlacementPolicy({
         policyKey: p.policyKey,
         expectedRowVersion: 1,
       });
@@ -123,6 +126,15 @@ export default function PlacementPoliciesPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmModal
+        open={policyToDelete !== null}
+        title="Elimina placement policy"
+        message={policyToDelete ? `Sei sicuro di voler eliminare la Placement Policy '${policyToDelete.name}'?` : ''}
+        confirmLabel="Elimina"
+        onCancel={() => setPolicyToDelete(null)}
+        onConfirm={confirmDeletePolicy}
+        busy={isPending}
+      />
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>

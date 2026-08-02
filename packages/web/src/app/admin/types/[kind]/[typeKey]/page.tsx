@@ -7,6 +7,7 @@ import {
   TypeKind,
   TypeDetailDto,
   FieldDto,
+  TypeListItemDto,
   FieldDataType,
   UpdateTypeUiCommand,
   DisableTypeUiCommand,
@@ -16,15 +17,8 @@ import {
   ReorderFieldsUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
-import {
-  getTypeDetailAction,
-  updateTypeAction,
-  disableTypeAction,
-  createFieldAction,
-  updateFieldAction,
-  deleteFieldAction,
-  reorderFieldsAction,
-} from '../../../../actions/typeActions';
+import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 
 export default function AdminTypeDetailPage() {
   const params = useParams();
@@ -47,22 +41,29 @@ export default function AdminTypeDetailPage() {
   const [showAddFieldModal, setShowAddFieldModal] = useState(false);
   const [editingField, setEditingField] = useState<FieldDto | null>(null);
   const [fieldFormError, setFieldFormError] = useState<ApiErrorResponse | null>(null);
+  const [showDisableConfirm, setShowDisableConfirm] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<{ id: string; label: string } | null>(null);
 
   // Form Campo (Aggiunta / Edizione)
   const [fieldKey, setFieldKey] = useState('');
   const [label, setLabel] = useState('');
   const [columnName, setColumnName] = useState('');
   const [dataType, setDataType] = useState<FieldDataType>('string');
+  const [enumMode, setEnumMode] = useState<'static' | 'managed'>('static');
   const [isRequired, setIsRequired] = useState(false);
   const [isUnique, setIsUnique] = useState(false);
   const [isIndexed, setIsIndexed] = useState(false);
   const [defaultValueText, setDefaultValueText] = useState('');
+  const [relationTargetDomain, setRelationTargetDomain] = useState<'node' | 'entity'>('entity');
+  const [relationTargetTypeKey, setRelationTargetTypeKey] = useState('');
+  const [relationTargetTypes, setRelationTargetTypes] = useState<TypeListItemDto[]>([]);
+  const [relationTargetTypesLoading, setRelationTargetTypesLoading] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     setConflictError(null);
-    const res = await getTypeDetailAction(kind, typeKey);
+    const res = await AppCache.admin.getTypeDetail(kind, typeKey);
     if (res.success && res.data) {
       setTypeDetail(res.data);
       setTypeName(res.data.name);
@@ -76,7 +77,7 @@ export default function AdminTypeDetailPage() {
   useEffect(() => {
     if (!kind || !typeKey) return;
     const timer = window.setTimeout(() => {
-      getTypeDetailAction(kind, typeKey).then((res) => {
+      AppCache.admin.getTypeDetail(kind, typeKey).then((res) => {
         if (res.success && res.data) {
           setTypeDetail(res.data);
           setTypeName(res.data.name);
@@ -89,6 +90,27 @@ export default function AdminTypeDetailPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [kind, typeKey]);
+
+  useEffect(() => {
+    if (dataType !== 'relation' || editingField) return;
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setRelationTargetTypesLoading(true);
+      const res = await AppCache.admin.listTypes(relationTargetDomain);
+      if (!active) return;
+      if (res.success && res.data) {
+        setRelationTargetTypes(res.data.filter((item) => item.isActive));
+      } else if (res.error) {
+        setRelationTargetTypes([]);
+        setFieldFormError(res.error);
+      }
+      setRelationTargetTypesLoading(false);
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [dataType, editingField, relationTargetDomain]);
 
   const handleUpdateType = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +126,7 @@ export default function AdminTypeDetailPage() {
     };
 
     startTransition(async () => {
-      const res = await updateTypeAction(kind, typeKey, cmd);
+      const res = await AppCache.admin.updateType(kind, typeKey, cmd);
       if (res.success && res.data) {
         setTypeDetail(res.data);
         setTypeName(res.data.name);
@@ -122,7 +144,12 @@ export default function AdminTypeDetailPage() {
 
   const handleDisableType = () => {
     if (!typeDetail) return;
-    if (!confirm(`Sei sicuro di voler disabilitare il tipo '${typeDetail.name}'?`)) return;
+    setShowDisableConfirm(true);
+  };
+
+  const confirmDisableType = () => {
+    if (!typeDetail) return;
+    setShowDisableConfirm(false);
 
     setError(null);
     setConflictError(null);
@@ -132,7 +159,7 @@ export default function AdminTypeDetailPage() {
     };
 
     startTransition(async () => {
-      const res = await disableTypeAction(kind, typeKey, cmd);
+      const res = await AppCache.admin.disableType(kind, typeKey, cmd);
       if (res.success && res.data) {
         setTypeDetail(res.data);
         setSuccessMsg('Tipo disabilitato con successo.');
@@ -152,10 +179,14 @@ export default function AdminTypeDetailPage() {
     setLabel('');
     setColumnName('');
     setDataType('string');
+    setEnumMode('static');
     setIsRequired(false);
     setIsUnique(false);
     setIsIndexed(false);
     setDefaultValueText('');
+    setRelationTargetDomain('entity');
+    setRelationTargetTypeKey('');
+    setRelationTargetTypes([]);
     setFieldFormError(null);
     setShowAddFieldModal(true);
   };
@@ -166,10 +197,13 @@ export default function AdminTypeDetailPage() {
     setLabel(f.label);
     setColumnName(f.columnName);
     setDataType(f.dataType);
+    setEnumMode(f.enumMode ?? 'static');
     setIsRequired(f.isRequired);
     setIsUnique(f.isUnique);
     setIsIndexed(f.isIndexed);
     setDefaultValueText(f.defaultValueText ?? '');
+    setRelationTargetDomain(f.relationTargetDomain ?? 'entity');
+    setRelationTargetTypeKey(f.relationTargetTypeKey ?? '');
     setFieldFormError(null);
     setShowAddFieldModal(true);
   };
@@ -177,6 +211,19 @@ export default function AdminTypeDetailPage() {
   const handleSaveField = (e: React.FormEvent) => {
     e.preventDefault();
     if (!typeDetail) return;
+
+    if (!editingField && dataType === 'relation') {
+      const targetKey = relationTargetTypeKey.trim();
+      if (!targetKey || !/^[a-z][a-z0-9_-]*$/.test(targetKey)) {
+        setFieldFormError({
+          code: 'VALIDATION_ERROR',
+          message: 'Il type key target deve iniziare con una lettera minuscola e contenere solo lettere minuscole, numeri, underscore o trattini.',
+          target: 'relationTargetTypeKey',
+        });
+        return;
+      }
+    }
+
     setFieldFormError(null);
     setConflictError(null);
 
@@ -192,7 +239,7 @@ export default function AdminTypeDetailPage() {
           defaultValueText: defaultValueText.trim() || null,
           expectedTypeRowVersion: typeDetail.rowVersion,
         };
-        const res = await updateFieldAction(kind, typeKey, cmd);
+        const res = await AppCache.admin.updateField(kind, typeKey, cmd);
         if (res.success && res.data) {
           setTypeDetail(res.data);
           setShowAddFieldModal(false);
@@ -212,14 +259,17 @@ export default function AdminTypeDetailPage() {
           label: label.trim(),
           columnName: columnName.trim(),
           dataType,
+          enumMode: dataType === 'enum' ? enumMode : undefined,
           isRequired,
           isUnique,
           isIndexed,
           defaultValueText: defaultValueText.trim() || null,
+          relationTargetDomain: dataType === 'relation' ? relationTargetDomain : undefined,
+          relationTargetTypeKey: dataType === 'relation' ? relationTargetTypeKey.trim() : undefined,
           position: typeDetail.fields.length,
           expectedTypeRowVersion: typeDetail.rowVersion,
         };
-        const res = await createFieldAction(kind, typeKey, cmd);
+        const res = await AppCache.admin.createField(kind, typeKey, cmd);
         if (res.success && res.data) {
           setTypeDetail(res.data);
           setShowAddFieldModal(false);
@@ -238,18 +288,23 @@ export default function AdminTypeDetailPage() {
 
   const handleDeleteField = (fieldId: string, fieldLabel: string) => {
     if (!typeDetail) return;
-    if (!confirm(`Rimuovere il campo '${fieldLabel}'?`)) return;
+    setFieldToDelete({ id: fieldId, label: fieldLabel });
+  };
+
+  const confirmDeleteField = () => {
+    if (!typeDetail || !fieldToDelete) return;
+    setFieldToDelete(null);
 
     setError(null);
     setConflictError(null);
 
     const cmd: DeleteFieldUiCommand = {
-      fieldId,
+      fieldId: fieldToDelete.id,
       expectedTypeRowVersion: typeDetail.rowVersion,
     };
 
     startTransition(async () => {
-      const res = await deleteFieldAction(kind, typeKey, cmd);
+      const res = await AppCache.admin.deleteField(kind, typeKey, cmd);
       if (res.success && res.data) {
         setTypeDetail(res.data);
         setSuccessMsg('Campo rimosso.');
@@ -283,7 +338,7 @@ export default function AdminTypeDetailPage() {
     };
 
     startTransition(async () => {
-      const res = await reorderFieldsAction(kind, typeKey, cmd);
+      const res = await AppCache.admin.reorderFields(kind, typeKey, cmd);
       if (res.success && res.data) {
         setTypeDetail(res.data);
         setSuccessMsg('Ordine dei campi aggiornato.');
@@ -324,6 +379,24 @@ export default function AdminTypeDetailPage() {
 
   return (
     <div className="min-h-screen p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+      <ConfirmModal
+        open={showDisableConfirm}
+        title="Disabilita tipo"
+        message={`Sei sicuro di voler disabilitare il tipo '${typeDetail.name}'?`}
+        confirmLabel="Disabilita"
+        onCancel={() => setShowDisableConfirm(false)}
+        onConfirm={confirmDisableType}
+        busy={isPending}
+      />
+      <ConfirmModal
+        open={fieldToDelete !== null}
+        title="Rimuovi campo"
+        message={fieldToDelete ? `Rimuovere il campo '${fieldToDelete.label}'?` : ''}
+        confirmLabel="Rimuovi"
+        onCancel={() => setFieldToDelete(null)}
+        onConfirm={confirmDeleteField}
+        busy={isPending}
+      />
       {/* Navigation & Title */}
       <div className="space-y-2">
         <Link
@@ -449,6 +522,7 @@ export default function AdminTypeDetailPage() {
                 </button>
               </div>
             )}
+
           </form>
         </div>
 
@@ -644,7 +718,16 @@ export default function AdminTypeDetailPage() {
 
             {fieldFormError && (
               <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-lg text-red-300 text-xs">
-                ⚠️ {fieldFormError.message}
+                <div>⚠️ {fieldFormError.message}</div>
+                {fieldFormError.details && fieldFormError.details.length > 0 && (
+                  <ul className="mt-1 list-disc list-inside text-red-200/90">
+                    {fieldFormError.details.map((detail, index) => (
+                      <li key={`${detail.field ?? 'field'}-${index}`}>
+                        {detail.field ? `${detail.field}: ` : ''}{detail.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -659,6 +742,8 @@ export default function AdminTypeDetailPage() {
                       type="text"
                       required
                       placeholder="es. serial_number"
+                      pattern="[a-z][a-z0-9_]*"
+                      title="Usa solo snake_case minuscolo, ad esempio customer_id"
                       value={fieldKey}
                       onChange={(e) => setFieldKey(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
@@ -673,6 +758,8 @@ export default function AdminTypeDetailPage() {
                       type="text"
                       required
                       placeholder="es. serial_number"
+                      pattern="[a-z][a-z0-9_]*"
+                      title="Usa solo snake_case minuscolo, ad esempio customer_id"
                       value={columnName}
                       onChange={(e) => setColumnName(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
@@ -688,15 +775,63 @@ export default function AdminTypeDetailPage() {
                       onChange={(e) => setDataType(e.target.value as FieldDataType)}
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
                     >
-                      <option value="string">String (Text)</option>
+                      <option value="string">String</option>
+                      <option value="text">Text (lungo)</option>
                       <option value="integer">Integer</option>
-                      <option value="number">Number (Decimal)</option>
+                      <option value="number">Number</option>
+                      <option value="decimal">Decimal</option>
                       <option value="boolean">Boolean</option>
-                      <option value="date">Date / Timestamp</option>
+                      <option value="date">Date</option>
+                      <option value="datetime">Date e ora</option>
                       <option value="uuid">UUID</option>
+                      <option value="json">JSON</option>
+                      <option value="enum">Enum</option>
+                      <option value="relation">Relazione (UUID)</option>
+                      <option value="array">Array (JSON)</option>
                     </select>
                   </div>
+                  {dataType === 'enum' && (
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Gestione opzioni</label>
+                      <select value={enumMode} onChange={(e) => setEnumMode(e.target.value as 'static' | 'managed')}
+                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                        <option value="static">Statica — solo configurazione amministrativa</option>
+                        <option value="managed">Gestita — aggiungibile dal frontend autorizzato</option>
+                      </select>
+                    </div>
+                  )}
                 </>
+              )}
+
+              {dataType === 'relation' && !editingField && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Dominio target *</label>
+                    <select value={relationTargetDomain} onChange={(e) => {
+                      setRelationTargetDomain(e.target.value as 'node' | 'entity');
+                      setRelationTargetTypeKey('');
+                    }}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                      <option value="entity">Entità</option>
+                      <option value="node">Nodo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Type key target *</label>
+                    <select required value={relationTargetTypeKey} disabled={relationTargetTypesLoading}
+                      onChange={(e) => setRelationTargetTypeKey(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
+                      <option value="">
+                        {relationTargetTypesLoading ? 'Caricamento tipi...' : 'Seleziona un tipo'}
+                      </option>
+                      {relationTargetTypes.map((target) => (
+                        <option key={target.id} value={target.typeKey}>
+                          {target.name} ({target.typeKey})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               )}
 
               <div>

@@ -8,7 +8,7 @@ import {
   PaginatedResultDto,
   ApiErrorResponse,
 } from '@dashboard/core';
-import { listAuditLogsAction } from '../../actions/auditActions';
+import { AppCache } from '../../cache/GlobalCacheClient';
 
 export default function AuditLogsPage() {
   const [data, setData] = useState<PaginatedResultDto<AuditLogListItemDto> | null>(null);
@@ -40,7 +40,7 @@ export default function AuditLogsPage() {
     };
 
     startTransition(async () => {
-      const res = await listAuditLogsAction(filters);
+      const res = await AppCache.admin.listAuditLogs(filters);
       if (res.success && res.data) {
         setData(res.data);
       } else if (res.error) {
@@ -52,7 +52,7 @@ export default function AuditLogsPage() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      listAuditLogsAction({ page: 1, pageSize: 20 }).then((res) => {
+      AppCache.admin.listAuditLogs({ page: 1, pageSize: 20 }).then((res) => {
         if (res.success && res.data) setData(res.data);
         else if (res.error) setError(res.error);
         setLoading(false);
@@ -76,7 +76,7 @@ export default function AuditLogsPage() {
     setLoading(true);
     setError(null);
     startTransition(async () => {
-      const res = await listAuditLogsAction({ page: 1, pageSize: 20 });
+      const res = await AppCache.admin.listAuditLogs({ page: 1, pageSize: 20 });
       if (res.success && res.data) {
         setData(res.data);
       } else if (res.error) {
