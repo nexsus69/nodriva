@@ -45,11 +45,11 @@ export function NodeTree({
   return (
     <nav
       aria-label="Navigazione albero nodi"
-      className={`glass-panel overflow-hidden rounded-2xl border border-slate-800 ${className}`}
+      className={`glass-panel overflow-hidden rounded-2xl border border-slate-200 shadow-sm ${className}`}
     >
-      <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-200">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
             Albero dei nodi
           </h2>
           <p className="mt-0.5 text-[10px] text-slate-500">
@@ -58,7 +58,7 @@ export function NodeTree({
         </div>
         <Link
           href="/"
-          className="rounded-lg px-2 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-500/10 hover:text-indigo-200"
+          className="rounded-lg px-2 py-1 text-[11px] font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
         >
           Radice
         </Link>
@@ -134,8 +134,8 @@ function NodeTreeItem({
       <div
         className={`group flex min-h-8 items-center rounded-lg transition-colors ${
           isActive
-            ? 'bg-indigo-500/15 text-indigo-200 ring-1 ring-inset ring-indigo-500/30'
-            : 'text-slate-300 hover:bg-slate-800/70 hover:text-slate-100'
+            ? 'bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-200'
+            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
         }`}
         style={{ paddingLeft: `${Math.max(currentNode.depth, 0) * 14 + 4}px` }}
       >
@@ -149,7 +149,7 @@ function NodeTreeItem({
               ? `${currentNode.name}, antenato del nodo corrente`
               : `${isExpanded ? 'Comprimi' : 'Espandi'} ${currentNode.name}`
           }
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-700/70 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-default disabled:hover:bg-transparent"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 disabled:cursor-default disabled:hover:bg-transparent"
         >
           <span
             aria-hidden="true"

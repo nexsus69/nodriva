@@ -24,11 +24,11 @@ export function VirtualTableHead<T>({
     <div
       role="rowgroup"
       style={{ overflowAnchor: 'none' }}
-      className="sticky top-0 z-20 bg-slate-900/90 backdrop-blur border-b border-slate-800 text-xs uppercase font-semibold text-slate-400"
+      className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 text-xs font-semibold uppercase tracking-wide text-slate-400 backdrop-blur"
     >
       <div
         role="row"
-        className="grid items-center px-4 py-3 gap-4"
+        className="grid items-center gap-4 px-5 py-3.5"
         style={{ gridTemplateColumns }}
       >
         {hasSelection && (
@@ -37,10 +37,13 @@ export function VirtualTableHead<T>({
               type="checkbox"
               checked={isAllSelected}
               onChange={onToggleSelectAll}
-              className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+              className="cursor-pointer rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500"
             />
           </div>
         )}
+        <div role="columnheader" aria-label="Stato lock" className="flex items-center justify-center">
+          <span aria-hidden="true">🔒</span>
+        </div>
         {columns.map((col) => (
           <div role="columnheader" key={col.key} className="truncate">
             {col.header}

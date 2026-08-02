@@ -16,7 +16,12 @@ vi.mock('../app/actions/nodeActions', () => ({
 }));
 import { GlobalViewStore, flattenViewPages } from '../app/cache/ViewStore';
 import { IngestionLayer, SatisfiabilityEvaluator, ViewResolver } from '../app/cache/CacheService';
-import { listSubtreeEntitiesAction } from '../app/actions/entityActions';
+import {
+  createEntityAction,
+  deleteEntityAction,
+  listSubtreeEntitiesAction,
+  updateEntityAction,
+} from '../app/actions/entityActions';
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { CacheGarbageCollector } from '../app/cache/CacheGarbageCollector';
 import { AppCache } from '../app/cache/GlobalCacheClient';
@@ -47,6 +52,68 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(GlobalViewStore.get(viewKey)).toBeNull();
     expect(GlobalPolicyRegistry.shouldEvict('view', viewKey)).toBe(true);
     expect(AppCache.getEntityCache('device').get('e1')).toBeNull();
+  });
+
+  it('invalidates entity read models for structural mutations but preserves update views', async () => {
+    const viewKeys = [
+      'SUBTREE_LIST|baseNodeId:test-node-1',
+      'NODE_ENTITY_COLLECTION|baseNodeId:test-node-1',
+      'ENTITY_DETAIL|entityId:e1',
+      'NODE_CHILDREN_LIST|baseNodeId:test-node-1',
+    ];
+    for (const key of viewKeys) {
+      GlobalViewStore.set(key, {
+        viewKey: key,
+        pages: [],
+        status: 'success',
+        error: null,
+        satisfactionStatus: 'satisfied',
+        updatedAt: Date.now(),
+      });
+    }
+
+    const entity = {
+      id: 'e1',
+      entityTypeId: 'device',
+      parentNodeId: 'test-node-1',
+      name: 'Device',
+      description: '',
+      rowVersion: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      payload: {},
+    };
+    vi.mocked(createEntityAction).mockResolvedValue(entity);
+    vi.mocked(updateEntityAction).mockResolvedValue({ ...entity, name: 'Updated', rowVersion: 2 });
+    vi.mocked(deleteEntityAction).mockResolvedValue(undefined);
+
+    await AppCache.createEntity({ parentNodeId: entity.parentNodeId, entityTypeId: entity.entityTypeId, name: entity.name });
+    expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
+    expect(GlobalViewStore.get('NODE_ENTITY_COLLECTION|baseNodeId:test-node-1')).toBeNull();
+    expect(GlobalViewStore.get('ENTITY_DETAIL|entityId:e1')).toBeNull();
+    expect(GlobalViewStore.get('NODE_CHILDREN_LIST|baseNodeId:test-node-1')).not.toBeNull();
+
+    GlobalViewStore.set('ENTITY_DETAIL|entityId:e1', {
+      viewKey: 'ENTITY_DETAIL|entityId:e1',
+      pages: [],
+      status: 'success',
+      error: null,
+      satisfactionStatus: 'satisfied',
+      updatedAt: Date.now(),
+    });
+    await AppCache.updateEntity({ entityId: entity.id, name: 'Updated', expectedRowVersion: 1 });
+    expect(GlobalViewStore.get('ENTITY_DETAIL|entityId:e1')).not.toBeNull();
+
+    GlobalViewStore.set('SUBTREE_LIST|baseNodeId:test-node-1', {
+      viewKey: 'SUBTREE_LIST|baseNodeId:test-node-1',
+      pages: [],
+      status: 'success',
+      error: null,
+      satisfactionStatus: 'satisfied',
+      updatedAt: Date.now(),
+    });
+    await AppCache.deleteEntity(entity.id, entity.entityTypeId);
+    expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
   });
 
   it('builds identical keys for semantically identical nested filters', async () => {

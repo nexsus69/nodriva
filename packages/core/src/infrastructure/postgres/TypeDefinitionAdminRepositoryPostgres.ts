@@ -84,6 +84,61 @@ interface ConstraintRow {
   created_at: Date;
 }
 
+interface TypeListRow {
+  id: string;
+  typeKey: string;
+  name: string;
+  description: string | null;
+  storageTable: string | null;
+  currentSchemaVersion: number;
+  isActive: boolean;
+  isSystem: boolean;
+  rowVersion: number;
+  updatedAt: Date;
+  fieldCount: number;
+}
+
+interface TypeDetailRow {
+  id: string;
+  typeKey: string;
+  name: string;
+  description: string | null;
+  storageTable: string | null;
+  placementPolicyId: string | null;
+  currentSchemaVersion: number;
+  isActive: boolean;
+  isSystem: boolean;
+  rowVersion: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface FieldDetailRow {
+  id: string;
+  fieldKey: string;
+  label: string;
+  columnName: string;
+  dataType: string;
+  isRequired: boolean;
+  isUnique: boolean;
+  isIndexed: boolean;
+  defaultValueText: string | null;
+  position: number;
+  isSystem: boolean;
+  updatedAt: Date;
+}
+
+interface ConstraintDetailRow {
+  id: string;
+  fieldId: string;
+  constraintType: string;
+  constraintValueText: string;
+}
+
+interface CountRow {
+  count: number;
+}
+
 // ─── Adapter ─────────────────────────────────────────────────────
 
 export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdminRepository {
@@ -133,8 +188,8 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       WHERE t.deleted_at IS NULL
       ORDER BY t.name ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<TypeListRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       kind: domain,
       typeKey: r.typeKey,
@@ -164,11 +219,12 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       FROM ${cfg.typesTable}
       WHERE type_key = $1 AND deleted_at IS NULL
     `;
-    const typeRes = await this.executor.query<any>(typeQuery, [typeKey]);
+    const typeRes = await this.executor.query<TypeDetailRow>(typeQuery, [typeKey]);
     if (typeRes.rows.length === 0) {
       return null;
     }
     const t = typeRes.rows[0];
+    if (!t) return null;
 
     // 2. Campi del tipo
     const fieldsQuery = `
@@ -182,10 +238,10 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       WHERE ${cfg.fieldForeignKey} = $1
       ORDER BY position ASC
     `;
-    const fieldsRes = await this.executor.query<any>(fieldsQuery, [t.id]);
+    const fieldsRes = await this.executor.query<FieldDetailRow>(fieldsQuery, [t.id]);
 
     // 3. Vincoli
-    const fieldIds = fieldsRes.rows.map((f: any) => f.id);
+    const fieldIds = fieldsRes.rows.map((f) => f.id);
     let constraintsByField: Record<string, FieldConstraintDto[]> = {};
     if (fieldIds.length > 0) {
       const constrQuery = `
@@ -193,7 +249,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
         FROM ${cfg.constraintsTable}
         WHERE field_id = ANY($1::uuid[])
       `;
-      const constrRes = await this.executor.query<any>(constrQuery, [fieldIds]);
+      const constrRes = await this.executor.query<ConstraintDetailRow>(constrQuery, [fieldIds]);
       for (const c of constrRes.rows) {
         if (!constraintsByField[c.fieldId]) {
           constraintsByField[c.fieldId] = [];
@@ -212,10 +268,10 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       FROM ${cfg.instancesTable}
       WHERE ${cfg.instanceTypeForeignKey} = $1 AND deleted_at IS NULL
     `;
-    const countRes = await this.executor.query<any>(countQuery, [t.id]);
+    const countRes = await this.executor.query<CountRow>(countQuery, [t.id]);
     const instanceCount = Number(countRes.rows[0]?.count ?? 0);
 
-    const fields: FieldDto[] = fieldsRes.rows.map((f: any) => ({
+    const fields: FieldDto[] = fieldsRes.rows.map((f) => ({
       id: f.id,
       fieldKey: f.fieldKey,
       label: f.label,

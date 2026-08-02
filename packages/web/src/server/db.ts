@@ -63,6 +63,7 @@ export const pusherEventBus = new PusherEventBus({
   useTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
   host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
   port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
+  enabled: process.env.REALTIME_ENABLED !== 'false',
 });
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
 export const accessControlPort = new AccessControlPortPostgres(pgExecutor);

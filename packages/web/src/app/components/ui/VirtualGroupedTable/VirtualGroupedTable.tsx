@@ -30,7 +30,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
   selectedIds,
   onSelectionChange,
   emptyStateMessage = 'Nessun elemento presente.',
-  showDebugOverlay = true,
+  showDebugOverlay = process.env.NODE_ENV !== 'production',
   captureAnchorRef,
   debugInfo,
   onDebugRefresh,
@@ -39,7 +39,6 @@ export function VirtualGroupedTable<T extends GroupableItem>({
   const containerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const bottomSentinelRef = useRef<HTMLDivElement>(null);
-
   // 1. Hook puro per il raggruppamento per nodeId (Layer 3 Sub-Module)
   const groupedItems = useSubtreeGrouping(items);
 
@@ -84,6 +83,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
     if (onSelectionChange) {
       parts.push('32px');
     }
+    parts.push('32px');
     parts.push(...colWidths);
     if (renderRowActions) {
       parts.push('120px');
@@ -131,7 +131,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
       ref={containerRef}
       role="table"
       aria-label="Tabella Virtualizzata Entità"
-      className="relative flex flex-col w-full h-full bg-slate-900 border border-slate-800 rounded-lg overflow-auto shadow-xl"
+      className="relative flex h-full w-full flex-col overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm"
       style={{ overflowAnchor: 'none' }}
     >
       {/* Finestra di Debug Sentinelle Overlay */}
@@ -174,7 +174,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
       {/* Banner Error Rendering */}
       {isError && (
         <div
-          className="flex items-center justify-between px-4 py-3 bg-red-950/80 border-b border-red-800/80 text-red-200 text-xs shrink-0"
+          className="flex shrink-0 items-center justify-between border-b border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
           style={{ overflowAnchor: 'none' }}
         >
           <div className="flex items-center gap-2">
@@ -184,7 +184,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
           {onRetry && (
             <button
               onClick={onRetry}
-              className="px-2.5 py-1 bg-red-800 hover:bg-red-700 text-white font-medium rounded transition-colors shadow-sm"
+              className="rounded-lg bg-rose-600 px-2.5 py-1 font-medium text-white shadow-sm transition-colors hover:bg-rose-500"
             >
               Riprova
             </button>
@@ -194,14 +194,14 @@ export function VirtualGroupedTable<T extends GroupableItem>({
 
       {/* Main Body */}
       {isLoading && items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-          <span className="animate-spin text-2xl">⏳</span>
-          <span className="text-sm font-medium">Caricamento tabella in corso...</span>
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+          <span className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
+          <span className="text-sm font-medium">Caricamento dati in corso…</span>
         </div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-2">
-          <span className="text-2xl">📭</span>
-          <span className="text-sm font-medium">{emptyStateMessage}</span>
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-xl">⌁</span>
+          <span className="text-sm font-medium text-slate-600">{emptyStateMessage}</span>
         </div>
       ) : (
         <div role="rowgroup" className="flex flex-col w-full">

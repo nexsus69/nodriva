@@ -17,6 +17,8 @@ export interface SubtreeEntityItem {
   createdAt: string;
   updatedAt: string;
   payload: Record<string, unknown>;
+  lockUserId?: string;
+  lockExpiresAt?: string;
   nodeName: string;
   nodePath: string;
   nodeDepth: number;
@@ -30,7 +32,6 @@ export interface SubtreeCursor {
 
 export interface UseVirtualSubtreeDataOptions {
   baseNodeId: string;
-  pageSize?: number;
   maxWindowItems?: number; // non più usato direttamente, gestito dal CacheService (maxWindowChunks)
   search?: string;
   entityTypeId?: string;
@@ -54,6 +55,7 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
     search: options.search,
     entityTypeId: options.entityTypeId
   }, false, 'windowed');
+
 
   const cacheRevision = useAppCacheRevision();
 
@@ -82,7 +84,13 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
               rowVersion: entity.rowVersion,
               createdAt: entity.createdAt ?? '',
               updatedAt: entity.updatedAt ?? '',
-              payload: entity.payload
+              payload: entity.payload,
+              ...(() => {
+                const lock = AppCache.getLockState('entity', entity.id);
+                return lock.locked
+                  ? { lockUserId: lock.byUserId, lockExpiresAt: lock.expiresAt }
+                  : {};
+              })()
             });
           }
         }

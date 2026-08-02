@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useCallback, useState, RefObject } from 'react';
+import { useLayoutEffect, useRef, useCallback, useMemo, useState, RefObject } from 'react';
 
 export interface UseScrollAnchoringOptions<T> {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -23,10 +23,19 @@ export function useScrollAnchoring<T extends { id: string }>({
   items,
   hasMoreBackward,
 }: UseScrollAnchoringOptions<T>) {
-  const anchorRef = useRef<{ id: string; absYBefore: number } | null>(null);
+  const anchorRef = useRef<{
+    id: string;
+    viewportYBefore: number;
+  } | null>(null);
   const directionRef = useRef<'forward' | 'backward' | null>(null);
 
   const [lastCompensation, setLastCompensation] = useState<CompensationInfo | null>(null);
+  // L'ancoraggio riguarda la struttura della lista, non gli aggiornamenti dei
+  // dati normalizzati che ricreano l'array senza cambiare le righe presenti.
+  const itemStructureKey = useMemo(
+    () => items.map((item) => item.id).join('\u0000'),
+    [items]
+  );
 
   // ─── Cattura dell'Ancora all'Istante T_1 (Prima del render) ────────────────
   const captureAnchor = useCallback((direction: 'forward' | 'backward') => {
@@ -35,7 +44,6 @@ export function useScrollAnchoring<T extends { id: string }>({
 
     directionRef.current = direction;
 
-    const containerRect = container.getBoundingClientRect();
     const rowElements = container.querySelectorAll<HTMLElement>('[data-row-id]');
     if (rowElements.length === 0) return;
 
@@ -55,11 +63,14 @@ export function useScrollAnchoring<T extends { id: string }>({
       const id = targetRow.getAttribute('data-row-id');
       const targetRowRect = targetRow.getBoundingClientRect();
       
-      // Coordinata Y assoluta all'interno dello spazio di scorrimento (scrollTop incluso)
-      const absYBefore = targetRowRect.top - containerRect.top + container.scrollTop;
-
       if (id) {
-        anchorRef.current = { id, absYBefore };
+        // Salviamo la posizione visibile nel viewport. Non usiamo scrollTop:
+        // il browser/layout può averlo già corretto tra due commit e rendere
+        // nullo un delta assoluto pur avendo spostato visivamente la riga.
+        anchorRef.current = {
+          id,
+          viewportYBefore: targetRowRect.top,
+        };
       }
     }
   }, [containerRef]);
@@ -68,8 +79,6 @@ export function useScrollAnchoring<T extends { id: string }>({
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-
-    const containerRect = container.getBoundingClientRect();
 
     if (anchorRef.current && directionRef.current) {
       const direction = directionRef.current;
@@ -83,11 +92,10 @@ export function useScrollAnchoring<T extends { id: string }>({
         if (prevAnchorEl) {
           const targetRowRect = prevAnchorEl.getBoundingClientRect();
           
-          // Nuova coordinata Y assoluta
-          const absYAfter = targetRowRect.top - containerRect.top + container.scrollTop;
-          
-          // Differenza geometrica assoluta (include la rimozione o l'aggiunta in cima)
-          const delta = Math.round(absYAfter - anchorRef.current.absYBefore);
+          // Confrontiamo direttamente la posizione della riga nel viewport.
+          // Se la rimozione della pagina iniziale l'ha spostata verso l'alto,
+          // scrollTop += delta la riporta alla posizione precedente.
+          const delta = Math.round(targetRowRect.top - anchorRef.current.viewportYBefore);
 
           if (delta !== 0) {
             container.scrollTop += delta;
@@ -104,7 +112,7 @@ export function useScrollAnchoring<T extends { id: string }>({
       anchorRef.current = null;
       directionRef.current = null;
     }
-  }, [containerRef, items, hasMoreBackward]);
+  }, [containerRef, itemStructureKey, hasMoreBackward]);
 
   const resetCompensationInfo = useCallback(() => {
     setLastCompensation(null);

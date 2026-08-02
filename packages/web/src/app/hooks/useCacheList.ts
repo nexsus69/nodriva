@@ -3,11 +3,9 @@ import { AppCache } from '../cache/GlobalCacheClient';
 
 export function useCacheList(listId: string | null) {
   const [items, setItems] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!listId) {
-      setItems([]);
       return;
     }
 
@@ -19,14 +17,8 @@ export function useCacheList(listId: string | null) {
       }
     });
 
-    const currentList = AppCache.lists.get(listId);
-    if (currentList && currentList.items) {
-      setItems(currentList.items);
-    } else {
-      setIsLoading(true);
-      // Logic for triggering list fetch should be handled externally by an orchestrator or specific action
-      // since list fetching (pagination, cursors) is highly specific.
-    }
+    // List fetching is orchestrated by the semantic view layer. The hook only
+    // retains the cache entry and subscribes to updates.
 
     return () => {
       unsubscribe();
@@ -34,5 +26,8 @@ export function useCacheList(listId: string | null) {
     };
   }, [listId]);
 
-  return { items, isLoading };
+  return {
+    items: listId ? AppCache.lists.get(listId)?.items ?? items : [],
+    isLoading: listId ? !AppCache.lists.get(listId)?.items : false,
+  };
 }

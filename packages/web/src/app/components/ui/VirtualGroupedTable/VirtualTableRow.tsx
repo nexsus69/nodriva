@@ -3,6 +3,7 @@
 import React, { ReactNode } from 'react';
 import { VirtualTableColumnDef, RowActionSlotProps } from './types';
 import { useCacheEntity } from '../../../hooks/useCacheEntity';
+import { LockIndicator } from '../../LockIndicator';
 
 interface VirtualTableRowProps<T> {
   item: T;
@@ -35,10 +36,10 @@ export function VirtualTableRow<T extends { id: string, entityTypeId?: string }>
       role="row"
       data-row-id={item.id}
       aria-selected={isSelected}
-      className={`grid items-center px-4 py-3 gap-4 border-b border-slate-800/60 text-sm transition-colors ${
+      className={`grid min-h-[58px] items-center gap-4 border-b border-slate-100 px-5 py-3 text-sm transition-colors ${
         isSelected
-          ? 'bg-indigo-950/40 hover:bg-indigo-900/40 text-slate-100'
-          : 'hover:bg-slate-800/40 text-slate-300'
+          ? 'bg-indigo-50 text-slate-800 hover:bg-indigo-100/70'
+          : 'text-slate-600 hover:bg-slate-50'
       }`}
       style={{ gridTemplateColumns }}
     >
@@ -48,10 +49,13 @@ export function VirtualTableRow<T extends { id: string, entityTypeId?: string }>
             type="checkbox"
             checked={!!isSelected}
             onChange={() => onToggleSelect(renderItem.id)}
-            className="rounded border-slate-700 bg-slate-800 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+            className="cursor-pointer rounded border-slate-300 bg-white text-indigo-600 focus:ring-indigo-500"
           />
         </div>
       )}
+      <div role="cell" className="flex items-center justify-center">
+        <LockIndicator resourceType="entity" resourceId={renderItem.id} />
+      </div>
       {columns.map((col) => {
         const val = (renderItem as Record<string, unknown>)[col.key];
         const content = col.render ? col.render(renderItem) : (val !== undefined && val !== null ? String(val) : '-');

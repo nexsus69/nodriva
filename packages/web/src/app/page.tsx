@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { seedDatabaseAction, checkDatabaseSeededAction } from './actions/seedAction';
 import { useSemanticNodeList } from './hooks/useSemanticNodeList';
-import { LogoutButton } from './components/ui/LogoutButton';
 
 export default function WorkspaceOperationalHub() {
   const [isCheckingSeed, setIsCheckingSeed] = useState(true);
@@ -31,53 +30,69 @@ export default function WorkspaceOperationalHub() {
       await seedDatabaseAction();
       setDbSeeded(true);
       window.location.reload();
-    } catch (err: any) {
-      setErrorMsg('Errore durante l\'inizializzazione del DB: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Errore sconosciuto';
+      setErrorMsg('Errore durante l\'inizializzazione del DB: ' + message);
       setIsSeeding(false);
     }
   };
 
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-8">
       {/* Banner Principale Hub Operativo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-3xl glass-panel border border-slate-800 bg-gradient-to-r from-slate-900/90 via-indigo-950/30 to-slate-900/90 shadow-2xl">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-            Workspace Operativo V2
+      <section className="relative overflow-hidden rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/60 to-violet-50 p-7 shadow-xl shadow-slate-200/70 sm:p-9">
+        <div aria-hidden="true" className="absolute -right-28 -top-32 h-80 w-80 rounded-full border-[42px] border-indigo-400/10" />
+        <div aria-hidden="true" className="absolute bottom-[-8rem] right-24 h-56 w-56 rounded-full bg-indigo-500/10 blur-3xl" />
+        <div className="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+          <div className="max-w-2xl space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.8)]" />
+              Workspace operativo
+            </div>
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Il tuo spazio di lavoro.</h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">
+                Esplora la struttura aziendale e accedi rapidamente a ordini, entità, clienti e sotto-nodi.
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-slate-100 tracking-tight flex items-center gap-3">
-            <span>🌐</span> Hub Operativo Dashboard
-          </h1>
-          <p className="text-sm text-slate-400 max-w-2xl leading-relaxed">
-            Seleziona un nodo gerarchico per accedere alla gestione operativa di ordini, entità, clienti e sotto-nodi aziendali.
-          </p>
-        </div>
 
-        <div className="flex items-center gap-3 self-start md:self-auto">
-          <Link
-            href="/admin"
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-2 shadow-sm"
-          >
-            <span>⚙️</span> Centro di Controllo Admin
-          </Link>
-          <LogoutButton />
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/admin" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+              <span aria-hidden="true">⚙</span> Centro di controllo
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <section aria-label="Riepilogo workspace" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="glass-panel flex items-center justify-between rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Nodi radice</p><p className="mt-2 text-2xl font-semibold text-slate-900">{isCheckingSeed || isNodesLoading ? '—' : rootNodes.length}</p></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-xl text-indigo-300">⌘</span>
+        </div>
+        <div className="glass-panel flex items-center justify-between rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Stato sistema</p><p className={`mt-2 text-sm font-semibold ${dbSeeded ? 'text-emerald-300' : 'text-amber-300'}`}>{isCheckingSeed ? 'Verifica in corso' : dbSeeded ? 'Operativo' : 'Configurazione richiesta'}</p></div>
+          <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${dbSeeded ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>●</span>
+        </div>
+        <div className="glass-panel flex items-center justify-between rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Accesso</p><p className="mt-2 text-sm font-semibold text-slate-700">Sessione protetta</p></div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-violet-300">✓</span>
+        </div>
+      </section>
 
       {/* Se il DB non è ancora inizializzato */}
       {!isCheckingSeed && !dbSeeded && (
-        <div className="p-8 glass-panel rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-4 text-center">
+        <div className="space-y-4 rounded-2xl border border-amber-500/25 bg-gradient-to-br from-amber-500/10 to-transparent p-8 text-center shadow-lg shadow-amber-950/10">
           <span className="text-4xl block">🌱</span>
-          <h2 className="text-base font-bold text-amber-200">Database non ancora inizializzato</h2>
+          <h2 className="text-base font-semibold text-amber-100">Completa la configurazione iniziale</h2>
           <p className="text-xs text-amber-300/80 max-w-md mx-auto">
             Il database PostgreSQL non contiene dati iniziali. Clicca il pulsante sottostante per eseguire il seeding con dati demo (nodi, ordini, entità).
           </p>
           <button
             onClick={handleSeedDatabase}
             disabled={isSeeding}
-            className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/25 transition-all"
+            className="rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-semibold text-slate-950 shadow-lg shadow-amber-600/20 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSeeding ? 'Inizializzazione in corso...' : '🌱 Esegui Seeding Dati Demo'}
           </button>
@@ -93,41 +108,40 @@ export default function WorkspaceOperationalHub() {
 
       {/* Griglia Nodi Radice */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider flex items-center gap-2">
-            <span>📁</span> Nodi Radice Operativi ({rootNodes.length})
-          </h2>
+        <div className="flex items-end justify-between gap-4">
+          <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-500">Navigazione</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Nodi radice</h2></div>
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm">{rootNodes.length} disponibili</span>
         </div>
 
         {isNodesLoading || isCheckingSeed ? (
-          <div className="glass-panel p-12 text-center text-xs text-slate-400 rounded-2xl">
+          <div className="glass-panel rounded-2xl p-12 text-center text-xs text-slate-400">
             Caricamento struttura gerarchica in corso...
           </div>
         ) : rootNodes.length === 0 ? (
-          <div className="glass-panel p-12 text-center space-y-3 rounded-2xl">
+          <div className="glass-panel space-y-3 rounded-2xl border border-slate-200 p-12 text-center">
             <span className="text-3xl block">📦</span>
-            <p className="text-sm font-semibold text-slate-300">Nessun Nodo Radice Trovato</p>
+            <p className="text-sm font-semibold text-slate-700">Nessun Nodo Radice Trovato</p>
             <p className="text-xs text-slate-500">Inizializza il database o crea un primo nodo dall&apos;amministrazione.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {rootNodes.map((node) => {
               return (
                 <div
                   key={node.id}
-                  className="glass-panel p-6 rounded-2xl border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col justify-between space-y-6 group"
+                  className="group glass-panel flex flex-col justify-between space-y-6 rounded-2xl border border-slate-200 p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-100"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-xl text-indigo-400">
-                        📦
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-xl text-indigo-400">
+                        ⌂
                       </div>
-                      <span className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono text-slate-500">
                         Nodo Radice
                       </span>
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-slate-100 group-hover:text-indigo-300 transition-colors">
+                      <h3 className="text-base font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">
                         {node.name}
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-2">
@@ -136,11 +150,11 @@ export default function WorkspaceOperationalHub() {
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+                  <div className="flex items-center justify-between border-t border-slate-200 pt-4">
                     <span className="text-xs text-slate-500 font-mono">ID: {node.id.substring(0, 8)}...</span>
                     <Link
                       href={`/nodes/${node.id}`}
-                      className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
+                      className="flex items-center gap-1.5 rounded-xl bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition-all hover:bg-indigo-400"
                     >
                       <span>Apri Nodo</span>
                       <span>→</span>
@@ -154,8 +168,8 @@ export default function WorkspaceOperationalHub() {
       </div>
 
       {/* Scheda Riepilogo Architettura Workspace */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-3">
-        <h3 className="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider flex items-center gap-2">
+      <div className="glass-panel space-y-3 rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 font-mono">
           <span>🛡️</span> Isolamento Architetturale
         </h3>
         <p className="text-xs text-slate-400 leading-relaxed">

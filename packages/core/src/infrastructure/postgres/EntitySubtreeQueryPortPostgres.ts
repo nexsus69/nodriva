@@ -21,12 +21,97 @@ interface SubtreeRow {
   node_path: string;
   node_depth: number;
   node_row_version: number;
+  lock_user_id: string | null;
+  lock_expires_at: Date | null;
+}
+
+interface EntityStorageMetaRow {
+  entity_type_id: string;
+  storage_table: string;
+}
+
+interface EntityFieldMetaRow {
+  entity_type_id: string;
+  field_key: string;
+  column_name: string;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
   constructor(private readonly executor: PgExecutor) {}
+
+  private escapeIdentifier(identifier: string): string {
+    return `"${identifier.replace(/"/g, '""')}"`;
+  }
+
+  private async loadPayloads(rows: readonly SubtreeRow[]): Promise<Map<string, Record<string, unknown>>> {
+    const entityIdsByType = new Map<string, string[]>();
+    for (const row of rows) {
+      const ids = entityIdsByType.get(row.entity_type_id) ?? [];
+      ids.push(row.entity_id);
+      entityIdsByType.set(row.entity_type_id, ids);
+    }
+
+    if (entityIdsByType.size === 0) {
+      return new Map();
+    }
+
+    const typeIds = [...entityIdsByType.keys()];
+    const storageResult = await this.executor.query<EntityStorageMetaRow>(
+      `SELECT id AS entity_type_id, storage_table
+       FROM entity_types
+       WHERE id = ANY($1::uuid[])`,
+      [typeIds]
+    );
+    const storageByType = new Map(storageResult.rows.map((row) => [row.entity_type_id, row.storage_table]));
+
+    const fieldsResult = await this.executor.query<EntityFieldMetaRow>(
+      `SELECT entity_type_id, field_key, column_name
+       FROM entity_type_fields
+       WHERE entity_type_id = ANY($1::uuid[])
+       ORDER BY entity_type_id, position`,
+      [typeIds]
+    );
+    const fieldsByType = new Map<string, EntityFieldMetaRow[]>();
+    for (const field of fieldsResult.rows) {
+      const fields = fieldsByType.get(field.entity_type_id) ?? [];
+      fields.push(field);
+      fieldsByType.set(field.entity_type_id, fields);
+    }
+
+    const payloads = new Map<string, Record<string, unknown>>();
+    for (const [typeId, entityIds] of entityIdsByType) {
+      const storageTable = storageByType.get(typeId);
+      const fields = fieldsByType.get(typeId) ?? [];
+      if (!storageTable || fields.length === 0) {
+        for (const entityId of entityIds) payloads.set(entityId, {});
+        continue;
+      }
+
+      const columns = fields.map((field) => this.escapeIdentifier(field.column_name));
+      const result = await this.executor.query<Record<string, unknown>>(
+        `SELECT entity_id, ${columns.join(', ')}
+         FROM ${this.escapeIdentifier(storageTable)}
+         WHERE entity_id = ANY($1::uuid[])`,
+        [entityIds]
+      );
+
+      const fieldsByColumn = new Map(fields.map((field) => [field.column_name, field.field_key]));
+      for (const row of result.rows) {
+        const payload: Record<string, unknown> = {};
+        for (const [columnName, fieldKey] of fieldsByColumn) {
+          payload[fieldKey] = row[columnName];
+        }
+        payloads.set(String(row.entity_id), payload);
+      }
+      for (const entityId of entityIds) {
+        if (!payloads.has(entityId)) payloads.set(entityId, {});
+      }
+    }
+
+    return payloads;
+  }
 
   async findSubtreeEntitiesPaginated(
     params: EntitySubtreeQueryParams
@@ -110,9 +195,15 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
         n.name AS node_name,
         n.path AS node_path,
         n.depth AS node_depth,
-        n.row_version AS node_row_version
+        n.row_version AS node_row_version,
+        l.user_id AS lock_user_id,
+        l.expires_at AS lock_expires_at
       FROM entities e
       INNER JOIN nodes n ON e.parent_node_id = n.id
+      LEFT JOIN locks l
+        ON l.resource_type = 'entity'
+       AND l.resource_id = e.id::text
+       AND l.expires_at > NOW()
       WHERE ${conditions.join(' AND ')}
       ORDER BY n.path ${orderDir}, e.name ${orderDir}, e.id ${orderDir}
       LIMIT $${paramIndex}
@@ -121,6 +212,8 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     const res = await this.executor.query<SubtreeRow>(query, sqlParams);
     const hasMore = res.rows.length > limit;
     const rawRows = hasMore ? res.rows.slice(0, limit) : res.rows;
+
+    const payloads = await this.loadPayloads(rawRows);
 
     if (direction === 'backward') {
       rawRows.reverse();
@@ -135,11 +228,16 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
       rowVersion: row.entity_row_version,
       createdAt: row.entity_created_at,
       updatedAt: row.entity_updated_at,
-      payload: {},
+      payload: payloads.get(row.entity_id) ?? {},
       nodeName: row.node_name,
       nodePath: row.node_path,
       nodeDepth: row.node_depth,
       nodeRowVersion: row.node_row_version,
+      ...(row.lock_user_id
+        ? row.lock_expires_at
+          ? { lockUserId: row.lock_user_id, lockExpiresAt: row.lock_expires_at }
+          : { lockUserId: row.lock_user_id }
+        : {}),
     }));
 
     const result: EntitySubtreePaginatedResult = {

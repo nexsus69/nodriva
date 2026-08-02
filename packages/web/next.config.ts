@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
+  // Keep the production build deterministic until the compiler is validated
+  // independently; it currently causes Turbopack to stall during compilation.
+  reactCompiler: false,
   allowedDevOrigins: ['192.168.3.247'],
 };
 

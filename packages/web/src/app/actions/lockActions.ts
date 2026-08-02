@@ -80,3 +80,27 @@ export async function isLockedAction(resourceType: string, resourceId: string) {
     return { locked: false };
   }
 }
+
+/** Read-only lock snapshot used by the client cache. */
+export async function getLockStateAction(resourceType: string, resourceId: string) {
+  try {
+    const validatedType = validateLockResource(resourceType, resourceId);
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const { accessControlPort, lockService, entityRepository } = await import('../../server/db');
+
+    if (validatedType === 'node') {
+      await accessControlPort.assertCanReadNode(actorUserId, resourceId);
+    } else {
+      const entity = await entityRepository.findById(resourceId);
+      if (!entity || entity.deletedAt) {
+        return { locked: false as const };
+      }
+      await accessControlPort.assertCanReadNode(actorUserId, entity.parentNodeId);
+    }
+
+    return await lockService.isLocked(validatedType, resourceId);
+  } catch (error) {
+    console.error('[LockActions] Failed to read lock state:', error);
+    return { locked: false as const };
+  }
+}

@@ -32,20 +32,13 @@ export function useSentinelObserver({
   canLoadMoreBackward = true,
 }: UseSentinelObserverOptions) {
   const observerRef = useRef<IntersectionObserver | null>(null);
-
-  // ─── Debounce temporale per direzione ──────────────────────────────────────
-  // Sostituisce la macchina a stati Armato/Disarmato.
-  // Puramente sincrono (ref + Date.now), zero dipendenze da React lifecycle.
   const lastForwardTriggerRef = useRef<number>(0);
   const lastBackwardTriggerRef = useRef<number>(0);
-
-  // ─── Conteggi e Stato Debug ───────────────────────────────────────────────
   const [topTriggerCount, setTopTriggerCount] = useState<number>(0);
   const [bottomTriggerCount, setBottomTriggerCount] = useState<number>(0);
   const [lastTriggered, setLastTriggered] = useState<'top' | 'bottom' | null>(null);
   const [lastTriggerTime, setLastTriggerTime] = useState<string | null>(null);
 
-  // ─── Refs stabili per evitare stale closure nell'observer ──────────────────
   const hasMoreForwardRef = useRef(hasMoreForward);
   const hasMoreBackwardRef = useRef(hasMoreBackward);
   const canLoadMoreForwardRef = useRef(canLoadMoreForward);
@@ -78,7 +71,6 @@ export function useSentinelObserver({
     onBeforeFetch,
   ]);
 
-  // ─── Setup dell'IntersectionObserver 100% Nativo e Pulito ──────────────
   useEffect(() => {
     const container = containerRef.current;
     const topEl = topSentinelRef.current;
@@ -92,7 +84,6 @@ export function useSentinelObserver({
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
 
-          // Sentinel Bottom (Forward Scroll)
           if (entry.target === bottomEl) {
             if (now - lastForwardTriggerRef.current < DEBOUNCE_MS) continue;
             if (!hasMoreForwardRef.current || !canLoadMoreForwardRef.current || isLoadingForwardRef.current) continue;
@@ -105,7 +96,6 @@ export function useSentinelObserver({
             onLoadMoreForwardRef.current?.();
           }
 
-          // Sentinel Top (Backward Scroll)
           if (entry.target === topEl) {
             if (now - lastBackwardTriggerRef.current < DEBOUNCE_MS) continue;
             if (!hasMoreBackwardRef.current || !canLoadMoreBackwardRef.current || isLoadingBackwardRef.current) continue;

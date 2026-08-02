@@ -7,6 +7,7 @@ import {
 } from '@dashboard/core';
 
 import { AuthResolver } from './auth/AuthResolver';
+import { publishRealtimeChange } from '../../server/realtime';
 
 export async function listChildrenAction(parentId: string | null) {
   const { nodeService } = await import('../../server/db');
@@ -56,7 +57,7 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
     actorUserId: await AuthResolver.resolveActorUserId(),
   };
   const node = await nodeService.createNode(cmd);
-  return {
+  const result = {
     id: node.id,
     parentId: node.parentId,
     path: node.path,
@@ -67,6 +68,15 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
     description: node.description,
     rowVersion: node.rowVersion,
   };
+  await publishRealtimeChange({
+    resourceType: 'node',
+    resourceId: result.id,
+    changeType: 'created',
+    actorUserId: cmd.actorUserId,
+    parentNodeId: result.parentId,
+    data: result,
+  });
+  return result;
 }
 
 export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId'>) {
@@ -76,7 +86,7 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
     actorUserId: await AuthResolver.resolveActorUserId(),
   };
   const node = await nodeService.updateNode(cmd);
-  return {
+  const result = {
     id: node.id,
     parentId: node.parentId,
     path: node.path,
@@ -87,6 +97,15 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
     description: node.description,
     rowVersion: node.rowVersion,
   };
+  await publishRealtimeChange({
+    resourceType: 'node',
+    resourceId: result.id,
+    changeType: 'updated',
+    actorUserId: cmd.actorUserId,
+    parentNodeId: result.parentId,
+    data: result,
+  });
+  return result;
 }
 
 export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>) {
@@ -96,5 +115,16 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
     actorUserId: await AuthResolver.resolveActorUserId(),
   };
   await nodeService.moveNode(cmd);
-  return await getNodeByIdAction(input.nodeId);
+  const moved = await getNodeByIdAction(input.nodeId);
+  if (moved) {
+    await publishRealtimeChange({
+      resourceType: 'node',
+      resourceId: moved.id,
+      changeType: 'moved',
+      actorUserId: cmd.actorUserId,
+      parentNodeId: moved.parentId,
+      data: moved,
+    });
+  }
+  return moved;
 }

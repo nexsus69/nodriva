@@ -16,6 +16,32 @@ interface UserRow {
   deleted_at: Date | null;
 }
 
+interface UserListRow {
+  id: string;
+  email: string;
+  isActive: boolean;
+  isSuperAdmin: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  roles: UserRoleDto[] | null;
+}
+
+interface UserDetailRow {
+  id: string;
+  email: string;
+  isActive: boolean;
+  isSuperAdmin: boolean;
+  rowVersion: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface UserRoleRow {
+  id: string;
+  roleKey: string;
+  name: string;
+}
+
 export class UserRepositoryPostgres implements UserRepository {
   constructor(private readonly executor: PgExecutor) {}
 
@@ -62,8 +88,8 @@ export class UserRepositoryPostgres implements UserRepository {
       GROUP BY u.id
       ORDER BY u.email ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<UserListRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       email: r.email,
       isActive: Boolean(r.isActive),
@@ -80,11 +106,14 @@ export class UserRepositoryPostgres implements UserRepository {
       FROM users
       WHERE id = $1 AND deleted_at IS NULL
     `;
-    const userRes = await this.executor.query<any>(userQuery, [id]);
+    const userRes = await this.executor.query<UserDetailRow>(userQuery, [id]);
     if (userRes.rows.length === 0) {
       return null;
     }
     const u = userRes.rows[0];
+    if (!u) {
+      return null;
+    }
 
     const rolesQuery = `
       SELECT r.id, r.role_key AS "roleKey", r.name
@@ -93,7 +122,7 @@ export class UserRepositoryPostgres implements UserRepository {
       WHERE ur.user_id = $1 AND r.deleted_at IS NULL
       ORDER BY r.name ASC
     `;
-    const rolesRes = await this.executor.query<any>(rolesQuery, [id]);
+    const rolesRes = await this.executor.query<UserRoleRow>(rolesQuery, [id]);
 
     const allRoles = await this.listAllRoles();
 
@@ -103,7 +132,7 @@ export class UserRepositoryPostgres implements UserRepository {
       isActive: Boolean(u.isActive),
       isSuperAdmin: Boolean(u.isSuperAdmin),
       rowVersion: Number(u.rowVersion),
-      roles: rolesRes.rows.map((r: any) => ({ id: r.id, roleKey: r.roleKey, name: r.name })),
+      roles: rolesRes.rows.map((r) => ({ id: r.id, roleKey: r.roleKey, name: r.name })),
       allAvailableRoles: allRoles,
       createdAt: new Date(u.createdAt).toISOString(),
       updatedAt: new Date(u.updatedAt).toISOString(),
@@ -117,8 +146,8 @@ export class UserRepositoryPostgres implements UserRepository {
       WHERE deleted_at IS NULL
       ORDER BY name ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({ id: r.id, roleKey: r.roleKey, name: r.name }));
+    const res = await this.executor.query<UserRoleRow>(query);
+    return res.rows.map((r) => ({ id: r.id, roleKey: r.roleKey, name: r.name }));
   }
 
   async createUser(user: User, roleIds: string[] = []): Promise<void> {

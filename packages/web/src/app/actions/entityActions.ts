@@ -1,6 +1,7 @@
 'use server';
 
 import { AuthResolver } from './auth/AuthResolver';
+import { publishRealtimeChange } from '../../server/realtime';
 interface CreateEntityActionInput {
   parentNodeId: string;
   entityTypeKey?: string;
@@ -39,7 +40,7 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     expectedParentRowVersion: input.expectedParentRowVersion,
   };
   const e = await entityService.createEntity(cmd);
-  return {
+  const result = {
     id: e.id,
     entityTypeId: e.entityTypeId,
     parentNodeId: e.parentNodeId,
@@ -50,6 +51,16 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
+  await publishRealtimeChange({
+    resourceType: 'entity',
+    resourceId: result.id,
+    changeType: 'created',
+    actorUserId: cmd.actorUserId,
+    parentNodeId: result.parentNodeId,
+    entityTypeId: result.entityTypeId,
+    data: result,
+  });
+  return result;
 }
 
 export async function updateEntityAction(input: UpdateEntityActionInput) {
@@ -67,7 +78,7 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     payloadDelta: input.payloadDelta || input.payload,
   };
   const e = await entityService.updateEntity(cmd);
-  return {
+  const result = {
     id: e.id,
     entityTypeId: e.entityTypeId,
     parentNodeId: e.parentNodeId,
@@ -78,19 +89,49 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
+  await publishRealtimeChange({
+    resourceType: 'entity',
+    resourceId: result.id,
+    changeType: 'updated',
+    actorUserId: cmd.actorUserId,
+    parentNodeId: result.parentNodeId,
+    entityTypeId: result.entityTypeId,
+    data: result,
+  });
+  return result;
 }
 
 export async function deleteEntityAction(input: string | { entityId?: string; id?: string }) {
-  const { entityService } = await import('../../server/db');
+  const { entityService, lockService, runtimeConfigPort } = await import('../../server/db');
   const entityId = typeof input === 'string' ? input : input.entityId || input.id;
   if (!entityId) {
     throw new Error('entityId is required');
   }
+  const actorUserId = await AuthResolver.resolveActorUserId();
+  const existing = await entityService.getEntityById(entityId, actorUserId);
   const cmd = {
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId,
     entityId,
   };
   await entityService.deleteEntity(cmd);
+  await publishRealtimeChange({
+    resourceType: 'entity',
+    resourceId: existing.id,
+    changeType: 'deleted',
+    actorUserId,
+    parentNodeId: existing.parentNodeId,
+    entityTypeId: existing.entityTypeId,
+  });
+
+  if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
+    try {
+      await lockService.unlock('entity', entityId, actorUserId);
+    } catch (error) {
+      // La cancellazione è già stata completata; il TTL del lock resta il
+      // fallback se il rilascio esplicito non riesce.
+      console.error('[EntityActions] Failed to release deleted entity lock:', error);
+    }
+  }
 }
 
 export async function listEntitiesAction(parentNodeId: string) {
@@ -139,11 +180,17 @@ export async function listSubtreeEntitiesAction(params: ListSubtreeEntitiesParam
   const actorUserId = await AuthResolver.resolveActorUserId();
   const result = await entitySubtreeQueryPort.findSubtreeEntitiesPaginated({ ...params, actorUserId });
   return {
-    items: result.items.map((item) => ({
-      ...item,
+    items: result.items.map((item) => {
+      const { lockExpiresAt, ...itemWithoutLockDate } = item;
+      return {
+      ...itemWithoutLockDate,
       createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : String(item.createdAt),
       updatedAt: item.updatedAt instanceof Date ? item.updatedAt.toISOString() : String(item.updatedAt),
-    })),
+      ...(lockExpiresAt
+        ? { lockExpiresAt: lockExpiresAt instanceof Date ? lockExpiresAt.toISOString() : String(lockExpiresAt) }
+        : {}),
+      };
+    }),
     nextCursor: result.nextCursor,
     prevCursor: result.prevCursor,
     hasMore: result.hasMore,

@@ -7,6 +7,23 @@ import {
 } from '../../application/dto/AuditQueryDtos.js';
 import { PgExecutor } from './PgExecutor.js';
 
+interface AuditLogListRow {
+  id: string;
+  actorUserId: string | null;
+  actorEmail: string | null;
+  actionKey: string;
+  resourceKind: string;
+  resourceId: string;
+  nodeId: string | null;
+  createdAt: Date;
+  fullCount: number;
+}
+
+interface AuditLogDetailRow extends Omit<AuditLogListRow, 'fullCount'> {
+  beforePayload: Record<string, unknown> | null;
+  afterPayload: Record<string, unknown> | null;
+}
+
 export class AuditQueryPortPostgres implements AuditQueryPort {
   constructor(private readonly executor: PgExecutor) {}
 
@@ -76,12 +93,13 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       ${limitOffsetClause}
     `;
 
-    const res = await this.executor.query<any>(query, params);
+    const res = await this.executor.query<AuditLogListRow>(query, params);
 
-    const total = res.rows.length > 0 ? Number(res.rows[0].fullCount) : 0;
+    const firstRow = res.rows[0];
+    const total = firstRow ? Number(firstRow.fullCount) : 0;
     const totalPages = Math.ceil(total / pageSize);
 
-    const items: AuditLogListItemDto[] = res.rows.map((r: any) => ({
+    const items: AuditLogListItemDto[] = res.rows.map((r) => ({
       id: r.id,
       actorUserId: r.actorUserId ?? null,
       actorEmail: r.actorEmail ?? null,
@@ -119,7 +137,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       WHERE a.id = $1
     `;
 
-    const res = await this.executor.query<any>(query, [id]);
+    const res = await this.executor.query<AuditLogDetailRow>(query, [id]);
     if (res.rowCount === 0 || !res.rows[0]) return null;
 
     const r = res.rows[0];

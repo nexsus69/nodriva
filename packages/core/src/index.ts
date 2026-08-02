@@ -139,6 +139,12 @@ export { RuntimeConfigurationPort } from './application/ports/RuntimeConfigurati
 export { TransactionPort } from './application/ports/TransactionPort.js';
 export { LockRepository } from './application/ports/LockRepository.js';
 export { LockEventBus } from './application/ports/LockEventBus.js';
+export {
+  RealtimeEventBus,
+  RealtimeDataChangedEvent,
+  RealtimeResourceType,
+  RealtimeChangeType,
+} from './application/ports/RealtimeEventBus.js';
 export { SessionRepositoryPort } from './application/ports/SessionRepositoryPort.js';
 export { IdGeneratorPort } from './application/ports/IdGeneratorPort.js';
 export { SchemaRegistry } from './application/ports/SchemaRegistry.js';

@@ -1,12 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Pusher from 'pusher-js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   acquireLockAction,
+  getLockStateAction,
   refreshLockAction,
   releaseLockAction,
 } from '../actions/lockActions';
+import { AppCache, CachedLockState } from '../cache/GlobalCacheClient';
 
 type LockResourceType = 'node' | 'entity';
 
@@ -15,15 +17,12 @@ interface UseLockProps {
   resourceId: string;
 }
 
-interface LockEvent {
-  userId: string;
-}
-
 export function useLock({ resourceType, resourceId }: UseLockProps) {
-  const [isMyLock, setIsMyLock] = useState(false);
-  const [lockedByOther, setLockedByOther] = useState<{ locked: boolean; byUserId?: string }>({
-    locked: false,
-  });
+  const { data: session } = useSession();
+  const currentUserId = (session as { userId?: string } | null)?.userId;
+  const [lockState, setLockState] = useState<CachedLockState>(() =>
+    AppCache.getLockState(resourceType, resourceId)
+  );
   const [error, setError] = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ownsLockRef = useRef(false);
@@ -35,34 +34,45 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     }
   }, []);
 
+  const applyLockState = useCallback((state: CachedLockState) => {
+    setLockState(state);
+    ownsLockRef.current = !!currentUserId && state.locked && state.byUserId === currentUserId;
+  }, [currentUserId]);
+
   const startRefreshTimer = useCallback(() => {
     stopRefreshTimer();
     refreshTimerRef.current = setInterval(async () => {
       const result = await refreshLockAction(resourceType, resourceId);
       if (!result.success) {
         stopRefreshTimer();
-        ownsLockRef.current = false;
-        setIsMyLock(false);
+        AppCache.setLockState(resourceType, resourceId, { locked: false });
         setError(result.message || 'Il lock di modifica è scaduto.');
+        return;
       }
+      AppCache.setLockState(resourceType, resourceId, {
+        locked: true,
+        byUserId: currentUserId,
+        expiresAt: result.lock.expiresAt,
+      });
     }, 60_000);
-  }, [resourceId, resourceType, stopRefreshTimer]);
+  }, [currentUserId, resourceId, resourceType, stopRefreshTimer]);
 
   const acquireLock = useCallback(async (): Promise<boolean> => {
     setError(null);
-    setLockedByOther({ locked: false });
     const result = await acquireLockAction(resourceType, resourceId);
     if (!result.success) {
-      setLockedByOther({ locked: result.error === 'LOCK_CONFLICT' });
       setError(result.message || 'Impossibile entrare in modalità modifica.');
       return false;
     }
 
-    ownsLockRef.current = true;
-    setIsMyLock(true);
+    AppCache.setLockState(resourceType, resourceId, {
+      locked: true,
+      byUserId: currentUserId,
+      expiresAt: result.lock.expiresAt,
+    });
     startRefreshTimer();
     return true;
-  }, [resourceId, resourceType, startRefreshTimer]);
+  }, [currentUserId, resourceId, resourceType, startRefreshTimer]);
 
   const releaseLock = useCallback(async (): Promise<void> => {
     if (!ownsLockRef.current) return;
@@ -72,51 +82,44 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       return;
     }
 
-    ownsLockRef.current = false;
-    setIsMyLock(false);
-    setLockedByOther({ locked: false });
+    AppCache.setLockState(resourceType, resourceId, { locked: false });
     stopRefreshTimer();
   }, [resourceId, resourceType, stopRefreshTimer]);
 
-  // Pusher exists only while this client owns an edit lock.
   useEffect(() => {
-    if (!isMyLock || !process.env.NEXT_PUBLIC_PUSHER_KEY) return;
-
-    const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'mt1',
-      wsHost: process.env.NEXT_PUBLIC_PUSHER_HOST,
-      wsPort: process.env.NEXT_PUBLIC_PUSHER_PORT
-        ? Number.parseInt(process.env.NEXT_PUBLIC_PUSHER_PORT, 10)
-        : undefined,
-      forceTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
-      enableStats: false,
-      enabledTransports: ['ws', 'wss'],
-      channelAuthorization: {
-        endpoint: '/api/pusher/auth',
-        transport: 'ajax',
-      },
+    let mounted = true;
+    const unsubscribeState = AppCache.subscribeLock(resourceType, resourceId, (state) => {
+      if (mounted) applyLockState(state);
     });
+    const releaseRealtime = AppCache.retainLockResource(resourceType, resourceId);
+    applyLockState(AppCache.getLockState(resourceType, resourceId));
 
-    const channelName = `private-locks-${resourceType}-${resourceId}`;
-    const channel = pusher.subscribe(channelName);
-    channel.bind('lock:acquired', (event: LockEvent) => {
-      if (!ownsLockRef.current) {
-        setLockedByOther({ locked: true, byUserId: event.userId });
+    void getLockStateAction(resourceType, resourceId).then((state) => {
+      if (!mounted) return;
+      const current = AppCache.getLockState(resourceType, resourceId);
+      // Do not let a slower snapshot overwrite a newer realtime acquisition.
+      if (!current.locked || state.locked) {
+        AppCache.setLockState(resourceType, resourceId, state);
       }
-    });
-    channel.bind('lock:force-released', () => {
-      ownsLockRef.current = false;
-      setIsMyLock(false);
-      stopRefreshTimer();
-      setError('Il lock è stato rilasciato da un amministratore.');
     });
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe(channelName);
-      pusher.disconnect();
+      mounted = false;
+      unsubscribeState();
+      releaseRealtime();
     };
-  }, [isMyLock, resourceId, resourceType, stopRefreshTimer]);
+  }, [applyLockState, resourceId, resourceType]);
+
+  useEffect(() => {
+    if (lockState.locked && lockState.byUserId === currentUserId) {
+      ownsLockRef.current = true;
+      startRefreshTimer();
+    } else {
+      ownsLockRef.current = false;
+      stopRefreshTimer();
+    }
+    return stopRefreshTimer;
+  }, [currentUserId, lockState.byUserId, lockState.locked, startRefreshTimer, stopRefreshTimer]);
 
   useEffect(() => {
     return () => {
@@ -124,9 +127,22 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       if (ownsLockRef.current) {
         ownsLockRef.current = false;
         void releaseLockAction(resourceType, resourceId);
+        AppCache.setLockState(resourceType, resourceId, { locked: false });
       }
     };
   }, [resourceId, resourceType, stopRefreshTimer]);
+
+  const isMyLock = useMemo(
+    () => lockState.locked && !!currentUserId && lockState.byUserId === currentUserId,
+    [currentUserId, lockState.byUserId, lockState.locked]
+  );
+  const lockedByOther = useMemo(
+    () => ({
+      locked: lockState.locked && !isMyLock,
+      byUserId: lockState.byUserId,
+    }),
+    [isMyLock, lockState.byUserId, lockState.locked]
+  );
 
   return {
     lockedByOther,

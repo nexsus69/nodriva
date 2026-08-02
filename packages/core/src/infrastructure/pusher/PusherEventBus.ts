@@ -1,4 +1,8 @@
 import { LockEventBus } from '../../application/ports/LockEventBus.js';
+import {
+  RealtimeDataChangedEvent,
+  RealtimeEventBus,
+} from '../../application/ports/RealtimeEventBus.js';
 import { Lock } from '../../domain/models/Lock.js';
 import Pusher from 'pusher';
 
@@ -10,13 +14,14 @@ export interface PusherConfig {
   useTLS?: boolean;
   host?: string;
   port?: string;
+  enabled?: boolean;
 }
 
-export class PusherEventBus implements LockEventBus {
+export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   private readonly pusher: Pusher | null = null;
 
   constructor(config: PusherConfig) {
-    if (config.appId && config.key && config.secret && config.cluster) {
+    if (config.enabled !== false && config.appId && config.key && config.secret && config.cluster) {
       this.pusher = new Pusher({
         appId: config.appId,
         key: config.key,
@@ -33,6 +38,29 @@ export class PusherEventBus implements LockEventBus {
 
   private getChannelName(resourceType: string, resourceId: string): string {
     return `private-locks-${resourceType}-${resourceId}`;
+  }
+
+  private getRealtimeChannelName(resourceType: 'node' | 'entity', resourceId: string): string {
+    return `private-realtime-${resourceType}-${resourceId}`;
+  }
+
+  async publishDataChanged(event: RealtimeDataChangedEvent): Promise<void> {
+    if (!this.pusher) return;
+
+    const channelNames = new Set<string>();
+    channelNames.add(this.getRealtimeChannelName(event.resourceType, event.resourceId));
+    if (event.parentNodeId) {
+      channelNames.add(this.getRealtimeChannelName('node', event.parentNodeId));
+    }
+    if (event.previousParentNodeId) {
+      channelNames.add(this.getRealtimeChannelName('node', event.previousParentNodeId));
+    }
+
+    await Promise.all(
+      Array.from(channelNames, (channelName) =>
+        this.pusher!.trigger(channelName, 'data:changed', event)
+      )
+    );
   }
 
   async publishLockAcquired(lock: Lock): Promise<void> {

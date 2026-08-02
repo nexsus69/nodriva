@@ -12,6 +12,8 @@ export interface SubtreeEntityDto {
   nodePath: string;
   nodeDepth: number;
   nodeRowVersion: number;
+  lockUserId?: string;
+  lockExpiresAt?: Date;
 }
 
 export interface SubtreeCursor {

@@ -4,7 +4,15 @@ import { getNodeByIdAction, createNodeAction, updateNodeAction, moveNodeAction }
 import { getEntityByIdAction, createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { GlobalViewStore } from './ViewStore';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
-import { ViewKeyBuilder } from './SemanticViewKey';
+import { RealtimeCacheBridge } from './RealtimeCacheBridge';
+import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
+import type { LockChannelEvent } from './RealtimeCacheBridge';
+
+export interface CachedLockState {
+  locked: boolean;
+  byUserId?: string;
+  expiresAt?: string;
+}
 
 export interface CreateNodeInput {
   parentNodeId: string | null;
@@ -47,6 +55,29 @@ export interface UpdateEntityInput {
 export class GlobalCacheClient {
   private cacheRevision = 0;
   private cacheSubscribers = new Set<() => void>();
+  private readonly lockStates = new Map<string, CachedLockState>();
+  private readonly lockSubscribers = new Map<string, Set<(state: CachedLockState) => void>>();
+  private readonly realtimeBridge = new RealtimeCacheBridge((event) => {
+    this.applyRealtimeEvent(event);
+  });
+
+  /**
+   * Entity mutations can invalidate more than the collection of the direct
+   * parent node: subtree views and entity-detail views may contain the same
+   * entity as well. Removing the affected read models keeps the next read
+   * authoritative without trying to patch paginated windows locally.
+   */
+  private invalidateEntityViews(): void {
+    for (const viewKey of GlobalViewStore.getKeys()) {
+      if (
+        viewKey.startsWith('SUBTREE_LIST|') ||
+        viewKey.startsWith('NODE_ENTITY_COLLECTION|') ||
+        viewKey.startsWith('ENTITY_DETAIL|')
+      ) {
+        GlobalViewStore.delete(viewKey);
+      }
+    }
+  }
 
   private notifyCacheSubscribers = () => {
     this.cacheRevision += 1;
@@ -59,6 +90,105 @@ export class GlobalCacheClient {
     this.cacheSubscribers.add(subscriber);
     return () => this.cacheSubscribers.delete(subscriber);
   };
+
+  public retainRealtimeResource = (
+    resourceType: RealtimeResourceType,
+    resourceId: string,
+    listener: (event: RealtimeDataChangedEvent) => void
+  ): (() => void) => this.realtimeBridge.retain(resourceType, resourceId, listener);
+
+  public retainLockResource = (
+    resourceType: RealtimeResourceType,
+    resourceId: string
+  ): (() => void) => this.realtimeBridge.retainLock(resourceType, resourceId, (eventName, event) => {
+    this.applyLockEvent(eventName, event);
+  });
+
+  public getLockState(resourceType: RealtimeResourceType, resourceId: string): CachedLockState {
+    const state = this.lockStates.get(this.lockKey(resourceType, resourceId));
+    if (state?.locked && state.expiresAt && Date.parse(state.expiresAt) <= Date.now()) {
+      return { locked: false };
+    }
+    return state ?? { locked: false };
+  }
+
+  public subscribeLock(
+    resourceType: RealtimeResourceType,
+    resourceId: string,
+    subscriber: (state: CachedLockState) => void
+  ): () => void {
+    const key = this.lockKey(resourceType, resourceId);
+    const subscribers = this.lockSubscribers.get(key) ?? new Set();
+    subscribers.add(subscriber);
+    this.lockSubscribers.set(key, subscribers);
+    return () => {
+      const current = this.lockSubscribers.get(key);
+      if (!current) return;
+      current.delete(subscriber);
+      if (current.size === 0) this.lockSubscribers.delete(key);
+    };
+  }
+
+  public setLockState(
+    resourceType: RealtimeResourceType,
+    resourceId: string,
+    state: CachedLockState
+  ): void {
+    const key = this.lockKey(resourceType, resourceId);
+    const normalized = state.locked ? state : { locked: false };
+    this.lockStates.set(key, normalized);
+    this.lockSubscribers.get(key)?.forEach((subscriber) => subscriber(normalized));
+    this.notifyCacheSubscribers();
+  }
+
+  private lockKey(resourceType: RealtimeResourceType, resourceId: string): string {
+    return `${resourceType}:${resourceId}`;
+  }
+
+  private applyLockEvent(
+    eventName: 'lock:acquired' | 'lock:released' | 'lock:force-released',
+    event: LockChannelEvent
+  ): void {
+    if (eventName === 'lock:acquired') {
+      this.setLockState(event.resourceType, event.resourceId, {
+        locked: true,
+        byUserId: event.userId,
+        expiresAt: event.expiresAt,
+      });
+    } else {
+      this.setLockState(event.resourceType, event.resourceId, { locked: false });
+    }
+  }
+
+  private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
+    if (event.resourceType === 'entity') {
+      const entityTypeId = event.entityTypeId;
+      if (entityTypeId && event.changeType !== 'deleted' && event.data) {
+        this.getEntityCache(entityTypeId).inject(
+          event.resourceId,
+          event.data as ClientEntity,
+          false,
+          'realtime:data-changed'
+        );
+      } else if (entityTypeId && event.changeType === 'deleted') {
+        this.getEntityCache(entityTypeId).remove(event.resourceId);
+      }
+      if (
+        event.changeType === 'created' ||
+        event.changeType === 'deleted' ||
+        event.changeType === 'moved'
+      ) {
+        this.invalidateEntityViews();
+      }
+    } else if (event.data && event.changeType !== 'deleted') {
+      this.nodes.inject(
+        event.resourceId,
+        event.data as ClientNode,
+        false,
+        'realtime:data-changed'
+      );
+    }
+  }
 
   public nodes = new DomainCacheClient<ClientNode>('nodes', async (id) => {
     try {
@@ -119,10 +249,7 @@ export class GlobalCacheClient {
       const entityTypeKey = newEntity.entityTypeId;
       // Inietta il nuovo dato nella cache
       this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false);
-      GlobalViewStore.delete(ViewKeyBuilder.build({
-        viewType: 'NODE_ENTITY_COLLECTION',
-        baseNodeId: newEntity.parentNodeId,
-      }));
+      this.invalidateEntityViews();
       return newEntity as unknown as ClientEntity;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -136,6 +263,8 @@ export class GlobalCacheClient {
       const entityTypeKey = updatedEntity.entityTypeId;
       // Inietta il dato aggiornato nella cache
       this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false);
+      // La vista non va invalidata: il dato canonico è già stato aggiornato
+      // nella cache e i consumatori vengono notificati direttamente.
       return updatedEntity as unknown as ClientEntity;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -149,6 +278,7 @@ export class GlobalCacheClient {
       // Aggiorna lo store
       const cache = this.getEntityCache(entityTypeKey);
       cache.remove(entityId);
+      this.invalidateEntityViews();
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -214,6 +344,8 @@ export class GlobalCacheClient {
     }
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
+    this.lockStates.clear();
+    this.lockSubscribers.clear();
   }
 
   /**

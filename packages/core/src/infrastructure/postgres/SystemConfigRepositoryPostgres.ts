@@ -10,6 +10,57 @@ import {
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { PgExecutor } from './PgExecutor.js';
 
+interface CapabilityRow {
+  id: string;
+  capabilityKey: string;
+  name: string;
+  description: string | null;
+  defaultStatus: CapabilityStatus;
+  currentStatus: CapabilityStatus;
+  isSystem: boolean;
+  updatedAt: Date;
+}
+
+interface SettingRow {
+  id: string;
+  category: string;
+  settingKey: string;
+  displayName: string;
+  description: string | null;
+  valueType: SystemSettingDto['valueType'];
+  valueText: string | null;
+  isSecret: boolean;
+  isSystem: boolean;
+  rowVersion: number;
+  updatedAt: Date;
+}
+
+interface PlacementPolicyListRow {
+  id: string;
+  policyKey: string;
+  name: string;
+  description: string | null;
+  policyMode: PolicyMode;
+  rowVersion: number;
+  updatedAt: Date;
+  ruleCount: number;
+}
+
+interface PlacementPolicyRow extends Omit<PlacementPolicyListRow, 'ruleCount'> {}
+
+interface PlacementRuleRow {
+  id: string;
+  placementPolicyId: string;
+  ruleType: string;
+  targetNodeId: string | null;
+  targetNodeName: string | null;
+  targetNodeTypeId: string | null;
+  targetNodeTypeName: string | null;
+  comparator: string | null;
+  valueText: string | null;
+  createdAt: Date;
+}
+
 export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
   constructor(private readonly executor: PgExecutor) {}
 
@@ -28,8 +79,8 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       LEFT JOIN runtime_capability_overrides o ON o.capability_id = c.id AND o.scope_key = 'global'
       ORDER BY c.name ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<CapabilityRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       capabilityKey: r.capabilityKey,
       name: r.name,
@@ -81,8 +132,8 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       WHERE s.deleted_at IS NULL
       ORDER BY s.category ASC, s.setting_key ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<SettingRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       category: r.category,
       settingKey: r.settingKey,
@@ -141,8 +192,8 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       GROUP BY p.id
       ORDER BY p.name ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<PlacementPolicyListRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       policyKey: r.policyKey,
       name: r.name,
@@ -160,9 +211,10 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       FROM placement_policies
       WHERE policy_key = $1 AND deleted_at IS NULL
     `;
-    const pRes = await this.executor.query<any>(pQuery, [policyKey.trim()]);
+    const pRes = await this.executor.query<PlacementPolicyRow>(pQuery, [policyKey.trim()]);
     if (pRes.rows.length === 0) return null;
     const p = pRes.rows[0];
+    if (!p) return null;
 
     const rQuery = `
       SELECT 
@@ -182,7 +234,7 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       WHERE pr.placement_policy_id = $1
       ORDER BY pr.created_at ASC
     `;
-    const rRes = await this.executor.query<any>(rQuery, [p.id]);
+    const rRes = await this.executor.query<PlacementRuleRow>(rQuery, [p.id]);
 
     return {
       id: p.id,
@@ -191,7 +243,7 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       description: p.description ?? '',
       policyMode: p.policyMode as PolicyMode,
       rowVersion: Number(p.rowVersion),
-      rules: rRes.rows.map((r: any) => ({
+      rules: rRes.rows.map((r) => ({
         id: r.id,
         placementPolicyId: r.placementPolicyId,
         ruleType: r.ruleType,
@@ -215,9 +267,10 @@ export class SystemConfigRepositoryPostgres implements SystemConfigRepository {
       FROM placement_policies
       WHERE policy_key = $1 AND deleted_at IS NULL
     `;
-    const res = await this.executor.query<any>(query, [policyKey.trim()]);
+    const res = await this.executor.query<PlacementPolicyRow>(query, [policyKey.trim()]);
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
+    if (!r) return null;
     return {
       id: r.id,
       policyKey: r.policyKey,

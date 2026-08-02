@@ -36,8 +36,9 @@ describe('PostgreSQL Integration Tests', () => {
     // Esegui una query semplice per testare la connettività
     try {
       await executor.query('SELECT 1');
-    } catch (err: any) {
-      console.warn('Connessione al database non disponibile. Saltando i test di integrazione.', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('Connessione al database non disponibile. Saltando i test di integrazione.', message);
       throw err;
     }
 

@@ -22,6 +22,41 @@ interface RoleRow {
   deleted_at: Date | null;
 }
 
+interface RoleListRow {
+  id: string;
+  roleKey: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  updatedAt: Date;
+  permissionCount: number;
+}
+
+interface RoleDetailRow {
+  id: string;
+  roleKey: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  rowVersion: number;
+  updatedAt: Date;
+}
+
+interface PermissionRow extends PermissionDto {}
+
+interface ScopeAssignmentRow {
+  id: string;
+  userId: string;
+  userEmail: string;
+  nodeId: string;
+  nodeName: string;
+  roleId: string | null;
+  roleName: string | null;
+  assignmentEffect: 'allow' | 'deny';
+  propagation: 'self' | 'subtree';
+  assignedAt: Date;
+}
+
 export class SecurityRepositoryPostgres implements SecurityRepository {
   constructor(private readonly executor: PgExecutor) {}
 
@@ -41,8 +76,8 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       GROUP BY r.id
       ORDER BY r.name ASC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<RoleListRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       roleKey: r.roleKey,
       name: r.name,
@@ -59,11 +94,14 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       FROM roles
       WHERE role_key = $1 AND deleted_at IS NULL
     `;
-    const roleRes = await this.executor.query<any>(roleQuery, [roleKey.trim()]);
+    const roleRes = await this.executor.query<RoleDetailRow>(roleQuery, [roleKey.trim()]);
     if (roleRes.rows.length === 0) {
       return null;
     }
     const r = roleRes.rows[0];
+    if (!r) {
+      return null;
+    }
 
     const permissionsQuery = `
       SELECT p.id, p.permission_key AS "permissionKey", p.name, p.description, p.resource_kind AS "resourceKind"
@@ -72,7 +110,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       WHERE rp.role_id = $1
       ORDER BY p.permission_key ASC
     `;
-    const permRes = await this.executor.query<any>(permissionsQuery, [r.id]);
+    const permRes = await this.executor.query<PermissionRow>(permissionsQuery, [r.id]);
 
     const allPermissions = await this.listAllPermissions();
 
@@ -166,7 +204,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       FROM permissions
       ORDER BY permission_key ASC
     `;
-    const res = await this.executor.query<any>(query);
+    const res = await this.executor.query<PermissionRow>(query);
     return res.rows;
   }
 
@@ -189,8 +227,8 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       LEFT JOIN roles r ON r.id = sa.role_id
       ORDER BY sa.assigned_at DESC
     `;
-    const res = await this.executor.query<any>(query);
-    return res.rows.map((r: any) => ({
+    const res = await this.executor.query<ScopeAssignmentRow>(query);
+    return res.rows.map((r) => ({
       id: r.id,
       userId: r.userId,
       userEmail: r.userEmail,
@@ -223,7 +261,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       LEFT JOIN roles r ON r.id = sa.role_id
       WHERE sa.id = $1
     `;
-    const res = await this.executor.query<any>(query, [id]);
+    const res = await this.executor.query<ScopeAssignmentRow>(query, [id]);
     const row = res.rows[0];
     if (!row) return null;
 

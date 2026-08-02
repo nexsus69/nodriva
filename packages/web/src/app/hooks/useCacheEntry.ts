@@ -14,9 +14,6 @@ export function useCacheEntry<T extends { id: string }>(
 
   useEffect(() => {
     if (!id) {
-      setData(null);
-      setError(null);
-      setIsLoading(false);
       return;
     }
 
@@ -42,7 +39,6 @@ export function useCacheEntry<T extends { id: string }>(
     // 3. Trigger fetch if missing or partial
     let isMounted = true;
     if (cacheClient.needsFetch(id, requireComplete)) {
-      setIsLoading(true);
       cacheClient
         .fetchIfMissing(id, requireComplete)
         .catch(() => {
@@ -53,11 +49,6 @@ export function useCacheEntry<T extends { id: string }>(
             setIsLoading(false);
           }
         });
-    } else {
-      // Data might have been in cache synchronously
-      setData(cacheClient.get(id));
-      setError(null);
-      setIsLoading(false);
     }
 
     // 4. Release on unmount (Decrement RefCount / GC)
@@ -68,5 +59,9 @@ export function useCacheEntry<T extends { id: string }>(
     };
   }, [cacheClient, id, requireComplete]);
 
-  return { data, error, isLoading };
+  return {
+    data: id ? cacheClient.get(id) ?? data : null,
+    error: id ? error : null,
+    isLoading: id ? cacheClient.needsFetch(id, requireComplete) || isLoading : false,
+  };
 }

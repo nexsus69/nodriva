@@ -12,6 +12,7 @@ import {
   getViewPrevCursor
 } from './ViewStore';
 import { AppCache } from './GlobalCacheClient';
+import { INFINITE_LIST_CONFIG } from './InfiniteListConfig';
 import { listSubtreeEntitiesAction } from '../actions/entityActions';
 import type { ListSubtreeEntitiesParams } from '../actions/entityActions';
 import type { ClientEntity, ClientNode, EntityTypeMeta, NodeTypeMeta } from '../types/models';
@@ -27,6 +28,8 @@ type SubtreeListItem = Partial<ClientEntity> & {
   nodeRowVersion?: number;
   createdAt?: string;
   updatedAt?: string;
+  lockUserId?: string;
+  lockExpiresAt?: string;
 };
 type CachedEntityInput = Partial<ClientEntity> & {
   id: string;
@@ -108,12 +111,15 @@ export class IngestionLayer {
     newCursor: unknown,
     intentType: 'resolve' | 'extend',
     direction?: 'forward' | 'backward',
-    maxWindowChunks: number = 8 // Default 8 chunks (~120 items at 15 items/page)
+    maxWindowChunks: number = INFINITE_LIST_CONFIG.maxWindowPages
   ) {
     const newDescriptors: ViewItemDescriptor[] = [];
 
     // 1. Ingest EntityStore
     items.forEach(item => {
+      AppCache.setLockState('entity', item.id, item.lockUserId
+        ? { locked: true, byUserId: item.lockUserId, expiresAt: item.lockExpiresAt }
+        : { locked: false });
       AppCache.nodes.inject(item.parentNodeId, {
         id: item.parentNodeId,
         name: item.nodeName,
@@ -454,7 +460,9 @@ export class FetchCoordinator {
           ? (direction === 'forward' ? getViewNextCursor(existingView) : getViewPrevCursor(existingView)) 
           : undefined;
         
-        const limit = intent.type === 'extend' ? (intent.pageSize || 15) : 15;
+        const limit = intent.type === 'extend'
+          ? (intent.pageSize || INFINITE_LIST_CONFIG.pageSize)
+          : INFINITE_LIST_CONFIG.pageSize;
 
         const res = await listSubtreeEntitiesAction({
           baseNodeId: intent.params.baseNodeId!,

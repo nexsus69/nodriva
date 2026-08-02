@@ -56,7 +56,13 @@ describe('EntitySubtreeQueryPortPostgres', () => {
               node_row_version: 7,
             },
           ],
-        }),
+        })
+        .mockResolvedValueOnce({ rows: [{ entity_type_id: '00000000-0000-0000-0000-000000000099', storage_table: 'entity_device' }] })
+        .mockResolvedValueOnce({ rows: [{ entity_type_id: '00000000-0000-0000-0000-000000000099', field_key: 'serialNumber', column_name: 'serial_number' }] })
+        .mockResolvedValueOnce({ rows: [
+          { entity_id: '00000000-0000-0000-0000-000000000010', serial_number: 'SN-001' },
+          { entity_id: '00000000-0000-0000-0000-000000000011', serial_number: 'SN-002' },
+        ] }),
     };
 
     const port = new EntitySubtreeQueryPortPostgres(mockExecutor as unknown as PgExecutor);
@@ -71,6 +77,7 @@ describe('EntitySubtreeQueryPortPostgres', () => {
     expect(res.items[0]?.id).toBe('00000000-0000-0000-0000-000000000010');
     expect(res.items[0]?.name).toBe('Device 1');
     expect(res.items[0]?.nodeRowVersion).toBe(4);
+    expect(res.items[0]?.payload).toEqual({ serialNumber: 'SN-001' });
     expect(res.items[1]?.id).toBe('00000000-0000-0000-0000-000000000011');
     expect(res.items[1]?.name).toBe('Device 2');
     expect(res.items[1]?.nodeRowVersion).toBe(7);
@@ -111,7 +118,13 @@ describe('EntitySubtreeQueryPortPostgres', () => {
               node_depth: 1,
             },
           ],
-        }),
+        })
+        .mockResolvedValueOnce({ rows: [{ entity_type_id: '00000000-0000-0000-0000-000000000099', storage_table: 'entity_device' }] })
+        .mockResolvedValueOnce({ rows: [{ entity_type_id: '00000000-0000-0000-0000-000000000099', field_key: 'serialNumber', column_name: 'serial_number' }] })
+        .mockResolvedValueOnce({ rows: [
+          { entity_id: '00000000-0000-0000-0000-000000000011', serial_number: 'SN-002' },
+          { entity_id: '00000000-0000-0000-0000-000000000010', serial_number: 'SN-001' },
+        ] }),
     };
 
     const port = new EntitySubtreeQueryPortPostgres(mockExecutor as unknown as PgExecutor);

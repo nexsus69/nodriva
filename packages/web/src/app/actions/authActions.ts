@@ -2,6 +2,7 @@
 
 import { signIn, signOut } from '../../auth';
 import { AuthError } from 'next-auth';
+import { parseLoginCredentials } from './auth/authInputValidation';
 
 function isNextRedirect(error: unknown): boolean {
   return (
@@ -21,11 +22,16 @@ function isNextRedirect(error: unknown): boolean {
  * - generazione e impostazione del cookie JWT
  * - protezione CSRF
  */
-export async function loginAction(email: string, password: string) {
+export async function loginAction(email: unknown, password: unknown) {
+  const credentials = parseLoginCredentials({ email, password });
+  if (!credentials) {
+    return { success: false, error: 'Inserisci un indirizzo email e una password validi' };
+  }
+
   try {
     await signIn('credentials', {
-      email,
-      password,
+      email: credentials.email,
+      password: credentials.password,
       redirect: false,
     });
 

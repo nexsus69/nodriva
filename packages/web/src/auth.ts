@@ -2,6 +2,7 @@ import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authApplicationService } from './server/db';
 import { authConfig } from './auth.config';
+import { parseLoginCredentials } from './app/actions/auth/authInputValidation';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -41,21 +42,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        const parsedCredentials = parseLoginCredentials(credentials);
+        if (!parsedCredentials) {
           return null;
         }
 
         try {
           const dbToken = await authApplicationService.login(
-            credentials.email as string,
-            credentials.password as string
+            parsedCredentials.email,
+            parsedCredentials.password
           );
 
           const userId = await authApplicationService.resolveSession(dbToken);
 
           return {
             id: userId,
-            email: credentials.email as string,
+            email: parsedCredentials.email,
             dbToken,
           };
         } catch (err: unknown) {

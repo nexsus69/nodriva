@@ -32,19 +32,19 @@ export function VirtualGroupHeader({
   return (
     <div
       role="rowgroup"
-      className="bg-slate-800/95 border-y border-slate-700/60 text-sm font-medium text-slate-200"
+      className="border-y border-indigo-100 bg-indigo-50/70 text-sm font-medium text-slate-700"
     >
       <div
         role="row"
-        className="flex items-center justify-between px-4 py-2.5"
+        className="flex items-center justify-between px-5 py-2.5"
         style={{ paddingLeft: `${16 + indentPx}px` }}
       >
         <div role="cell" className="flex items-center gap-2 truncate">
-          <span className="inline-flex items-center justify-center w-5 h-5 rounded bg-indigo-500/20 text-indigo-400 text-xs font-semibold">
-            📁
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-600">
+            ⌂
           </span>
-          <span className="font-semibold text-slate-100">{resolvedNodeName}</span>
-          <span className="text-xs text-slate-400 font-mono hidden sm:inline truncate">
+          <span className="font-semibold text-slate-800">{resolvedNodeName}</span>
+          <span className="hidden truncate text-xs font-mono text-slate-400 sm:inline">
             ({resolvedNodePath})
           </span>
         </div>

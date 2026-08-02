@@ -11,6 +11,7 @@ import { PgExecutor } from '@dashboard/core';
 import { GlobalViewStore, flattenViewPages } from '../app/cache/ViewStore';
 import { FetchCoordinator, ViewIntent } from '../app/cache/CacheService';
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
+import { INFINITE_LIST_CONFIG } from '../app/cache/InfiniteListConfig';
 
 describe('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
   let pool: pg.Pool;
@@ -55,7 +56,7 @@ describe('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
       VALUES ($1, NULL, 'layer2_root'::ltree, 'layer2_root', 0, $2, 'Layer 2 Root Node', 'Root')
     `, [testNodeId, testNodeTypeId]);
 
-    // Popola 150 entità reali per testare il trimming del Layer 2 (maxWindowChunks = 8, 8 * 15 = 120 elementi)
+    // Popola 150 entità reali per testare il trimming del Layer 2.
     for (let i = 1; i <= 150; i++) {
       const paddedNum = String(i).padStart(3, '0');
       await executor.query(`
@@ -83,54 +84,53 @@ describe('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
     GlobalPolicyRegistry.releaseAll('test-owner');
   });
 
-  it('Layer 2 Integration Test: applica il trimming a chunk (eviction a 8 pagine max) sui dati reali estratti da PostgreSQL', async () => {
+  it('Layer 2 Integration Test: applica il trimming a chunk sui dati reali estratti da PostgreSQL', async () => {
     const params = { viewType: 'SUBTREE_LIST' as const, baseNodeId: testNodeId };
+    const totalPages = Math.ceil(150 / INFINITE_LIST_CONFIG.pageSize);
     
     // 1. Initial resolve (Page 1)
     let intent: ViewIntent = { type: 'resolve', params, requireComplete: false };
     await FetchCoordinator.executeFetch(intent, viewKey);
     
-    // 2. Extend forward per 9 volte per un totale di 10 pagine (150 item).
-    // Siccome il limite è 8 chunk nell'IngestionLayer, dovremmo conservare le ultime 8 pagine (120 item).
-    for (let page = 2; page <= 10; page++) {
-      intent = { type: 'extend', params, requireComplete: false, direction: 'forward', pageSize: 15 };
+    // 2. Carica tutte le pagine disponibili.
+    for (let page = 2; page <= totalPages; page++) {
+      intent = { type: 'extend', params, requireComplete: false, direction: 'forward', pageSize: INFINITE_LIST_CONFIG.pageSize };
       await FetchCoordinator.executeFetch(intent, viewKey);
     }
 
     const view = GlobalViewStore.get(viewKey);
     expect(view).not.toBeNull();
     
-    // Le pagine dovrebbero essere tagliate a 8
-    expect(view!.pages.length).toBe(8);
-    expect(flattenViewPages(view!).length).toBeGreaterThan(100); // circa 8 * 15, al netto di dedupliche
+    expect(view!.pages.length).toBe(INFINITE_LIST_CONFIG.maxWindowPages);
+    expect(flattenViewPages(view!).length).toBeGreaterThan(50);
   });
 
   it('Layer 2 Integration Test: risale all indietro dal fondo eseguendo l eviction in coda ed il recupero in cima', async () => {
     const params = { viewType: 'SUBTREE_LIST' as const, baseNodeId: testNodeId };
+    const totalPages = Math.ceil(150 / INFINITE_LIST_CONFIG.pageSize);
     
-    // 1. Scendiamo fino in fondo (10 pagine in totale, le prime 2 vengono evictate, rimangono le ultime 8)
+    // 1. Scendiamo fino in fondo (10 pagine in totale).
     await FetchCoordinator.executeFetch({ type: 'resolve', params, requireComplete: false }, viewKey);
-    for (let page = 2; page <= 10; page++) {
-      await FetchCoordinator.executeFetch({ type: 'extend', params, requireComplete: false, direction: 'forward', pageSize: 15 }, viewKey);
+    for (let page = 2; page <= totalPages; page++) {
+      await FetchCoordinator.executeFetch({ type: 'extend', params, requireComplete: false, direction: 'forward', pageSize: INFINITE_LIST_CONFIG.pageSize }, viewKey);
     }
 
     // 2. Ora scrolliamo all'indietro (Prepend / Backward) 2 volte per recuperare le 2 pagine in cima
     for (let bPage = 1; bPage <= 2; bPage++) {
-      await FetchCoordinator.executeFetch({ type: 'extend', params, requireComplete: false, direction: 'backward', pageSize: 15 }, viewKey);
+      await FetchCoordinator.executeFetch({ type: 'extend', params, requireComplete: false, direction: 'backward', pageSize: INFINITE_LIST_CONFIG.pageSize }, viewKey);
     }
 
     const view = GlobalViewStore.get(viewKey);
     expect(view).not.toBeNull();
     
-    // La lunghezza torna a 8 pagine (dopo l'append dietro, sono state poppate le pagine in fondo)
-    expect(view!.pages.length).toBe(8);
+    expect(view!.pages.length).toBe(INFINITE_LIST_CONFIG.maxWindowPages);
     
     const flatItems = flattenViewPages(view!);
-    expect(flatItems.length).toBeGreaterThan(90); // circa 120, ma con possibili dedupliche ai confini
+    expect(flatItems.length).toBeGreaterThan(50);
 
 
     // Siamo tornati in cima
     expect(view!.pages[0].hasMoreBackward).toBe(false);
-    expect(view!.pages[7].hasMoreForward).toBe(true);
+    expect(view!.pages.at(-1)?.hasMoreForward).toBe(true);
   });
 });

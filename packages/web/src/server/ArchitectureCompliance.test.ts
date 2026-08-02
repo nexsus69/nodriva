@@ -100,7 +100,7 @@ describe('Architecture Compliance - Phase 1', () => {
       // Insert an entity into the canonical store
       const entityTypeId = 'test_type';
       const entityId = 'entity_1';
-      AppCache.getEntityCache(entityTypeId).inject(entityId, { id: entityId, name: 'test' } as any);
+      AppCache.getEntityCache(entityTypeId).inject(entityId, { id: entityId, name: 'test' } as unknown as never);
 
       // Force eviction of the view
       gc.sweep(5000); // 0 leases, so it evicts immediately
@@ -142,7 +142,7 @@ describe('Architecture Compliance - Phase 1', () => {
     it('should inject new node into domain cache upon createNode', async () => {
       // Mock node action return value since we mock db
       // Actually we just test the AppCache orchestrator behavior
-      vi.mocked(nodeActions.createNodeAction).mockResolvedValue({ id: 'node_new', name: 'Test Node', parentId: 'root' } as any);
+      vi.mocked(nodeActions.createNodeAction).mockResolvedValue({ id: 'node_new', name: 'Test Node', parentId: 'root' } as unknown as never);
 
       const input: CreateNodeInput = { parentNodeId: 'root', nodeTypeKey: 'test', name: 'Test Node' };
       const result = await AppCache.createNode(input);
@@ -152,7 +152,7 @@ describe('Architecture Compliance - Phase 1', () => {
     });
 
     it('should inject updated node into domain cache upon updateNode', async () => {
-      vi.mocked(nodeActions.updateNodeAction).mockResolvedValue({ id: 'node_1', name: 'Updated Node', expectedRowVersion: 2 } as any);
+      vi.mocked(nodeActions.updateNodeAction).mockResolvedValue({ id: 'node_1', name: 'Updated Node', expectedRowVersion: 2 } as unknown as never);
 
       const input: UpdateNodeInput = { nodeId: 'node_1', name: 'Updated Node', expectedRowVersion: 1 };
       const result = await AppCache.updateNode(input);
@@ -163,7 +163,7 @@ describe('Architecture Compliance - Phase 1', () => {
     });
 
     it('should inject moved node into domain cache upon moveNode', async () => {
-      vi.mocked(nodeActions.moveNodeAction).mockResolvedValue({ id: 'node_1', name: 'Moved Node', parentId: 'new_parent' } as any);
+      vi.mocked(nodeActions.moveNodeAction).mockResolvedValue({ id: 'node_1', name: 'Moved Node', parentId: 'new_parent' } as unknown as never);
 
       const input: MoveNodeInput = { nodeId: 'node_1', newParentNodeId: 'new_parent', expectedNodeRowVersion: 2 };
       const result = await AppCache.moveNode(input);
@@ -176,10 +176,9 @@ describe('Architecture Compliance - Phase 1', () => {
   describe('Phase 2.5 Views (NODE_CHILDREN_LIST, NODE_ENTITY_COLLECTION, METADATA_LIST)', () => {
     it('should successfully ingest NODE_CHILDREN_LIST and create a single flat page', async () => {
       const mockNodes = [{ id: 'child_1', name: 'Child 1', parentId: 'root' }];
-      vi.mocked(nodeActions.listChildrenAction).mockResolvedValue(mockNodes as any);
+      vi.mocked(nodeActions.listChildrenAction).mockResolvedValue(mockNodes as unknown as never);
 
-      const intent: any = { type: 'resolve', params: { viewType: 'NODE_CHILDREN_LIST', baseNodeId: 'root' }, requireComplete: true };
-      const viewKey = ViewKeyBuilder.build(intent.params);
+      const intent = { type: 'resolve', params: { viewType: 'NODE_CHILDREN_LIST', baseNodeId: 'root' }, requireComplete: true } as const;
       
       const view = await ViewResolver.resolve(intent);
       
@@ -191,10 +190,9 @@ describe('Architecture Compliance - Phase 1', () => {
 
     it('should successfully ingest NODE_ENTITY_COLLECTION and create a single flat page', async () => {
       const mockEntities = [{ id: 'ent_1', name: 'Ent 1', parentNodeId: 'node_1', entityTypeId: 'test-type' }];
-      vi.mocked(entityActions.listEntitiesAction).mockResolvedValue(mockEntities as any);
+      vi.mocked(entityActions.listEntitiesAction).mockResolvedValue(mockEntities as unknown as never);
 
-      const intent: any = { type: 'resolve', params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'node_1' }, requireComplete: true };
-      const viewKey = ViewKeyBuilder.build(intent.params);
+      const intent = { type: 'resolve', params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'node_1' }, requireComplete: true } as const;
       
       const view = await ViewResolver.resolve(intent);
       
@@ -206,10 +204,9 @@ describe('Architecture Compliance - Phase 1', () => {
 
     it('should successfully ingest METADATA_LIST', async () => {
       const mockTypes = [{ id: 'type_1', typeKey: 'type_1', name: 'Type 1' }];
-      vi.mocked(nodeActions.listNodeTypesAction).mockResolvedValue(mockTypes as any);
+      vi.mocked(nodeActions.listNodeTypesAction).mockResolvedValue(mockTypes as unknown as never);
 
-      const intent: any = { type: 'resolve', params: { viewType: 'METADATA_LIST', metadataType: 'node' }, requireComplete: true };
-      const viewKey = ViewKeyBuilder.build(intent.params);
+      const intent = { type: 'resolve', params: { viewType: 'METADATA_LIST', metadataType: 'node' }, requireComplete: true } as const;
       
       const view = await ViewResolver.resolve(intent);
       

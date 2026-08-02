@@ -4,7 +4,9 @@ import PusherServer from 'pusher';
 import { AppError } from '@dashboard/core';
 
 const LOCK_CHANNEL_PATTERN =
-  /^private-locks-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+  /^private-locks-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const REALTIME_CHANNEL_PATTERN =
+  /^private-realtime-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 const pusher = new PusherServer({
   appId: process.env.PUSHER_APP_ID || '',
@@ -17,6 +19,10 @@ const pusher = new PusherServer({
 });
 
 export const POST = auth(async (req) => {
+  if (process.env.REALTIME_ENABLED === 'false') {
+    return new NextResponse('Realtime disabled', { status: 503 });
+  }
+
   const userId = req.auth?.userId;
 
   if (!userId) {
@@ -32,24 +38,35 @@ export const POST = auth(async (req) => {
       return new NextResponse('Missing parameters', { status: 400 });
     }
 
-    const match = LOCK_CHANNEL_PATTERN.exec(channelValue);
-    if (!match) {
+    const lockMatch = LOCK_CHANNEL_PATTERN.exec(channelValue);
+    const realtimeMatch = REALTIME_CHANNEL_PATTERN.exec(channelValue);
+    if (!lockMatch && !realtimeMatch) {
       return new NextResponse('Invalid channel', { status: 400 });
     }
 
+    const match = lockMatch || realtimeMatch!;
     const resourceType = match[1] as 'node' | 'entity';
     const resourceId = match[2]!;
-    const { accessControlPort, lockService } = await import('../../../../server/db');
+    const { accessControlPort, lockService, entityRepository } = await import('../../../../server/db');
 
-    if (resourceType === 'node') {
-      await accessControlPort.assertHasPermission(userId, 'node.edit', resourceId);
+    if (lockMatch) {
+      if (resourceType === 'node') {
+        await accessControlPort.assertCanReadNode(userId, resourceId);
+      } else {
+        const entity = await entityRepository.findById(resourceId);
+        if (!entity || entity.deletedAt) {
+          return new NextResponse('Not found', { status: 404 });
+        }
+        await accessControlPort.assertCanReadNode(userId, entity.parentNodeId);
+      }
+    } else if (resourceType === 'node') {
+      await accessControlPort.assertCanReadNode(userId, resourceId);
     } else {
-      await accessControlPort.assertCanEditEntity(userId, resourceId);
-    }
-
-    const lockState = await lockService.isLocked(resourceType, resourceId);
-    if (!lockState.locked || lockState.byUserId !== userId) {
-      return new NextResponse('Active owned lock required', { status: 403 });
+      const entity = await entityRepository.findById(resourceId);
+      if (!entity || entity.deletedAt) {
+        return new NextResponse('Not found', { status: 404 });
+      }
+      await accessControlPort.assertCanReadNode(userId, entity.parentNodeId);
     }
 
     const authResponse = pusher.authorizeChannel(socketIdValue, channelValue);

@@ -38,9 +38,9 @@ export function SubtreeEntitiesTableSection({
     retry,
   } = useVirtualSubtreeData({
     baseNodeId: nodeId,
-    pageSize: 15,
     captureAnchorRef,
   });
+
 
   const columns: VirtualTableColumnDef<
     SubtreeEntityItem & { nodeId: string }
@@ -66,13 +66,12 @@ export function SubtreeEntitiesTableSection({
   }));
 
   return (
-    <div className="space-y-3 pt-4 border-t border-slate-800">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold text-slate-200 uppercase font-mono tracking-wider flex items-center gap-2">
-          <span>📊</span> Tabella Virtualizzata Sottoalbero Entità ({items.length})
-        </h2>
+    <section className="space-y-4 border-t border-slate-200 pt-6">
+      <div className="flex items-end justify-between gap-4">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Esplora dati</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Entità del sottoalbero</h2></div>
+        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm">{items.length} caricate</span>
       </div>
-      <div className="h-[420px] w-full">
+      <div className="h-[420px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <VirtualGroupedTable
           items={formattedItems}
           columns={columns}
@@ -90,21 +89,20 @@ export function SubtreeEntitiesTableSection({
           onDebugRefresh={refresh}
           onDebugRetry={retry}
           renderGroupHeaderActions={({ nodeName }) => (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+            <span className="rounded-full border border-indigo-100 bg-white px-2 py-0.5 text-[10px] font-mono text-indigo-600">
               {nodeName}
             </span>
           )}
           renderRowActions={({ item }) => (
             <Link
               href={`/nodes/${item.parentNodeId}/entities/${item.id}`}
-              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
             >
               Apri →
             </Link>
           )}
-          showDebugOverlay
         />
       </div>
-    </div>
+    </section>
   );
 }

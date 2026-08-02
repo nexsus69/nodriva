@@ -10,6 +10,8 @@ import pg from 'pg';
 import { PgExecutor } from '@dashboard/core';
 import { listSubtreeEntitiesAction } from '../app/actions/entityActions.js';
 
+type SubtreePage = Awaited<ReturnType<typeof listSubtreeEntitiesAction>>;
+
 describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Entities with Incomplete Page (limit 20)', () => {
   let pool: pg.Pool;
   let executor: PgExecutor;
@@ -121,7 +123,7 @@ describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Ent
   });
 
   it('Layer 1 Limit 20 Test: scorre BACKWARD 150 entità partendo dall ultima pagina incompleta (10 entità) fino alla cima', async () => {
-    const forwardPages: any[] = [];
+    const forwardPages: SubtreePage[] = [];
     let fCursor: { path: string; name: string; id: string } | undefined = undefined;
 
     do {
@@ -139,7 +141,7 @@ describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Ent
     expect(forwardPages.length).toBe(8);
     expect(forwardPages[7].items.length).toBe(10);
 
-    const backwardPages: any[] = [];
+    const backwardPages: SubtreePage[] = [];
     let currentPrevCursor: { path: string; name: string; id: string } | undefined = forwardPages[7].prevCursor;
 
     while (currentPrevCursor) {
@@ -158,8 +160,8 @@ describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Ent
     }
 
     expect(backwardPages.length).toBe(7);
-    const backwardTotalIds = new Set(backwardPages.flatMap((p) => p.items.map((i: any) => i.id)));
+    const backwardTotalIds = new Set(backwardPages.flatMap((p) => p.items.map((i) => i.id)));
     expect(backwardTotalIds.size).toBe(140);
-    expect(backwardPages[0].items.map((i: any) => i.id)).toEqual(forwardPages[0].items.map((i: any) => i.id));
+    expect(backwardPages[0].items.map((i) => i.id)).toEqual(forwardPages[0].items.map((i) => i.id));
   });
 });

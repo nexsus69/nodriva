@@ -32,6 +32,7 @@ export default function EntityDetailPage() {
     error: lockError,
   } = useLock({ resourceType: 'entity', resourceId: entityId });
 
+
   const beginEditing = async (): Promise<boolean> => {
     if (!entity) return false;
     setName(entity.name || '');
