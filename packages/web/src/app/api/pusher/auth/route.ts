@@ -6,7 +6,7 @@ import { AppError } from '@dashboard/core';
 const LOCK_CHANNEL_PATTERN =
   /^private-locks-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 const REALTIME_CHANNEL_PATTERN =
-  /^private-realtime-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+  /^private-events-node-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 const pusher = new PusherServer({
   appId: process.env.PUSHER_APP_ID || '',
@@ -44,10 +44,9 @@ export const POST = auth(async (req) => {
       return new NextResponse('Invalid channel', { status: 400 });
     }
 
-    const match = lockMatch || realtimeMatch!;
-    const resourceType = match[1] as 'node' | 'entity';
-    const resourceId = match[2]!;
-    const { accessControlPort, lockService, entityRepository } = await import('../../../../server/db');
+    const resourceType = lockMatch ? (lockMatch[1] as 'node' | 'entity') : 'node';
+    const resourceId = lockMatch ? lockMatch[2]! : realtimeMatch![1]!;
+    const { accessControlPort, entityRepository } = await import('../../../../server/db');
 
     if (lockMatch) {
       if (resourceType === 'node') {

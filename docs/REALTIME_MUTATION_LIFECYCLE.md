@@ -4,6 +4,21 @@ Le mutazioni persistono prima il dato e pubblicano l'evento realtime solo dopo
 il completamento dell'operazione sul database. L'action attende la conclusione
 della pubblicazione prima di restituire il risultato al client.
 
+Gli eventi dati viaggiano su canali di scope nodo:
+
+```text
+private-events-node-{nodeId}
+```
+
+Un evento di un'entità viene pubblicato sul nodo padre e su tutti i suoi
+antenati. In caso di spostamento vengono inclusi anche gli antenati della
+posizione precedente. Il frontend si iscrive allo scope della vista e lascia
+alla cache la decisione di aggiornare l'entità, invalidare una vista o ignorare
+un evento già superato dal `rowVersion`.
+
+I canali lock restano separati (`private-locks-*`): hanno frequenza, ciclo di
+vita e semantica di errore diversi dagli eventi dati.
+
 ## Sequenze garantite
 
 ### Creazione
@@ -51,3 +66,8 @@ route di autorizzazione risponde con `503`.
 La pubblicazione è comunque best-effort: in caso di errore vengono effettuati
 tre tentativi, ma un problema di Pusher non rende fallita una mutazione già
 salvata nel database.
+
+La risoluzione degli antenati usa il repository PostgreSQL e `ltree`. Se la
+risoluzione fallisce, viene registrato l'errore e si tenta la pubblicazione sullo
+scope diretto disponibile; se anche la pubblicazione realtime fallisce, la
+mutazione già committata non viene annullata.

@@ -40,20 +40,22 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
     return `private-locks-${resourceType}-${resourceId}`;
   }
 
-  private getRealtimeChannelName(resourceType: 'node' | 'entity', resourceId: string): string {
-    return `private-realtime-${resourceType}-${resourceId}`;
-  }
-
   async publishDataChanged(event: RealtimeDataChangedEvent): Promise<void> {
     if (!this.pusher) return;
 
-    const channelNames = new Set<string>();
-    channelNames.add(this.getRealtimeChannelName(event.resourceType, event.resourceId));
-    if (event.parentNodeId) {
-      channelNames.add(this.getRealtimeChannelName('node', event.parentNodeId));
-    }
-    if (event.previousParentNodeId) {
-      channelNames.add(this.getRealtimeChannelName('node', event.previousParentNodeId));
+    const scopeNodeIds = event.scopeNodeIds ?? [
+      ...(event.parentNodeId ? [event.parentNodeId] : []),
+      ...(event.resourceType === 'node' ? [event.resourceId] : []),
+      ...(event.previousParentNodeId ? [event.previousParentNodeId] : []),
+    ];
+    const channelNames = new Set(
+      scopeNodeIds.map((nodeId) => `private-events-node-${nodeId}`)
+    );
+
+    if (channelNames.size === 0) {
+      throw new Error(
+        `Cannot publish realtime event ${event.eventId}: no node scope was resolved`
+      );
     }
 
     await Promise.all(

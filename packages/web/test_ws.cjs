@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const Pusher = require('pusher-js');
 
 const pusher = new Pusher('dashboard-app-key-123', {

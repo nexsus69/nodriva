@@ -114,6 +114,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
     ...input,
     actorUserId: await AuthResolver.resolveActorUserId(),
   };
+  const previous = await nodeService.getNodeById(input.nodeId, cmd.actorUserId);
   await nodeService.moveNode(cmd);
   const moved = await getNodeByIdAction(input.nodeId);
   if (moved) {
@@ -123,6 +124,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
       changeType: 'moved',
       actorUserId: cmd.actorUserId,
       parentNodeId: moved.parentId,
+      previousParentNodeId: previous?.parentId,
       data: moved,
     });
   }

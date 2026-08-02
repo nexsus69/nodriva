@@ -1,32 +1,26 @@
 import crypto from 'crypto';
 import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { PgExecutor } from '../../infrastructure/postgres/PgExecutor.js';
+import { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
 
 export class AuthApplicationService {
   constructor(
     private readonly sessionRepository: SessionRepositoryPort,
-    private readonly executor: PgExecutor // For querying users
+    private readonly userRepository: UserRepository
   ) {}
 
   async login(email: string, plainTextPassword: string): Promise<string> {
-    const res = await this.executor.query(
-      `SELECT id, password_hash, is_active FROM users WHERE email = $1`,
-      [email]
-    );
-
-    if (res.rows.length === 0) {
+    const user = await this.userRepository.findByEmail(email);
+    if (!user) {
       throw new UnauthorizedError('Invalid credentials');
     }
 
-    const user = res.rows[0];
-
-    if (!user || !user.is_active) {
+    if (!user.isActive) {
       throw new UnauthorizedError('User is disabled');
     }
 
-    const isValid = PasswordHasher.verify(plainTextPassword, user.password_hash as string);
+    const isValid = PasswordHasher.verify(plainTextPassword, user.passwordHash);
     if (!isValid) {
       throw new UnauthorizedError('Invalid credentials');
     }
@@ -38,7 +32,7 @@ export class AuthApplicationService {
     // Expire in 30 minutes (allineato con maxAge JWT)
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-    await this.sessionRepository.createSession(user.id as string, hashedToken, expiresAt);
+    await this.sessionRepository.createSession(user.id, hashedToken, expiresAt);
 
     return token;
   }

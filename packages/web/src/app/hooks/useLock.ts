@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   acquireLockAction,
@@ -8,7 +8,7 @@ import {
   refreshLockAction,
   releaseLockAction,
 } from '../actions/lockActions';
-import { AppCache, CachedLockState } from '../cache/GlobalCacheClient';
+import { AppCache } from '../cache/GlobalCacheClient';
 
 type LockResourceType = 'node' | 'entity';
 
@@ -20,8 +20,19 @@ interface UseLockProps {
 export function useLock({ resourceType, resourceId }: UseLockProps) {
   const { data: session } = useSession();
   const currentUserId = (session as { userId?: string } | null)?.userId;
-  const [lockState, setLockState] = useState<CachedLockState>(() =>
-    AppCache.getLockState(resourceType, resourceId)
+  const subscribeLock = useCallback(
+    (onStoreChange: () => void) =>
+      AppCache.subscribeLock(resourceType, resourceId, onStoreChange),
+    [resourceId, resourceType]
+  );
+  const getLockSnapshot = useCallback(
+    () => AppCache.getLockState(resourceType, resourceId),
+    [resourceId, resourceType]
+  );
+  const lockState = useSyncExternalStore(
+    subscribeLock,
+    getLockSnapshot,
+    getLockSnapshot
   );
   const [error, setError] = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -33,11 +44,6 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       refreshTimerRef.current = null;
     }
   }, []);
-
-  const applyLockState = useCallback((state: CachedLockState) => {
-    setLockState(state);
-    ownsLockRef.current = !!currentUserId && state.locked && state.byUserId === currentUserId;
-  }, [currentUserId]);
 
   const startRefreshTimer = useCallback(() => {
     stopRefreshTimer();
@@ -88,11 +94,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
 
   useEffect(() => {
     let mounted = true;
-    const unsubscribeState = AppCache.subscribeLock(resourceType, resourceId, (state) => {
-      if (mounted) applyLockState(state);
-    });
     const releaseRealtime = AppCache.retainLockResource(resourceType, resourceId);
-    applyLockState(AppCache.getLockState(resourceType, resourceId));
 
     void getLockStateAction(resourceType, resourceId).then((state) => {
       if (!mounted) return;
@@ -105,10 +107,9 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
 
     return () => {
       mounted = false;
-      unsubscribeState();
       releaseRealtime();
     };
-  }, [applyLockState, resourceId, resourceType]);
+  }, [resourceId, resourceType]);
 
   useEffect(() => {
     if (lockState.locked && lockState.byUserId === currentUserId) {

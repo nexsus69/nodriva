@@ -146,6 +146,7 @@ export {
   RealtimeChangeType,
 } from './application/ports/RealtimeEventBus.js';
 export { SessionRepositoryPort } from './application/ports/SessionRepositoryPort.js';
+export { RealtimeScopeResolver } from './application/ports/RealtimeScopeResolver.js';
 export { IdGeneratorPort } from './application/ports/IdGeneratorPort.js';
 export { SchemaRegistry } from './application/ports/SchemaRegistry.js';
 export { TypeDefinitionReader } from './application/ports/TypeDefinitionReader.js';
@@ -193,6 +194,7 @@ export { CachingSchemaRegistry } from './infrastructure/schema/CachingSchemaRegi
 export { EntitySchemaRegistryBridge } from './infrastructure/schema/EntitySchemaRegistryBridge.js';
 export { SchemaInvalidationAdapter } from './infrastructure/schema/SchemaInvalidationAdapter.js';
 export { SessionRepositoryPostgres } from './infrastructure/postgres/SessionRepositoryPostgres.js';
+export { RealtimeScopeResolverPostgres } from './infrastructure/postgres/RealtimeScopeResolverPostgres.js';
 
 export { User } from './domain/models/User.js';
 export { Role } from './domain/models/Role.js';

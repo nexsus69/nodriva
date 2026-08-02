@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthApplicationService } from './AuthApplicationService.js';
 import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { PgExecutor } from '../../infrastructure/postgres/PgExecutor.js';
+import { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { AppError } from '../../domain/errors/AppError.js';
+import { User } from '../../domain/models/User.js';
 
 describe('AuthApplicationService', () => {
   let sessionRepoMock: SessionRepositoryPort;
-  let executorMock: PgExecutor;
+  let userRepositoryMock: UserRepository;
   let authService: AuthApplicationService;
 
   beforeEach(() => {
@@ -18,20 +19,27 @@ describe('AuthApplicationService', () => {
       deleteSessionsForUser: vi.fn().mockResolvedValue(undefined),
     };
 
-    executorMock = {
-      query: vi.fn(),
-    } as unknown as PgExecutor;
+    userRepositoryMock = {
+      findById: vi.fn(),
+      findByEmail: vi.fn(),
+      listUsers: vi.fn(),
+      getUserDetail: vi.fn(),
+      listAllRoles: vi.fn(),
+      createUser: vi.fn(),
+      updateUser: vi.fn(),
+      assignUserRoles: vi.fn(),
+    };
 
-    authService = new AuthApplicationService(sessionRepoMock, executorMock);
+    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock);
   });
 
   describe('login', () => {
     it('should generate a token for valid credentials', async () => {
       const hash = PasswordHasher.hash('correct_password');
       
-      vi.mocked(executorMock.query).mockResolvedValueOnce({
-        rows: [{ id: 'user-1', password_hash: hash, is_active: true }]
-      } as any);
+      vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(
+        new User('user-1', 'test@test.com', hash, true, false, 1, new Date(), new Date())
+      );
 
       const token = await authService.login('test@test.com', 'correct_password');
       
@@ -41,24 +49,24 @@ describe('AuthApplicationService', () => {
     });
 
     it('should throw UNAUTHORIZED if user not found', async () => {
-      vi.mocked(executorMock.query).mockResolvedValueOnce({ rows: [] } as any);
+      vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(null);
       
       await expect(authService.login('test@test.com', 'pwd')).rejects.toThrow(AppError);
     });
 
     it('should throw UNAUTHORIZED if user is disabled', async () => {
-      vi.mocked(executorMock.query).mockResolvedValueOnce({
-        rows: [{ id: 'user-1', password_hash: 'hash', is_active: false }]
-      } as any);
+      vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(
+        new User('user-1', 'test@test.com', 'hash', false, false, 1, new Date(), new Date())
+      );
       
       await expect(authService.login('test@test.com', 'pwd')).rejects.toThrow(AppError);
     });
 
     it('should throw UNAUTHORIZED for wrong password', async () => {
       const hash = PasswordHasher.hash('correct_password');
-      vi.mocked(executorMock.query).mockResolvedValueOnce({
-        rows: [{ id: 'user-1', password_hash: hash, is_active: true }]
-      } as any);
+      vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(
+        new User('user-1', 'test@test.com', hash, true, false, 1, new Date(), new Date())
+      );
 
       await expect(authService.login('test@test.com', 'wrong')).rejects.toThrow(AppError);
     });

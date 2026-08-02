@@ -12,12 +12,20 @@ type RealtimeChangeInput = Omit<
 
 export async function publishRealtimeChange(input: RealtimeChangeInput): Promise<void> {
   try {
-    const { pusherEventBus } = await import('./db');
+    const { realtimeScopeResolver, pusherEventBus } = await import('./db');
     const event: RealtimeDataChangedEvent = {
       ...input,
       eventId: randomUUID(),
       occurredAt: new Date().toISOString(),
     };
+
+    try {
+      event.scopeNodeIds = await realtimeScopeResolver.resolveScopes(event);
+    } catch (error) {
+      console.error('[Realtime] Failed to resolve event scopes; publishing with direct fallback:', error);
+      const fallback = event.resourceType === 'node' ? event.resourceId : event.parentNodeId;
+      event.scopeNodeIds = fallback ? [fallback] : [];
+    }
 
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

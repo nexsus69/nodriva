@@ -7,6 +7,8 @@ export interface NodeRepository {
   update(node: Node): Promise<void>;
   moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void>;
   existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean>;
+  /** Returns the active node ids containing the node itself and all its ancestors. */
+  listAncestorIds(nodeId: string): Promise<string[]>;
   /** Returns true if nodeId is a descendant of potentialAncestorId (strict: not self). */
   isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean>;
 }

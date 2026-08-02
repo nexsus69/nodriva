@@ -38,6 +38,7 @@ describe('NodeApplicationService', () => {
       update: vi.fn(),
       moveSubtree: vi.fn(),
       existsByParentAndPathLabel: vi.fn().mockResolvedValue(false),
+      listAncestorIds: vi.fn().mockResolvedValue([]),
       isDescendantOf: vi.fn().mockResolvedValue(false),
     };
 

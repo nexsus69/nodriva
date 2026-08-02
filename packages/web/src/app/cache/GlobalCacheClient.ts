@@ -14,6 +14,8 @@ export interface CachedLockState {
   expiresAt?: string;
 }
 
+const EMPTY_LOCK_STATE: CachedLockState = { locked: false };
+
 export interface CreateNodeInput {
   parentNodeId: string | null;
   nodeTypeKey: string;
@@ -107,9 +109,9 @@ export class GlobalCacheClient {
   public getLockState(resourceType: RealtimeResourceType, resourceId: string): CachedLockState {
     const state = this.lockStates.get(this.lockKey(resourceType, resourceId));
     if (state?.locked && state.expiresAt && Date.parse(state.expiresAt) <= Date.now()) {
-      return { locked: false };
+      return EMPTY_LOCK_STATE;
     }
-    return state ?? { locked: false };
+    return state ?? EMPTY_LOCK_STATE;
   }
 
   public subscribeLock(
@@ -135,7 +137,7 @@ export class GlobalCacheClient {
     state: CachedLockState
   ): void {
     const key = this.lockKey(resourceType, resourceId);
-    const normalized = state.locked ? state : { locked: false };
+    const normalized = state.locked ? state : EMPTY_LOCK_STATE;
     this.lockStates.set(key, normalized);
     this.lockSubscribers.get(key)?.forEach((subscriber) => subscriber(normalized));
     this.notifyCacheSubscribers();

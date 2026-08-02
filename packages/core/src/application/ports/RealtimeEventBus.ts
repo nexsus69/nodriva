@@ -8,6 +8,8 @@ export interface RealtimeDataChangedEvent {
   resourceId: string;
   changeType: RealtimeChangeType;
   actorUserId: string;
+  /** Node scopes that should receive this event. Resolved by the composition root. */
+  scopeNodeIds?: string[];
   parentNodeId?: string | null;
   previousParentNodeId?: string | null;
   entityTypeId?: string;

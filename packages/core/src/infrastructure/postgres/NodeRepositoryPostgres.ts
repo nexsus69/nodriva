@@ -200,6 +200,20 @@ export class NodeRepositoryPostgres implements NodeRepository {
     return result.rows.length > 0;
   }
 
+  async listAncestorIds(nodeId: string): Promise<string[]> {
+    const result = await this.executor.query<{ id: string }>(
+      `SELECT ancestor.id
+       FROM nodes AS child
+       JOIN nodes AS ancestor ON child.path <@ ancestor.path
+       WHERE child.id = $1
+         AND child.deleted_at IS NULL
+         AND ancestor.deleted_at IS NULL
+       ORDER BY ancestor.depth DESC, ancestor.id ASC`,
+      [nodeId]
+    );
+    return result.rows.map((row) => row.id);
+  }
+
   async isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean> {
     // Strict semantics: a node is NOT considered a descendant of itself.
     if (nodeId === potentialAncestorId) {

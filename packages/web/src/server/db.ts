@@ -35,7 +35,8 @@ import {
   SchemaInvalidationAdapter,
   LtreeNodePathPolicy,
   SessionRepositoryPostgres,
-  AuthApplicationService
+  AuthApplicationService,
+  RealtimeScopeResolverPostgres
 } from '@dashboard/core';
 import crypto from 'crypto';
 
@@ -70,6 +71,7 @@ export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
 
 // Repository PostgreSQL
 export const nodeRepository = new NodeRepositoryPostgres(pgExecutor);
+export const realtimeScopeResolver = new RealtimeScopeResolverPostgres(nodeRepository);
 export const nodeTypeRepository = new NodeTypeRepositoryPostgres(pgExecutor);
 export const entityRepository = new EntityRepositoryPostgres(pgExecutor);
 export const entityTypeRepository = new EntityTypeRepositoryPostgres(pgExecutor);
@@ -170,4 +172,4 @@ export const entitySubtreeQueryPort = new EntitySubtreeQueryPortPostgres(pgExecu
 
 export const systemSeedService = new SystemSeedPostgres(pgExecutor);
 
-export const authApplicationService = new AuthApplicationService(sessionRepository, pgExecutor);
+export const authApplicationService = new AuthApplicationService(sessionRepository, userRepository);

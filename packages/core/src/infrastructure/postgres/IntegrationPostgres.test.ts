@@ -258,6 +258,9 @@ describe('PostgreSQL Integration Tests', () => {
       expect(children.length).toBe(1);
       expect(children[0]!.id).toBe(childNodeId);
 
+      const ancestorIds = await nodeRepo.listAncestorIds(childNodeId);
+      expect(ancestorIds).toEqual([childNodeId, rootNodeId]);
+
       // Verify Descendant check
       const isDesc = await nodeRepo.isDescendantOf(childNodeId, rootNodeId);
       expect(isDesc).toBe(true);

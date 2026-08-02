@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
-import { AppCache, CachedLockState } from '../cache/GlobalCacheClient';
+import { AppCache } from '../cache/GlobalCacheClient';
 
 interface LockIndicatorProps {
   resourceType: 'node' | 'entity';
@@ -20,16 +20,20 @@ function LockIcon({ className }: { className: string }) {
 export function LockIndicator({ resourceType, resourceId }: LockIndicatorProps) {
   const { data: session } = useSession();
   const currentUserId = (session as { userId?: string } | null)?.userId;
-  const [state, setState] = useState<CachedLockState>(() =>
-    AppCache.getLockState(resourceType, resourceId)
+  const subscribe = useCallback(
+    (onStoreChange: () => void) =>
+      AppCache.subscribeLock(resourceType, resourceId, onStoreChange),
+    [resourceId, resourceType]
   );
+  const getSnapshot = useCallback(
+    () => AppCache.getLockState(resourceType, resourceId),
+    [resourceId, resourceType]
+  );
+  const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   useEffect(() => {
-    setState(AppCache.getLockState(resourceType, resourceId));
-    const unsubscribe = AppCache.subscribeLock(resourceType, resourceId, setState);
     const releaseRealtime = AppCache.retainLockResource(resourceType, resourceId);
     return () => {
-      unsubscribe();
       releaseRealtime();
     };
   }, [resourceId, resourceType]);

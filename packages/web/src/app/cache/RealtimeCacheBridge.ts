@@ -36,7 +36,13 @@ export class RealtimeCacheBridge {
   constructor(private readonly onEvent: RealtimeListener) {}
 
   retain(resourceType: RealtimeResourceType, resourceId: string, listener: RealtimeListener): () => void {
-    const channelName = `private-realtime-${resourceType}-${resourceId}`;
+    if (resourceType !== 'node') {
+      console.error(
+        `[RealtimeCacheBridge] Ignoring unsupported data scope ${resourceType}-${resourceId}`
+      );
+      return () => undefined;
+    }
+    const channelName = `private-events-node-${resourceId}`;
     let state = this.channels.get(channelName);
 
     if (!state) {

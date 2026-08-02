@@ -131,11 +131,12 @@ export function useSemanticView(
 
   useEffect(() => {
     const realtimeResource =
-      params.viewType === 'SUBTREE_LIST' && params.baseNodeId
+      (params.viewType === 'SUBTREE_LIST' ||
+        params.viewType === 'NODE_ENTITY_COLLECTION' ||
+        params.viewType === 'ENTITY_DETAIL') &&
+      params.baseNodeId
         ? { resourceType: 'node' as const, resourceId: params.baseNodeId }
-        : params.viewType === 'ENTITY_DETAIL' && params.entityId
-          ? { resourceType: 'entity' as const, resourceId: params.entityId }
-          : null;
+        : null;
 
     if (!realtimeResource) return;
     return AppCache.retainRealtimeResource(

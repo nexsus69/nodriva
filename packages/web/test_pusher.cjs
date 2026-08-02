@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const Pusher = require('pusher');
 
 const pusher = new Pusher({
