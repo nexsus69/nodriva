@@ -6,6 +6,7 @@ import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
 import type { ClientNode } from '../../types/models';
 import { isNodeAncestorOfPath } from './nodeTreePath';
 import { useCachedNode } from '../../hooks/useCachedNode';
+import { LockIndicator } from '../LockIndicator';
 
 export interface NodeTreeProps {
   activeNodeId?: string;
@@ -169,6 +170,7 @@ function NodeTreeItem({
         >
           {currentNode.name}
         </Link>
+        <LockIndicator resourceType="node" resourceId={currentNode.id} />
       </div>
 
       {isExpanded && (

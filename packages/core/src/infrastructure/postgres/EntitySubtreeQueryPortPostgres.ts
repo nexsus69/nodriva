@@ -143,7 +143,7 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     ];
 
     // Read Access Control SQL Filter
-    const aclSql = AccessControlPortPostgres.getReadAccessControlSql(`$${paramIndex++}`, 'n');
+    const aclSql = AccessControlPortPostgres.getReadAccessControlSql(`$${paramIndex++}`, 'n', 'entity.read');
     sqlParams.push(actorUserId);
     conditions.push(aclSql);
 

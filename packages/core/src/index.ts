@@ -201,6 +201,22 @@ export { EntitySchemaRegistryBridge } from './infrastructure/schema/EntitySchema
 export { SchemaInvalidationAdapter } from './infrastructure/schema/SchemaInvalidationAdapter.js';
 export { SessionRepositoryPostgres } from './infrastructure/postgres/SessionRepositoryPostgres.js';
 export { RealtimeScopeResolverPostgres } from './infrastructure/postgres/RealtimeScopeResolverPostgres.js';
+export {
+  canonicalizeRealtimeRules,
+  createRealtimeChannelPolicy,
+  getRealtimeDataChannelName,
+  getRealtimeLockChannelName,
+  policyAllowsResource,
+} from './application/realtime/RealtimeChannelPolicy.js';
+export type {
+  RealtimeChannelPolicy,
+  RealtimeChannelRule,
+  RealtimeResourceScope,
+} from './application/realtime/RealtimeChannelPolicy.js';
+export { PusherTransport } from './infrastructure/pusher/PusherTransport.js';
+export type { PusherTransportPort } from './infrastructure/pusher/PusherTransport.js';
+export { RealtimeChannelRouter } from './infrastructure/pusher/RealtimeChannelRouter.js';
+export { MemoryCache } from './application/cache/MemoryCache.js';
 
 export { User } from './domain/models/User.js';
 export { Role } from './domain/models/Role.js';

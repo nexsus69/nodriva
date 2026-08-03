@@ -3,7 +3,10 @@
 import { useEffect } from 'react';
 import { CacheGarbageCollector } from '../cache/CacheGarbageCollector';
 import { AppCache } from '../cache/GlobalCacheClient';
-import { listRealtimeScopeAssignmentsAction } from '../actions/realtimeActions';
+import {
+  listRealtimeChannelsAction,
+  listVirtualRootNodeIdsAction,
+} from '../actions/realtimeActions';
 
 export function CacheInitializer() {
   useEffect(() => {
@@ -11,14 +14,30 @@ export function CacheInitializer() {
     // Esegue sweep ogni 30s usando i default
     CacheGarbageCollector.start(30000);
 
-    let releaseScopes: (() => void) | undefined;
-    void listRealtimeScopeAssignmentsAction().then((result) => {
-      if (result.success) releaseScopes = AppCache.retainRealtimeScopes(result.data);
+    let releaseChannels: (() => void) | undefined;
+    void Promise.all([listRealtimeChannelsAction(), listVirtualRootNodeIdsAction()]).then(
+      ([channelsResult, virtualRootsResult]) => {
+        if (channelsResult.success) {
+          releaseChannels = AppCache.retainRealtimeChannels(
+            channelsResult.data.dataChannels,
+            channelsResult.data.lockChannels,
+          );
+        } else {
+          console.error('[CacheInitializer] Failed to resolve realtime channels:', channelsResult.error);
+        }
+        if (virtualRootsResult.success) {
+          AppCache.setVirtualRootNodeIds(virtualRootsResult.data);
+        } else {
+          console.error('[CacheInitializer] Failed to resolve virtual roots:', virtualRootsResult.error);
+        }
+      },
+    ).catch((error: unknown) => {
+      console.error('[CacheInitializer] Unexpected realtime initialization error:', error);
     });
 
     return () => {
       CacheGarbageCollector.stop();
-      releaseScopes?.();
+      releaseChannels?.();
     };
   }, []);
 

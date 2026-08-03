@@ -13,8 +13,11 @@ const baseEvent: RealtimeDataChangedEvent = {
   parentNodeId: 'node-leaf',
 };
 
-function createRepository(listAncestorIds: NodeRepository['listAncestorIds']): NodeRepository {
-  return { listAncestorIds } as unknown as NodeRepository;
+function createRepository(
+  listAncestorIds: NodeRepository['listAncestorIds'],
+  listAncestorIdsForNodes?: NonNullable<NodeRepository['listAncestorIdsForNodes']>,
+): NodeRepository {
+  return { listAncestorIds, listAncestorIdsForNodes } as unknown as NodeRepository;
 }
 
 describe('RealtimeScopeResolverPostgres', () => {
@@ -42,6 +45,25 @@ describe('RealtimeScopeResolverPostgres', () => {
       parentNodeId: 'new-parent',
       previousParentNodeId: 'old-parent',
     })).resolves.toEqual(['new-parent', 'shared-root', 'old-parent']);
+  });
+
+  it('resolves moved-node ancestors with one batch lookup when supported', async () => {
+    const listAncestorIds = vi.fn();
+    const listAncestorIdsForNodes = vi.fn().mockResolvedValue(new Map([
+      ['new-parent', ['new-parent', 'shared-root']],
+      ['old-parent', ['old-parent', 'shared-root']],
+    ]));
+    const resolver = new RealtimeScopeResolverPostgres(createRepository(listAncestorIds, listAncestorIdsForNodes));
+
+    await expect(resolver.resolveScopes({
+      ...baseEvent,
+      changeType: 'moved',
+      parentNodeId: 'new-parent',
+      previousParentNodeId: 'old-parent',
+    })).resolves.toEqual(['new-parent', 'shared-root', 'old-parent']);
+
+    expect(listAncestorIdsForNodes).toHaveBeenCalledWith(['new-parent', 'old-parent']);
+    expect(listAncestorIds).not.toHaveBeenCalled();
   });
 
   it('uses the direct node as fallback when the hierarchy lookup fails', async () => {

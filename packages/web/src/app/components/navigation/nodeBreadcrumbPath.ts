@@ -7,7 +7,8 @@ export interface CachedBreadcrumbPath {
 
 export function buildCachedBreadcrumbPath(
   nodeId: string,
-  getNode: (id: string) => ClientNode | null
+  getNode: (id: string) => ClientNode | null,
+  isVirtualRoot?: (id: string) => boolean
 ): CachedBreadcrumbPath {
   const reversedPath: ClientNode[] = [];
   const visited = new Set<string>();
@@ -28,6 +29,7 @@ export function buildCachedBreadcrumbPath(
     }
 
     reversedPath.push(node);
+    if (isVirtualRoot?.(node.id)) break;
     currentId = node.parentId;
   }
 

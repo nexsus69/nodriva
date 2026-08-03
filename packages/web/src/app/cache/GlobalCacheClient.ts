@@ -2,11 +2,15 @@ import { DomainCacheClient } from './DomainCacheClient';
 import { ClientNode, ClientEntity, NodeTypeMeta, EntityTypeMeta } from '../types/models';
 import { getNodeByIdAction, createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
 import { getEntityByIdAction, createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
+import { getLockStateAction } from '../actions/lockActions';
 import { GlobalViewStore } from './ViewStore';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
 import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
-import type { LockChannelEvent, RealtimeScopeChannel } from './RealtimeCacheBridge';
+import type {
+  LockChannelEvent,
+  RealtimeDebugEvent,
+} from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
 
@@ -63,10 +67,21 @@ export class GlobalCacheClient {
   private cacheSubscribers = new Set<() => void>();
   private readonly lockStates = new Map<string, CachedLockState>();
   private readonly lockSubscribers = new Map<string, Set<(state: CachedLockState) => void>>();
+  private readonly hydratedLockKeys = new Set<string>();
+  private readonly pendingLockHydrations = new Map<string, Promise<void>>();
+  private realtimeDebugEvents: RealtimeDebugEvent[] = [];
+  private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
+  private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
     (event) => this.applyRealtimeEvent(event),
-    (eventName, event) => this.applyLockEvent(eventName, event)
+    (eventName, event) => this.applyLockEvent(eventName, event),
+    (event) => this.recordRealtimeDebugEvent(event)
   );
+
+  private recordRealtimeDebugEvent(event: RealtimeDebugEvent): void {
+    this.realtimeDebugEvents = [...this.realtimeDebugEvents, event].slice(-200);
+    this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
+  }
 
   /**
    * Entity mutations can invalidate more than the collection of the direct
@@ -98,21 +113,28 @@ export class GlobalCacheClient {
     return () => this.cacheSubscribers.delete(subscriber);
   };
 
-  public retainRealtimeResource = (
-    resourceType: RealtimeResourceType,
-    resourceId: string,
-    listener: (event: RealtimeDataChangedEvent) => void
-  ): (() => void) => this.realtimeBridge.retain(resourceType, resourceId, listener);
+  public retainRealtimeChannels = (dataChannels: string[], lockChannels: string[]): (() => void) =>
+    this.realtimeBridge.retainPolicyChannels(dataChannels, lockChannels);
 
-  public retainLockResource = (
-    resourceType: RealtimeResourceType,
-    resourceId: string
-  ): (() => void) => this.realtimeBridge.retainLock(resourceType, resourceId, (eventName, event) => {
-    this.applyLockEvent(eventName, event);
-  });
+  public setVirtualRootNodeIds = (nodeIds: string[]): void => {
+    this.virtualRootNodeIds = new Set(nodeIds);
+    this.notifyCacheSubscribers();
+  };
 
-  public retainRealtimeScopes = (scopes: RealtimeScopeChannel[]): (() => void) =>
-    this.realtimeBridge.retainScopeChannels(scopes);
+  public isVirtualRootNode = (nodeId: string): boolean => this.virtualRootNodeIds.has(nodeId);
+
+  public getRealtimeDebugEvents = (): RealtimeDebugEvent[] => this.realtimeDebugEvents;
+
+  public subscribeRealtimeDebug = (subscriber: (events: RealtimeDebugEvent[]) => void): (() => void) => {
+    this.realtimeDebugSubscribers.add(subscriber);
+    subscriber(this.realtimeDebugEvents);
+    return () => this.realtimeDebugSubscribers.delete(subscriber);
+  };
+
+  public clearRealtimeDebugEvents = (): void => {
+    this.realtimeDebugEvents = [];
+    this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
+  };
 
   public getLockState(resourceType: RealtimeResourceType, resourceId: string): CachedLockState {
     const state = this.lockStates.get(this.lockKey(resourceType, resourceId));
@@ -121,6 +143,31 @@ export class GlobalCacheClient {
     }
     return state ?? EMPTY_LOCK_STATE;
   }
+
+  public hydrateLockState = (resourceType: RealtimeResourceType, resourceId: string): Promise<void> => {
+    const key = this.lockKey(resourceType, resourceId);
+    if (this.hydratedLockKeys.has(key)) return Promise.resolve();
+
+    const pending = this.pendingLockHydrations.get(key);
+    if (pending) return pending;
+
+    const request = getLockStateAction(resourceType, resourceId)
+      .then((state) => {
+        const current = this.getLockState(resourceType, resourceId);
+        // A realtime event or a local acquisition wins over an older snapshot.
+        if (!current.locked || state.locked) {
+          this.setLockState(resourceType, resourceId, state);
+        }
+        this.hydratedLockKeys.add(key);
+      })
+      .catch(() => {
+        // A failed read must not break rendering; realtime can still hydrate it later.
+      })
+      .finally(() => this.pendingLockHydrations.delete(key));
+
+    this.pendingLockHydrations.set(key, request);
+    return request;
+  };
 
   public subscribeLock(
     resourceType: RealtimeResourceType,
@@ -361,6 +408,9 @@ export class GlobalCacheClient {
     GlobalPolicyRegistry.purge();
     this.lockStates.clear();
     this.lockSubscribers.clear();
+    this.hydratedLockKeys.clear();
+    this.pendingLockHydrations.clear();
+    this.virtualRootNodeIds.clear();
   }
 
   /**

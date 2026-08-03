@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
 import { AppCache } from '../cache/GlobalCacheClient';
 
 interface LockIndicatorProps {
   resourceType: 'node' | 'entity';
   resourceId: string;
+  className?: string;
 }
 
 function LockIcon({ className }: { className: string }) {
@@ -17,7 +18,7 @@ function LockIcon({ className }: { className: string }) {
   );
 }
 
-export function LockIndicator({ resourceType, resourceId }: LockIndicatorProps) {
+export function LockIndicator({ resourceType, resourceId, className = '' }: LockIndicatorProps) {
   const { data: session } = useSession();
   const currentUserId = (session as { userId?: string } | null)?.userId;
   const subscribe = useCallback(
@@ -31,16 +32,20 @@ export function LockIndicator({ resourceType, resourceId }: LockIndicatorProps) 
   );
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
-  if (!state.locked) return <span className="w-5" aria-hidden="true" />;
+  useEffect(() => {
+    void AppCache.hydrateLockState(resourceType, resourceId);
+  }, [resourceId, resourceType]);
+
+  if (!state.locked) return null;
 
   const mine = !!currentUserId && state.byUserId === currentUserId;
   return (
     <span
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg ${mine ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md align-middle ${className} ${mine ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}
       title={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un altro utente'}
       aria-label={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un altro utente'}
     >
-      <LockIcon className="h-4 w-4" />
+      <LockIcon className="h-3.5 w-3.5" />
     </span>
   );
 }

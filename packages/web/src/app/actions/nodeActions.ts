@@ -12,9 +12,14 @@ import { withSafeActionErrors } from './errorMapping';
 
 export async function listChildrenAction(parentId: string | null) {
   return withSafeActionErrors(async () => {
-  const { nodeService } = await import('../../server/db');
+  const { nodeService, securityRepository } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
-  const nodes = await nodeService.listChildren(parentId, actorUserId);
+  const nodes = parentId === null
+    ? await Promise.all(
+      (await securityRepository.listRealtimeVirtualRootNodeIds(actorUserId))
+        .map((nodeId) => nodeService.getNodeById(nodeId, actorUserId))
+    ).then((resolved) => resolved.filter((node): node is NonNullable<typeof node> => node !== null))
+    : await nodeService.listChildren(parentId, actorUserId);
   return nodes.map((n) => ({
     id: n.id,
     parentId: n.parentId,

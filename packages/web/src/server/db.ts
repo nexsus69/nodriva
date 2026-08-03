@@ -38,7 +38,11 @@ import {
   AuthApplicationService,
   RealtimeScopeResolverPostgres,
   RealtimeOutboxPostgres,
+  RealtimeChannelRouter,
+  MemoryCache,
 } from '@dashboard/core';
+import type { RealtimeChannelPolicy } from '@dashboard/core';
+import { RealtimeMetrics } from './RealtimeMetrics';
 import crypto from 'crypto';
 
 if (!process.env.DATABASE_URL) {
@@ -51,6 +55,17 @@ const pool = new pg.Pool({
 });
 
 export const pgExecutor = new PgExecutor(pool);
+
+const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(30_000);
+export const realtimeMetrics = new RealtimeMetrics();
+
+export function invalidateRealtimePolicyCache(): void {
+  realtimePolicyCache.invalidate('all');
+}
+
+async function getRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
+  return realtimePolicyCache.getOrLoad('all', () => securityRepository.listRealtimeChannelPolicies());
+}
 
 // Porte e Adapter concreti infrastrutturali
 export const transactionPort = new TransactionPortPostgres(pool);
@@ -66,12 +81,20 @@ export const pusherEventBus = new PusherEventBus({
   host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
   port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
-  resolveResourceScopeIds: async (resourceType, resourceId) => {
-    const parentNodeId = resourceType === 'node'
+  resolveDataChannelNames: async (event) => {
+    const startedAt = Date.now();
+    const policies = await getRealtimeChannelPolicies();
+    const channels = new RealtimeChannelRouter(policies).dataChannels(event);
+    realtimeMetrics.recordRouting('data', Date.now() - startedAt, channels.length);
+    return channels;
+  },
+  resolveLockChannelNames: async (resourceType, resourceId, scopeNodeId) => {
+    const startedAt = Date.now();
+    const parentNodeId = scopeNodeId ?? (resourceType === 'node'
       ? resourceId
-      : (await entityRepository.findById(resourceId))?.parentNodeId;
+      : (await entityRepository.findById(resourceId))?.parentNodeId);
     if (!parentNodeId) return [];
-    return realtimeScopeResolver.resolveScopes({
+    const scopeNodeIds = await realtimeScopeResolver.resolveScopes({
       eventId: `lock-scope-${resourceType}-${resourceId}`,
       occurredAt: new Date().toISOString(),
       resourceType: resourceType as 'node' | 'entity',
@@ -80,7 +103,23 @@ export const pusherEventBus = new PusherEventBus({
       actorUserId: '',
       parentNodeId: resourceType === 'entity' ? parentNodeId : null,
     });
+    const policies = await getRealtimeChannelPolicies();
+    const channels = new RealtimeChannelRouter(policies).lockChannels(
+      resourceType as 'node' | 'entity',
+      {
+        scopeNodeIds,
+        directScopeNodeIds: [parentNodeId],
+      },
+    );
+    realtimeMetrics.recordRouting('lock', Date.now() - startedAt, channels.length);
+    return channels;
   },
+  onPublishMetric: (metric) => realtimeMetrics.recordPublish(
+    metric.eventName,
+    metric.durationMs,
+    metric.channelCount,
+    metric.success,
+  ),
 });
 export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
@@ -93,8 +132,8 @@ export const nodeTypeRepository = new NodeTypeRepositoryPostgres(pgExecutor);
 export const entityRepository = new EntityRepositoryPostgres(pgExecutor);
 export const entityTypeRepository = new EntityTypeRepositoryPostgres(pgExecutor);
 export const typeAdminRepository = new TypeDefinitionAdminRepositoryPostgres(pgExecutor);
-export const userRepository = new UserRepositoryPostgres(pgExecutor);
-export const securityRepository = new SecurityRepositoryPostgres(pgExecutor);
+export const userRepository = new UserRepositoryPostgres(pgExecutor, invalidateRealtimePolicyCache);
+export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, invalidateRealtimePolicyCache);
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 

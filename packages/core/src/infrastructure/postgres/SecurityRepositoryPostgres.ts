@@ -10,6 +10,11 @@ import {
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
 import { PgExecutor } from './PgExecutor.js';
+import {
+  createRealtimeChannelPolicy,
+  type RealtimeChannelPolicy,
+  type RealtimeChannelRule,
+} from '../../application/realtime/RealtimeChannelPolicy.js';
 
 interface RoleRow {
   id: string;
@@ -59,7 +64,10 @@ interface ScopeAssignmentRow {
 }
 
 export class SecurityRepositoryPostgres implements SecurityRepository {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(
+    private readonly executor: PgExecutor,
+    private readonly onRealtimePolicyChanged: () => void = () => undefined,
+  ) {}
 
   async listRoles(): Promise<RoleListItemDto[]> {
     const query = `
@@ -159,6 +167,8 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
 
     if (permissionIds.length > 0) {
       await this.updateRolePermissions(role.id, permissionIds);
+    } else {
+      this.onRealtimePolicyChanged();
     }
   }
 
@@ -197,6 +207,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
         [roleId, permId]
       );
     }
+    this.onRealtimePolicyChanged();
   }
 
   async listAllPermissions(): Promise<PermissionDto[]> {
@@ -295,6 +306,109 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     return res.rows;
   }
 
+  async listRealtimeVirtualRootNodeIds(userId: string): Promise<string[]> {
+    const query = `
+      SELECT DISTINCT n.id
+      FROM nodes n
+      WHERE n.deleted_at IS NULL
+        AND (
+          EXISTS (
+            SELECT 1 FROM users u
+            WHERE u.id = $1 AND u.is_super_admin = true
+          )
+          AND n.parent_id IS NULL
+          OR EXISTS (
+            SELECT 1
+            FROM node_scope_assignments sa
+            JOIN role_permissions rp ON rp.role_id = sa.role_id
+            JOIN permissions p ON p.id = rp.permission_id
+            WHERE sa.user_id = $1
+              AND sa.node_id = n.id
+              AND sa.assignment_effect = 'allow'::assignment_effect_enum
+              AND p.permission_key = 'node.read'
+          )
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM node_scope_assignments deny
+          JOIN role_permissions rp ON rp.role_id = deny.role_id
+          JOIN permissions p ON p.id = rp.permission_id
+          JOIN nodes deny_node ON deny_node.id = deny.node_id
+          WHERE deny.user_id = $1
+            AND deny.assignment_effect = 'deny'::assignment_effect_enum
+            AND p.permission_key = 'node.read'
+            AND (
+              (deny.propagation = 'self'::scope_propagation_enum AND deny.node_id = n.id)
+              OR
+              (deny.propagation = 'subtree'::scope_propagation_enum AND deny_node.path @> n.path)
+            )
+        )
+      ORDER BY n.id
+    `;
+    const result = await this.executor.query<{ id: string }>(query, [userId]);
+    return result.rows.map((row) => row.id);
+  }
+
+  async listRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
+    return this.loadRealtimeChannelPolicies();
+  }
+
+  async listRealtimeChannelPoliciesForUser(userId: string): Promise<RealtimeChannelPolicy[]> {
+    const policies = await this.loadRealtimeChannelPolicies(userId);
+    return policies;
+  }
+
+  private async loadRealtimeChannelPolicies(userId?: string): Promise<RealtimeChannelPolicy[]> {
+    const query = `
+      SELECT
+        u.id AS "userId",
+        u.is_super_admin AS "isSuperAdmin",
+        sa.node_id AS "nodeId",
+        sa.assignment_effect AS "assignmentEffect",
+        sa.propagation,
+        p.permission_key AS "permissionKey"
+      FROM users u
+      LEFT JOIN node_scope_assignments sa ON sa.user_id = u.id
+      LEFT JOIN role_permissions rp ON rp.role_id = sa.role_id
+      LEFT JOIN permissions p ON p.id = rp.permission_id
+        AND p.permission_key IN ('node.read', 'entity.read')
+      WHERE u.is_active = true
+        ${userId ? 'AND u.id = $1' : ''}
+      ORDER BY u.id, sa.node_id, sa.propagation, p.permission_key
+    `;
+    const result = await this.executor.query<{
+      userId: string;
+      isSuperAdmin: boolean;
+      nodeId: string | null;
+      assignmentEffect: 'allow' | 'deny' | null;
+      propagation: 'self' | 'subtree' | null;
+      permissionKey: 'node.read' | 'entity.read' | null;
+    }>(query, userId ? [userId] : []);
+
+    const rulesByUser = new Map<string, { isGlobal: boolean; rules: RealtimeChannelRule[] }>();
+    for (const row of result.rows) {
+      const current = rulesByUser.get(row.userId) ?? { isGlobal: Boolean(row.isSuperAdmin), rules: [] };
+      current.isGlobal ||= Boolean(row.isSuperAdmin);
+      if (row.nodeId && row.assignmentEffect && row.propagation && row.permissionKey) {
+        current.rules.push({
+          nodeId: row.nodeId,
+          assignmentEffect: row.assignmentEffect,
+          propagation: row.propagation,
+          permissionKey: row.permissionKey,
+        });
+      }
+      rulesByUser.set(row.userId, current);
+    }
+
+    const uniquePolicies = new Map<string, RealtimeChannelPolicy>();
+    for (const entry of rulesByUser.values()) {
+      if (!entry.isGlobal && entry.rules.length === 0) continue;
+      const policy = createRealtimeChannelPolicy(entry.rules, entry.isGlobal);
+      uniquePolicies.set(policy.channelId, policy);
+    }
+    return [...uniquePolicies.values()];
+  }
+
   async createScopeAssignment(
     id: string,
     userId: string,
@@ -309,6 +423,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
     await this.executor.query(query, [id, userId, nodeId, roleId, assignmentEffect, propagation, assignedBy]);
+    this.onRealtimePolicyChanged();
   }
 
   async updateScopeAssignment(
@@ -326,6 +441,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     if (result.rowCount === 0) {
       throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     }
+    this.onRealtimePolicyChanged();
   }
 
   async deleteScopeAssignment(id: string): Promise<void> {
@@ -333,6 +449,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     if (result.rowCount === 0) {
       throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     }
+    this.onRealtimePolicyChanged();
   }
 
   private mapToDomain(row: RoleRow): Role {

@@ -10,6 +10,8 @@ import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../hooks/useLock';
 import { LockBadge } from '../../../../components/LockBadge';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
+import { NodeBreadcrumb } from '../../../../components/navigation/NodeBreadcrumb';
+import { LockIndicator } from '../../../../components/LockIndicator';
 
 export default function EntityDetailPage() {
   const params = useParams();
@@ -126,12 +128,14 @@ export default function EntityDetailPage() {
         busy={isPending}
       />
       {/* Breadcrumb */}
-      <Link
-        href={`/nodes/${parentNodeId}`}
-        className="text-xs text-slate-400 hover:text-slate-200 inline-flex items-center gap-1 font-mono"
-      >
-        ← Torna al Nodo Padre
-      </Link>
+      <div className="flex min-w-0 items-center gap-1">
+        <NodeBreadcrumb nodeId={parentNodeId} />
+        <span aria-hidden="true" className="text-slate-600">/</span>
+        <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-mono font-semibold leading-none text-slate-100" title={entity.name}>
+          <span className="truncate">{entity.name}</span>
+          <LockIndicator resourceType="entity" resourceId={entity.id} className="-translate-y-px" />
+        </span>
+      </div>
 
       {/* Header */}
       <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex items-center justify-between">

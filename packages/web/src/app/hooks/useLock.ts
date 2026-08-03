@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useSession } from 'next-auth/react';
 import {
   acquireLockAction,
-  getLockStateAction,
   refreshLockAction,
   releaseLockAction,
 } from '../actions/lockActions';
@@ -93,19 +92,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   }, [resourceId, resourceType, stopRefreshTimer]);
 
   useEffect(() => {
-    let mounted = true;
-    void getLockStateAction(resourceType, resourceId).then((state) => {
-      if (!mounted) return;
-      const current = AppCache.getLockState(resourceType, resourceId);
-      // Do not let a slower snapshot overwrite a newer realtime acquisition.
-      if (!current.locked || state.locked) {
-        AppCache.setLockState(resourceType, resourceId, state);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
+    void AppCache.hydrateLockState(resourceType, resourceId);
   }, [resourceId, resourceType]);
 
   useEffect(() => {

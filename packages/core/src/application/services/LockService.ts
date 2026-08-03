@@ -1,6 +1,6 @@
 import { Lock } from '../../domain/models/Lock.js';
 import { LockRepository } from '../ports/LockRepository.js';
-import { LockEventBus } from '../ports/LockEventBus.js';
+import { LockEventBus, type LockEventScope } from '../ports/LockEventBus.js';
 import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { LockExpiredError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
@@ -16,7 +16,7 @@ export class LockService {
   /**
    * Acquires a lock on a resource for a user.
    */
-  async lock(resourceType: string, resourceId: string, userId: string, ttlSeconds: number = this.defaultTtlSeconds): Promise<Lock> {
+  async lock(resourceType: string, resourceId: string, userId: string, ttlSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const lock = new Lock(
       this.idGenerator.generate(),
@@ -30,7 +30,7 @@ export class LockService {
     await this.lockRepository.acquire(lock);
 
     // Publish event asynchronously without failing the operation
-    this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock));
+    this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock, scope));
 
     return lock;
   }
@@ -38,13 +38,13 @@ export class LockService {
   /**
    * Refreshes an existing lock.
    */
-  async refresh(resourceType: string, resourceId: string, userId: string, extendSeconds: number = this.defaultTtlSeconds): Promise<Lock> {
+  async refresh(resourceType: string, resourceId: string, userId: string, extendSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
     const newExpiresAt = new Date(Date.now() + extendSeconds * 1000);
     await this.lockRepository.refresh(resourceType, resourceId, userId, newExpiresAt);
 
     const lock = await this.lockRepository.getLock(resourceType, resourceId);
     if (lock) {
-      this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock));
+      this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock, scope));
       return lock;
     }
     throw new LockConflictError(resourceType, resourceId); // Fallback se sparito nel mentre
@@ -53,17 +53,17 @@ export class LockService {
   /**
    * Releases a lock held by a specific user.
    */
-  async unlock(resourceType: string, resourceId: string, userId: string): Promise<void> {
+  async unlock(resourceType: string, resourceId: string, userId: string, scope?: LockEventScope): Promise<void> {
     await this.lockRepository.release(resourceType, resourceId, userId);
-    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resourceType, resourceId, userId));
+    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resourceType, resourceId, userId, scope));
   }
 
   /**
    * Force releases a lock. Typically used by admins.
    */
-  async forceUnlock(resourceType: string, resourceId: string): Promise<void> {
+  async forceUnlock(resourceType: string, resourceId: string, scope?: LockEventScope): Promise<void> {
     await this.lockRepository.forceRelease(resourceType, resourceId);
-    this.publishGracefully(() => this.lockEventBus.publishLockForceReleased(resourceType, resourceId));
+    this.publishGracefully(() => this.lockEventBus.publishLockForceReleased(resourceType, resourceId, scope));
   }
 
   /**

@@ -43,7 +43,10 @@ interface UserRoleRow {
 }
 
 export class UserRepositoryPostgres implements UserRepository {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(
+    private readonly executor: PgExecutor,
+    private readonly onRealtimePolicyChanged: () => void = () => undefined,
+  ) {}
 
   async findById(id: string): Promise<User | null> {
     const query = `
@@ -195,6 +198,7 @@ export class UserRepositoryPostgres implements UserRepository {
       const actual = check.rows[0]?.row_version ?? 0;
       throw new RowVersionMismatchError(previousRowVersion, actual);
     }
+    this.onRealtimePolicyChanged();
   }
 
   async assignUserRoles(userId: string, roleIds: string[]): Promise<void> {
@@ -206,6 +210,7 @@ export class UserRepositoryPostgres implements UserRepository {
         [userId, roleId]
       );
     }
+    this.onRealtimePolicyChanged();
   }
 
   private mapToDomain(row: UserRow): User {

@@ -142,7 +142,7 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
 
   if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
     try {
-      await lockService.unlock('entity', entityId, actorUserId);
+      await lockService.unlock('entity', entityId, actorUserId, { scopeNodeId: existing.parentNodeId });
     } catch (error) {
       // La cancellazione è già stata completata; il TTL del lock resta il
       // fallback se il rilascio esplicito non riesce.

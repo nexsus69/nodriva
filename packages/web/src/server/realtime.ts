@@ -17,6 +17,11 @@ export async function publishRealtimeChange(input: RealtimeChangeInput): Promise
       ...input,
       eventId: randomUUID(),
       occurredAt: new Date().toISOString(),
+      directScopeNodeIds: [
+        ...(input.resourceType === 'node' ? [input.resourceId] : []),
+        ...(input.parentNodeId ? [input.parentNodeId] : []),
+        ...(input.previousParentNodeId ? [input.previousParentNodeId] : []),
+      ],
     };
 
     try {

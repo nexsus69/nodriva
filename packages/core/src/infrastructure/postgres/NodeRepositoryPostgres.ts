@@ -231,6 +231,29 @@ export class NodeRepositoryPostgres implements NodeRepository {
     return result.rows.map((row) => row.id);
   }
 
+  async listAncestorIdsForNodes(nodeIds: string[]): Promise<Map<string, string[]>> {
+    const uniqueNodeIds = [...new Set(nodeIds)];
+    const ancestorsByNode = new Map<string, string[]>();
+    if (uniqueNodeIds.length === 0) return ancestorsByNode;
+
+    const result = await this.executor.query<{ node_id: string; ancestor_id: string }>(
+      `SELECT child.id AS node_id, ancestor.id AS ancestor_id
+       FROM nodes AS child
+       JOIN nodes AS ancestor ON child.path <@ ancestor.path
+       WHERE child.id = ANY($1::uuid[])
+         AND child.deleted_at IS NULL
+         AND ancestor.deleted_at IS NULL
+       ORDER BY child.id, ancestor.depth DESC, ancestor.id ASC`,
+      [uniqueNodeIds]
+    );
+
+    for (const nodeId of uniqueNodeIds) ancestorsByNode.set(nodeId, []);
+    for (const row of result.rows) {
+      ancestorsByNode.get(row.node_id)?.push(row.ancestor_id);
+    }
+    return ancestorsByNode;
+  }
+
   async isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean> {
     // Strict semantics: a node is NOT considered a descendant of itself.
     if (nodeId === potentialAncestorId) {

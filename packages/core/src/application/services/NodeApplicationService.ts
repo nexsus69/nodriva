@@ -12,7 +12,7 @@ import { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 
 import { CreateNodeCommand, CreateNodeCommandSchema, UpdateNodeCommand, UpdateNodeCommandSchema, MoveNodeCommand, MoveNodeCommandSchema } from '../commands/NodeCommands.js';
-import { ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
+import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError, NodeTypeNotFoundError, NodePathCollisionError, NodeCyclicMoveError } from '../../domain/errors/DomainErrors.js';
 
 export class NodeApplicationService {
@@ -353,8 +353,24 @@ export class NodeApplicationService {
   // ─── Query / Read Operations ───────────────────────────────────
 
   async listChildren(parentId: string | null, actorUserId: string): Promise<Node[]> {
-    await this.accessControlPort.assertCanReadNode(actorUserId, parentId);
-    return await this.nodeRepository.listChildren(parentId);
+    // Root is not an ACL scope itself. Load its direct children and apply the
+    // effective node.read policy to each returned node. The same filtering is
+    // required below a readable parent because a descendant may be explicitly
+    // denied.
+    if (parentId) {
+      await this.accessControlPort.assertCanReadNode(actorUserId, parentId);
+    }
+    const children = await this.nodeRepository.listChildren(parentId);
+    const visibleChildren: Node[] = [];
+    for (const child of children) {
+      try {
+        await this.accessControlPort.assertCanReadNode(actorUserId, child.id);
+        visibleChildren.push(child);
+      } catch (error) {
+        if (!(error instanceof ForbiddenError)) throw error;
+      }
+    }
+    return visibleChildren;
   }
 
   async getNodeById(id: string, actorUserId: string): Promise<Node | null> {

@@ -5,6 +5,18 @@ import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/
 
 type RealtimeListener = (event: RealtimeDataChangedEvent) => void;
 
+export interface RealtimeDebugEvent {
+  id: string;
+  channelName: string;
+  eventName: string;
+  receivedAt: string;
+  payload: unknown;
+}
+
+export type RealtimeDebugListener = (event: RealtimeDebugEvent) => void;
+
+let debugEventSequence = 0;
+
 export interface LockChannelEvent {
   resourceType: RealtimeResourceType;
   resourceId: string;
@@ -27,11 +39,6 @@ interface LockChannelState {
   listeners: Set<LockListener>;
 }
 
-export interface RealtimeScopeChannel {
-  nodeId: string;
-  propagation: 'self' | 'subtree';
-}
-
 export class RealtimeCacheBridge {
   private pusher: Pusher | null = null;
   private readonly channels = new Map<string, ChannelState>();
@@ -41,17 +48,25 @@ export class RealtimeCacheBridge {
 
   constructor(
     private readonly onEvent: RealtimeListener,
-    private readonly onLockEvent?: LockListener
+    private readonly onLockEvent?: LockListener,
+    private readonly onDebugEvent?: RealtimeDebugListener
   ) {}
 
-  retain(resourceType: RealtimeResourceType, resourceId: string, listener: RealtimeListener): () => void {
-    if (resourceType !== 'node') {
-      console.error(
-        `[RealtimeCacheBridge] Ignoring unsupported data scope ${resourceType}-${resourceId}`
-      );
-      return () => undefined;
+  private emitDebugEvent(channelName: string, eventName: string, payload: unknown): void {
+    try {
+      this.onDebugEvent?.({
+        id: `${Date.now()}-${debugEventSequence++}`,
+        channelName,
+        eventName,
+        receivedAt: new Date().toISOString(),
+        payload,
+      });
+    } catch (error) {
+      console.error('[RealtimeCacheBridge] Debug listener failed:', error);
     }
-    const channelName = `private-events-node-${resourceId}`;
+  }
+
+  private retainDataChannel(channelName: string, listener: RealtimeListener = () => undefined): () => void {
     let state = this.channels.get(channelName);
 
     if (!state) {
@@ -60,6 +75,7 @@ export class RealtimeCacheBridge {
 
       const channel = pusher.subscribe(channelName);
       const handleEvent = (event: RealtimeDataChangedEvent) => {
+        this.emitDebugEvent(channelName, 'data:changed', event);
         if (this.handledEventIds.has(event.eventId)) return;
         this.handledEventIds.add(event.eventId);
         if (this.handledEventIds.size > 1000) {
@@ -83,6 +99,7 @@ export class RealtimeCacheBridge {
       };
       channel.bind('data:changed', handleEvent);
       channel.bind('pusher:subscription_error', (status: unknown) => {
+        this.emitDebugEvent(channelName, 'pusher:subscription_error', status);
         let details: string;
         try {
           details = JSON.stringify(status);
@@ -112,8 +129,7 @@ export class RealtimeCacheBridge {
     };
   }
 
-  retainLock(resourceType: RealtimeResourceType, resourceId: string, listener: LockListener): () => void {
-    const channelName = `private-locks-${resourceType}-${resourceId}`;
+  private retainLockChannel(channelName: string, listener: LockListener = () => undefined): () => void {
     let state = this.lockChannels.get(channelName);
 
     if (!state) {
@@ -123,6 +139,7 @@ export class RealtimeCacheBridge {
       const channel = pusher.subscribe(channelName);
       const bind = (eventName: 'lock:acquired' | 'lock:released' | 'lock:force-released') => {
         channel.bind(eventName, (event: LockChannelEvent) => {
+          this.emitDebugEvent(channelName, eventName, event);
           this.lockChannels.get(channelName)?.listeners.forEach((subscriber) => {
             try {
               subscriber(eventName, event);
@@ -136,6 +153,7 @@ export class RealtimeCacheBridge {
       bind('lock:released');
       bind('lock:force-released');
       channel.bind('pusher:subscription_error', (status: unknown) => {
+        this.emitDebugEvent(channelName, 'pusher:subscription_error', status);
         console.error(`[RealtimeCacheBridge] Lock subscription failed for ${channelName}:`, status);
       });
       state = { channel, listeners: new Set() };
@@ -155,29 +173,12 @@ export class RealtimeCacheBridge {
     };
   }
 
-  retainScopeChannels(scopes: RealtimeScopeChannel[]): () => void {
+  retainPolicyChannels(dataChannels: string[], lockChannels: string[]): () => void {
     this.scopeRelease?.();
-    const releases = scopes.map((scope) => {
-      const channelName = `private-scope-node-${scope.nodeId}-${scope.propagation}`;
-      const pusher = this.getPusher();
-      if (!pusher) return () => undefined;
-      const channel = pusher.subscribe(channelName);
-      channel.bind('lock:acquired', (event: LockChannelEvent) => {
-        this.onLockEvent?.('lock:acquired', event);
-      });
-      channel.bind('lock:released', (event: LockChannelEvent) => {
-        this.onLockEvent?.('lock:released', event);
-      });
-      channel.bind('lock:force-released', (event: LockChannelEvent) => {
-        this.onLockEvent?.('lock:force-released', event);
-      });
-      this.lockChannels.set(channelName, { channel, listeners: new Set() });
-      return () => {
-        channel.unbind_all();
-        pusher.unsubscribe(channelName);
-        this.lockChannels.delete(channelName);
-      };
-    });
+    const releases = [
+      ...dataChannels.map((channelName) => this.retainDataChannel(channelName)),
+      ...lockChannels.map((channelName) => this.retainLockChannel(channelName, this.onLockEvent)),
+    ];
     this.scopeRelease = () => {
       releases.forEach((release) => release());
       this.scopeRelease = null;
@@ -216,6 +217,7 @@ export class RealtimeCacheBridge {
     });
 
     this.pusher.connection.bind('error', (error: unknown) => {
+      this.emitDebugEvent('__pusher_connection__', 'pusher:connection_error', error);
       console.error('[RealtimeCacheBridge] Pusher connection error:', error);
     });
 

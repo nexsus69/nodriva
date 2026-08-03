@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { AppCache } from '../../cache/GlobalCacheClient';
 import { useAppCacheRevision } from '../../hooks/useAppCacheRevision';
 import { buildCachedBreadcrumbPath } from './nodeBreadcrumbPath';
+import { LockIndicator } from '../LockIndicator';
 
 export interface NodeBreadcrumbProps {
   nodeId: string;
@@ -15,12 +16,13 @@ export function NodeBreadcrumb({ nodeId }: NodeBreadcrumbProps) {
 
   const { nodes, isComplete } = buildCachedBreadcrumbPath(
     nodeId,
-    (id) => AppCache.nodes.get(id)
+    (id) => AppCache.nodes.get(id),
+    AppCache.isVirtualRootNode
   );
 
   return (
     <nav aria-label="Breadcrumb nodi" className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-2 text-xs font-mono text-slate-400">
+      <ol className="flex min-w-0 items-center gap-1 text-xs font-mono text-slate-400">
         <li className="shrink-0">
           <Link href="/" className="transition-colors hover:text-slate-200">
             🌐 Workspace
@@ -42,21 +44,27 @@ export function NodeBreadcrumb({ nodeId }: NodeBreadcrumbProps) {
             <li key={node.id} className="contents">
               <span aria-hidden="true" className="text-slate-600">/</span>
               {isCurrent ? (
-                <span
-                  aria-current="page"
-                  className="truncate font-semibold text-slate-100"
-                  title={node.name}
-                >
-                  {node.name}
+                <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
+                  <span
+                    aria-current="page"
+                    className="truncate font-semibold text-slate-100"
+                    title={node.name}
+                  >
+                    {node.name}
+                  </span>
+                  <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />
                 </span>
               ) : (
-                <Link
-                  href={`/nodes/${node.id}`}
-                  className="max-w-48 truncate transition-colors hover:text-indigo-300"
-                  title={node.name}
-                >
-                  {node.name}
-                </Link>
+                <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
+                  <Link
+                    href={`/nodes/${node.id}`}
+                    className="max-w-48 truncate leading-none transition-colors hover:text-indigo-300"
+                    title={node.name}
+                  >
+                    {node.name}
+                  </Link>
+                  <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />
+                </span>
               )}
             </li>
           );

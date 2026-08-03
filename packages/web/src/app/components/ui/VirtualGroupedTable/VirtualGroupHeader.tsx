@@ -3,6 +3,7 @@
 import React, { ReactNode } from 'react';
 import { GroupHeaderSlotProps } from './types';
 import { useCachedNode } from '../../../hooks/useCachedNode';
+import { LockIndicator } from '../../LockIndicator';
 
 interface VirtualGroupHeaderProps {
   nodeId: string;
@@ -39,7 +40,7 @@ export function VirtualGroupHeader({
         className="flex items-start justify-between gap-3 px-5 py-2.5"
         style={{ paddingLeft: `${16 + indentPx}px` }}
       >
-        <div role="cell" className="min-w-0 flex items-start gap-2 break-words">
+        <div role="cell" className="min-w-0 flex items-center gap-2 break-words">
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-600">
             ⌂
           </span>
@@ -47,6 +48,7 @@ export function VirtualGroupHeader({
           <span className="hidden truncate text-xs font-mono text-slate-400 sm:inline">
             ({resolvedNodePath})
           </span>
+          <LockIndicator resourceType="node" resourceId={nodeId} />
         </div>
         {renderActions && (
           <div role="cell" className="flex items-center gap-2">

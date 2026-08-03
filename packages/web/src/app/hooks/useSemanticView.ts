@@ -3,7 +3,6 @@ import { GlobalViewStore, ViewState, getViewHasMoreForward, getViewHasMoreBackwa
 import { ViewResolver } from '../cache/CacheService';
 import { ViewKeyBuilder, SemanticViewKeyParams } from '../cache/SemanticViewKey';
 import { GlobalPolicyRegistry } from '../cache/PolicyRegistry';
-import { AppCache } from '../cache/GlobalCacheClient';
 import type { RetentionClass } from '../cache/PolicyRegistry';
 
 export function useSemanticView(
@@ -128,29 +127,6 @@ export function useSemanticView(
     else if (lastFailedAction === 'forward') loadMoreForward();
     else if (lastFailedAction === 'backward') loadMoreBackward();
   }, [lastFailedAction, refresh, loadMoreForward, loadMoreBackward]);
-
-  useEffect(() => {
-    const realtimeResource =
-      (params.viewType === 'SUBTREE_LIST' ||
-        params.viewType === 'NODE_ENTITY_COLLECTION' ||
-        params.viewType === 'ENTITY_DETAIL') &&
-      params.baseNodeId
-        ? { resourceType: 'node' as const, resourceId: params.baseNodeId }
-        : null;
-
-    if (!realtimeResource) return;
-    return AppCache.retainRealtimeResource(
-      realtimeResource.resourceType,
-      realtimeResource.resourceId,
-      (event) => {
-        // Un aggiornamento di un'entità viene già applicato alla cache
-        // normalizzata. Se l'entità non è nella finestra corrente, non serve
-        // ricaricare l'intera vista.
-        if (event.changeType === 'updated') return;
-        refresh();
-      }
-    );
-  }, [params.baseNodeId, params.entityId, params.viewType, refresh]);
 
   return {
     viewKey,

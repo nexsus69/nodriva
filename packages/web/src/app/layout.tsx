@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CacheInitializer } from "./components/CacheInitializer";
+import { RealtimeDebugOverlayHost } from "./components/realtime/RealtimeDebugOverlayHost";
 
 export const metadata: Metadata = {
   title: "Dashboard Ultimate - Dynamic Hierarchy Platform",
@@ -25,6 +26,7 @@ export default async function RootLayout({
       <body className="min-h-full bg-[#f4f7fb] text-slate-900 antialiased flex flex-col font-sans">
         <SessionProviderWrapper session={session}>
           <CacheInitializer />
+          <RealtimeDebugOverlayHost />
           <SessionCacheSynchronizer />
           <SessionModalWatcher initialExpires={session?.expires} />
           <WorkspaceShell>{children}</WorkspaceShell>

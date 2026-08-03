@@ -6,6 +6,7 @@ import {
   ScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
 } from '../dto/SecurityAdminDtos.js';
+import type { RealtimeChannelPolicy } from '../realtime/RealtimeChannelPolicy.js';
 
 export interface SecurityRepository {
   listRoles(): Promise<RoleListItemDto[]>;
@@ -19,6 +20,9 @@ export interface SecurityRepository {
   listScopeAssignments(): Promise<ScopeAssignmentDto[]>;
   getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null>;
   listRealtimeScopeAssignments(userId: string): Promise<RealtimeScopeAssignmentDto[]>;
+  listRealtimeVirtualRootNodeIds(userId: string): Promise<string[]>;
+  listRealtimeChannelPolicies?(): Promise<RealtimeChannelPolicy[]>;
+  listRealtimeChannelPoliciesForUser?(userId: string): Promise<RealtimeChannelPolicy[]>;
   createScopeAssignment(
     id: string,
     userId: string,

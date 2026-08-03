@@ -17,9 +17,21 @@ export class RealtimeScopeResolverPostgres implements RealtimeScopeResolver {
     }
 
     const resolved = new Set<string>();
+    let ancestorsByNode = new Map<string, string[]>();
+    try {
+      ancestorsByNode = this.nodeRepository.listAncestorIdsForNodes
+        ? await this.nodeRepository.listAncestorIdsForNodes([...candidates])
+        : new Map(await Promise.all([...candidates].map(async (nodeId) => [
+            nodeId,
+            await this.nodeRepository.listAncestorIds(nodeId),
+          ] as const)));
+    } catch (error) {
+      console.error('[RealtimeScopeResolver] Failed to resolve ancestor batch; using direct scopes:', error);
+    }
+
     for (const nodeId of candidates) {
       try {
-        const ancestors = await this.nodeRepository.listAncestorIds(nodeId);
+        const ancestors = ancestorsByNode.get(nodeId) ?? [];
         if (ancestors.length === 0) {
           console.error(`[RealtimeScopeResolver] No active ancestors found for ${nodeId}; using fallback scope`);
           resolved.add(nodeId);

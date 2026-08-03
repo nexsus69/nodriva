@@ -20,7 +20,12 @@ export class AccessControlPortPostgres implements AccessControlPort {
    * stata consapevolmente rinviata a fasi successive a favore di un Single Source of Truth puro.
    * Per dettagli, possibili rimedi e metriche da monitorare, vedere: `docs/known-tradeoffs.md`.
    */
-  static getReadAccessControlSql(actorIdParam: string, nodeAlias: string = 'n'): string {
+  static getReadAccessControlSql(
+    actorIdParam: string,
+    nodeAlias: string = 'n',
+    readPermissionKey: 'node.read' | 'entity.read' = 'node.read'
+  ): string {
+    const escapedPermissionKey = readPermissionKey.replace(/'/g, "''");
     return `
       (
         -- 1. SuperAdmin
@@ -32,7 +37,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           JOIN role_permissions rp ON nsa.role_id = rp.role_id
           JOIN permissions p ON p.id = rp.permission_id
           WHERE nsa.user_id = ${actorIdParam}
-            AND p.permission_key = 'node.read'
+            AND p.permission_key = '${escapedPermissionKey}'
             AND nsa.assignment_effect = 'allow'::assignment_effect_enum
             AND (
               (nsa.propagation = 'self'::scope_propagation_enum AND nsa.node_id = ${nodeAlias}.id)
@@ -47,7 +52,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
         JOIN role_permissions rp ON nsa.role_id = rp.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = ${actorIdParam}
-          AND p.permission_key = 'node.read'
+          AND p.permission_key = '${escapedPermissionKey}'
           AND nsa.assignment_effect = 'deny'::assignment_effect_enum
           AND (
             (nsa.propagation = 'self'::scope_propagation_enum AND nsa.node_id = ${nodeAlias}.id)

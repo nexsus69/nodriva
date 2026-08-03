@@ -10,6 +10,8 @@ export interface RealtimeDataChangedEvent {
   actorUserId: string;
   /** Node scopes that should receive this event. Resolved by the composition root. */
   scopeNodeIds?: string[];
+  /** Direct resource containers, used to evaluate `self` policies during moves. */
+  directScopeNodeIds?: string[];
   parentNodeId?: string | null;
   previousParentNodeId?: string | null;
   entityTypeId?: string;

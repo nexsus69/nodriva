@@ -12,7 +12,7 @@ import { TransactionPort } from '../ports/TransactionPort.js';
 import { LtreeNodePathPolicy } from '../../domain/policies/LtreeNodePathPolicy.js';
 
 import { CreateNodeCommand, MoveNodeCommand } from '../commands/NodeCommands.js';
-import { ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
+import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodePathCollisionError, NodeCyclicMoveError, NodeNotFoundError } from '../../domain/errors/DomainErrors.js';
 import { NodeType } from '../../domain/models/NodeType.js';
 import { Node } from '../../domain/models/Node.js';
@@ -202,6 +202,21 @@ describe('NodeApplicationService', () => {
       };
 
       await expect(service.createNode(cmd)).rejects.toThrow(NodePathCollisionError);
+    });
+  });
+
+  describe('listChildren', () => {
+    it('lists only readable root children for a scoped user', async () => {
+      const visible = new Node('node-visible', null, 'visible', 'visible', 0, 'type-123', 'Visible', '', 1, new Date(), new Date(), null, 'user-1', 'user-1');
+      const hidden = new Node('node-hidden', null, 'hidden', 'hidden', 0, 'type-123', 'Hidden', '', 1, new Date(), new Date(), null, 'user-1', 'user-1');
+      mockNodeRepository.listChildren = vi.fn().mockResolvedValue([visible, hidden]);
+      mockAccessControlPort.assertCanReadNode = vi.fn().mockImplementation(async (_userId: string, nodeId: string | null) => {
+        if (nodeId === hidden.id) throw new ForbiddenError();
+      });
+
+      await expect(service.listChildren(null, 'user-1')).resolves.toEqual([visible]);
+      expect(mockAccessControlPort.assertCanReadNode).toHaveBeenCalledWith('user-1', visible.id);
+      expect(mockAccessControlPort.assertCanReadNode).toHaveBeenCalledWith('user-1', hidden.id);
     });
   });
 
