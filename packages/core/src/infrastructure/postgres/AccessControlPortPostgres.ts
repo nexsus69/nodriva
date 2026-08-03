@@ -26,15 +26,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
         -- 1. SuperAdmin
         EXISTS (SELECT 1 FROM users u WHERE u.id = ${actorIdParam} AND u.is_super_admin = true)
         OR
-        -- 2. Global Read Permission
-        EXISTS (
-          SELECT 1 FROM user_roles ur
-          JOIN role_permissions rp ON ur.role_id = rp.role_id
-          JOIN permissions p ON p.id = rp.permission_id
-          WHERE ur.user_id = ${actorIdParam} AND p.permission_key = 'node.read'
-        )
-        OR
-        -- 3. Local Read Permission (Allow)
+        -- 2. Local Read Permission (Allow); node.read is always scope-bound
         EXISTS (
           SELECT 1 FROM node_scope_assignments nsa
           JOIN role_permissions rp ON nsa.role_id = rp.role_id
@@ -49,7 +41,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
             )
         )
       )
-      -- 4. DENY Overrides Allow
+      -- 3. DENY Overrides Allow
       AND NOT EXISTS (
         SELECT 1 FROM node_scope_assignments nsa
         JOIN role_permissions rp ON nsa.role_id = rp.role_id
@@ -223,6 +215,9 @@ export class AccessControlPortPostgres implements AccessControlPort {
     permissionName: string,
     nodeId: string | null
   ): Promise<boolean> {
+    // Only data reads are intrinsically scope-bound. Administrative and
+    // mutation permissions such as node.create may still be granted globally.
+    const isScopeBoundPermission = /^(node|entity)\.read$/.test(permissionName);
     // 1. Se abbiamo un nodeId, controlliamo prima se c'è un DENY esplicito locale o ereditato
     if (nodeId) {
       const denyQuery = `
@@ -249,7 +244,8 @@ export class AccessControlPortPostgres implements AccessControlPort {
       }
     }
 
-    // 2. Controllo permesso globale o super admin
+    // 2. Super admin globale. I permessi su nodi ed entità restano sempre
+    // scope-bound anche quando il ruolo è assegnato all'utente globalmente.
     const globalQuery = `
       SELECT 1
       FROM users u
@@ -257,10 +253,10 @@ export class AccessControlPortPostgres implements AccessControlPort {
       LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
       LEFT JOIN permissions p ON p.id = rp.permission_id
       WHERE u.id = $1 AND u.is_active = true
-        AND (u.is_super_admin = true OR p.permission_key = $2 OR p.name = $2)
+        AND (u.is_super_admin = true OR (NOT $3 AND (p.permission_key = $2 OR p.name = $2)))
       LIMIT 1
     `;
-    const globalResult = await this.executor.query(globalQuery, [userId, permissionName]);
+    const globalResult = await this.executor.query(globalQuery, [userId, permissionName, isScopeBoundPermission]);
     if (globalResult.rows.length > 0) {
       return true;
     }

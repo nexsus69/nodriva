@@ -27,13 +27,22 @@ interface LockChannelState {
   listeners: Set<LockListener>;
 }
 
+export interface RealtimeScopeChannel {
+  nodeId: string;
+  propagation: 'self' | 'subtree';
+}
+
 export class RealtimeCacheBridge {
   private pusher: Pusher | null = null;
   private readonly channels = new Map<string, ChannelState>();
   private readonly lockChannels = new Map<string, LockChannelState>();
   private readonly handledEventIds = new Set<string>();
+  private scopeRelease: (() => void) | null = null;
 
-  constructor(private readonly onEvent: RealtimeListener) {}
+  constructor(
+    private readonly onEvent: RealtimeListener,
+    private readonly onLockEvent?: LockListener
+  ) {}
 
   retain(resourceType: RealtimeResourceType, resourceId: string, listener: RealtimeListener): () => void {
     if (resourceType !== 'node') {
@@ -144,6 +153,37 @@ export class RealtimeCacheBridge {
       this.lockChannels.delete(channelName);
       this.disconnectIfUnused();
     };
+  }
+
+  retainScopeChannels(scopes: RealtimeScopeChannel[]): () => void {
+    this.scopeRelease?.();
+    const releases = scopes.map((scope) => {
+      const channelName = `private-scope-node-${scope.nodeId}-${scope.propagation}`;
+      const pusher = this.getPusher();
+      if (!pusher) return () => undefined;
+      const channel = pusher.subscribe(channelName);
+      channel.bind('lock:acquired', (event: LockChannelEvent) => {
+        this.onLockEvent?.('lock:acquired', event);
+      });
+      channel.bind('lock:released', (event: LockChannelEvent) => {
+        this.onLockEvent?.('lock:released', event);
+      });
+      channel.bind('lock:force-released', (event: LockChannelEvent) => {
+        this.onLockEvent?.('lock:force-released', event);
+      });
+      this.lockChannels.set(channelName, { channel, listeners: new Set() });
+      return () => {
+        channel.unbind_all();
+        pusher.unsubscribe(channelName);
+        this.lockChannels.delete(channelName);
+      };
+    });
+    this.scopeRelease = () => {
+      releases.forEach((release) => release());
+      this.scopeRelease = null;
+      this.disconnectIfUnused();
+    };
+    return this.scopeRelease;
   }
 
   private disconnectIfUnused(): void {

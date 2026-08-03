@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { AppError } from './AppError.js';
 import { NodeNotFoundError } from './DomainErrors.js';
 import { ValidationError } from './ApplicationErrors.js';
+import { PlacementPolicyNotFoundError } from './SystemAdminErrors.js';
+import { RoleNotFoundError } from './SecurityAdminErrors.js';
+import { UserNotFoundError } from './UserAdminErrors.js';
 
 describe('AppError & Custom Errors', () => {
   it('should capture stack trace and correct properties', () => {
@@ -26,5 +29,11 @@ describe('AppError & Custom Errors', () => {
     const issues = { name: ['Name is required'] };
     const err = new ValidationError('Validation failed', issues);
     expect(err.details).toEqual({ issues });
+  });
+
+  it('should keep the stable code/message order for admin errors', () => {
+    expect(new PlacementPolicyNotFoundError('default').code).toBe('PLACEMENT_POLICY_NOT_FOUND');
+    expect(new RoleNotFoundError('admin').code).toBe('ROLE_NOT_FOUND');
+    expect(new UserNotFoundError('user-1').code).toBe('USER_NOT_FOUND');
   });
 });

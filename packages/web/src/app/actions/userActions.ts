@@ -2,7 +2,7 @@
 
 import { userAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
-import { mapAuthorizationError } from './errorMapping';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
   CreateUserUiCommand,
   UpdateUserStatusUiCommand,
@@ -12,60 +12,11 @@ import {
   UserListItemDto,
   UserDetailDto,
   ApiErrorResponse,
-  RowVersionMismatchError,
-  UserEmailAlreadyExistsError,
-  UserNotFoundError,
-  UserAdminValidationError,
 } from '@dashboard/core';
 
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
-  if (err instanceof RowVersionMismatchError) {
-    const expected = typeof err.details?.expected === 'number' ? err.details.expected : undefined;
-    const actual = typeof err.details?.actual === 'number' ? err.details.actual : undefined;
-    return {
-      code: 'ROW_VERSION_MISMATCH',
-      message: 'L\'utente è stato modificato da un altro utente. Ricarica la pagina.',
-      expectedRowVersion: expected,
-      currentRowVersion: actual,
-    };
-  }
-  if (err instanceof UserEmailAlreadyExistsError) {
-    const email = typeof err.details?.email === 'string' ? err.details.email : '';
-    return {
-      code: 'DUPLICATE_EMAIL',
-      message: `L'email '${email}' è già associata a un utente registrato.`,
-      target: 'email',
-    };
-  }
-  if (err instanceof UserNotFoundError) {
-    return {
-      code: 'NOT_FOUND',
-      message: 'Utente non trovato.',
-    };
-  }
-  if (err instanceof UserAdminValidationError) {
-    const issuesObj = (err.details?.issues as Record<string, string[]> | undefined) ?? {};
-    const details = Object.entries(issuesObj).map(([field, msgs]) => ({
-      field,
-      code: 'VALIDATION_FAILED',
-      message: Array.isArray(msgs) ? msgs.join(', ') : String(msgs),
-    }));
-    return {
-      code: 'VALIDATION_ERROR',
-      message: err.message,
-      details,
-    };
-  }
-
-  const authorizationError = mapAuthorizationError(err);
-  if (authorizationError) return authorizationError;
-
-  console.error('[UserActions] Unexpected backend error:', err);
-  return {
-    code: 'INTERNAL_ERROR',
-    message: 'Si è verificato un errore interno. Riprova più tardi.',
-  };
+  return mapAppErrorToApiErrorResponse(err);
 }
 
 export async function listUsersAction(): Promise<{

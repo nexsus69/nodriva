@@ -350,6 +350,7 @@ export class EntityApplicationService {
       throw new EntityNotFoundError(entityId);
     }
     await this.accessControlPort.assertCanReadNode(actorUserId, entity.parentNodeId);
+    await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
     return entity;
   }
 
@@ -364,6 +365,7 @@ export class EntityApplicationService {
       throw new NodeNotFoundError(parentNodeId);
     }
     await this.accessControlPort.assertCanReadNode(actorUserId, parentNodeId);
+    await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', parentNodeId);
     return await this.entityRepository.listByNode(parentNodeId, limit, offset);
   }
 

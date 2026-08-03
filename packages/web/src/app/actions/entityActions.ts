@@ -2,6 +2,7 @@
 
 import { AuthResolver } from './auth/AuthResolver';
 import { publishRealtimeChange } from '../../server/realtime';
+import { withSafeActionErrors } from './errorMapping';
 interface CreateEntityActionInput {
   parentNodeId: string;
   entityTypeKey?: string;
@@ -31,6 +32,7 @@ interface DeleteEntityActionInput {
 }
 
 export async function createEntityAction(input: CreateEntityActionInput) {
+  return withSafeActionErrors(async () => {
   const { entityService } = await import('../../server/db');
   const entityTypeKey = input.entityTypeKey || input.entityTypeId;
   if (!entityTypeKey) {
@@ -67,9 +69,11 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     data: result,
   });
   return result;
+  });
 }
 
 export async function updateEntityAction(input: UpdateEntityActionInput) {
+  return withSafeActionErrors(async () => {
   const { entityService } = await import('../../server/db');
   const entityId = input.entityId || input.id;
   if (!entityId) {
@@ -109,9 +113,11 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     data: result,
   });
   return result;
+  });
 }
 
 export async function deleteEntityAction(input: DeleteEntityActionInput) {
+  return withSafeActionErrors(async () => {
   const { entityService, lockService, runtimeConfigPort } = await import('../../server/db');
   const entityId = input.entityId || input.id;
   if (!entityId) {
@@ -143,9 +149,11 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
       console.error('[EntityActions] Failed to release deleted entity lock:', error);
     }
   }
+  });
 }
 
 export async function listEntitiesAction(parentNodeId: string) {
+  return withSafeActionErrors(async () => {
   const { entityService } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
   const entities = await entityService.listEntitiesByNode(parentNodeId, actorUserId);
@@ -160,9 +168,11 @@ export async function listEntitiesAction(parentNodeId: string) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   }));
+  });
 }
 
 export async function listEntityTypesAction() {
+  return withSafeActionErrors(async () => {
   await AuthResolver.resolveActorUserId();
   const { entityTypeRepository } = await import('../../server/db');
   const types = await entityTypeRepository.listAll();
@@ -175,6 +185,7 @@ export async function listEntityTypesAction() {
     currentSchemaVersion: t.currentSchemaVersion,
     isActive: t.isActive,
   }));
+  });
 }
 
 export interface ListSubtreeEntitiesParams {
@@ -187,6 +198,7 @@ export interface ListSubtreeEntitiesParams {
 }
 
 export async function listSubtreeEntitiesAction(params: ListSubtreeEntitiesParams) {
+  return withSafeActionErrors(async () => {
   const { entitySubtreeQueryPort } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
   const result = await entitySubtreeQueryPort.findSubtreeEntitiesPaginated({ ...params, actorUserId });
@@ -206,9 +218,11 @@ export async function listSubtreeEntitiesAction(params: ListSubtreeEntitiesParam
     prevCursor: result.prevCursor,
     hasMore: result.hasMore,
   };
+  });
 }
 
 export async function getEntityByIdAction(entityId: string) {
+  return withSafeActionErrors(async () => {
   const { entityService } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
   const e = await entityService.getEntityById(entityId, actorUserId);
@@ -223,4 +237,5 @@ export async function getEntityByIdAction(entityId: string) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
+  });
 }

@@ -66,6 +66,21 @@ export const pusherEventBus = new PusherEventBus({
   host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
   port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
+  resolveResourceScopeIds: async (resourceType, resourceId) => {
+    const parentNodeId = resourceType === 'node'
+      ? resourceId
+      : (await entityRepository.findById(resourceId))?.parentNodeId;
+    if (!parentNodeId) return [];
+    return realtimeScopeResolver.resolveScopes({
+      eventId: `lock-scope-${resourceType}-${resourceId}`,
+      occurredAt: new Date().toISOString(),
+      resourceType: resourceType as 'node' | 'entity',
+      resourceId,
+      changeType: 'updated',
+      actorUserId: '',
+      parentNodeId: resourceType === 'entity' ? parentNodeId : null,
+    });
+  },
 });
 export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);

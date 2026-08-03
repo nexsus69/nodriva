@@ -6,7 +6,7 @@ import { GlobalViewStore } from './ViewStore';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
 import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
-import type { LockChannelEvent } from './RealtimeCacheBridge';
+import type { LockChannelEvent, RealtimeScopeChannel } from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
 
@@ -63,9 +63,10 @@ export class GlobalCacheClient {
   private cacheSubscribers = new Set<() => void>();
   private readonly lockStates = new Map<string, CachedLockState>();
   private readonly lockSubscribers = new Map<string, Set<(state: CachedLockState) => void>>();
-  private readonly realtimeBridge = new RealtimeCacheBridge((event) => {
-    this.applyRealtimeEvent(event);
-  });
+  private readonly realtimeBridge = new RealtimeCacheBridge(
+    (event) => this.applyRealtimeEvent(event),
+    (eventName, event) => this.applyLockEvent(eventName, event)
+  );
 
   /**
    * Entity mutations can invalidate more than the collection of the direct
@@ -109,6 +110,9 @@ export class GlobalCacheClient {
   ): (() => void) => this.realtimeBridge.retainLock(resourceType, resourceId, (eventName, event) => {
     this.applyLockEvent(eventName, event);
   });
+
+  public retainRealtimeScopes = (scopes: RealtimeScopeChannel[]): (() => void) =>
+    this.realtimeBridge.retainScopeChannels(scopes);
 
   public getLockState(resourceType: RealtimeResourceType, resourceId: string): CachedLockState {
     const state = this.lockStates.get(this.lockKey(resourceType, resourceId));

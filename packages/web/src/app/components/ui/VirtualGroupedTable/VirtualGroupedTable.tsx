@@ -30,7 +30,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
   selectedIds,
   onSelectionChange,
   emptyStateMessage = 'Nessun elemento presente.',
-  showDebugOverlay = process.env.NODE_ENV !== 'production',
+  showDebugOverlay = false,
   captureAnchorRef,
   debugInfo,
   onDebugRefresh,

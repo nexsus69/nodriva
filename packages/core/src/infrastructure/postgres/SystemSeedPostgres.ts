@@ -66,6 +66,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
       { key: 'node.read', name: 'Read Nodes', kind: 'node' },
       { key: 'node.test_integration', name: 'Test Node Integration', kind: 'node' },
       { key: 'entity.create', name: 'Create Entity', kind: 'entity' },
+      { key: 'entity.read', name: 'Read Entities', kind: 'entity' },
       { key: 'entity.edit', name: 'Edit Entity', kind: 'entity' },
       { key: 'entity.delete', name: 'Delete Entity', kind: 'entity' },
       { key: 'entity.move', name: 'Move Entity', kind: 'entity' },
@@ -105,6 +106,28 @@ export class SystemSeedPostgres implements SystemSeedPort {
       INSERT INTO role_permissions (role_id, permission_id)
       SELECT $1, id FROM permissions
     `, [adminRoleId]);
+
+    const defaultReaderRoleId = '00000000-0000-0000-0000-000000000003';
+    await this.executor.query(`
+      INSERT INTO roles (id, role_key, name, description, is_system, row_version)
+      VALUES ($1, 'default_reader', 'Default Reader', 'Base read permissions; data access remains scope-bound.', true, 1)
+    `, [defaultReaderRoleId]);
+    await this.executor.query(`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT $1, id FROM permissions
+      WHERE permission_key IN ('node_type.read', 'entity_type.read')
+    `, [defaultReaderRoleId]);
+
+    const scopedReaderRoleId = '00000000-0000-0000-0000-000000000004';
+    await this.executor.query(`
+      INSERT INTO roles (id, role_key, name, description, is_system, row_version)
+      VALUES ($1, 'scoped_reader', 'Scoped Reader', 'Read nodes and entities only within assigned scopes.', true, 1)
+    `, [scopedReaderRoleId]);
+    await this.executor.query(`
+      INSERT INTO role_permissions (role_id, permission_id)
+      SELECT $1, id FROM permissions
+      WHERE permission_key IN ('node.read', 'entity.read')
+    `, [scopedReaderRoleId]);
 
     // Associa l'utente Olivia Williams al ruolo admin
     await this.executor.query(`

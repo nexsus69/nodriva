@@ -8,8 +8,10 @@ import {
 
 import { AuthResolver } from './auth/AuthResolver';
 import { publishRealtimeChange } from '../../server/realtime';
+import { withSafeActionErrors } from './errorMapping';
 
 export async function listChildrenAction(parentId: string | null) {
+  return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
   const nodes = await nodeService.listChildren(parentId, actorUserId);
@@ -25,9 +27,11 @@ export async function listChildrenAction(parentId: string | null) {
     rowVersion: n.rowVersion,
     payload: n.payload,
   }));
+  });
 }
 
 export async function getNodeByIdAction(id: string) {
+  return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
   const n = await nodeService.getNodeById(id, actorUserId);
@@ -44,15 +48,19 @@ export async function getNodeByIdAction(id: string) {
     rowVersion: n.rowVersion,
     payload: n.payload,
   };
+  });
 }
 
 export async function listNodeTypesAction() {
+  return withSafeActionErrors(async () => {
   await AuthResolver.resolveActorUserId();
   const { nodeService } = await import('../../server/db');
   return await nodeService.listNodeTypes();
+  });
 }
 
 export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId'>) {
+  return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
   const cmd: CreateNodeCommand = {
     ...input,
@@ -80,9 +88,11 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
     data: result,
   });
   return result;
+  });
 }
 
 export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId'>) {
+  return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
   const cmd: UpdateNodeCommand = {
     ...input,
@@ -110,9 +120,11 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
     data: result,
   });
   return result;
+  });
 }
 
 export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>) {
+  return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
   const cmd: MoveNodeCommand = {
     ...input,
@@ -134,4 +146,5 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>
     });
   }
   return moved;
+  });
 }

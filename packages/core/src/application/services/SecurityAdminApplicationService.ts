@@ -138,7 +138,7 @@ export class SecurityAdminApplicationService {
         assignmentId,
         v.userId,
         v.nodeId,
-        v.roleId ?? null,
+        v.roleId,
         v.assignmentEffect,
         v.propagation,
         v.actorUserId
@@ -167,7 +167,7 @@ export class SecurityAdminApplicationService {
     return await this.transactionPort.runInTransaction(async () => {
       await this.securityRepository.updateScopeAssignment(
         v.assignmentId,
-        v.roleId ?? null,
+        v.roleId,
         v.assignmentEffect,
         v.propagation
       );

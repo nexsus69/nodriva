@@ -5,6 +5,7 @@ import {
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  RealtimeScopeAssignmentDto,
 } from '../../application/dto/SecurityAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
@@ -50,8 +51,8 @@ interface ScopeAssignmentRow {
   userEmail: string;
   nodeId: string;
   nodeName: string;
-  roleId: string | null;
-  roleName: string | null;
+  roleId: string;
+  roleName: string;
   assignmentEffect: 'allow' | 'deny';
   propagation: 'self' | 'subtree';
   assignedAt: Date;
@@ -234,8 +235,8 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       userEmail: r.userEmail,
       nodeId: r.nodeId,
       nodeName: r.nodeName,
-      roleId: r.roleId ?? null,
-      roleName: r.roleName ?? null,
+      roleId: r.roleId,
+      roleName: r.roleName,
       assignmentEffect: r.assignmentEffect,
       propagation: r.propagation,
       assignedAt: new Date(r.assignedAt).toISOString(),
@@ -271,19 +272,34 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       userEmail: row.userEmail,
       nodeId: row.nodeId,
       nodeName: row.nodeName,
-      roleId: row.roleId ?? null,
-      roleName: row.roleName ?? null,
+      roleId: row.roleId,
+      roleName: row.roleName,
       assignmentEffect: row.assignmentEffect,
       propagation: row.propagation,
       assignedAt: new Date(row.assignedAt).toISOString(),
     };
   }
 
+  async listRealtimeScopeAssignments(userId: string): Promise<RealtimeScopeAssignmentDto[]> {
+    const query = `
+      SELECT DISTINCT sa.node_id AS "nodeId", sa.propagation
+      FROM node_scope_assignments sa
+      JOIN role_permissions rp ON rp.role_id = sa.role_id
+      JOIN permissions p ON p.id = rp.permission_id
+      WHERE sa.user_id = $1
+        AND sa.assignment_effect = 'allow'::assignment_effect_enum
+        AND p.permission_key IN ('node.read', 'entity.read')
+      ORDER BY sa.node_id, sa.propagation
+    `;
+    const res = await this.executor.query<RealtimeScopeAssignmentDto>(query, [userId]);
+    return res.rows;
+  }
+
   async createScopeAssignment(
     id: string,
     userId: string,
     nodeId: string,
-    roleId: string | null,
+    roleId: string,
     assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree',
     assignedBy: string
@@ -297,7 +313,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
 
   async updateScopeAssignment(
     id: string,
-    roleId: string | null,
+    roleId: string,
     assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree'
   ): Promise<void> {

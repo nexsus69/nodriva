@@ -94,8 +94,6 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
 
   useEffect(() => {
     let mounted = true;
-    const releaseRealtime = AppCache.retainLockResource(resourceType, resourceId);
-
     void getLockStateAction(resourceType, resourceId).then((state) => {
       if (!mounted) return;
       const current = AppCache.getLockState(resourceType, resourceId);
@@ -107,7 +105,6 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
 
     return () => {
       mounted = false;
-      releaseRealtime();
     };
   }, [resourceId, resourceType]);
 

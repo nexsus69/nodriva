@@ -15,12 +15,15 @@ export interface PusherConfig {
   host?: string;
   port?: string;
   enabled?: boolean;
+  resolveResourceScopeIds?: (resourceType: string, resourceId: string) => Promise<string[]>;
 }
 
 export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   private readonly pusher: Pusher | null = null;
+  private readonly resolveResourceScopeIds?: PusherConfig['resolveResourceScopeIds'];
 
   constructor(config: PusherConfig) {
+    this.resolveResourceScopeIds = config.resolveResourceScopeIds;
     if (config.enabled !== false && config.appId && config.key && config.secret && config.cluster) {
       this.pusher = new Pusher({
         appId: config.appId,
@@ -36,8 +39,8 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
     }
   }
 
-  private getChannelName(resourceType: string, resourceId: string): string {
-    return `private-locks-${resourceType}-${resourceId}`;
+  private getScopeChannelName(nodeId: string, propagation: 'self' | 'subtree'): string {
+    return `private-scope-node-${nodeId}-${propagation}`;
   }
 
   async publishDataChanged(event: RealtimeDataChangedEvent): Promise<void> {
@@ -67,45 +70,49 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
 
   async publishLockAcquired(lock: Lock): Promise<void> {
     if (!this.pusher) return;
-    
-    console.log(`[PusherEventBus] Triggering lock:acquired for ${lock.resourceType}-${lock.resourceId} to userId ${lock.userId}`);
-    await this.pusher.trigger(
-      this.getChannelName(lock.resourceType, lock.resourceId),
-      'lock:acquired',
-      {
+    const scopeIds = await this.configuredScopeIds(lock.resourceType, lock.resourceId);
+    await Promise.all(this.getScopeChannels(scopeIds).map((channelName) => this.pusher!.trigger(
+      channelName, 'lock:acquired', {
         resourceType: lock.resourceType,
         resourceId: lock.resourceId,
         userId: lock.userId,
         expiresAt: lock.expiresAt.toISOString()
-      }
-    );
+      })));
   }
 
   async publishLockReleased(resourceType: string, resourceId: string, userId: string): Promise<void> {
     if (!this.pusher) return;
 
-    await this.pusher.trigger(
-      this.getChannelName(resourceType, resourceId),
-      'lock:released',
-      {
+    const scopeIds = await this.configuredScopeIds(resourceType, resourceId);
+    await Promise.all(this.getScopeChannels(scopeIds).map((channelName) => this.pusher!.trigger(
+      channelName, 'lock:released', {
         resourceType,
         resourceId,
         userId
-      }
-    );
+      })));
   }
 
   async publishLockForceReleased(resourceType: string, resourceId: string): Promise<void> {
     if (!this.pusher) return;
 
-    await this.pusher.trigger(
-      this.getChannelName(resourceType, resourceId),
-      'lock:force-released',
-      {
+    const scopeIds = await this.configuredScopeIds(resourceType, resourceId);
+    await Promise.all(this.getScopeChannels(scopeIds).map((channelName) => this.pusher!.trigger(
+      channelName, 'lock:force-released', {
         resourceType,
         resourceId,
         byAdmin: true
-      }
-    );
+      })));
+  }
+
+  private async configuredScopeIds(resourceType: string, resourceId: string): Promise<string[]> {
+    if (!this.resolveResourceScopeIds) return [];
+    return this.resolveResourceScopeIds(resourceType, resourceId);
+  }
+
+  private getScopeChannels(scopeIds: string[]): string[] {
+    return scopeIds.flatMap((nodeId, index) => [
+      this.getScopeChannelName(nodeId, 'subtree'),
+      ...(index === 0 ? [this.getScopeChannelName(nodeId, 'self')] : []),
+    ]);
   }
 }

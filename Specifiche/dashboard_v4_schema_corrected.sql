@@ -346,7 +346,7 @@ CREATE TABLE node_scope_assignments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
-  role_id UUID NULL REFERENCES roles(id) ON DELETE SET NULL,
+  role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
   assignment_effect assignment_effect_enum NOT NULL DEFAULT 'allow',
   propagation scope_propagation_enum NOT NULL DEFAULT 'subtree',
   assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),

@@ -2,7 +2,7 @@
 
 import { securityAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
-import { mapAuthorizationError } from './errorMapping';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
   CreateRoleUiCommand,
   UpdateRolePermissionsUiCommand,
@@ -14,68 +14,12 @@ import {
   PermissionDto,
   ScopeAssignmentDto,
   ApiErrorResponse,
-  RowVersionMismatchError,
-  RoleNotFoundError,
-  RoleKeyAlreadyExistsError,
-  SystemRoleForbiddenError,
-  SecurityAdminValidationError,
 } from '@dashboard/core';
 
-
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
-  if (err instanceof RowVersionMismatchError) {
-    const expected = typeof err.details?.expected === 'number' ? err.details.expected : undefined;
-    const actual = typeof err.details?.actual === 'number' ? err.details.actual : undefined;
-    return {
-      code: 'ROW_VERSION_MISMATCH',
-      message: 'Il ruolo è stato modificato da un altro utente. Ricarica la pagina.',
-      expectedRowVersion: expected,
-      currentRowVersion: actual,
-    };
-  }
-  if (err instanceof RoleKeyAlreadyExistsError) {
-    const key = typeof err.details?.roleKey === 'string' ? err.details.roleKey : '';
-    return {
-      code: 'DUPLICATE_TYPE_KEY',
-      message: `La chiave ruolo '${key}' è già in uso.`,
-      target: 'roleKey',
-    };
-  }
-  if (err instanceof RoleNotFoundError) {
-    return {
-      code: 'NOT_FOUND',
-      message: 'Ruolo non trovato.',
-    };
-  }
-  if (err instanceof SystemRoleForbiddenError) {
-    return {
-      code: 'SYSTEM_TYPE_FORBIDDEN',
-      message: 'I ruoli di sistema non possono essere modificati.',
-    };
-  }
-  if (err instanceof SecurityAdminValidationError) {
-    const issuesObj = (err.details?.issues as Record<string, string[]> | undefined) ?? {};
-    const details = Object.entries(issuesObj).map(([field, msgs]) => ({
-      field,
-      code: 'VALIDATION_FAILED',
-      message: Array.isArray(msgs) ? msgs.join(', ') : String(msgs),
-    }));
-    return {
-      code: 'VALIDATION_ERROR',
-      message: err.message,
-      details,
-    };
-  }
-
-  const authorizationError = mapAuthorizationError(err);
-  if (authorizationError) return authorizationError;
-
-  console.error('[SecurityActions] Unexpected backend error:', err);
-  return {
-    code: 'INTERNAL_ERROR',
-    message: 'Si è verificato un errore interno. Riprova più tardi.',
-  };
+  return mapAppErrorToApiErrorResponse(err);
 }
+
 
 export async function listRolesAction(): Promise<{
   success: boolean;
@@ -87,7 +31,7 @@ export async function listRolesAction(): Promise<{
     const data = await securityAdminService.listRoles(actorUserId);
     return { success: true, data };
   } catch (err) {
-    return { success: false, error: mapErrorToApiErrorResponse(err) };
+    return { success: false, error: mapAppErrorToApiErrorResponse(err) };
   }
 }
 

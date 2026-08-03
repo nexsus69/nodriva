@@ -1,7 +1,8 @@
 'use server';
 
-import { AppError } from '@dashboard/core';
+import { ApiErrorResponse } from '@dashboard/core';
 import { AuthResolver } from './auth/AuthResolver';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
   LockResourceType,
   validateLockResource,
@@ -24,14 +25,9 @@ async function resolveAuthorizedActor(
   return { actorUserId, resourceType: validatedType };
 }
 
-function mapLockError(error: unknown, fallback: string) {
-  if (error instanceof AppError) {
-    return { success: false as const, error: error.code, message: error.message };
-  }
-  if (error instanceof Error) {
-    return { success: false as const, error: 'INVALID_REQUEST', message: error.message };
-  }
-  return { success: false as const, error: 'INTERNAL_ERROR', message: fallback };
+function mapLockError(error: unknown) {
+  const mapped = mapAppErrorToApiErrorResponse(error);
+  return { success: false as const, error: mapped.code, message: mapped.message, details: mapped };
 }
 
 export async function acquireLockAction(resourceType: string, resourceId: string) {
@@ -42,7 +38,7 @@ export async function acquireLockAction(resourceType: string, resourceId: string
     return { success: true as const, lock: { id: lock.id, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to acquire lock:', error);
-    return mapLockError(error, 'Failed to acquire lock.');
+    return mapLockError(error);
   }
 }
 
@@ -54,7 +50,7 @@ export async function refreshLockAction(resourceType: string, resourceId: string
     return { success: true as const, lock: { id: lock.id, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to refresh lock:', error);
-    return mapLockError(error, 'Failed to refresh lock.');
+    return mapLockError(error);
   }
 }
 
@@ -66,7 +62,7 @@ export async function releaseLockAction(resourceType: string, resourceId: string
     return { success: true as const };
   } catch (error) {
     console.error('[LockActions] Failed to release lock:', error);
-    return mapLockError(error, 'Failed to release lock.');
+    return mapLockError(error);
   }
 }
 
@@ -77,7 +73,7 @@ export async function isLockedAction(resourceType: string, resourceId: string) {
     return await lockService.isLocked(actor.resourceType, resourceId);
   } catch (error) {
     console.error('[LockActions] Failed to check lock:', error);
-    return { locked: false };
+    return { locked: false, error: mapAppErrorToApiErrorResponse(error) as ApiErrorResponse };
   }
 }
 
@@ -101,6 +97,6 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
     return await lockService.isLocked(validatedType, resourceId);
   } catch (error) {
     console.error('[LockActions] Failed to read lock state:', error);
-    return { locked: false as const };
+    return { locked: false as const, error: mapAppErrorToApiErrorResponse(error) as ApiErrorResponse };
   }
 }

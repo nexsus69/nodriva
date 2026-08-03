@@ -20,7 +20,7 @@ export type UpdateRolePermissionsCommand = z.infer<typeof UpdateRolePermissionsC
 export const CreateScopeAssignmentCommandSchema = z.object({
   userId: z.string().uuid(),
   nodeId: z.string().uuid(),
-  roleId: z.string().uuid().optional(),
+  roleId: z.string().uuid(),
   assignmentEffect: z.enum(['allow', 'deny']),
   propagation: z.enum(['self', 'subtree']),
   actorUserId: z.string().uuid(),
@@ -35,7 +35,7 @@ export type DeleteScopeAssignmentCommand = z.infer<typeof DeleteScopeAssignmentC
 
 export const UpdateScopeAssignmentCommandSchema = z.object({
   assignmentId: z.string().uuid(),
-  roleId: z.string().uuid().optional(),
+  roleId: z.string().uuid(),
   assignmentEffect: z.enum(['allow', 'deny']),
   propagation: z.enum(['self', 'subtree']),
   actorUserId: z.string().uuid(),

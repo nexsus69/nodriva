@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -60,6 +60,7 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const userEmail = session?.user?.email || 'utente@ignoto.com';
   const userInitials = userEmail.substring(0, 2).toUpperCase();
@@ -100,7 +101,16 @@ export default function AdminLayout({
   return (
     <div className="admin-page flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900 font-sans">
       {/* ─── SIDEBAR AMMINISTRATIVA ─────────────────────────────────────── */}
-      <aside className="w-72 flex-shrink-0 border-r border-slate-200 bg-white/90 backdrop-blur-xl flex flex-col justify-between z-20">
+      {isSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Chiudi menu amministrazione"
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-950/25 backdrop-blur-[2px] lg:hidden"
+        />
+      )}
+
+      <aside className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-shrink-0 -translate-x-full flex-col justify-between border-r border-slate-200 bg-white/95 shadow-xl shadow-slate-900/10 backdrop-blur-xl transition-transform duration-200 lg:static lg:translate-x-0 lg:shadow-none ${isSidebarOpen ? 'translate-x-0' : ''}`}>
         <div>
           {/* Header Sidebar / Brand */}
           <div className="h-16 px-6 border-b border-slate-200 flex items-center justify-between">
@@ -117,6 +127,14 @@ export default function AdminLayout({
                 </span>
               </div>
             </Link>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              aria-label="Chiudi menu amministrazione"
+              className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 lg:hidden"
+            >
+              ×
+            </button>
           </div>
 
           {/* Menu Voci di Navigazione */}
@@ -136,6 +154,7 @@ export default function AdminLayout({
                     <Link
                       key={iIdx}
                       href={item.href}
+                      onClick={() => setIsSidebarOpen(false)}
                       className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
                         isActive
                           ? 'bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-sm shadow-indigo-500/10 font-semibold'
@@ -156,6 +175,7 @@ export default function AdminLayout({
         <div className="p-4 border-t border-slate-200 bg-slate-50">
           <Link
             href="/"
+            onClick={() => setIsSidebarOpen(false)}
             className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200 hover:text-slate-900 transition-all shadow-sm"
           >
             <span>🌐</span>
@@ -167,31 +187,42 @@ export default function AdminLayout({
       {/* ─── CORPO PRINCIPALE / WORKSPACE ADMIN ──────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header Superiore */}
-        <header className="h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-8 flex items-center justify-between z-10 flex-shrink-0">
+        <header className="h-16 border-b border-slate-200 bg-white/85 backdrop-blur-md px-4 sm:px-6 lg:px-8 flex items-center justify-between z-10 flex-shrink-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="Apri menu amministrazione"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-xl text-slate-700 shadow-sm hover:bg-slate-50 lg:hidden"
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+
           {/* Breadcrumb Navigation */}
-          <nav className="flex items-center gap-2 text-xs font-medium text-slate-400">
+          <nav className="flex min-w-0 items-center gap-2 overflow-hidden text-xs font-medium text-slate-400">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={`${crumb.label}-${idx}`}>
                 {idx > 0 && <span className="text-slate-400">/</span>}
                 {idx === breadcrumbs.length - 1 || !crumb.href ? (
-                  <span className="text-slate-900 font-semibold">{crumb.label}</span>
+                  <span className="truncate text-slate-900 font-semibold">{crumb.label}</span>
                 ) : (
                   <Link href={crumb.href} className="hover:text-slate-900 transition-colors">
-                    {crumb.label}
+                    <span className="truncate">{crumb.label}</span>
                   </Link>
                 )}
               </React.Fragment>
             ))}
           </nav>
+          </div>
 
           {/* Badge Utente Attivo & Status */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400 font-mono">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <div className="hidden items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-400 font-mono sm:flex">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Motore Core Attivo
             </div>
-            <div className="h-4 w-px bg-slate-200"></div>
-            <div className="flex items-center gap-3">
+            <div className="hidden h-4 w-px bg-slate-200 sm:block"></div>
+            <div className="hidden items-center gap-3 sm:flex">
               <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 font-bold text-xs flex items-center justify-center">
                 {status === 'loading' ? '..' : userInitials}
               </div>
@@ -203,7 +234,7 @@ export default function AdminLayout({
               </div>
             </div>
             
-            <LogoutButton className="ml-2" />
+            <LogoutButton className="ml-0 sm:ml-2" />
           </div>
         </header>
 

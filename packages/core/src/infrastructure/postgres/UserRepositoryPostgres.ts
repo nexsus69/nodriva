@@ -159,7 +159,14 @@ export class UserRepositoryPostgres implements UserRepository {
 
     if (roleIds.length > 0) {
       await this.assignUserRoles(user.id, roleIds);
+      return;
     }
+
+    await this.executor.query(`
+      INSERT INTO user_roles (user_id, role_id)
+      SELECT $1, id FROM roles WHERE role_key = 'default_reader'
+      ON CONFLICT DO NOTHING
+    `, [user.id]);
   }
 
   async updateUser(user: User): Promise<void> {

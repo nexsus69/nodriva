@@ -36,14 +36,14 @@ export function VirtualGroupHeader({
     >
       <div
         role="row"
-        className="flex items-center justify-between px-5 py-2.5"
+        className="flex items-start justify-between gap-3 px-5 py-2.5"
         style={{ paddingLeft: `${16 + indentPx}px` }}
       >
-        <div role="cell" className="flex items-center gap-2 truncate">
+        <div role="cell" className="min-w-0 flex items-start gap-2 break-words">
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-100 text-xs font-semibold text-indigo-600">
             ⌂
           </span>
-          <span className="font-semibold text-slate-800">{resolvedNodeName}</span>
+          <span className="min-w-0 whitespace-normal break-words font-semibold leading-5 text-slate-800">{resolvedNodeName}</span>
           <span className="hidden truncate text-xs font-mono text-slate-400 sm:inline">
             ({resolvedNodePath})
           </span>

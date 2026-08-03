@@ -7,20 +7,6 @@ import {
 } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import {
-  RowVersionMismatchError,
-  SystemTypeModificationError,
-  SystemFieldModificationError,
-  TypeKeyAlreadyExistsError,
-  TypeFieldKeyAlreadyExistsError,
-  TypeFieldColumnNameAlreadyExistsError,
-  TypeFieldConstraintNotFoundError,
-  UnsupportedFieldDataTypeError,
-  SchemaCompilationError,
-  TypeHasInstancesError,
-  TypeFieldHasValuesError,
-  TypeAdminValidationError,
-  TypeDefinitionNotFoundError,
-  TypeFieldNotFoundError,
   ApiErrorResponse,
   TypeListItemDto,
   TypeDetailDto,
@@ -34,112 +20,12 @@ import {
   EnumOptionDto,
   TypeKind,
 } from '@dashboard/core';
-import { mapAuthorizationError } from './errorMapping';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 
 
 /** Helper per mappare le eccezioni del Core alla forma ApiErrorResponse */
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
-  if (err instanceof RowVersionMismatchError) {
-    const expected = typeof err.details?.expected === 'number' ? err.details.expected : undefined;
-    const actual = typeof err.details?.actual === 'number' ? err.details.actual : undefined;
-    return {
-      code: 'ROW_VERSION_MISMATCH',
-      message: 'La risorsa è stata modificata da un altro utente. Ricarica la scheda.',
-      expectedRowVersion: expected,
-      currentRowVersion: actual,
-    };
-  }
-  if (err instanceof SystemTypeModificationError) {
-    return {
-      code: 'SYSTEM_TYPE_FORBIDDEN',
-      message: 'I tipi di sistema non possono essere modificati o disabilitati.',
-      target: typeof err.details?.typeKey === 'string' ? err.details.typeKey : undefined,
-    };
-  }
-  if (err instanceof SystemFieldModificationError) {
-    return {
-      code: 'SYSTEM_FIELD_FORBIDDEN',
-      message: 'I campi di sistema non possono essere modificati o rimossi.',
-      target: typeof err.details?.fieldId === 'string' ? err.details.fieldId : undefined,
-    };
-  }
-  if (err instanceof TypeKeyAlreadyExistsError) {
-    const typeKey = typeof err.details?.typeKey === 'string' ? err.details.typeKey : '';
-    return {
-      code: 'DUPLICATE_TYPE_KEY',
-      message: `La chiave tipo '${typeKey}' esiste già.`,
-      target: 'typeKey',
-    };
-  }
-  if (err instanceof TypeFieldKeyAlreadyExistsError) {
-    const fieldKey = typeof err.details?.fieldKey === 'string' ? err.details.fieldKey : '';
-    return {
-      code: 'DUPLICATE_FIELD_KEY',
-      message: `La chiave campo '${fieldKey}' esiste già per questo tipo.`,
-      target: 'fieldKey',
-    };
-  }
-  if (err instanceof TypeFieldColumnNameAlreadyExistsError) {
-    const columnName = typeof err.details?.columnName === 'string' ? err.details.columnName : '';
-    return {
-      code: 'DUPLICATE_COLUMN_NAME',
-      message: `La colonna fisica '${columnName}' esiste già.`,
-      target: 'columnName',
-    };
-  }
-  if (err instanceof TypeHasInstancesError) {
-    const typeId = typeof err.details?.typeId === 'string' ? err.details.typeId : undefined;
-    return {
-      code: 'TYPE_HAS_INSTANCES',
-      message: 'Impossibile disabilitare o modificare il tipo perché possiede istanze attive.',
-      target: typeId,
-    };
-  }
-  if (err instanceof TypeFieldHasValuesError) {
-    return {
-      code: 'TYPE_FIELD_HAS_VALUES',
-      message: 'Impossibile eliminare il campo perché contiene valori nelle istanze esistenti.',
-      target: typeof err.details?.fieldKey === 'string' ? err.details.fieldKey : undefined,
-    };
-  }
-  if (err instanceof TypeAdminValidationError) {
-    const issuesObj = (err.details?.issues as Record<string, string[]> | undefined) ?? {};
-    const details = Object.entries(issuesObj).map(([field, msgs]) => ({
-      field,
-      code: 'VALIDATION_FAILED',
-      message: Array.isArray(msgs) ? msgs.join(', ') : String(msgs),
-    }));
-    return {
-      code: 'VALIDATION_ERROR',
-      message: err.message,
-      details,
-    };
-  }
-  if (
-    err instanceof TypeDefinitionNotFoundError
-    || err instanceof TypeFieldNotFoundError
-    || err instanceof TypeFieldConstraintNotFoundError
-  ) {
-    return {
-      code: 'NOT_FOUND',
-      message: 'La risorsa richiesta non è stata trovata.',
-    };
-  }
-  if (err instanceof UnsupportedFieldDataTypeError || err instanceof SchemaCompilationError) {
-    return {
-      code: 'VALIDATION_ERROR',
-      message: err.message,
-    };
-  }
-
-  const authorizationError = mapAuthorizationError(err);
-  if (authorizationError) return authorizationError;
-
-  console.error('[TypeActions] Unexpected backend error:', err);
-  return {
-    code: 'INTERNAL_ERROR',
-    message: 'Si è verificato un errore interno. Riprova più tardi.',
-  };
+  return mapAppErrorToApiErrorResponse(err);
 }
 
 /** Caricamento della lista dei tipi (TypeListItemDto[]) */

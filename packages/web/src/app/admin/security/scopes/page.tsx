@@ -34,17 +34,26 @@ export default function SecurityScopesPage() {
   const loadData = async () => {
     setLoading(true);
     setError(null);
-    const [resScopes, resUsers, resRoles, rootNodes] = await Promise.all([
+    const [resScopes, resUsers, resRoles] = await Promise.all([
       AppCache.admin.listScopeAssignments(),
       AppCache.users.listUsers().then((data) => ({ success: true, data })),
       AppCache.admin.listRoles(),
-      AppCache.admin.listChildren(null),
     ]);
+
+    const allNodes: { id: string; name: string }[] = [];
+    const visit = async (parentId: string | null): Promise<void> => {
+      const children = await AppCache.admin.listChildren(parentId);
+      for (const node of children) {
+        allNodes.push({ id: node.id, name: node.name });
+        await visit(node.id);
+      }
+    };
+    await visit(null);
 
     if (resScopes.success && resScopes.data) setScopes(resScopes.data);
     if (resUsers.success && resUsers.data) setUsers(resUsers.data);
     if (resRoles.success && resRoles.data) setRoles(resRoles.data);
-    if (rootNodes) setNodes(rootNodes.map((n) => ({ id: n.id, name: n.name })));
+    setNodes(allNodes);
 
     setLoading(false);
   };
@@ -69,7 +78,7 @@ export default function SecurityScopesPage() {
     setEditingScope(scope);
     setSelectedUserId(scope.userId);
     setSelectedNodeId(scope.nodeId);
-    setSelectedRoleId(scope.roleId ?? '');
+    setSelectedRoleId(scope.roleId);
     setAssignmentEffect(scope.assignmentEffect);
     setPropagation(scope.propagation);
     setFormError(null);
@@ -84,7 +93,7 @@ export default function SecurityScopesPage() {
       if (editingScope) {
         const cmd: UpdateScopeAssignmentUiCommand = {
           assignmentId: editingScope.id,
-          roleId: selectedRoleId || undefined,
+          roleId: selectedRoleId,
           assignmentEffect,
           propagation,
         };
@@ -99,7 +108,7 @@ export default function SecurityScopesPage() {
         const cmd: CreateScopeAssignmentUiCommand = {
           userId: selectedUserId,
           nodeId: selectedNodeId,
-          roleId: selectedRoleId || undefined,
+          roleId: selectedRoleId,
           assignmentEffect,
           propagation,
         };
@@ -297,14 +306,14 @@ export default function SecurityScopesPage() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Ruolo Specifico (Opzionale)
+                  Ruolo associato allo scope *
                 </label>
                 <select
                   value={selectedRoleId}
                   onChange={(e) => setSelectedRoleId(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
                 >
-                  <option value="">-- Qualsiasi Ruolo --</option>
+                  <option value="">-- Scegli un ruolo --</option>
                   {roles.map((r) => (
                     <option key={r.id} value={r.id}>
                       {r.name} ({r.roleKey})
@@ -353,7 +362,7 @@ export default function SecurityScopesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isPending || !selectedUserId || !selectedNodeId}
+                  disabled={isPending || !selectedUserId || !selectedNodeId || !selectedRoleId}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/20 disabled:opacity-50"
                 >
                   {isPending ? 'Salvataggio...' : editingScope ? 'Salva Modifiche' : 'Crea Assegnazione'}

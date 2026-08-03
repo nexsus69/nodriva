@@ -7,6 +7,8 @@ const LOCK_CHANNEL_PATTERN =
   /^private-locks-(node|entity)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 const REALTIME_CHANNEL_PATTERN =
   /^private-events-node-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const SCOPE_CHANNEL_PATTERN =
+  /^private-scope-node-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-(self|subtree)$/i;
 
 const pusher = new PusherServer({
   appId: process.env.PUSHER_APP_ID || '',
@@ -40,13 +42,26 @@ export const POST = auth(async (req) => {
 
     const lockMatch = LOCK_CHANNEL_PATTERN.exec(channelValue);
     const realtimeMatch = REALTIME_CHANNEL_PATTERN.exec(channelValue);
-    if (!lockMatch && !realtimeMatch) {
+    const scopeMatch = SCOPE_CHANNEL_PATTERN.exec(channelValue);
+    if (!lockMatch && !realtimeMatch && !scopeMatch) {
       return new NextResponse('Invalid channel', { status: 400 });
     }
 
     const resourceType = lockMatch ? (lockMatch[1] as 'node' | 'entity') : 'node';
     const resourceId = lockMatch ? lockMatch[2]! : realtimeMatch![1]!;
     const { accessControlPort, entityRepository } = await import('../../../../server/db');
+
+    if (scopeMatch) {
+      const scopeNodeId = scopeMatch[1]!;
+      const propagation = scopeMatch[2]!;
+      const { securityRepository } = await import('../../../../server/db');
+      const scopes = await securityRepository.listRealtimeScopeAssignments(userId);
+      if (!scopes.some((scope) => scope.nodeId === scopeNodeId && scope.propagation === propagation)) {
+        return new NextResponse('Forbidden', { status: 403 });
+      }
+      const authResponse = pusher.authorizeChannel(socketIdValue, channelValue);
+      return NextResponse.json(authResponse);
+    }
 
     if (lockMatch) {
       if (resourceType === 'node') {

@@ -47,10 +47,17 @@ export default function LoginPage() {
 
       const res = await loginAction(email, password);
       if (res.success) {
-        // La Server Action aggiorna il cookie, ma il SessionProvider client
-        // conserva lo snapshot precedente finché non viene sincronizzato.
+        // La Server Action ha già scritto il cookie lato server. Il render
+        // successivo rilegge la sessione autorevole senza rendere obbligatoria
+        // una seconda chiamata client a /api/auth/session.
         AppCache.purgeAll();
-        await refreshSession();
+        try {
+          await refreshSession();
+        } catch (sessionError) {
+          // Un fallimento transitorio del refresh non annulla un login già
+          // completato. router.refresh() aggiornerà il layout dal server.
+          console.warn('Session refresh after login failed; using server render:', sessionError);
+        }
         router.replace('/');
         router.refresh();
       } else {

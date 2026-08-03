@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
 import { AppCache } from '../cache/GlobalCacheClient';
 
@@ -30,13 +30,6 @@ export function LockIndicator({ resourceType, resourceId }: LockIndicatorProps) 
     [resourceId, resourceType]
   );
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-
-  useEffect(() => {
-    const releaseRealtime = AppCache.retainLockResource(resourceType, resourceId);
-    return () => {
-      releaseRealtime();
-    };
-  }, [resourceId, resourceType]);
 
   if (!state.locked) return <span className="w-5" aria-hidden="true" />;
 

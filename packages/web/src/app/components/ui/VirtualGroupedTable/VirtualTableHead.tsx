@@ -24,11 +24,11 @@ export function VirtualTableHead<T>({
     <div
       role="rowgroup"
       style={{ overflowAnchor: 'none' }}
-      className="sticky top-0 z-20 border-b border-slate-200 bg-slate-50/95 text-xs font-semibold uppercase tracking-wide text-slate-400 backdrop-blur"
+      className="sticky top-0 z-20 hidden border-b border-slate-200 bg-slate-50/95 text-xs font-semibold uppercase tracking-wide text-slate-400 backdrop-blur md:block"
     >
       <div
         role="row"
-        className="grid items-center gap-4 px-5 py-3.5"
+          className="grid items-start gap-4 px-5 py-3.5"
         style={{ gridTemplateColumns }}
       >
         {hasSelection && (
@@ -45,12 +45,12 @@ export function VirtualTableHead<T>({
           <span aria-hidden="true">🔒</span>
         </div>
         {columns.map((col) => (
-          <div role="columnheader" key={col.key} className="truncate">
+          <div role="columnheader" key={col.key} className="min-w-0 whitespace-normal break-words leading-4">
             {col.header}
           </div>
         ))}
         {hasRowActions && (
-          <div role="columnheader" className="text-right truncate">
+          <div role="columnheader" className="min-w-0 text-right whitespace-normal break-words leading-4">
             Azioni
           </div>
         )}

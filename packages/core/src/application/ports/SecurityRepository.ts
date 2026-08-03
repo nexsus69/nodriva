@@ -4,6 +4,7 @@ import {
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  RealtimeScopeAssignmentDto,
 } from '../dto/SecurityAdminDtos.js';
 
 export interface SecurityRepository {
@@ -17,18 +18,19 @@ export interface SecurityRepository {
   listAllPermissions(): Promise<PermissionDto[]>;
   listScopeAssignments(): Promise<ScopeAssignmentDto[]>;
   getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null>;
+  listRealtimeScopeAssignments(userId: string): Promise<RealtimeScopeAssignmentDto[]>;
   createScopeAssignment(
     id: string,
     userId: string,
     nodeId: string,
-    roleId: string | null,
+    roleId: string,
     assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree',
     assignedBy: string
   ): Promise<void>;
   updateScopeAssignment(
     id: string,
-    roleId: string | null,
+    roleId: string,
     assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree'
   ): Promise<void>;

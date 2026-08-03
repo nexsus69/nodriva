@@ -2,7 +2,7 @@
 
 import { systemAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
-import { mapAuthorizationError } from './errorMapping';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
   RuntimeCapabilityDto,
   SystemSettingDto,
@@ -16,32 +16,11 @@ import {
   CreatePlacementRuleUiCommand,
   DeletePlacementRuleUiCommand,
   ApiErrorResponse,
-  RowVersionMismatchError,
-  PlacementPolicyNotFoundError,
-  PlacementPolicyKeyAlreadyExistsError,
-  SystemConfigValidationError,
 } from '@dashboard/core';
 
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
-  if (err instanceof PlacementPolicyNotFoundError) {
-    return { message: err.message, code: 'PLACEMENT_POLICY_NOT_FOUND' };
-  }
-  if (err instanceof PlacementPolicyKeyAlreadyExistsError) {
-    return { message: err.message, code: 'DUPLICATE_PLACEMENT_POLICY_KEY' };
-  }
-  if (err instanceof RowVersionMismatchError) {
-    return { message: err.message, code: 'ROW_VERSION_MISMATCH' };
-  }
-  if (err instanceof SystemConfigValidationError) {
-    return { message: err.message, code: 'VALIDATION_ERROR' };
-  }
-  const authorizationError = mapAuthorizationError(err);
-  if (authorizationError) return authorizationError;
-  if (err instanceof Error) {
-    return { message: err.message, code: 'INTERNAL_ERROR' };
-  }
-  return { message: 'Si è verificato un errore imprevisto.', code: 'UNKNOWN_ERROR' };
+  return mapAppErrorToApiErrorResponse(err);
 }
 
 export async function listCapabilitiesAction(): Promise<{

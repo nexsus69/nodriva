@@ -34,11 +34,16 @@ export interface ScopeAssignmentDto {
   userEmail: string;
   nodeId: string;
   nodeName: string;
-  roleId: string | null;
-  roleName: string | null;
+  roleId: string;
+  roleName: string;
   assignmentEffect: 'allow' | 'deny';
   propagation: 'self' | 'subtree';
   assignedAt: string;
+}
+
+export interface RealtimeScopeAssignmentDto {
+  nodeId: string;
+  propagation: 'self' | 'subtree';
 }
 
 export interface CreateRoleUiCommand {
@@ -57,7 +62,7 @@ export interface UpdateRolePermissionsUiCommand {
 export interface CreateScopeAssignmentUiCommand {
   userId: string;
   nodeId: string;
-  roleId?: string;
+  roleId: string;
   assignmentEffect: 'allow' | 'deny';
   propagation: 'self' | 'subtree';
 }
@@ -68,7 +73,7 @@ export interface DeleteScopeAssignmentUiCommand {
 
 export interface UpdateScopeAssignmentUiCommand {
   assignmentId: string;
-  roleId?: string;
+  roleId: string;
   assignmentEffect: 'allow' | 'deny';
   propagation: 'self' | 'subtree';
 }

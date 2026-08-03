@@ -234,6 +234,7 @@ export {
   RoleListItemDto,
   RoleDetailDto,
   ScopeAssignmentDto,
+  RealtimeScopeAssignmentDto,
   CreateRoleUiCommand,
   UpdateRolePermissionsUiCommand,
   CreateScopeAssignmentUiCommand,
