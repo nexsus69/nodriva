@@ -194,6 +194,11 @@ export class GlobalCacheClient {
     const key = this.lockKey(resourceType, resourceId);
     const normalized = state.locked ? state : EMPTY_LOCK_STATE;
     this.lockStates.set(key, normalized);
+    // Every caller of setLockState has an authoritative snapshot: a list query,
+    // a lock mutation, or a realtime event. Marking it hydrated prevents each
+    // LockIndicator rendered for a paginated list from issuing a redundant
+    // one-resource server action on mount.
+    this.hydratedLockKeys.add(key);
     this.lockSubscribers.get(key)?.forEach((subscriber) => subscriber(normalized));
     this.notifyCacheSubscribers();
   }

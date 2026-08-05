@@ -305,7 +305,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           AND (p.permission_key = $2 OR p.name = $2)
           AND nsa.assignment_effect = 'deny'::assignment_effect_enum
           AND (
-            n.id = $3
+            nsa.node_id = $3
             OR
             (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> (
               SELECT path FROM nodes WHERE id = $3 LIMIT 1
@@ -347,7 +347,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           AND (p.permission_key = $2 OR p.name = $2)
           AND nsa.assignment_effect = 'allow'::assignment_effect_enum
           AND (
-            n.id = $3
+            nsa.node_id = $3
             OR
             (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> (
               SELECT path FROM nodes WHERE id = $3 LIMIT 1

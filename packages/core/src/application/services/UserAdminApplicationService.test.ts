@@ -8,6 +8,7 @@ import { AccessControlPort } from '../ports/AccessControlPort.js';
 import { User } from '../../domain/models/User.js';
 import {
   UserEmailAlreadyExistsError,
+  UserAdminValidationError,
 } from '../../domain/errors/UserAdminErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
@@ -292,5 +293,17 @@ describe('UserAdminApplicationService', () => {
     });
 
     expect(mockSessionRepository.deleteSessionsForUser).toHaveBeenCalledWith(USER_ID);
+  });
+
+  it('rejects self-disabling before opening a transaction', async () => {
+    await expect(service.updateUserStatus({
+      userId: ACTOR_ID,
+      isActive: false,
+      expectedRowVersion: 1,
+      actorUserId: ACTOR_ID,
+    })).rejects.toThrow(UserAdminValidationError);
+
+    expect(mockTransactionPort.runInTransaction).not.toHaveBeenCalled();
+    expect(mockUserRepository.updateUser).not.toHaveBeenCalled();
   });
 });

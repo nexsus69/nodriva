@@ -279,13 +279,13 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
         SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
       ), delegable AS (
         SELECT n.path
-        FROM node_scope_assignments grant
-        JOIN nodes n ON n.id = grant.node_id AND n.deleted_at IS NULL
-        JOIN role_permissions rp ON rp.role_id = grant.role_id
+        FROM node_scope_assignments allow_assignment
+        JOIN nodes n ON n.id = allow_assignment.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
         JOIN permissions p ON p.id = rp.permission_id
-        WHERE grant.user_id = $1
-          AND grant.assignment_effect = 'allow'::assignment_effect_enum
-          AND grant.propagation = 'subtree'::scope_propagation_enum
+        WHERE allow_assignment.user_id = $1
+          AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
+          AND allow_assignment.propagation = 'subtree'::scope_propagation_enum
           AND p.permission_key = 'scope.assign'
           AND NOT EXISTS (
             SELECT 1 FROM node_scope_assignments deny
@@ -344,12 +344,12 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
         SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
       ), delegable AS (
         SELECT n.path
-        FROM node_scope_assignments grant
-        JOIN nodes n ON n.id = grant.node_id AND n.deleted_at IS NULL
-        JOIN role_permissions rp ON rp.role_id = grant.role_id
+        FROM node_scope_assignments allow_assignment
+        JOIN nodes n ON n.id = allow_assignment.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
         JOIN permissions p ON p.id = rp.permission_id
-        WHERE grant.user_id = $1 AND grant.assignment_effect = 'allow'::assignment_effect_enum
-          AND grant.propagation = 'subtree'::scope_propagation_enum AND p.permission_key = 'scope.assign'
+        WHERE allow_assignment.user_id = $1 AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
+          AND allow_assignment.propagation = 'subtree'::scope_propagation_enum AND p.permission_key = 'scope.assign'
           AND NOT EXISTS (
             SELECT 1 FROM node_scope_assignments deny
             JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
@@ -501,7 +501,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     propagation: 'self' | 'subtree',
     assignedBy: string
   ): Promise<void> {
-    await this.assertScopeAssignmentTargets(userId, nodeId, roleId, assignmentEffect, propagation);
+    await this.assertScopeAssignmentTargets(userId, nodeId, roleId, propagation);
     const query = `
       INSERT INTO node_scope_assignments (id, user_id, node_id, role_id, assignment_effect, propagation, assigned_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -522,7 +522,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     const assignment = existing.rows[0];
     if (!assignment) throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     await this.assertScopeAssignmentTargets(
-      assignment.user_id, assignment.node_id, roleId, assignmentEffect, propagation, id
+      assignment.user_id, assignment.node_id, roleId, propagation, id
     );
     const query = `
       UPDATE node_scope_assignments
@@ -653,7 +653,6 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     userId: string,
     nodeId: string,
     roleId: string,
-    assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree',
     excludeAssignmentId?: string,
   ): Promise<void> {
@@ -669,10 +668,10 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
         EXISTS (SELECT 1 FROM roles WHERE id = $3 AND deleted_at IS NULL) AS active_role,
         EXISTS (
           SELECT 1 FROM node_scope_assignments
-          WHERE user_id = $1 AND node_id = $2 AND role_id = $3 AND propagation = $5::scope_propagation_enum
-            AND id IS DISTINCT FROM $6
+          WHERE user_id = $1 AND node_id = $2 AND role_id = $3 AND propagation = $4::scope_propagation_enum
+            AND id IS DISTINCT FROM $5
         ) AS conflicting_assignment
-    `, [userId, nodeId, roleId, assignmentEffect, propagation, excludeAssignmentId ?? null]);
+    `, [userId, nodeId, roleId, propagation, excludeAssignmentId ?? null]);
     const row = target.rows[0];
     const issues: Record<string, string[]> = {};
     if (!row?.active_user) issues.userId = ['The target user must exist and be active.'];

@@ -223,6 +223,15 @@ describe('Governance and Security PostgreSQL Adapters', () => {
       expect(mockExecutor.query).toHaveBeenCalledTimes(1);
     });
 
+    it('uses the scope assignment node id for self-scope permission checks', async () => {
+      const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
+      mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
+
+      await expect(adapter.assertCanCreateNode('user-1', 'parent-1', 'device')).rejects.toThrow(ForbiddenError);
+      expect(mockExecutor.query.mock.calls[0]?.[0]).toContain('nsa.node_id = $3');
+      expect(mockExecutor.query.mock.calls[0]?.[0]).not.toContain('n.id = $3');
+    });
+
     it('should deny access if user has neither global nor local allow (default deny)', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
       // nsa query: no deny

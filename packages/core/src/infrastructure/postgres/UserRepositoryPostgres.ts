@@ -262,16 +262,7 @@ export class UserRepositoryPostgres implements UserRepository {
       [user.id, user.email, user.passwordHash, user.isActive, user.isSuperAdmin, user.rowVersion, user.createdAt, user.updatedAt]
     );
 
-    if (roleIds.length > 0) {
-      await this.assignUserRoles(user.id, roleIds);
-      return;
-    }
-
-    await this.executor.query(`
-      INSERT INTO user_roles (user_id, role_id)
-      SELECT $1, id FROM roles WHERE role_key = 'default_reader'
-      ON CONFLICT DO NOTHING
-    `, [user.id]);
+    await this.assignUserRoles(user.id, roleIds);
   }
 
   async updateUser(user: User): Promise<void> {
@@ -305,6 +296,15 @@ export class UserRepositoryPostgres implements UserRepository {
 
   async assignUserRoles(userId: string, roleIds: string[]): Promise<void> {
     await this.executor.query('DELETE FROM user_roles WHERE user_id = $1', [userId]);
+
+    // Type definitions are rendering metadata, not a data-access grant. Every
+    // active identity keeps this baseline role while node/entity permissions
+    // remain strictly governed by node_scope_assignments.
+    await this.executor.query(`
+      INSERT INTO user_roles (user_id, role_id)
+      SELECT $1, id FROM roles WHERE role_key = 'default_reader'
+      ON CONFLICT DO NOTHING
+    `, [userId]);
 
     for (const roleId of roleIds) {
       await this.executor.query(

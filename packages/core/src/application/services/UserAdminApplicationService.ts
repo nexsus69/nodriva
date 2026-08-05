@@ -97,6 +97,11 @@ export class UserAdminApplicationService {
 
   async updateUserStatus(cmd: UpdateUserStatusCommand): Promise<User> {
     const v = this.validateCommand(UpdateUserStatusCommandSchema, cmd, 'updating user status');
+    if (!v.isActive && v.userId === v.actorUserId) {
+      throw new UserAdminValidationError('You cannot disable the account used for the current session.', {
+        userId: ['Sign in with another administrator to disable this account.'],
+      });
+    }
     await this.assertUserManageable(v.actorUserId, v.userId, 'change user status');
 
     return await this.transactionPort.runInTransaction(async () => {

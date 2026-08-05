@@ -24,3 +24,14 @@ Migration `005_administrative_identity_hardening.sql` adds the shared login
 rate-limit store, one-time hashed invitation/password-reset tokens, and the
 optional MFA TOTP enrollment store. It does not contain MFA secrets for any
 user and is safe to apply before MFA is enabled in a deployment.
+
+Migration `006_default_metadata_reader.sql` assigns every active identity the
+baseline role used to read node/entity type metadata. It does not grant node or
+entity data access, which remains governed by scoped assignments.
+
+Migration `007_admin_role_permission_sync.sql` keeps the system `admin` role
+aligned with permissions introduced after the initial seed. Concrete node and
+entity operations remain constrained by their assigned scopes.
+
+Migration `008_scope_assignment_audit_kind.sql` adds the audit resource kind
+used when delegated scope assignments are revoked by lifecycle enforcement.

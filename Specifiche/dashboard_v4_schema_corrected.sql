@@ -43,6 +43,7 @@ BEGIN
       'user',
       'role',
       'permission',
+      'scope_assignment',
       'system_setting',
       'placement_policy',
       'ui_profile',
