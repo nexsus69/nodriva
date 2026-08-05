@@ -36,6 +36,9 @@ import {
   SchemaInvalidationAdapter,
   LtreeNodePathPolicy,
   SessionRepositoryPostgres,
+  LoginRateLimitPortPostgres,
+  AccountActionTokenPortPostgres,
+  AccountRecoveryApplicationService,
   AuthApplicationService,
   RealtimeScopeResolverPostgres,
   RealtimeOutboxPostgres,
@@ -147,6 +150,8 @@ export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRea
 export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
+export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
+export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
 
 // Registry degli schemi ed invalidazione
 export const typeReader = new TypeDefinitionReaderPostgres(pgExecutor);
@@ -254,4 +259,7 @@ export const systemSeedService = new SystemSeedPostgres(
   process.env.SEED_ADMIN_PASSWORD
 );
 
-export const authApplicationService = new AuthApplicationService(sessionRepository, userRepository);
+export const authApplicationService = new AuthApplicationService(sessionRepository, userRepository, loginRateLimitPort);
+export const accountRecoveryService = new AccountRecoveryApplicationService(
+  accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort
+);

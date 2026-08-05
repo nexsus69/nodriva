@@ -50,12 +50,12 @@
 
 ## P2 — Scale and hardening
 
-- [ ] Optimize subtree ACL SQL by materializing/indexing the assigned node path
+- [x] Optimize subtree ACL SQL by materializing/indexing the assigned node path
   or another set-based equivalent; benchmark before changing semantics.
-- [ ] Define audit retention, export and access-review procedures.
-- [ ] Add password-reset/invitation workflow, rate limits and optional MFA for
+- [x] Define audit retention, export and access-review procedures.
+- [x] Add password-reset/invitation workflow, rate limits and optional MFA for
   administrative identities.
-- [ ] Document and test portability boundaries outside PostgreSQL (`ltree`,
+- [x] Document and test portability boundaries outside PostgreSQL (`ltree`,
   locking and dynamic SQL are currently PostgreSQL-specific).
 
 ## P1 — Global responsive UI

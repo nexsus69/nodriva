@@ -3,25 +3,33 @@ import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
+import { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
 
 export class AuthApplicationService {
   constructor(
     private readonly sessionRepository: SessionRepositoryPort,
-    private readonly userRepository: UserRepository
+    private readonly userRepository: UserRepository,
+    private readonly loginRateLimit?: LoginRateLimitPort,
   ) {}
 
   async login(email: string, plainTextPassword: string): Promise<string> {
+    const subject = crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+    const now = new Date();
+    await this.loginRateLimit?.assertAllowed(subject, now);
     const user = await this.userRepository.findByEmail(email);
     if (!user) {
+      await this.loginRateLimit?.recordFailure(subject, now);
       throw new UnauthorizedError('Invalid credentials');
     }
 
     if (!user.isActive) {
+      await this.loginRateLimit?.recordFailure(subject, now);
       throw new UnauthorizedError('User is disabled');
     }
 
     const isValid = PasswordHasher.verify(plainTextPassword, user.passwordHash);
     if (!isValid) {
+      await this.loginRateLimit?.recordFailure(subject, now);
       throw new UnauthorizedError('Invalid credentials');
     }
 
@@ -33,6 +41,7 @@ export class AuthApplicationService {
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
     await this.sessionRepository.createSession(user.id, hashedToken, expiresAt);
+    await this.loginRateLimit?.clear(subject);
 
     return token;
   }

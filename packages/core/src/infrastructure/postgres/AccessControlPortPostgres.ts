@@ -14,11 +14,9 @@ export class AccessControlPortPostgres implements AccessControlPort {
    * Generates the SQL snippet for Read Access Control to be injected into Query Ports.
    * Assumes the target node table is aliased as `nodeAlias` (default 'n') and its path column is `path`.
    * 
-   * @tradeoff NOTA ARCHITETTURALE: Questo snippet esegue una subquery ricorsiva su `nodes` 
-   * per determinare il parent path degli scope assignments. Su DB di grandi dimensioni 
-   * può innescare problemi di performance (Nested Loop vs Table Scan). L'ottimizzazione è
-   * stata consapevolmente rinviata a fasi successive a favore di un Single Source of Truth puro.
-   * Per dettagli, possibili rimedi e metriche da monitorare, vedere: `docs/known-tradeoffs.md`.
+   * The PostgreSQL adapter reads the materialized `node_path` held by each
+   * assignment. Migration 004 keeps that value in sync with `nodes.path`, so
+   * subtree predicates do not need a correlated node lookup per record.
    */
   static getReadAccessControlSql(
     actorIdParam: string,
@@ -43,7 +41,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
             AND (
               (nsa.propagation = 'self'::scope_propagation_enum AND nsa.node_id = ${nodeAlias}.id)
               OR 
-              (nsa.propagation = 'subtree'::scope_propagation_enum AND (SELECT path FROM nodes WHERE id = nsa.node_id LIMIT 1) @> ${nodeAlias}.path)
+              (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> ${nodeAlias}.path)
             )
         )
       )
@@ -59,7 +57,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           AND (
             (nsa.propagation = 'self'::scope_propagation_enum AND nsa.node_id = ${nodeAlias}.id)
             OR 
-            (nsa.propagation = 'subtree'::scope_propagation_enum AND (SELECT path FROM nodes WHERE id = nsa.node_id LIMIT 1) @> ${nodeAlias}.path)
+            (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> ${nodeAlias}.path)
           )
       )
     `;
@@ -232,20 +230,18 @@ export class AccessControlPortPostgres implements AccessControlPort {
            OR EXISTS (
              SELECT 1
              FROM node_scope_assignments allow_assignment
-             INNER JOIN nodes allow_node ON allow_node.id = allow_assignment.node_id
              INNER JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
              INNER JOIN permissions permission ON permission.id = rp.permission_id
              WHERE allow_assignment.user_id = $1
                AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
                AND allow_assignment.propagation = 'subtree'::scope_propagation_enum
                AND permission.permission_key = $2
-               AND allow_node.path @> target.path
+               AND allow_assignment.node_path @> target.path
            )
          )
          AND NOT EXISTS (
            SELECT 1
            FROM node_scope_assignments deny_assignment
-           INNER JOIN nodes deny_node ON deny_node.id = deny_assignment.node_id
            INNER JOIN role_permissions rp ON rp.role_id = deny_assignment.role_id
            INNER JOIN permissions permission ON permission.id = rp.permission_id
            WHERE deny_assignment.user_id = $1
@@ -253,10 +249,10 @@ export class AccessControlPortPostgres implements AccessControlPort {
              AND permission.permission_key = $2
              AND (
                (deny_assignment.propagation = 'self'::scope_propagation_enum
-                 AND target.path @> deny_node.path)
+                 AND target.path @> deny_assignment.node_path)
                OR
                (deny_assignment.propagation = 'subtree'::scope_propagation_enum
-                 AND (target.path @> deny_node.path OR deny_node.path @> target.path))
+                 AND (target.path @> deny_assignment.node_path OR deny_assignment.node_path @> target.path))
              )
          )
        LIMIT 1`,
@@ -303,7 +299,6 @@ export class AccessControlPortPostgres implements AccessControlPort {
       const denyQuery = `
         SELECT 1
         FROM node_scope_assignments nsa
-        JOIN nodes n ON nsa.node_id = n.id
         JOIN role_permissions rp ON rp.role_id = nsa.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = $1
@@ -312,7 +307,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           AND (
             n.id = $3
             OR
-            (nsa.propagation = 'subtree'::scope_propagation_enum AND n.path @> (
+            (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> (
               SELECT path FROM nodes WHERE id = $3 LIMIT 1
             ))
           )
@@ -346,7 +341,6 @@ export class AccessControlPortPostgres implements AccessControlPort {
       const localQuery = `
         SELECT 1
         FROM node_scope_assignments nsa
-        JOIN nodes n ON nsa.node_id = n.id
         JOIN role_permissions rp ON rp.role_id = nsa.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = $1
@@ -355,7 +349,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           AND (
             n.id = $3
             OR
-            (nsa.propagation = 'subtree'::scope_propagation_enum AND n.path @> (
+            (nsa.propagation = 'subtree'::scope_propagation_enum AND nsa.node_path @> (
               SELECT path FROM nodes WHERE id = $3 LIMIT 1
             ))
           )

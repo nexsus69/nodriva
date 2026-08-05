@@ -10,3 +10,17 @@ it stops if that table contains data, avoiding silent session loss.
 The migration directory is intentionally kept separate from the specification
 SQL. The specification describes the target schema; migrations describe how an
 existing installation reaches it.
+
+Migration `003_realtime_outbox_and_locks.sql` is idempotent. It aligns the
+runtime `locks` table (including installations that still have
+`resource_locks`) and creates the durable `realtime_event_outbox` used by the
+post-commit delivery worker.
+
+Migration `004_materialized_scope_node_path.sql` materializes each scope
+assignment's `ltree` path and maintains it with triggers when assignments or
+node paths change. It adds the GiST/index support used by ACL subtree queries.
+
+Migration `005_administrative_identity_hardening.sql` adds the shared login
+rate-limit store, one-time hashed invitation/password-reset tokens, and the
+optional MFA TOTP enrollment store. It does not contain MFA secrets for any
+user and is safe to apply before MFA is enabled in a deployment.

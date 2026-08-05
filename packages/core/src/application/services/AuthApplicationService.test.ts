@@ -5,11 +5,13 @@ import { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { AppError } from '../../domain/errors/AppError.js';
 import { User } from '../../domain/models/User.js';
+import { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
 
 describe('AuthApplicationService', () => {
   let sessionRepoMock: SessionRepositoryPort;
   let userRepositoryMock: UserRepository;
   let authService: AuthApplicationService;
+  let rateLimitMock: LoginRateLimitPort;
 
   beforeEach(() => {
     sessionRepoMock = {
@@ -33,7 +35,8 @@ describe('AuthApplicationService', () => {
       assignUserRoles: vi.fn(),
     };
 
-    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock);
+    rateLimitMock = { assertAllowed: vi.fn(), recordFailure: vi.fn(), clear: vi.fn() };
+    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, rateLimitMock);
   });
 
   describe('login', () => {
@@ -49,12 +52,14 @@ describe('AuthApplicationService', () => {
       expect(token).toBeDefined();
       expect(typeof token).toBe('string');
       expect(sessionRepoMock.createSession).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date));
+      expect(rateLimitMock.clear).toHaveBeenCalledWith(expect.any(String));
     });
 
     it('should throw UNAUTHORIZED if user not found', async () => {
       vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(null);
       
       await expect(authService.login('test@test.com', 'pwd')).rejects.toThrow(AppError);
+      expect(rateLimitMock.recordFailure).toHaveBeenCalledWith(expect.any(String), expect.any(Date));
     });
 
     it('should throw UNAUTHORIZED if user is disabled', async () => {

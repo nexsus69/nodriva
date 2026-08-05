@@ -136,6 +136,9 @@ export {
 // ─── Application Ports ────────────────────────────────────────────────────────
 export { AccessControlPort } from './application/ports/AccessControlPort.js';
 export { AuditPort } from './application/ports/AuditPort.js';
+export { LoginRateLimitPort } from './application/ports/LoginRateLimitPort.js';
+export { AccountActionTokenPort } from './application/ports/AccountActionTokenPort.js';
+export type { AccountActionPurpose } from './application/ports/AccountActionTokenPort.js';
 export { EntityRepository } from './application/ports/EntityRepository.js';
 export { EntityTypeRepository } from './application/ports/EntityTypeRepository.js';
 export { NodeRepository } from './application/ports/NodeRepository.js';
@@ -189,6 +192,9 @@ export { TypeDefinitionAdminRepositoryPostgres } from './infrastructure/postgres
 export { StorageTableManagementPostgres } from './infrastructure/postgres/StorageTableManagementPostgres.js';
 export { SystemSeedPostgres } from './infrastructure/postgres/SystemSeedPostgres.js';
 export { AuditPortPostgres } from './infrastructure/postgres/AuditPortPostgres.js';
+export { LoginRateLimitPortPostgres } from './infrastructure/postgres/LoginRateLimitPortPostgres.js';
+export { AccountActionTokenPortPostgres } from './infrastructure/postgres/AccountActionTokenPortPostgres.js';
+export { AccountRecoveryApplicationService } from './application/services/AccountRecoveryApplicationService.js';
 export { RevisionPortPostgres } from './infrastructure/postgres/RevisionPortPostgres.js';
 export { LockRepositoryPostgres } from './infrastructure/postgres/LockRepositoryPostgres.js';
 export { PusherEventBus } from './infrastructure/pusher/PusherEventBus.js';

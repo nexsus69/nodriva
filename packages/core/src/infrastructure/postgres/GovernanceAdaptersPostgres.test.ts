@@ -194,6 +194,13 @@ describe('Governance and Security PostgreSQL Adapters', () => {
   // ─── AccessControlPortPostgres ──────────────────────────────────
 
   describe('AccessControlPortPostgres', () => {
+    it('uses the materialized assignment path in generated read ACL SQL', () => {
+      const sql = AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.read');
+
+      expect(sql).toContain('nsa.node_path @> n.path');
+      expect(sql).not.toContain('SELECT path FROM nodes WHERE id = nsa.node_id');
+    });
+
     it('should allow access if user has global permission', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
       // nsa query: no deny

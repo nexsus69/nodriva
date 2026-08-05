@@ -25,6 +25,10 @@ assembling concrete adapters and injecting them into application services.
 | Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` |
 | Transactions | `TransactionPort` | `TransactionPortPostgres` |
 
+The PostgreSQL implementation additionally materializes the assigned hierarchy
+path in `node_scope_assignments.node_path`. This is an adapter-level projection
+maintained by database triggers; it is not part of the application contract.
+
 `listAncestorIds()` is a semantic repository operation. Its PostgreSQL
 implementation uses `ltree`, but another database adapter must implement the
 same contract with its own hierarchy mechanism.
@@ -76,3 +80,7 @@ errors are logged and must not roll back an already committed mutation.
 - Are realtime failures logged with a useful fallback?
 - Are committed mutations still correct when the message broker is offline?
 - Does the adapter have tests for missing rows, stale versions and failures?
+- If it uses dynamic table or column names, are identifiers allow-listed and
+  quoted by the adapter rather than interpolated from a request?
+- If it replaces `ltree` or `SKIP LOCKED`, do its ACL containment and concurrent
+  outbox-claim tests demonstrate the same observable behavior?

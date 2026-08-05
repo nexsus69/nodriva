@@ -2,21 +2,26 @@
 
 Questo documento traccia i trade-off architetturali noti, accettati durante lo sviluppo, che potrebbero richiedere ottimizzazioni future.
 
-## Fase A: Read Access Control & LTree Subquery
+## Risolto in P2: Read Access Control & LTree Subquery
 
 **Contesto:**
 Il filtraggio in lettura su PostgreSQL (Data Masking) è stato centralizzato nel costrutto SQL condiviso `AccessControlPortPostgres.getReadAccessControlSql`.
 
-**Problema (Trade-off):**
-Per verificare se un record rientra in un'assegnazione di scope di tipo `subtree`, la clausola SQL esegue ricorsivamente la subquery `(SELECT path FROM nodes WHERE id = nsa.node_id LIMIT 1)` all'interno delle condizioni `EXISTS`. 
-Su elenchi paginati immensi (milioni di record) con molteplici ruoli utente, il database esegue un Nested Loop. Pur essendoci un indice Hash/BTree in Primary Key per velocizzare la subquery e l'indice GiST per l'operatore `@>`, l'esecuzione iterativa della subquery per ogni riga in esame per matchare il subtree può degradare le performance (es. fallback in Table Scan se l'optimizer PostgreSQL deduce troppa varianza).
+**Problema storico:**
+Per verificare se un record rientrava in un'assegnazione di scope di tipo `subtree`, la clausola SQL eseguiva ricorsivamente la subquery `(SELECT path FROM nodes WHERE id = nsa.node_id LIMIT 1)` all'interno delle condizioni `EXISTS`.
 
-**Perché è stato accettato:**
-In Fase A (MVP), l'integrità del Single Source of Truth per l'ACL ha priorità assoluta sulle performance estreme. Centralizzare la logica senza inquinare la memoria applicativa garantisce stabilità e correttezza funzionale. L'attuale stack PostgreSQL gestisce agilmente questi carichi su alberi di medie dimensioni.
+**Risoluzione P2:**
+La migrazione `004_materialized_scope_node_path.sql` aggiunge
+`node_scope_assignments.node_path`, lo popola e lo mantiene coerente con
+trigger sugli assignment e sui cambi di path dei nodi. L'adapter ACL usa ora
+direttamente `nsa.node_path @> target.path`; un indice GiST sul path e un indice
+per utente/effetto/propagazione sostengono le condizioni `EXISTS`.
 
-**Possibili Strategie di Ottimizzazione (Future):**
-1. **Materializzazione dello Scope Path:** Aggiungere una colonna ridondante `node_path` in `node_scope_assignments`, popolandola in modo asincrono (es. trigger DB o Domain Event). In questo modo, l'operatore ltree confronterebbe direttamente `nsa.node_path @> n.path` abbattendo la subquery a zero.
-2. **Pre-calcolo in Application Layer:** Risolvere gli ID dei nodi consentiti/negati (con relativi path) in memoria (in NodeApplicationService) in un'unica query preparatoria, passando al Query Port un array testuale del tipo `ANY($ALLOWED_PATHS)`.
+**Guardrail:**
+La ridondanza è ammessa esclusivamente perché il database la aggiorna nella
+stessa transazione. Non aggiornare `node_path` dall'application layer. Ogni
+nuovo adapter deve conservare questa garanzia con il proprio meccanismo
+gerarchico, oppure usare una strategia set-based equivalente.
 
 **Metriche da monitorare:**
 - Query lente (`slow_queries` PostgreSQL log)
@@ -26,8 +31,8 @@ In Fase A (MVP), l'integrità del Single Source of Truth per l'ACL ha priorità 
 
 La navigazione diretta e le virtual root non applicano più l'ACL figlio per
 figlio in application layer: l'adapter PostgreSQL esegue il filtro `node.read`
-in una query set-based. Rimane aperta l'ottimizzazione della subquery `ltree`
-per liste subtree molto grandi descritta sopra.
+in una query set-based. Anche l'ottimizzazione della subquery `ltree` è chiusa
+con il path materializzato di P2.
 
 ## Feature 1: Login & Sessione — Scelta dello storage sessioni
 
