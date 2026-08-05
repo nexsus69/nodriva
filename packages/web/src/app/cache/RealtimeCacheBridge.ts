@@ -210,11 +210,19 @@ export class RealtimeCacheBridge {
       forceTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
       enableStats: false,
       enabledTransports: ['ws', 'wss'],
+      userAuthentication: {
+        endpoint: '/api/pusher/user-auth',
+        transport: 'ajax',
+      },
       channelAuthorization: {
         endpoint: '/api/pusher/auth',
         transport: 'ajax',
       },
     });
+
+    // Keep the bridge testable with minimal Pusher-compatible clients while
+    // authenticating real SDK connections for server-side revocation.
+    this.pusher.signin?.();
 
     this.pusher.connection.bind('error', (error: unknown) => {
       this.emitDebugEvent('__pusher_connection__', 'pusher:connection_error', error);

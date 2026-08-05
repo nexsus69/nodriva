@@ -14,6 +14,7 @@ export interface PusherTransportConfig {
 export interface PusherTransportPort {
   readonly enabled: boolean;
   trigger(channelName: string, eventName: string, payload: unknown): Promise<void>;
+  terminateUserConnections?(userId: string): Promise<void>;
 }
 
 /** The only class in Core allowed to depend on the Pusher SDK. */
@@ -21,7 +22,9 @@ export class PusherTransport implements PusherTransportPort {
   private readonly client: Pusher | null;
 
   constructor(config: PusherTransportConfig) {
-    const enabled = config.enabled !== false && Boolean(config.appId && config.key && config.secret && config.cluster);
+    const enabled = config.enabled !== false && Boolean(
+      config.appId && config.key && config.secret && (config.cluster || config.host)
+    );
     this.client = enabled
       ? new Pusher({
           appId: config.appId,
@@ -43,5 +46,9 @@ export class PusherTransport implements PusherTransportPort {
     if (!this.client) return;
     await this.client.trigger(channelName, eventName, payload);
   }
-}
 
+  async terminateUserConnections(userId: string): Promise<void> {
+    if (!this.client) return;
+    await this.client.terminateUserConnections(userId);
+  }
+}

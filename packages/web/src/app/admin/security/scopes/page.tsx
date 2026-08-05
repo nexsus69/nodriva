@@ -175,7 +175,7 @@ export default function SecurityScopesPage() {
             <p className="text-xs text-slate-500">Gli utenti senza scope dedicato ereditano i permessi di default.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="admin-mobile-cards w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase font-mono tracking-wider">
                 <th className="py-3 px-6">Utente</th>
@@ -189,13 +189,13 @@ export default function SecurityScopesPage() {
             <tbody className="divide-y divide-slate-800/60 text-xs">
               {scopes.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-900/40 transition-colors">
-                  <td className="py-4 px-6 font-medium text-slate-200 font-mono">
+                  <td data-label="Utente" className="py-4 px-6 font-medium text-slate-200 font-mono">
                     {s.userEmail}
                   </td>
-                  <td className="py-4 px-6 font-semibold text-slate-100">
+                  <td data-label="Nodo" className="py-4 px-6 font-semibold text-slate-100">
                     {s.nodeName}
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Ruolo" className="py-4 px-6">
                     {s.roleName ? (
                       <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 font-mono text-[10px]">
                         {s.roleName}
@@ -204,7 +204,7 @@ export default function SecurityScopesPage() {
                       <span className="text-slate-500 text-[10px]">Qualsiasi</span>
                     )}
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Effetto" className="py-4 px-6">
                     {s.assignmentEffect === 'allow' ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px]">
                         ALLOW
@@ -215,10 +215,10 @@ export default function SecurityScopesPage() {
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 font-mono text-slate-400 text-[10px]">
+                  <td data-label="Propagazione" className="py-4 px-6 font-mono text-slate-400 text-[10px]">
                     {s.propagation === 'subtree' ? 'Subtree (Ricorsivo)' : 'Self (Solo Nodo)'}
                   </td>
-                  <td className="py-4 px-6 text-right space-x-2">
+                  <td data-label="" className="py-4 px-6 text-right space-x-2">
                     <button
                       onClick={() => handleOpenEditModal(s)}
                       disabled={isPending}

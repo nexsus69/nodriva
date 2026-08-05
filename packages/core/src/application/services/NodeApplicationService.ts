@@ -360,6 +360,9 @@ export class NodeApplicationService {
     if (parentId) {
       await this.accessControlPort.assertCanReadNode(actorUserId, parentId);
     }
+    if (this.nodeRepository.listReadableChildren) {
+      return this.nodeRepository.listReadableChildren(parentId, actorUserId);
+    }
     const children = await this.nodeRepository.listChildren(parentId);
     const visibleChildren: Node[] = [];
     for (const child of children) {

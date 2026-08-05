@@ -33,6 +33,9 @@ describe('UserAdminApplicationService', () => {
       findById: vi.fn(),
       findByEmail: vi.fn(),
       listUsers: vi.fn().mockResolvedValue([]),
+      listUsersManageableBy: vi.fn().mockResolvedValue([]),
+      getUserDetailManageableBy: vi.fn(),
+      isUserManageableBy: vi.fn().mockResolvedValue(true),
       getUserDetail: vi.fn(),
       listAllRoles: vi.fn().mockResolvedValue([]),
       createUser: vi.fn().mockResolvedValue(undefined),
@@ -61,6 +64,8 @@ describe('UserAdminApplicationService', () => {
       assertCanMoveNode: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
     };
 
     mockSessionRepository = {
@@ -82,6 +87,9 @@ describe('UserAdminApplicationService', () => {
 
   it('should create a new user successfully and record audit', async () => {
     vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(null);
+    vi.mocked(mockUserRepository.findById).mockResolvedValue(
+      User.create(ACTOR_ID, 'admin@mate.com', 'hash', true)
+    );
 
     const user = await service.createUser({
       email: 'new.user@mate.com',
@@ -107,15 +115,20 @@ describe('UserAdminApplicationService', () => {
   });
 
   it('should authorize user list and detail reads', async () => {
+    vi.mocked(mockUserRepository.findById).mockResolvedValue(
+      User.create(ACTOR_ID, 'admin@mate.com', 'hash', true)
+    );
     await service.listUsers(ACTOR_ID);
     await service.getUserById(ACTOR_ID, USER_ID);
 
-    expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith(ACTOR_ID, 'user.read', null);
-    expect(mockUserRepository.listUsers).toHaveBeenCalled();
-    expect(mockUserRepository.getUserDetail).toHaveBeenCalledWith(USER_ID);
+    expect(mockUserRepository.listUsersManageableBy).toHaveBeenCalledWith(ACTOR_ID);
+    expect(mockUserRepository.getUserDetailManageableBy).toHaveBeenCalledWith(ACTOR_ID, USER_ID);
   });
 
   it('should throw UserEmailAlreadyExistsError if email is taken', async () => {
+    vi.mocked(mockUserRepository.findById).mockResolvedValue(
+      User.create(ACTOR_ID, 'admin@mate.com', 'hash', true)
+    );
     vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(
       User.create(USER_ID, 'taken@mate.com', 'hash')
     );
@@ -142,7 +155,10 @@ describe('UserAdminApplicationService', () => {
 
   it('should update user status successfully', async () => {
     const existingUser = User.create(USER_ID, 'active@mate.com', 'hash');
-    vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
+    const superAdmin = User.create(ACTOR_ID, 'admin@mate.com', 'hash', true);
+    vi.mocked(mockUserRepository.findById).mockImplementation(async (id) =>
+      id === ACTOR_ID ? superAdmin : existingUser
+    );
 
     const updated = await service.updateUserStatus({
       userId: USER_ID,
@@ -158,7 +174,10 @@ describe('UserAdminApplicationService', () => {
 
   it('should throw RowVersionMismatchError if rowVersion does not match during status update', async () => {
     const existingUser = User.create(USER_ID, 'active@mate.com', 'hash');
-    vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
+    const superAdmin = User.create(ACTOR_ID, 'admin@mate.com', 'hash', true);
+    vi.mocked(mockUserRepository.findById).mockImplementation(async (id) =>
+      id === ACTOR_ID ? superAdmin : existingUser
+    );
 
     await expect(
       service.updateUserStatus({
@@ -172,7 +191,11 @@ describe('UserAdminApplicationService', () => {
 
   it('should assign user roles successfully', async () => {
     const existingUser = User.create(USER_ID, 'user@mate.com', 'hash');
-    vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
+    const superAdmin = User.create(ACTOR_ID, 'admin@mate.com', 'hash', true);
+    vi.mocked(mockUserRepository.findById)
+      .mockResolvedValueOnce(superAdmin)
+      .mockResolvedValueOnce(existingUser)
+      .mockResolvedValueOnce(superAdmin);
 
     await service.assignUserRoles({
       userId: USER_ID,
@@ -193,10 +216,41 @@ describe('UserAdminApplicationService', () => {
     );
   });
 
+  it('rejects global role assignment by a non-super-admin even with user.assign_roles', async () => {
+    const existingUser = User.create(USER_ID, 'user@mate.com', 'hash');
+    const nonSuperAdmin = User.create(ACTOR_ID, 'operator@mate.com', 'hash');
+    vi.mocked(mockUserRepository.findById)
+      .mockResolvedValueOnce(nonSuperAdmin);
+
+    await expect(service.assignUserRoles({
+      userId: existingUser.id,
+      roleIds: [ROLE_ID_1],
+      expectedRowVersion: 1,
+      actorUserId: ACTOR_ID,
+    })).rejects.toThrow(ForbiddenError);
+
+    expect(mockUserRepository.assignUserRoles).not.toHaveBeenCalled();
+  });
+
+  it('rejects user creation by a non-super-admin even with user.create', async () => {
+    vi.mocked(mockUserRepository.findById).mockResolvedValue(
+      User.create(ACTOR_ID, 'operator@mate.com', 'hash')
+    );
+
+    await expect(service.createUser({
+      email: 'new.user@mate.com',
+      password: 'StrongPassword!123',
+      actorUserId: ACTOR_ID,
+    })).rejects.toThrow(ForbiddenError);
+
+    expect(mockUserRepository.createUser).not.toHaveBeenCalled();
+  });
+
   it('should hash a reset password, persist it, revoke sessions, and audit', async () => {
     const existingUser = User.create(USER_ID, 'user@mate.com', PasswordHasher.hash('OldPassword!123'));
     const actor = User.create(ACTOR_ID, 'admin@mate.com', 'hash', true);
     vi.mocked(mockUserRepository.findById)
+      .mockResolvedValueOnce(actor)
       .mockResolvedValueOnce(existingUser)
       .mockResolvedValueOnce(actor);
 
@@ -225,7 +279,10 @@ describe('UserAdminApplicationService', () => {
 
   it('should revoke sessions when disabling a user', async () => {
     const existingUser = User.create(USER_ID, 'active@mate.com', 'hash');
-    vi.mocked(mockUserRepository.findById).mockResolvedValue(existingUser);
+    const superAdmin = User.create(ACTOR_ID, 'admin@mate.com', 'hash', true);
+    vi.mocked(mockUserRepository.findById).mockImplementation(async (id) =>
+      id === ACTOR_ID ? superAdmin : existingUser
+    );
 
     await service.updateUserStatus({
       userId: USER_ID,

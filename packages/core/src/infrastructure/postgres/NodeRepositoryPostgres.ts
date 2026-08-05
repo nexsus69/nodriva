@@ -2,6 +2,7 @@ import { NodeRepository } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import { PgExecutor } from './PgExecutor.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 
 interface NodeRow {
   id: string;
@@ -62,6 +63,39 @@ export class NodeRepositoryPostgres implements NodeRepository {
     }
 
     const result = await this.executor.query<NodeRow>(query, params);
+    return result.rows.map((row) => this.mapToDomain(row));
+  }
+
+  async listReadableChildren(parentId: string | null, actorUserId: string): Promise<Node[]> {
+    const parentClause = parentId ? 'n.parent_id = $1' : 'n.parent_id IS NULL';
+    const params: unknown[] = parentId ? [parentId, actorUserId] : [actorUserId];
+    const actorParam = parentId ? '$2' : '$1';
+    const result = await this.executor.query<NodeRow>(
+      `SELECT n.id, n.parent_id, n.path, n.path_label, n.depth, n.node_type_id,
+              n.name, n.description, n.row_version, n.created_at, n.updated_at,
+              n.deleted_at, n.created_by, n.updated_by, n.payload
+       FROM nodes n WHERE ${parentClause} AND n.deleted_at IS NULL
+         AND ${AccessControlPortPostgres.getReadAccessControlSql(actorParam, 'n', 'node.read')}
+       ORDER BY n.path ASC, n.name ASC`,
+      params
+    );
+    return result.rows.map((row) => this.mapToDomain(row));
+  }
+
+  async listReadableVirtualRoots(actorUserId: string): Promise<Node[]> {
+    const result = await this.executor.query<NodeRow>(
+      `SELECT n.id, n.parent_id, n.path, n.path_label, n.depth, n.node_type_id,
+              n.name, n.description, n.row_version, n.created_at, n.updated_at,
+              n.deleted_at, n.created_by, n.updated_by, n.payload
+       FROM nodes n
+       WHERE n.deleted_at IS NULL
+         AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.read')}
+         AND (n.parent_id IS NULL OR NOT EXISTS (
+           SELECT 1 FROM nodes parent WHERE parent.id = n.parent_id AND parent.deleted_at IS NULL
+             AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'parent', 'node.read')}
+         ))
+       ORDER BY n.path ASC, n.name ASC`, [actorUserId]
+    );
     return result.rows.map((row) => this.mapToDomain(row));
   }
 

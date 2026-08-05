@@ -3,6 +3,9 @@ import { Node } from '../../domain/models/Node.js';
 export interface NodeRepository {
   findById(id: string): Promise<Node | null>;
   listChildren(parentId: string | null, limit?: number, offset?: number): Promise<Node[]>;
+  /** Optional optimized projection used by PostgreSQL adapters. */
+  listReadableChildren?(parentId: string | null, actorUserId: string): Promise<Node[]>;
+  listReadableVirtualRoots?(actorUserId: string): Promise<Node[]>;
   create(node: Node): Promise<void>;
   update(node: Node): Promise<void>;
   moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void>;

@@ -22,6 +22,13 @@ In Fase A (MVP), l'integrità del Single Source of Truth per l'ACL ha priorità 
 - Query lente (`slow_queries` PostgreSQL log)
 - Tempi di risposta su navigazione in root node densi (es. `listSubtreeEntitiesAction`).
 
+### Aggiornamento: navigazione dei nodi
+
+La navigazione diretta e le virtual root non applicano più l'ACL figlio per
+figlio in application layer: l'adapter PostgreSQL esegue il filtro `node.read`
+in una query set-based. Rimane aperta l'ottimizzazione della subquery `ltree`
+per liste subtree molto grandi descritta sopra.
+
 ## Feature 1: Login & Sessione — Scelta dello storage sessioni
 
 **Contesto:**

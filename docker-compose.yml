@@ -12,5 +12,29 @@ services:
     volumes:
       - dashboard_db_data:/var/lib/postgresql/data
 
+  realtime-worker:
+    build:
+      context: ./docker/realtime-worker
+    restart: unless-stopped
+    environment:
+      REALTIME_DRAIN_URL: ${REALTIME_DRAIN_URL:-http://host.docker.internal:3000/api/internal/realtime/drain}
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+      REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  prometheus:
+    profiles: ["monitoring"]
+    build:
+      context: ./docker/prometheus
+    restart: unless-stopped
+    environment:
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+      REALTIME_METRICS_TARGET: ${REALTIME_METRICS_TARGET:-host.docker.internal:3000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "9090:9090"
+
 volumes:
   dashboard_db_data:

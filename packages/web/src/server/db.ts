@@ -5,6 +5,7 @@ import {
   EntityApplicationService,
   TypeAdminApplicationService,
   UserAdminApplicationService,
+  ScopedUserProvisioningService,
   UserRepositoryPostgres,
   SecurityAdminApplicationService,
   SecurityRepositoryPostgres,
@@ -61,6 +62,16 @@ export const realtimeMetrics = new RealtimeMetrics();
 
 export function invalidateRealtimePolicyCache(): void {
   realtimePolicyCache.invalidate('all');
+}
+
+function scheduleRealtimePolicyChange(userId?: string): void {
+  transactionPort.afterCommit(() => {
+    invalidateRealtimePolicyCache();
+    if (!userId) return;
+    return pusherEventBus.revokeUserConnections(userId).catch((error) => {
+      console.error('[Realtime] Failed to terminate revoked user connections', { userId, error });
+    });
+  });
 }
 
 async function getRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
@@ -132,8 +143,8 @@ export const nodeTypeRepository = new NodeTypeRepositoryPostgres(pgExecutor);
 export const entityRepository = new EntityRepositoryPostgres(pgExecutor);
 export const entityTypeRepository = new EntityTypeRepositoryPostgres(pgExecutor);
 export const typeAdminRepository = new TypeDefinitionAdminRepositoryPostgres(pgExecutor);
-export const userRepository = new UserRepositoryPostgres(pgExecutor, invalidateRealtimePolicyCache);
-export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, invalidateRealtimePolicyCache);
+export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
+export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 
@@ -200,7 +211,17 @@ export const userAdminService = new UserAdminApplicationService(
   transactionPort,
   idGenerator,
   accessControlPort,
-  sessionRepository
+  sessionRepository,
+  securityRepository,
+);
+
+export const scopedUserProvisioningService = new ScopedUserProvisioningService(
+  userRepository,
+  securityRepository,
+  auditPort,
+  transactionPort,
+  idGenerator,
+  accessControlPort,
 );
 
 export const securityAdminService = new SecurityAdminApplicationService(

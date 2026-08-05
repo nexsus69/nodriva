@@ -1,5 +1,12 @@
 # ARCHITECTURE.md
 
+> **Status: normative for the current implementation.** When this document,
+> `docs/`, and a historical document disagree on runtime architecture,
+> contracts, persistence, realtime, or security behavior, this document and
+> the relevant operational document in `docs/` take precedence. Historical
+> requirements remain product input and must be reconciled explicitly before
+> changing the runtime contract.
+
 ## Purpose
 
 This document freezes the architectural layer map, dependency rules, and placement rules for Dashboard V2 so that new implementation work does not continuously reopen already-settled structural decisions. The goal is to define where each responsibility belongs before coding, reducing design loops and preventing accidental leakage of infrastructure concerns into application or domain code.[cite:13][cite:30]
@@ -112,6 +119,43 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 ### Transactions and side effects
 
 Critical mutations must follow the same sequence: structural input validation, transaction start, persistence/update work, commit, then post-commit side effects such as schema invalidation or event propagation.[cite:32][cite:13]
+
+### Identity, scope and delegated permissions
+
+User identities and `user_roles` are global in the current data model. Global
+role changes and superadmin privileges are therefore superadmin-only. A local
+administrator creates identities through the atomic `createScopedUser` flow:
+the new identity has no global administrative role and receives one or more
+initial `allow` assignments in the same transaction and audit record.
+
+The local management boundary is computed in PostgreSQL, never in memory. It
+contains only active `scope.assign` grants with `subtree` propagation whose
+whole subtree remains allowed after the actor's denies. A local administrator
+can read or mutate only a non-superadmin identity with at least one allow scope
+and with every allow scope inside that boundary; unscoped identities and users
+with global roles are intentionally invisible. `self` never authorizes a
+subtree. A deny excludes an overlapping area. Scope list/detail/update/delete
+use the same boundary query, while role and permission catalogues remain
+superadmin-only. These rules prevent cross-scope metadata disclosure and
+privilege escalation.
+
+Delegated grants are **not durable after loss of delegation authority**. Every
+scope mutation and role-permission change reconciles assignments carrying an
+`assigned_by` delegator; disabling a delegator does the same. PostgreSQL
+performs the coverage check and iterative cascade, removing grants until no
+invalid descendant remains. Every automatic removal is written as
+`security.revoke_delegated_scope` with its triggering reason. Legacy rows with
+`assigned_by IS NULL` are treated as system-owned and require explicit
+superadmin review rather than automatic deletion.
+
+Administrative commands have an explicit scope class: role/permission catalog
+and global user roles are global (superadmin boundary); node/entity commands
+are node-bound; scope grants are coverage-bound; user list/detail/status are
+management-bound. PostgreSQL RLS is not enabled for the shared application
+connection because it cannot safely receive a trusted per-request actor
+identity. The operational defence is a restricted application credential with
+no direct table access outside the adapters; adopting RLS later requires a
+transaction-local authenticated actor setting plus deny/coverage policy tests.
 
 ### Runtime schema system
 

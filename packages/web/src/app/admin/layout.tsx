@@ -239,7 +239,7 @@ export default function AdminLayout({
         </header>
 
         {/* Viewport Contenuto Pagina */}
-        <main className="flex-1 overflow-y-auto p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/70 via-slate-50 to-slate-100">
+        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 lg:p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-50/70 via-slate-50 to-slate-100">
           <div className="max-w-7xl mx-auto space-y-6">
             {children}
           </div>

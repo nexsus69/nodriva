@@ -45,4 +45,27 @@ export class RealtimeMetrics {
       publishing: Object.fromEntries([...this.publishing].map(([eventName, bucket]) => [eventName, summarize(bucket)])),
     };
   }
+
+  toPrometheus(outbox?: {
+    pendingCount: number; leasedCount: number; retryingCount: number; oldestPendingAgeSeconds: number; maxAttempts: number;
+  }): string {
+    const lines = ['# TYPE dashboard_realtime_events_total counter'];
+    for (const [eventName, bucket] of this.publishing) {
+      lines.push(`dashboard_realtime_events_total{event="${eventName}",result="success"} ${bucket.count - bucket.failures}`);
+      lines.push(`dashboard_realtime_events_total{event="${eventName}",result="failure"} ${bucket.failures}`);
+    }
+    if (outbox) {
+      lines.push('# TYPE dashboard_realtime_outbox_pending gauge');
+      lines.push(`dashboard_realtime_outbox_pending ${outbox.pendingCount}`);
+      lines.push('# TYPE dashboard_realtime_outbox_leased gauge');
+      lines.push(`dashboard_realtime_outbox_leased ${outbox.leasedCount}`);
+      lines.push('# TYPE dashboard_realtime_outbox_retrying gauge');
+      lines.push(`dashboard_realtime_outbox_retrying ${outbox.retryingCount}`);
+      lines.push('# TYPE dashboard_realtime_outbox_oldest_pending_age_seconds gauge');
+      lines.push(`dashboard_realtime_outbox_oldest_pending_age_seconds ${outbox.oldestPendingAgeSeconds}`);
+      lines.push('# TYPE dashboard_realtime_outbox_max_attempts gauge');
+      lines.push(`dashboard_realtime_outbox_max_attempts ${outbox.maxAttempts}`);
+    }
+    return `${lines.join('\n')}\n`;
+  }
 }

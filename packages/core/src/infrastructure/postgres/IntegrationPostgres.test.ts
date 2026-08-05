@@ -5,6 +5,7 @@ import { RuntimeConfigurationPortPostgres } from './RuntimeConfigurationPortPost
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import { NodeRepositoryPostgres } from './NodeRepositoryPostgres.js';
 import { EntityRepositoryPostgres } from './EntityRepositoryPostgres.js';
+import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
 
@@ -15,6 +16,7 @@ describe('PostgreSQL Integration Tests', () => {
   let accessControl: AccessControlPortPostgres;
   let nodeRepo: NodeRepositoryPostgres;
   let entityRepo: EntityRepositoryPostgres;
+  let realtimeOutbox: RealtimeOutboxPostgres;
 
   const testUserId = '00000000-0000-0000-0000-000000000200';
   const testNodeFolderTypeId = '00000000-0000-0000-0000-000000000300';
@@ -32,6 +34,7 @@ describe('PostgreSQL Integration Tests', () => {
     accessControl = new AccessControlPortPostgres(executor);
     nodeRepo = new NodeRepositoryPostgres(executor);
     entityRepo = new EntityRepositoryPostgres(executor);
+    realtimeOutbox = new RealtimeOutboxPostgres(executor);
 
     // Esegui una query semplice per testare la connettività
     try {
@@ -199,6 +202,45 @@ describe('PostgreSQL Integration Tests', () => {
       if (existingPermRes.rows.length === 0) {
         await executor.query('DELETE FROM permissions WHERE id = $1', [nodeCreatePermId]);
       }
+    });
+  });
+
+  describe('Realtime outbox replay', () => {
+    const eventId = '00000000-0000-0000-0000-000000000777';
+    const workerId = 'integration-replay-worker';
+
+    beforeAll(async () => {
+      await executor.query('DELETE FROM realtime_event_outbox WHERE event_id = $1', [eventId]);
+    });
+
+    afterAll(async () => {
+      await executor.query('DELETE FROM realtime_event_outbox WHERE event_id = $1', [eventId]);
+    });
+
+    it('releases a failed delivery for a later worker replay and marks it published', async () => {
+      await realtimeOutbox.enqueue({
+        eventId, occurredAt: new Date().toISOString(), resourceType: 'node', resourceId: rootNodeId,
+        changeType: 'updated', actorUserId: testUserId, scopeNodeIds: [rootNodeId], directScopeNodeIds: [rootNodeId],
+      });
+      const claimed = await realtimeOutbox.claimPending(workerId, 1);
+      expect(claimed.map((event) => event.eventId)).toContain(eventId);
+
+      await realtimeOutbox.markFailed(eventId, workerId, 'simulated Pusher outage');
+      const failed = await executor.query<{ attempts: number; locked_at: Date | null; published_at: Date | null }>(
+        'SELECT attempts, locked_at, published_at FROM realtime_event_outbox WHERE event_id = $1', [eventId]
+      );
+      expect(failed.rows[0]).toMatchObject({ attempts: 1, locked_at: null, published_at: null });
+
+      await executor.query('UPDATE realtime_event_outbox SET next_attempt_at = now() WHERE event_id = $1', [eventId]);
+      const replayed = await realtimeOutbox.claimPending('integration-replay-worker-2', 1);
+      expect(replayed.map((event) => event.eventId)).toContain(eventId);
+      await realtimeOutbox.markPublished(eventId, 'integration-replay-worker-2');
+
+      const published = await executor.query<{ published_at: Date | null; last_error: string | null }>(
+        'SELECT published_at, last_error FROM realtime_event_outbox WHERE event_id = $1', [eventId]
+      );
+      expect(published.rows[0]?.published_at).not.toBeNull();
+      expect(published.rows[0]?.last_error).toBeNull();
     });
   });
 

@@ -116,7 +116,7 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
   async findSubtreeEntitiesPaginated(
     params: EntitySubtreeQueryParams
   ): Promise<EntitySubtreePaginatedResult> {
-    const { baseNodeId, limit, direction = 'forward', cursor, search, entityTypeId, actorUserId } = params;
+    const { baseNodeId, limit, direction = 'forward', cursor, search, entityTypeId, filters, actorUserId } = params;
 
     // 1. Sanificazione e validazione preventiva del baseNodeId (Evita syntax error su UUID invalido)
     if (!baseNodeId || typeof baseNodeId !== 'string' || !UUID_REGEX.test(baseNodeId)) {
@@ -155,10 +155,25 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     // Escape dei caratteri wildcard %, _ e \ per prevenire wildcard malformate
     if (search && search.trim() !== '') {
       const sanitizedSearch = search.trim().replace(/[%_\\]/g, '\\$&');
-      conditions.push(`(e.name ILIKE $${paramIndex} OR e.id ILIKE $${paramIndex} OR n.name ILIKE $${paramIndex})`);
+      // e.id è UUID: il confronto testuale richiede un cast esplicito,
+      // altrimenti PostgreSQL rifiuta UUID ILIKE text e l'intera ricerca
+      // libera fallisce anche quando nome o nodo corrispondono.
+      conditions.push(`(e.name ILIKE $${paramIndex} OR e.id::text ILIKE $${paramIndex} OR n.name ILIKE $${paramIndex})`);
       sqlParams.push(`%${sanitizedSearch}%`);
       paramIndex++;
     }
+
+    const addLikeFilter = (column: string, value: string | undefined) => {
+      if (!value?.trim()) return;
+      const sanitized = value.trim().replace(/[%_\\]/g, '\\$&');
+      conditions.push(`${column} ILIKE $${paramIndex}`);
+      sqlParams.push(`%${sanitized}%`);
+      paramIndex++;
+    };
+    addLikeFilter('e.name', filters?.name);
+    addLikeFilter('e.description', filters?.description);
+    if (filters?.lockState === 'locked') conditions.push(`l.user_id IS NOT NULL`);
+    if (filters?.lockState === 'unlocked') conditions.push(`l.user_id IS NULL`);
 
     // Validazione preventiva del cursore (evita crash se il cursore è parziale o malformato)
     const isCursorValid =

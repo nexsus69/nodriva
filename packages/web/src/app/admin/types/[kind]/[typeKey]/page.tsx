@@ -354,7 +354,7 @@ export default function AdminTypeDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-10 max-w-5xl mx-auto text-center text-slate-400 space-y-3">
+      <div className="min-h-screen px-4 py-6 sm:p-10 max-w-5xl mx-auto text-center text-slate-400 space-y-3">
         <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p>Caricamento dettaglio tipo...</p>
       </div>
@@ -363,7 +363,7 @@ export default function AdminTypeDetailPage() {
 
   if (error && !typeDetail) {
     return (
-      <div className="min-h-screen p-10 max-w-3xl mx-auto space-y-4">
+      <div className="min-h-screen px-4 py-6 sm:p-10 max-w-3xl mx-auto space-y-4">
         <div className="p-5 bg-red-950/50 border border-red-500/40 rounded-2xl text-red-200">
           <h2 className="text-lg font-bold">Errore di Caricamento</h2>
           <p className="text-sm mt-1">{error.message}</p>

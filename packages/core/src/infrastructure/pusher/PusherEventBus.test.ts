@@ -4,8 +4,8 @@ import { PusherEventBus } from './PusherEventBus.js';
 import type { PusherTransportPort } from './PusherTransport.js';
 import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
 
-function transport(enabled = true): PusherTransportPort & { trigger: ReturnType<typeof vi.fn> } {
-  return { enabled, trigger: vi.fn().mockResolvedValue(undefined) };
+function transport(enabled = true): PusherTransportPort & { trigger: ReturnType<typeof vi.fn>; terminateUserConnections: ReturnType<typeof vi.fn> } {
+  return { enabled, trigger: vi.fn().mockResolvedValue(undefined), terminateUserConnections: vi.fn().mockResolvedValue(undefined) };
 }
 
 const event: RealtimeDataChangedEvent = {
@@ -50,6 +50,15 @@ describe('PusherEventBus', () => {
     }, mock);
 
     await expect(bus.publishDataChanged(event)).rejects.toThrow('pusher unavailable');
+  });
+
+  it('terminates authenticated connections when a policy is revoked', async () => {
+    const mock = transport();
+    const bus = new PusherEventBus({ appId: 'app', key: 'key', secret: 'secret', cluster: 'eu' }, mock);
+
+    await bus.revokeUserConnections('user-revoked');
+
+    expect(mock.terminateUserConnections).toHaveBeenCalledWith('user-revoked');
   });
 
   it('publishes lock events only to resolved policy channels', async () => {

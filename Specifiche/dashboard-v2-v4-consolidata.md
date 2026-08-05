@@ -1,5 +1,11 @@
 # Dashboard V2 — Specifica architetturale consolidata v4
 
+> **Status: requisiti storici e direzione di prodotto.** Questo documento non
+> è il contratto tecnico del runtime corrente. Per architettura, API, schema,
+> sicurezza, realtime e deploy fanno fede `ARCHITECTURE.md`, `docs/` e
+> `db/migrations/`. Ogni divergenza intenzionale deve preservare i requisiti di
+> prodotto qui descritti oppure essere registrata come decisione architetturale.
+
 ## 1. Scopo
 
 Dashboard V2 è una piattaforma gestionale gerarchica generica, progettata per organizzare nodi ed entità in una struttura padre/figlio flessibile, con supporto a tipi dinamici definiti dall’amministrazione e a comportamenti configurabili sia lato backend sia lato frontend [cite:37][cite:26]. L’obiettivo del sistema non è implementare un caso d’uso rigido, ma costruire una base architetturale stabile, riusabile ed estendibile, capace di adattarsi a domini diversi senza dover essere riscritta ogni volta [cite:54][cite:27].

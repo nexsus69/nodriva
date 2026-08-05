@@ -22,6 +22,7 @@ assembling concrete adapters and injecting them into application services.
 | Node hierarchy | `NodeRepository` | `NodeRepositoryPostgres` |
 | Realtime node scopes | `RealtimeScopeResolver` | `RealtimeScopeResolverPostgres` |
 | Data event delivery | `RealtimeEventBus` | `PusherEventBus` |
+| Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` |
 | Transactions | `TransactionPort` | `TransactionPortPostgres` |
 
 `listAncestorIds()` is a semantic repository operation. Its PostgreSQL
@@ -45,10 +46,11 @@ Do not import an adapter to avoid defining the contract.
 
 ## Realtime scope rule
 
-Data events are published on node-scope channels. Scope resolution is an
-infrastructure concern exposed through `RealtimeScopeResolver`; the web layer
-only invokes the injected contract. Lock channels remain separate because
-locks have different lifecycle and failure semantics.
+Data events are published on shared ACL-policy channels. Scope resolution is
+an infrastructure concern exposed through `RealtimeScopeResolver`; the web
+layer only invokes the injected contract. The event is persisted in the outbox
+inside the business transaction and delivered only after commit. Lock channels
+remain separate because locks have different lifecycle and failure semantics.
 
 The resolver must provide a safe fallback scope when an ancestor lookup fails.
 Realtime delivery is best-effort after a successful database commit: delivery

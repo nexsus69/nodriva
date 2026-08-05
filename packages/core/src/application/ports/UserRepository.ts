@@ -5,6 +5,9 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   listUsers(): Promise<UserListItemDto[]>;
+  listUsersManageableBy(actorUserId: string): Promise<UserListItemDto[]>;
+  getUserDetailManageableBy(actorUserId: string, userId: string): Promise<UserDetailDto | null>;
+  isUserManageableBy(actorUserId: string, userId: string): Promise<boolean>;
   getUserDetail(id: string): Promise<UserDetailDto | null>;
   listAllRoles(): Promise<UserRoleDto[]>;
   createUser(user: User, roleIds?: string[]): Promise<void>;

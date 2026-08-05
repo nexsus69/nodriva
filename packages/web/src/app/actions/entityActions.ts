@@ -1,7 +1,7 @@
 'use server';
 
 import { AuthResolver } from './auth/AuthResolver';
-import { publishRealtimeChange } from '../../server/realtime';
+import { runWithRealtimeOutbox } from '../../server/realtime';
 import { withSafeActionErrors } from './errorMapping';
 interface CreateEntityActionInput {
   parentNodeId: string;
@@ -47,7 +47,10 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     payload: input.payload || input.payloadDelta || {},
     expectedParentRowVersion: input.expectedParentRowVersion,
   };
-  const e = await entityService.createEntity(cmd);
+  const e = await runWithRealtimeOutbox(
+    () => entityService.createEntity(cmd),
+    (created) => ({ resourceType: 'entity', resourceId: created.id, changeType: 'created', actorUserId: cmd.actorUserId, parentNodeId: created.parentNodeId, entityTypeId: created.entityTypeId, data: toEntityDto(created) })
+  );
   const result = {
     id: e.id,
     entityTypeId: e.entityTypeId,
@@ -59,15 +62,6 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
-  await publishRealtimeChange({
-    resourceType: 'entity',
-    resourceId: result.id,
-    changeType: 'created',
-    actorUserId: cmd.actorUserId,
-    parentNodeId: result.parentNodeId,
-    entityTypeId: result.entityTypeId,
-    data: result,
-  });
   return result;
   });
 }
@@ -91,7 +85,10 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     expectedRowVersion,
     payloadDelta: input.payloadDelta || input.payload,
   };
-  const e = await entityService.updateEntity(cmd);
+  const e = await runWithRealtimeOutbox(
+    () => entityService.updateEntity(cmd),
+    (updated) => ({ resourceType: 'entity', resourceId: updated.id, changeType: 'updated', actorUserId: cmd.actorUserId, parentNodeId: updated.parentNodeId, entityTypeId: updated.entityTypeId, data: toEntityDto(updated) })
+  );
   const result = {
     id: e.id,
     entityTypeId: e.entityTypeId,
@@ -103,15 +100,6 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
-  await publishRealtimeChange({
-    resourceType: 'entity',
-    resourceId: result.id,
-    changeType: 'updated',
-    actorUserId: cmd.actorUserId,
-    parentNodeId: result.parentNodeId,
-    entityTypeId: result.entityTypeId,
-    data: result,
-  });
   return result;
   });
 }
@@ -130,15 +118,10 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
     entityId,
     expectedRowVersion: input.expectedRowVersion,
   };
-  await entityService.deleteEntity(cmd);
-  await publishRealtimeChange({
-    resourceType: 'entity',
-    resourceId: existing.id,
-    changeType: 'deleted',
-    actorUserId,
-    parentNodeId: existing.parentNodeId,
-    entityTypeId: existing.entityTypeId,
-  });
+  await runWithRealtimeOutbox(
+    () => entityService.deleteEntity(cmd),
+    () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
+  );
 
   if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
     try {
@@ -150,6 +133,13 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
     }
   }
   });
+}
+
+function toEntityDto(e: { id: string; entityTypeId: string; parentNodeId: string; name: string; description: string; rowVersion: number; createdAt: Date; updatedAt: Date; payload: Record<string, unknown> }) {
+  return {
+    id: e.id, entityTypeId: e.entityTypeId, parentNodeId: e.parentNodeId, name: e.name, description: e.description,
+    rowVersion: e.rowVersion, createdAt: e.createdAt.toISOString(), updatedAt: e.updatedAt.toISOString(), payload: e.payload || {},
+  };
 }
 
 export async function listEntitiesAction(parentNodeId: string) {
@@ -195,13 +185,24 @@ export interface ListSubtreeEntitiesParams {
   cursor?: { path: string; name: string; id: string };
   search?: string;
   entityTypeId?: string;
+  filters?: { name?: string; description?: string; lockState?: 'locked' | 'unlocked' };
+}
+
+function validateListSubtreeEntitiesParams(params: ListSubtreeEntitiesParams): ListSubtreeEntitiesParams {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.baseNodeId)) throw new Error('baseNodeId non valido');
+  if (!Number.isInteger(params.limit) || params.limit < 1 || params.limit > 200) throw new Error('limit deve essere compreso tra 1 e 200');
+  if (params.search && params.search.length > 200) throw new Error('search troppo lungo');
+  if (params.filters && Object.values(params.filters).some((value) => typeof value === 'string' && value.length > 200)) throw new Error('filtro troppo lungo');
+  if (params.filters?.lockState && !['locked', 'unlocked'].includes(params.filters.lockState)) throw new Error('lockState non valido');
+  return params;
 }
 
 export async function listSubtreeEntitiesAction(params: ListSubtreeEntitiesParams) {
   return withSafeActionErrors(async () => {
   const { entitySubtreeQueryPort } = await import('../../server/db');
   const actorUserId = await AuthResolver.resolveActorUserId();
-  const result = await entitySubtreeQueryPort.findSubtreeEntitiesPaginated({ ...params, actorUserId });
+  const validated = validateListSubtreeEntitiesParams(params);
+  const result = await entitySubtreeQueryPort.findSubtreeEntitiesPaginated({ ...validated, actorUserId });
   return {
     items: result.items.map((item) => {
       const { lockExpiresAt, ...itemWithoutLockDate } = item;

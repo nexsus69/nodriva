@@ -1,8 +1,8 @@
 # Realtime mutation lifecycle
 
-Le mutazioni persistono prima il dato e pubblicano l'evento realtime solo dopo
-il completamento dell'operazione sul database. L'action attende la conclusione
-della pubblicazione prima di restituire il risultato al client.
+Le mutazioni Node/Entity persistono il dato e il relativo evento nella stessa
+transazione PostgreSQL. Dopo il commit l'action avvia un drain best-effort
+dell'outbox; la risposta non dipende dalla disponibilità di Pusher.
 
 Gli eventi dati viaggiano su canali di policy condivisi:
 
@@ -38,8 +38,12 @@ viene quindi inviato alla policy `NodeA subtree allow`, ma non alla policy
 `NodeA subtree allow + NodeC subtree deny`.
 
 La route di autorizzazione Pusher verifica nuovamente il canale contro la
-policy corrente dell'utente. Il transport Pusher è isolato in un adapter
-dedicato e diventa un no-op quando il realtime è disabilitato.
+policy corrente dell'utente. La connessione Pusher è inoltre autenticata con
+l'utente applicativo: una variazione di scope, ruolo o stato utente invalida la
+cache dopo il commit e termina le connessioni dell'utente, imponendo una nuova
+autorizzazione delle sottoscrizioni. Il client riconcilia canali e virtual root
+ogni 60 secondi come rete di sicurezza per provider compatibili senza
+terminazione utenti.
 
 ## Sequenze garantite
 
@@ -85,11 +89,35 @@ continuano a eseguire normalmente le mutazioni. Con
 `NEXT_PUBLIC_REALTIME_ENABLED=false` il client non apre sottoscrizioni e la
 route di autorizzazione risponde con `503`.
 
-La pubblicazione è comunque best-effort: in caso di errore vengono effettuati
-tre tentativi, ma un problema di Pusher non rende fallita una mutazione già
-salvata nel database.
+La pubblicazione è at-least-once tramite `realtime_event_outbox`. Ogni worker
+reclama righe con un lease PostgreSQL (`FOR UPDATE SKIP LOCKED`); i fallimenti
+usano backoff esponenziale e non rendono fallita una mutazione già salvata. Un
+job autenticato deve richiamare `POST /api/internal/realtime/drain` con
+`Authorization: Bearer $REALTIME_WORKER_SECRET` per svuotare l'outbox anche in
+assenza di nuove mutazioni.
 
-La risoluzione degli antenati usa il repository PostgreSQL e `ltree`. Se la
-risoluzione fallisce, viene registrato l'errore e si tenta la pubblicazione sullo
-scope diretto disponibile; se anche la pubblicazione realtime fallisce, la
-mutazione già committata non viene annullata.
+Nel deployment Docker fornito dal repository, `realtime-worker` effettua tale
+chiamata ogni cinque secondi. Impostare lo stesso `REALTIME_WORKER_SECRET` nel
+processo Web e nel Compose, quindi avviare con `docker compose up -d --build
+realtime-worker`. Per sviluppo con Web sull'host, l'URL predefinito usa
+`host.docker.internal:3000`; in un deployment con Web containerizzato impostare
+`REALTIME_DRAIN_URL` al nome DNS interno del servizio Web.
+
+La risoluzione degli antenati usa il repository PostgreSQL e `ltree`. Se fallisce,
+viene registrato l'errore e l'evento mantiene soltanto lo scope diretto: è una
+scelta conservativa che evita di ampliare la visibilità. Il dato resta corretto;
+il worker ritenta la consegna, senza ricalcolare uno scope potenzialmente più
+ampio.
+
+## Operatività
+
+`GET /api/internal/realtime/metrics` espone metriche Prometheus protette dallo
+stesso segreto del worker. Le metriche sono locali al processo: in un deployment
+multiistanza devono essere raccolte da ogni replica.
+
+Prometheus è opzionale ed è nel profilo Compose `monitoring`: avviarlo con
+`docker compose --profile monitoring up -d prometheus`. Valuta alert su età
+del backlog, retry, tentativi ripetuti e fallimenti di publish. Per ciascuna
+replica Web aggiungere un target al job `dashboard-web-realtime` (oppure
+eseguire una replica Prometheus per rete/host); l'endpoint resta protetto da
+`REALTIME_WORKER_SECRET`.

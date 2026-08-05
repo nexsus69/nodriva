@@ -118,6 +118,8 @@ describe('TypeAdminApplicationService', () => {
     assertCanMoveNode: ReturnType<typeof vi.fn>;
     assertCanMoveEntity: ReturnType<typeof vi.fn>;
     assertHasPermission: ReturnType<typeof vi.fn>;
+    assertHasPermissionCoverage: ReturnType<typeof vi.fn>;
+    assertIsSuperAdmin: ReturnType<typeof vi.fn>;
   };
 
   // Per verificare che l'invalidazione avvenga dopo il commit
@@ -191,6 +193,8 @@ describe('TypeAdminApplicationService', () => {
       assertCanMoveNode: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
     };
 
     service = new TypeAdminApplicationService(

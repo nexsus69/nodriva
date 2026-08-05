@@ -15,6 +15,7 @@ body {
   background-attachment: fixed;
   background-size: cover;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Custom scrollbars */
@@ -119,3 +120,85 @@ body {
 .admin-page input.text-white,
 .admin-page textarea.text-white,
 .admin-page select.text-white { color: #0f172a; }
+
+/* Static administration tables become labelled record cards on narrow screens.
+   VirtualGroupedTable has its own mobile renderer. */
+@media (max-width: 767px) {
+  .admin-page,
+  .workspace-page { min-width: 0; overflow-x: clip; }
+  .admin-page input,
+  .admin-page select,
+  .admin-page textarea,
+  .workspace-page input,
+  .workspace-page select,
+  .workspace-page textarea { max-width: 100%; }
+  .admin-page .fixed.inset-0 > div,
+  .workspace-page .fixed.inset-0 > div {
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+  }
+  .admin-page .fixed.inset-0,
+  .workspace-page .fixed.inset-0 {
+    padding: .75rem;
+  }
+  .admin-page table:not(.admin-mobile-cards),
+  .workspace-page table:not(.admin-mobile-cards) {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-page table:not(.admin-mobile-cards) th,
+  .admin-page table:not(.admin-mobile-cards) td,
+  .workspace-page table:not(.admin-mobile-cards) th,
+  .workspace-page table:not(.admin-mobile-cards) td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .admin-page button,
+  .admin-page a,
+  .workspace-page button,
+  .workspace-page a { max-width: 100%; }
+  .admin-mobile-cards,
+  .admin-mobile-cards tbody,
+  .admin-mobile-cards tr,
+  .admin-mobile-cards td { display: block; width: 100%; }
+  .admin-mobile-cards thead { display: none; }
+  .admin-mobile-cards tbody { padding: .5rem; }
+  .admin-mobile-cards tr {
+    margin: .5rem 0;
+    padding: .75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: .75rem;
+    background: #fff;
+  }
+  .admin-mobile-cards td {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: .25rem;
+    min-width: 0;
+    padding: .45rem 0 !important;
+    text-align: left !important;
+  }
+  .admin-mobile-cards td::before {
+    content: attr(data-label);
+    color: #64748b;
+    font-size: .625rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .admin-mobile-cards td[data-label=""]::before { content: none; }
+  .admin-mobile-cards td[data-label=""] {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+  }
+  /* Shared safe fallback for long tokens that are not naturally breakable
+     (UUIDs, email addresses and server-generated identifiers). */
+  .admin-page :is(p, span, a, button, td, th, label),
+  .workspace-page :is(p, span, a, button, td, th, label) {
+    overflow-wrap: anywhere;
+  }
+}

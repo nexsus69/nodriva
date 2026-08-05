@@ -41,6 +41,15 @@ export interface ScopeAssignmentDto {
   assignedAt: string;
 }
 
+/** A grant removed because its recorded delegator no longer covers it. */
+export interface RevokedDelegatedScopeAssignmentDto {
+  id: string;
+  userId: string;
+  nodeId: string;
+  roleId: string;
+  assignedBy: string;
+}
+
 export interface RealtimeScopeAssignmentDto {
   nodeId: string;
   propagation: 'self' | 'subtree';

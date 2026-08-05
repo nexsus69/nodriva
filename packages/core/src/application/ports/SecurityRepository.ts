@@ -4,6 +4,7 @@ import {
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
 } from '../dto/SecurityAdminDtos.js';
 import type { RealtimeChannelPolicy } from '../realtime/RealtimeChannelPolicy.js';
@@ -13,12 +14,18 @@ export interface SecurityRepository {
   getRoleByKey(roleKey: string): Promise<RoleDetailDto | null>;
   findRoleById(id: string): Promise<Role | null>;
   findRoleByKey(roleKey: string): Promise<Role | null>;
+  /** Permission keys effectively granted by a role, used for safe delegation. */
+  listRolePermissionKeys(roleId: string): Promise<string[]>;
   createRole(role: Role, permissionIds?: string[]): Promise<void>;
   updateRole(role: Role): Promise<void>;
   updateRolePermissions(roleId: string, permissionIds: string[]): Promise<void>;
   listAllPermissions(): Promise<PermissionDto[]>;
   listScopeAssignments(): Promise<ScopeAssignmentDto[]>;
+  listScopeAssignmentsManageableBy(actorUserId: string): Promise<ScopeAssignmentDto[]>;
   getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null>;
+  getScopeAssignmentManageableBy(actorUserId: string, id: string): Promise<ScopeAssignmentDto | null>;
+  /** Removes delegated grants that no longer have full permission coverage. */
+  revokeDelegatedScopeAssignmentsOutsideCoverage(): Promise<RevokedDelegatedScopeAssignmentDto[]>;
   listRealtimeScopeAssignments(userId: string): Promise<RealtimeScopeAssignmentDto[]>;
   listRealtimeVirtualRootNodeIds(userId: string): Promise<string[]>;
   listRealtimeChannelPolicies?(): Promise<RealtimeChannelPolicy[]>;

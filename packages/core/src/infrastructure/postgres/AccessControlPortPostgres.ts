@@ -29,7 +29,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
     return `
       (
         -- 1. SuperAdmin
-        EXISTS (SELECT 1 FROM users u WHERE u.id = ${actorIdParam} AND u.is_super_admin = true)
+        EXISTS (SELECT 1 FROM users u WHERE u.id = ${actorIdParam} AND u.is_active = true AND u.is_super_admin = true)
         OR
         -- 2. Local Read Permission (Allow); node.read is always scope-bound
         EXISTS (
@@ -37,6 +37,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
           JOIN role_permissions rp ON nsa.role_id = rp.role_id
           JOIN permissions p ON p.id = rp.permission_id
           WHERE nsa.user_id = ${actorIdParam}
+            AND EXISTS (SELECT 1 FROM users u WHERE u.id = ${actorIdParam} AND u.is_active = true)
             AND p.permission_key = '${escapedPermissionKey}'
             AND nsa.assignment_effect = 'allow'::assignment_effect_enum
             AND (
@@ -52,6 +53,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
         JOIN role_permissions rp ON nsa.role_id = rp.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = ${actorIdParam}
+          AND EXISTS (SELECT 1 FROM users u WHERE u.id = ${actorIdParam} AND u.is_active = true)
           AND p.permission_key = '${escapedPermissionKey}'
           AND nsa.assignment_effect = 'deny'::assignment_effect_enum
           AND (
@@ -209,6 +211,76 @@ export class AccessControlPortPostgres implements AccessControlPort {
     }
   }
 
+  async assertHasPermissionCoverage(
+    actorUserId: string,
+    permissionKey: string,
+    nodeId: string,
+    propagation: 'self' | 'subtree'
+  ): Promise<void> {
+    if (propagation === 'self') {
+      return this.assertHasPermission(actorUserId, permissionKey, nodeId);
+    }
+
+    const result = await this.executor.query(
+      `SELECT 1
+       FROM users actor
+       INNER JOIN nodes target ON target.id = $3 AND target.deleted_at IS NULL
+       WHERE actor.id = $1
+         AND actor.is_active = true
+         AND (
+           actor.is_super_admin = true
+           OR EXISTS (
+             SELECT 1
+             FROM node_scope_assignments allow_assignment
+             INNER JOIN nodes allow_node ON allow_node.id = allow_assignment.node_id
+             INNER JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
+             INNER JOIN permissions permission ON permission.id = rp.permission_id
+             WHERE allow_assignment.user_id = $1
+               AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
+               AND allow_assignment.propagation = 'subtree'::scope_propagation_enum
+               AND permission.permission_key = $2
+               AND allow_node.path @> target.path
+           )
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM node_scope_assignments deny_assignment
+           INNER JOIN nodes deny_node ON deny_node.id = deny_assignment.node_id
+           INNER JOIN role_permissions rp ON rp.role_id = deny_assignment.role_id
+           INNER JOIN permissions permission ON permission.id = rp.permission_id
+           WHERE deny_assignment.user_id = $1
+             AND deny_assignment.assignment_effect = 'deny'::assignment_effect_enum
+             AND permission.permission_key = $2
+             AND (
+               (deny_assignment.propagation = 'self'::scope_propagation_enum
+                 AND target.path @> deny_node.path)
+               OR
+               (deny_assignment.propagation = 'subtree'::scope_propagation_enum
+                 AND (target.path @> deny_node.path OR deny_node.path @> target.path))
+             )
+         )
+       LIMIT 1`,
+      [actorUserId, permissionKey, nodeId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new ForbiddenError(
+        `User '${actorUserId}' does not have delegable '${permissionKey}' permission on subtree '${nodeId}'.`,
+        { actorUserId, permissionKey, nodeId, propagation }
+      );
+    }
+  }
+
+  async assertIsSuperAdmin(actorUserId: string): Promise<void> {
+    const result = await this.executor.query(
+      'SELECT 1 FROM users WHERE id = $1 AND is_active = true AND is_super_admin = true LIMIT 1',
+      [actorUserId]
+    );
+    if (result.rows.length === 0) {
+      throw new ForbiddenError('Only Super Admins can alter the global permission model.', { actorUserId });
+    }
+  }
+
   // ─── Private Helpers ───────────────────────────────────────────
 
   /**
@@ -220,9 +292,12 @@ export class AccessControlPortPostgres implements AccessControlPort {
     permissionName: string,
     nodeId: string | null
   ): Promise<boolean> {
-    // Only data reads are intrinsically scope-bound. Administrative and
-    // mutation permissions such as node.create may still be granted globally.
-    const isScopeBoundPermission = /^(node|entity)\.read$/.test(permissionName);
+    // A permission evaluated against a concrete node is always local to that
+    // node/sottoalbero. This is essential for delegation operations such as
+    // scope.assign: a global administrative grant must not silently turn into
+    // authority over every subtree when the caller intended a local scope.
+    // Calls with nodeId = null remain explicit global operations.
+    const isScopeBoundPermission = nodeId !== null;
     // 1. Se abbiamo un nodeId, controlliamo prima se c'è un DENY esplicito locale o ereditato
     if (nodeId) {
       const denyQuery = `

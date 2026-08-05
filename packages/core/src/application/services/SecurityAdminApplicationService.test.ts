@@ -29,14 +29,18 @@ describe('SecurityAdminApplicationService', () => {
     mockSecurityRepository = {
       listRoles: vi.fn().mockResolvedValue([]),
       getRoleByKey: vi.fn(),
-      findRoleById: vi.fn(),
+      findRoleById: vi.fn().mockResolvedValue(Role.create(ROLE_ID, 'delegable_role', 'Delegable role')),
       findRoleByKey: vi.fn(),
+      listRolePermissionKeys: vi.fn().mockResolvedValue([]),
       createRole: vi.fn().mockResolvedValue(undefined),
       updateRole: vi.fn().mockResolvedValue(undefined),
       updateRolePermissions: vi.fn().mockResolvedValue(undefined),
       listAllPermissions: vi.fn().mockResolvedValue([]),
       listScopeAssignments: vi.fn().mockResolvedValue([]),
-    getScopeAssignmentById: vi.fn(),
+      listScopeAssignmentsManageableBy: vi.fn().mockResolvedValue([]),
+      getScopeAssignmentById: vi.fn(),
+      getScopeAssignmentManageableBy: vi.fn(),
+      revokeDelegatedScopeAssignmentsOutsideCoverage: vi.fn().mockResolvedValue([]),
       listRealtimeScopeAssignments: vi.fn().mockResolvedValue([]),
       listRealtimeVirtualRootNodeIds: vi.fn().mockResolvedValue([]),
       createScopeAssignment: vi.fn().mockResolvedValue(undefined),
@@ -65,6 +69,8 @@ describe('SecurityAdminApplicationService', () => {
       assertCanMoveNode: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
     };
 
     service = new SecurityAdminApplicationService(
@@ -147,10 +153,47 @@ describe('SecurityAdminApplicationService', () => {
       'subtree',
       ACTOR_ID
     );
+    expect(mockSecurityRepository.revokeDelegatedScopeAssignmentsOutsideCoverage).toHaveBeenCalledTimes(1);
+  });
+
+  it('audits each automatically cascaded delegated grant', async () => {
+    vi.mocked(mockSecurityRepository.revokeDelegatedScopeAssignmentsOutsideCoverage).mockResolvedValue([{
+      id: '00000000-0000-0000-0000-000000000071', userId: USER_ID, nodeId: NODE_ID,
+      roleId: ROLE_ID, assignedBy: ACTOR_ID,
+    }]);
+
+    await service.createScopeAssignment({
+      userId: USER_ID, nodeId: NODE_ID, roleId: ROLE_ID,
+      assignmentEffect: 'deny', propagation: 'self', actorUserId: ACTOR_ID,
+    });
+
+    expect(mockAuditPort.record).toHaveBeenCalledWith(
+      ACTOR_ID, 'security.revoke_delegated_scope', 'scope_assignment',
+      '00000000-0000-0000-0000-000000000071', NODE_ID,
+      expect.objectContaining({ assignedBy: ACTOR_ID }), expect.objectContaining({ reason: expect.any(String) }),
+    );
+  });
+
+  it('rejects an allow assignment when the role contains a permission the actor cannot delegate', async () => {
+    vi.mocked(mockSecurityRepository.listRolePermissionKeys).mockResolvedValue(['entity.delete']);
+    vi.mocked(mockAccessControlPort.assertHasPermissionCoverage).mockImplementation(async (_actor, permission) => {
+      if (permission === 'entity.delete') throw new Error('Denied');
+    });
+
+    await expect(service.createScopeAssignment({
+      userId: USER_ID,
+      nodeId: NODE_ID,
+      roleId: ROLE_ID,
+      assignmentEffect: 'allow',
+      propagation: 'subtree',
+      actorUserId: ACTOR_ID,
+    })).rejects.toThrow('Denied');
+
+    expect(mockSecurityRepository.createScopeAssignment).not.toHaveBeenCalled();
   });
 
   it('should update scope assignment successfully', async () => {
-    vi.mocked(mockSecurityRepository.getScopeAssignmentById).mockResolvedValue({
+    vi.mocked(mockSecurityRepository.getScopeAssignmentManageableBy).mockResolvedValue({
       id: '00000000-0000-0000-0000-000000000070',
       userId: USER_ID,
       userEmail: 'user@example.com',
@@ -176,10 +219,11 @@ describe('SecurityAdminApplicationService', () => {
       'deny',
       'self'
     );
-    expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith(
+    expect(mockAccessControlPort.assertHasPermissionCoverage).toHaveBeenCalledWith(
       ACTOR_ID,
       'scope.assign',
-      NODE_ID
+      NODE_ID,
+      'self'
     );
   });
 });

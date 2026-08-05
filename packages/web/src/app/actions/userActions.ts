@@ -12,6 +12,7 @@ import {
   UserListItemDto,
   UserDetailDto,
   ApiErrorResponse,
+  CreateScopedUserCommand,
 } from '@dashboard/core';
 
 
@@ -66,6 +67,22 @@ export async function createUserAction(cmd: CreateUserUiCommand): Promise<{
     });
     const res = await userAdminService.getUserById(actorUserId, user.id);
     return { success: true, data: res ?? undefined };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Creates an identity together with its local grants in one transaction. */
+export async function createScopedUserAction(cmd: Omit<CreateScopedUserCommand, 'actorUserId'>): Promise<{
+  success: boolean;
+  data?: { id: string; email: string };
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const { scopedUserProvisioningService } = await import('../../server/db');
+    const user = await scopedUserProvisioningService.createScopedUser({ ...cmd, actorUserId });
+    return { success: true, data: { id: user.id, email: user.email } };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

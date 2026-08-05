@@ -61,7 +61,7 @@ export {
   TypeFieldDefinition,
   TypeDefinition,
 } from './application/dto/TypeFieldDefinition.js';
-export type { RealtimeOutboxPort } from './application/ports/RealtimeOutboxPort.js';
+export type { RealtimeOutboxPort, RealtimeOutboxOperationalStats } from './application/ports/RealtimeOutboxPort.js';
 export { RealtimeOutboxPostgres } from './infrastructure/postgres/RealtimeOutboxPostgres.js';
 export {
   TypeKind,
@@ -174,6 +174,7 @@ export { NodeApplicationService } from './application/services/NodeApplicationSe
 export { EntityApplicationService } from './application/services/EntityApplicationService.js';
 export { TypeAdminApplicationService } from './application/services/TypeAdminApplicationService.js';
 export { LockService } from './application/services/LockService.js';
+export { ScopedUserProvisioningService } from './application/services/ScopedUserProvisioningService.js';
 
 // ─── Infrastructure (PostgreSQL & Compilers) ──────────────────────────────────
 export { PgExecutor } from './infrastructure/postgres/PgExecutor.js';
@@ -250,6 +251,7 @@ export {
   RoleListItemDto,
   RoleDetailDto,
   ScopeAssignmentDto,
+  RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
   CreateRoleUiCommand,
   UpdateRolePermissionsUiCommand,
@@ -266,6 +268,7 @@ export {
   ResetUserPasswordCommand, ResetUserPasswordCommandSchema,
   UserPasswordSchema,
 } from './application/commands/UserAdminCommands.js';
+export { CreateScopedUserCommand, CreateScopedUserCommandSchema } from './application/commands/ScopedUserCommands.js';
 
 export {
   CreateRoleCommand, CreateRoleCommandSchema,

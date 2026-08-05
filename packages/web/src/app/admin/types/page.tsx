@@ -146,8 +146,8 @@ export default function AdminTypesListPage() {
             <p className="text-sm">Crea il tuo primo tipo per iniziare ad amministrare i dati.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+          <div>
+            <table className="admin-mobile-cards w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="border-b border-slate-800/80 bg-slate-900/80 text-slate-400 font-medium">
                   <th className="py-3.5 px-5">Nome / Tipo</th>
@@ -163,7 +163,7 @@ export default function AdminTypesListPage() {
               <tbody className="divide-y divide-slate-800/50">
                 {types.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-800/30 transition-colors group">
-                    <td className="py-4 px-5">
+                    <td data-label="Tipo" className="py-4 px-5">
                       <div className="font-semibold text-slate-100 flex items-center gap-2">
                         {t.name}
                         {t.isSystem && (
@@ -176,18 +176,18 @@ export default function AdminTypesListPage() {
                         <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{t.description}</p>
                       )}
                     </td>
-                    <td className="py-4 px-5 font-mono text-xs text-indigo-300">{t.typeKey}</td>
+                    <td data-label="Chiave" className="py-4 px-5 font-mono text-xs text-indigo-300">{t.typeKey}</td>
                     {kind === 'entity' && (
-                      <td className="py-4 px-5 font-mono text-xs text-slate-400">{t.storageTable ?? 'N/A'}</td>
+                      <td data-label="Tabella" className="py-4 px-5 font-mono text-xs text-slate-400">{t.storageTable ?? 'N/A'}</td>
                     )}
-                    <td className="py-4 px-5 text-slate-300 font-mono">v{t.currentSchemaVersion}</td>
-                    <td className="py-4 px-5 text-slate-400 font-mono">r{t.rowVersion}</td>
-                    <td className="py-4 px-5">
+                    <td data-label="Schema" className="py-4 px-5 text-slate-300 font-mono">v{t.currentSchemaVersion}</td>
+                    <td data-label="Versione" className="py-4 px-5 text-slate-400 font-mono">r{t.rowVersion}</td>
+                    <td data-label="Campi" className="py-4 px-5">
                       <span className="px-2.5 py-1 bg-slate-800 text-slate-300 text-xs font-medium rounded-full">
                         {t.fieldCount} campi
                       </span>
                     </td>
-                    <td className="py-4 px-5">
+                    <td data-label="Stato" className="py-4 px-5">
                       {t.isActive ? (
                         <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
                           <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Attivo
@@ -198,7 +198,7 @@ export default function AdminTypesListPage() {
                         </span>
                       )}
                     </td>
-                    <td className="py-4 px-5 text-right">
+                    <td data-label="" className="py-4 px-5 text-right">
                       <Link
                         href={`/admin/types/${kind}/${t.typeKey}`}
                         className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white rounded-lg transition-all"

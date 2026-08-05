@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   UserListItemDto,
   CreateUserUiCommand,
+  ScopeAssignmentDto,
   ApiErrorResponse,
 } from '@dashboard/core';
 import { AppCache } from '../../cache/GlobalCacheClient';
@@ -23,6 +24,8 @@ export default function UserAdminListPage() {
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newIsSuperAdmin, setNewIsSuperAdmin] = useState(false);
+  const [delegableScopes, setDelegableScopes] = useState<ScopeAssignmentDto[]>([]);
+  const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
 
   const loadUsers = async () => {
@@ -57,19 +60,22 @@ export default function UserAdminListPage() {
     e.preventDefault();
     setFormError(null);
 
-    const cmd: CreateUserUiCommand = {
-      email: newEmail.trim(),
-      password: newPassword,
-      isSuperAdmin: newIsSuperAdmin,
-    };
-
     startTransition(async () => {
       try {
-        await AppCache.users.createUser(cmd);
+        const assignments = delegableScopes
+          .filter((scope) => selectedScopeIds.includes(scope.id) && scope.assignmentEffect === 'allow')
+          .map((scope) => ({ nodeId: scope.nodeId, roleId: scope.roleId, propagation: scope.propagation }));
+        if (assignments.length > 0) {
+          await AppCache.users.createScopedUser({ email: newEmail.trim(), password: newPassword, assignments });
+        } else {
+          const cmd: CreateUserUiCommand = { email: newEmail.trim(), password: newPassword, isSuperAdmin: newIsSuperAdmin };
+          await AppCache.users.createUser(cmd);
+        }
         setShowCreateModal(false);
         setNewEmail('');
         setNewPassword('');
-        setNewIsSuperAdmin(false);
+          setNewIsSuperAdmin(false);
+        setSelectedScopeIds([]);
         await loadUsers();
       } catch (err) {
         setFormError(err as ApiErrorResponse);
@@ -103,6 +109,10 @@ export default function UserAdminListPage() {
         <button
           onClick={() => {
             setFormError(null);
+            setSelectedScopeIds([]);
+            AppCache.admin.listScopeAssignments().then((result) => {
+              if (result.success && result.data) setDelegableScopes(result.data.filter((scope) => scope.assignmentEffect === 'allow'));
+            }).catch(() => setDelegableScopes([]));
             setShowCreateModal(true);
           }}
           className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/25 transition-all flex items-center gap-2 self-start md:self-auto"
@@ -180,7 +190,7 @@ export default function UserAdminListPage() {
             <p className="text-xs text-slate-500">Non ci sono account corrispondenti ai criteri di ricerca.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="admin-mobile-cards w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase font-mono tracking-wider">
                 <th className="py-3 px-6">Utente / Email</th>
@@ -193,7 +203,7 @@ export default function UserAdminListPage() {
             <tbody className="divide-y divide-slate-800/60 text-xs">
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="hover:bg-slate-900/40 transition-colors">
-                  <td className="py-4 px-6 font-medium text-slate-200">
+                  <td data-label="Utente" className="py-4 px-6 font-medium text-slate-200">
                     <div className="flex items-center gap-3">
                       <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-[10px] text-indigo-400">
                         {u.email.substring(0, 2).toUpperCase()}
@@ -201,7 +211,7 @@ export default function UserAdminListPage() {
                       <span className="font-mono">{u.email}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Stato" className="py-4 px-6">
                     {u.isActive ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-400 font-mono">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Attivo
@@ -212,7 +222,7 @@ export default function UserAdminListPage() {
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Privilegio" className="py-4 px-6">
                     {u.isSuperAdmin ? (
                       <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[10px] font-mono">
                         Super Admin
@@ -221,7 +231,7 @@ export default function UserAdminListPage() {
                       <span className="text-slate-500 text-[10px] font-mono">Standard</span>
                     )}
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Ruoli" className="py-4 px-6">
                     <div className="flex flex-wrap gap-1.5">
                       {u.roles.length > 0 ? (
                         u.roles.map((r) => (
@@ -237,7 +247,7 @@ export default function UserAdminListPage() {
                       )}
                     </div>
                   </td>
-                  <td className="py-4 px-6 text-right">
+                  <td data-label="" className="py-4 px-6 text-right">
                     <Link
                       href={`/admin/users/${u.id}`}
                       className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors inline-block"
@@ -317,6 +327,24 @@ export default function UserAdminListPage() {
                   Assegna Privilegio Super Admin
                 </label>
               </div>
+
+              {delegableScopes.length > 0 && (
+                <fieldset className="space-y-2 border-t border-slate-800/80 pt-3">
+                  <legend className="text-xs font-medium text-slate-300">Scope iniziali delegabili</legend>
+                  <p className="text-[11px] text-slate-500">Selezionando uno o più scope, l’account viene creato atomically senza ruoli globali.</p>
+                  {delegableScopes.map((scope) => (
+                    <label key={scope.id} className="flex items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={selectedScopeIds.includes(scope.id)}
+                        onChange={(event) => setSelectedScopeIds((current) => event.target.checked ? [...current, scope.id] : current.filter((id) => id !== scope.id))}
+                        className="rounded bg-slate-900 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      {scope.nodeName} · {scope.roleName} · {scope.propagation}
+                    </label>
+                  ))}
+                </fieldset>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
                 <button

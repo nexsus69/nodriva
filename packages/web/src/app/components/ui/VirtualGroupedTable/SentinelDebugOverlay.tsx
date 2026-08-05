@@ -134,8 +134,8 @@ export function SentinelDebugOverlay({
     <div
       ref={panelRef}
       style={panelStyle}
-      className={`fixed top-4 right-4 z-[9999] border border-slate-700/80 bg-slate-950/95 shadow-2xl text-slate-200 text-xs font-mono backdrop-blur-md ${
-        isCollapsed ? 'w-[280px] rounded-lg' : 'w-[390px] rounded-xl'
+      className={`fixed top-2 right-2 sm:top-4 sm:right-4 z-[9999] max-w-[calc(100vw-1rem)] border border-slate-700/80 bg-slate-950/95 shadow-2xl text-slate-200 text-xs font-mono backdrop-blur-md ${
+        isCollapsed ? 'w-[min(280px,calc(100vw-1rem))] rounded-lg' : 'w-[min(390px,calc(100vw-1rem))] rounded-xl'
       }`}
     >
       {/* Header Finestra */}

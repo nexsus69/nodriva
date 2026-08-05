@@ -2,6 +2,7 @@ import type {
   ApiErrorResponse,
   AssignUserRolesUiCommand,
   CreateUserUiCommand,
+  CreateScopedUserCommand,
   ResetUserPasswordUiCommand,
   UpdateUserStatusUiCommand,
   UpdateUserUiCommand,
@@ -11,6 +12,7 @@ import type {
 import {
   assignUserRolesAction,
   createUserAction,
+  createScopedUserAction,
   getUserByIdAction,
   listUsersAction,
   resetUserPasswordAction,
@@ -112,6 +114,13 @@ export class UserCacheClient {
     const result = await createUserAction(command);
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile creare l’utente.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-create');
+    await this.listUsers();
+    return result.data;
+  }
+
+  public async createScopedUser(command: Omit<CreateScopedUserCommand, 'actorUserId'>): Promise<{ id: string; email: string }> {
+    const result = await createScopedUserAction(command);
+    if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile creare l’utente con scope.' });
     await this.listUsers();
     return result.data;
   }

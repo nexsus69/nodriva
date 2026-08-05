@@ -82,6 +82,7 @@ describe('EntitySubtreeQueryPortPostgres', () => {
     expect(res.items[1]?.name).toBe('Device 2');
     expect(res.items[1]?.nodeRowVersion).toBe(7);
     expect(res.nextCursor).toEqual({ path: 'root.company.branch', name: 'Device 2', id: '00000000-0000-0000-0000-000000000011' });
+    expect(mockExecutor.query.mock.calls[1]?.[0]).toContain('e.id::text ILIKE $3');
   });
 
   it('supports backward pagination and reverses returned items to natural ascending order', async () => {

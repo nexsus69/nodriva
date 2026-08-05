@@ -13,4 +13,19 @@ export interface AccessControlPort {
    * Lancia ForbiddenError se il permesso non è posseduto.
    */
   assertHasPermission(actorUserId: string, permissionKey: string, nodeId: string | null): Promise<void>;
+
+  /**
+   * Verifica che l'attore possa esercitare e delegare un permesso sull'intera
+   * copertura richiesta. `subtree` richiede un allow subtree che copra il nodo
+   * e nessun deny che intersechi l'area; non basta un permesso `self` sul nodo.
+   */
+  assertHasPermissionCoverage(
+    actorUserId: string,
+    permissionKey: string,
+    nodeId: string,
+    propagation: 'self' | 'subtree'
+  ): Promise<void>;
+
+  /** Global trust-boundary check for operations that alter permission models. */
+  assertIsSuperAdmin(actorUserId: string): Promise<void>;
 }

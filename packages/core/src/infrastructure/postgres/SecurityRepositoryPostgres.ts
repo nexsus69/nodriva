@@ -5,6 +5,7 @@ import {
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
 } from '../../application/dto/SecurityAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
@@ -66,7 +67,7 @@ interface ScopeAssignmentRow {
 export class SecurityRepositoryPostgres implements SecurityRepository {
   constructor(
     private readonly executor: PgExecutor,
-    private readonly onRealtimePolicyChanged: () => void = () => undefined,
+    private readonly onRealtimePolicyChanged: (userId?: string) => void = () => undefined,
   ) {}
 
   async listRoles(): Promise<RoleListItemDto[]> {
@@ -158,6 +159,18 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     return row ? this.mapToDomain(row) : null;
   }
 
+  async listRolePermissionKeys(roleId: string): Promise<string[]> {
+    const result = await this.executor.query<{ permission_key: string }>(
+      `SELECT p.permission_key
+       FROM role_permissions rp
+       INNER JOIN permissions p ON p.id = rp.permission_id
+       WHERE rp.role_id = $1
+       ORDER BY p.permission_key ASC`,
+      [roleId]
+    );
+    return result.rows.map((row) => row.permission_key);
+  }
+
   async createRole(role: Role, permissionIds: string[] = []): Promise<void> {
     await this.executor.query(
       `INSERT INTO roles (id, role_key, name, description, is_system, row_version, created_at, updated_at)
@@ -199,6 +212,12 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
   }
 
   async updateRolePermissions(roleId: string, permissionIds: string[]): Promise<void> {
+    const affectedUsers = await this.executor.query<{ user_id: string }>(
+      `SELECT DISTINCT user_id FROM node_scope_assignments WHERE role_id = $1
+       UNION
+       SELECT DISTINCT user_id FROM user_roles WHERE role_id = $1`,
+      [roleId]
+    );
     await this.executor.query('DELETE FROM role_permissions WHERE role_id = $1', [roleId]);
 
     for (const permId of permissionIds) {
@@ -207,7 +226,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
         [roleId, permId]
       );
     }
-    this.onRealtimePolicyChanged();
+    affectedUsers.rows.forEach((row) => this.onRealtimePolicyChanged(row.user_id));
   }
 
   async listAllPermissions(): Promise<PermissionDto[]> {
@@ -254,6 +273,45 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     }));
   }
 
+  async listScopeAssignmentsManageableBy(actorUserId: string): Promise<ScopeAssignmentDto[]> {
+    const res = await this.executor.query<ScopeAssignmentRow>(`
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
+      ), delegable AS (
+        SELECT n.path
+        FROM node_scope_assignments grant
+        JOIN nodes n ON n.id = grant.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = grant.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE grant.user_id = $1
+          AND grant.assignment_effect = 'allow'::assignment_effect_enum
+          AND grant.propagation = 'subtree'::scope_propagation_enum
+          AND p.permission_key = 'scope.assign'
+          AND NOT EXISTS (
+            SELECT 1 FROM node_scope_assignments deny
+            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
+              AND deny_permission.permission_key = 'scope.assign'
+              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
+                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
+          )
+      )
+      SELECT sa.id, sa.user_id AS "userId", u.email AS "userEmail", sa.node_id AS "nodeId",
+             COALESCE(n.name, 'Root Node') AS "nodeName", sa.role_id AS "roleId", r.name AS "roleName",
+             sa.assignment_effect AS "assignmentEffect", sa.propagation, sa.assigned_at AS "assignedAt"
+      FROM node_scope_assignments sa
+      JOIN users u ON u.id = sa.user_id AND u.deleted_at IS NULL
+      JOIN nodes n ON n.id = sa.node_id AND n.deleted_at IS NULL
+      JOIN roles r ON r.id = sa.role_id AND r.deleted_at IS NULL
+      WHERE (SELECT is_super_admin FROM actor) = true
+         OR EXISTS (SELECT 1 FROM delegable d WHERE d.path @> n.path)
+      ORDER BY sa.assigned_at DESC
+    `, [actorUserId]);
+    return res.rows.map((r) => this.mapScopeAssignment(r));
+  }
+
   async getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null> {
     const query = `
       SELECT
@@ -277,18 +335,43 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     const row = res.rows[0];
     if (!row) return null;
 
-    return {
-      id: row.id,
-      userId: row.userId,
-      userEmail: row.userEmail,
-      nodeId: row.nodeId,
-      nodeName: row.nodeName,
-      roleId: row.roleId,
-      roleName: row.roleName,
-      assignmentEffect: row.assignmentEffect,
-      propagation: row.propagation,
-      assignedAt: new Date(row.assignedAt).toISOString(),
-    };
+    return this.mapScopeAssignment(row);
+  }
+
+  async getScopeAssignmentManageableBy(actorUserId: string, id: string): Promise<ScopeAssignmentDto | null> {
+    const result = await this.executor.query<ScopeAssignmentRow>(`
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
+      ), delegable AS (
+        SELECT n.path
+        FROM node_scope_assignments grant
+        JOIN nodes n ON n.id = grant.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = grant.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE grant.user_id = $1 AND grant.assignment_effect = 'allow'::assignment_effect_enum
+          AND grant.propagation = 'subtree'::scope_propagation_enum AND p.permission_key = 'scope.assign'
+          AND NOT EXISTS (
+            SELECT 1 FROM node_scope_assignments deny
+            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
+              AND deny_permission.permission_key = 'scope.assign'
+              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
+                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
+          )
+      )
+      SELECT sa.id, sa.user_id AS "userId", u.email AS "userEmail", sa.node_id AS "nodeId",
+             COALESCE(n.name, 'Root Node') AS "nodeName", sa.role_id AS "roleId", r.name AS "roleName",
+             sa.assignment_effect AS "assignmentEffect", sa.propagation, sa.assigned_at AS "assignedAt"
+      FROM node_scope_assignments sa
+      JOIN users u ON u.id = sa.user_id AND u.deleted_at IS NULL
+      JOIN nodes n ON n.id = sa.node_id AND n.deleted_at IS NULL
+      JOIN roles r ON r.id = sa.role_id AND r.deleted_at IS NULL
+      WHERE sa.id = $2
+        AND ((SELECT is_super_admin FROM actor) = true OR EXISTS (SELECT 1 FROM delegable d WHERE d.path @> n.path))
+    `, [actorUserId, id]);
+    return result.rows[0] ? this.mapScopeAssignment(result.rows[0]) : null;
   }
 
   async listRealtimeScopeAssignments(userId: string): Promise<RealtimeScopeAssignmentDto[]> {
@@ -418,12 +501,13 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     propagation: 'self' | 'subtree',
     assignedBy: string
   ): Promise<void> {
+    await this.assertScopeAssignmentTargets(userId, nodeId, roleId, assignmentEffect, propagation);
     const query = `
       INSERT INTO node_scope_assignments (id, user_id, node_id, role_id, assignment_effect, propagation, assigned_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
     await this.executor.query(query, [id, userId, nodeId, roleId, assignmentEffect, propagation, assignedBy]);
-    this.onRealtimePolicyChanged();
+    this.onRealtimePolicyChanged(userId);
   }
 
   async updateScopeAssignment(
@@ -432,24 +516,109 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     assignmentEffect: 'allow' | 'deny',
     propagation: 'self' | 'subtree'
   ): Promise<void> {
+    const existing = await this.executor.query<{ user_id: string; node_id: string }>(
+      'SELECT user_id, node_id FROM node_scope_assignments WHERE id = $1', [id]
+    );
+    const assignment = existing.rows[0];
+    if (!assignment) throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
+    await this.assertScopeAssignmentTargets(
+      assignment.user_id, assignment.node_id, roleId, assignmentEffect, propagation, id
+    );
     const query = `
       UPDATE node_scope_assignments
       SET role_id = $1, assignment_effect = $2, propagation = $3
       WHERE id = $4
+      RETURNING user_id
     `;
-    const result = await this.executor.query(query, [roleId, assignmentEffect, propagation, id]);
+    const result = await this.executor.query<{ user_id: string }>(query, [roleId, assignmentEffect, propagation, id]);
     if (result.rowCount === 0) {
       throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     }
-    this.onRealtimePolicyChanged();
+    this.onRealtimePolicyChanged(result.rows[0]?.user_id);
   }
 
   async deleteScopeAssignment(id: string): Promise<void> {
-    const result = await this.executor.query('DELETE FROM node_scope_assignments WHERE id = $1', [id]);
+    const result = await this.executor.query<{ user_id: string }>(
+      'DELETE FROM node_scope_assignments WHERE id = $1 RETURNING user_id', [id]
+    );
     if (result.rowCount === 0) {
       throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     }
-    this.onRealtimePolicyChanged();
+    this.onRealtimePolicyChanged(result.rows[0]?.user_id);
+  }
+
+  async revokeDelegatedScopeAssignmentsOutsideCoverage(): Promise<RevokedDelegatedScopeAssignmentDto[]> {
+    const revoked: RevokedDelegatedScopeAssignmentDto[] = [];
+    // A removed parent grant can invalidate grants created by that delegate.
+    // Repeat the set-based deletion to reach the transitive fixed point.
+    for (;;) {
+      const result = await this.executor.query<{
+        id: string; user_id: string; node_id: string; role_id: string; assigned_by: string;
+      }>(`
+        DELETE FROM node_scope_assignments target
+        USING nodes target_node
+        WHERE target.node_id = target_node.id
+          AND target.assigned_by IS NOT NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM users delegator
+            WHERE delegator.id = target.assigned_by AND delegator.is_active AND delegator.deleted_at IS NULL
+              AND (
+                delegator.is_super_admin
+                OR NOT EXISTS (
+                  SELECT 1
+                  FROM role_permissions target_rp
+                  JOIN permissions required_permission ON required_permission.id = target_rp.permission_id
+                  WHERE target_rp.role_id = target.role_id
+                    AND NOT EXISTS (
+                      SELECT 1
+                      FROM node_scope_assignments allow_assignment
+                      JOIN nodes allow_node ON allow_node.id = allow_assignment.node_id AND allow_node.deleted_at IS NULL
+                      JOIN role_permissions allow_rp ON allow_rp.role_id = allow_assignment.role_id
+                      JOIN permissions allow_permission ON allow_permission.id = allow_rp.permission_id
+                      WHERE allow_assignment.user_id = target.assigned_by
+                        AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
+                        AND allow_permission.permission_key = required_permission.permission_key
+                        AND (
+                          (target.propagation = 'self'::scope_propagation_enum AND
+                            ((allow_assignment.propagation = 'self'::scope_propagation_enum AND allow_node.id = target.node_id)
+                             OR (allow_assignment.propagation = 'subtree'::scope_propagation_enum AND allow_node.path @> target_node.path)))
+                          OR
+                          (target.propagation = 'subtree'::scope_propagation_enum
+                            AND allow_assignment.propagation = 'subtree'::scope_propagation_enum
+                            AND allow_node.path @> target_node.path)
+                        )
+                        AND NOT EXISTS (
+                          SELECT 1
+                          FROM node_scope_assignments deny_assignment
+                          JOIN nodes deny_node ON deny_node.id = deny_assignment.node_id AND deny_node.deleted_at IS NULL
+                          JOIN role_permissions deny_rp ON deny_rp.role_id = deny_assignment.role_id
+                          JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+                          WHERE deny_assignment.user_id = target.assigned_by
+                            AND deny_assignment.assignment_effect = 'deny'::assignment_effect_enum
+                            AND deny_permission.permission_key = required_permission.permission_key
+                            AND (
+                              (target.propagation = 'self'::scope_propagation_enum
+                                AND ((deny_assignment.propagation = 'self'::scope_propagation_enum AND deny_node.id = target.node_id)
+                                  OR (deny_assignment.propagation = 'subtree'::scope_propagation_enum AND deny_node.path @> target_node.path)))
+                              OR (target.propagation = 'subtree'::scope_propagation_enum
+                                AND ((deny_assignment.propagation = 'self'::scope_propagation_enum AND target_node.path @> deny_node.path)
+                                  OR (deny_assignment.propagation = 'subtree'::scope_propagation_enum
+                                    AND (target_node.path @> deny_node.path OR deny_node.path @> target_node.path))))
+                            )
+                        )
+                    )
+                )
+              )
+          )
+        RETURNING target.id, target.user_id, target.node_id, target.role_id, target.assigned_by
+      `);
+      if (result.rows.length === 0) break;
+      revoked.push(...result.rows.map((row) => ({
+        id: row.id, userId: row.user_id, nodeId: row.node_id, roleId: row.role_id, assignedBy: row.assigned_by,
+      })));
+    }
+    revoked.forEach((assignment) => this.onRealtimePolicyChanged(assignment.userId));
+    return revoked;
   }
 
   private mapToDomain(row: RoleRow): Role {
@@ -464,5 +633,56 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       row.updated_at,
       row.deleted_at
     );
+  }
+
+  private mapScopeAssignment(row: ScopeAssignmentRow): ScopeAssignmentDto {
+    return {
+      id: row.id, userId: row.userId, userEmail: row.userEmail, nodeId: row.nodeId,
+      nodeName: row.nodeName, roleId: row.roleId, roleName: row.roleName,
+      assignmentEffect: row.assignmentEffect, propagation: row.propagation,
+      assignedAt: new Date(row.assignedAt).toISOString(),
+    };
+  }
+
+  /**
+   * Enforces P1 integrity at the persistence boundary as well as at the
+   * application boundary: a stale/inactive target cannot receive a grant and
+   * an allow/deny pair for the same role, node and propagation is ambiguous.
+   */
+  private async assertScopeAssignmentTargets(
+    userId: string,
+    nodeId: string,
+    roleId: string,
+    assignmentEffect: 'allow' | 'deny',
+    propagation: 'self' | 'subtree',
+    excludeAssignmentId?: string,
+  ): Promise<void> {
+    const target = await this.executor.query<{
+      active_user: boolean;
+      active_node: boolean;
+      active_role: boolean;
+      conflicting_assignment: boolean;
+    }>(`
+      SELECT
+        EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL) AS active_user,
+        EXISTS (SELECT 1 FROM nodes WHERE id = $2 AND deleted_at IS NULL) AS active_node,
+        EXISTS (SELECT 1 FROM roles WHERE id = $3 AND deleted_at IS NULL) AS active_role,
+        EXISTS (
+          SELECT 1 FROM node_scope_assignments
+          WHERE user_id = $1 AND node_id = $2 AND role_id = $3 AND propagation = $5::scope_propagation_enum
+            AND id IS DISTINCT FROM $6
+        ) AS conflicting_assignment
+    `, [userId, nodeId, roleId, assignmentEffect, propagation, excludeAssignmentId ?? null]);
+    const row = target.rows[0];
+    const issues: Record<string, string[]> = {};
+    if (!row?.active_user) issues.userId = ['The target user must exist and be active.'];
+    if (!row?.active_node) issues.nodeId = ['The target node must exist and be active.'];
+    if (!row?.active_role) issues.roleId = ['The target role must exist and be active.'];
+    if (row?.conflicting_assignment) {
+      issues.assignment = ['An allow/deny assignment already exists for this user, node, role and propagation.'];
+    }
+    if (Object.keys(issues).length > 0) {
+      throw new SecurityAdminValidationError('Invalid or contradictory scope assignment.', issues);
+    }
   }
 }

@@ -22,6 +22,7 @@ import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { z } from 'zod';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { SecurityRepository } from '../ports/SecurityRepository.js';
 
 export class UserAdminApplicationService {
   constructor(
@@ -30,22 +31,33 @@ export class UserAdminApplicationService {
     private readonly transactionPort: TransactionPort,
     private readonly idGenerator: IdGeneratorPort,
     private readonly accessControlPort: AccessControlPort,
-    private readonly sessionRepository: SessionRepositoryPort
+    private readonly sessionRepository: SessionRepositoryPort,
+    private readonly scopeDelegationLifecycle?: Pick<SecurityRepository, 'revokeDelegatedScopeAssignmentsOutsideCoverage'>,
   ) {}
 
   async listUsers(actorUserId: string): Promise<UserListItemDto[]> {
-    await this.accessControlPort.assertHasPermission(actorUserId, 'user.read', null);
-    return await this.userRepository.listUsers();
+    return await this.userRepository.listUsersManageableBy(actorUserId);
   }
 
   async getUserById(actorUserId: string, id: string): Promise<UserDetailDto | null> {
-    await this.accessControlPort.assertHasPermission(actorUserId, 'user.read', null);
-    return await this.userRepository.getUserDetail(id);
+    return await this.userRepository.getUserDetailManageableBy(actorUserId, id);
   }
 
   async createUser(cmd: CreateUserCommand): Promise<User> {
     const v = this.validateCommand(CreateUserCommandSchema, cmd, 'creating user');
     await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.create', null);
+    // An identity has no intrinsic node scope in the current data model.
+    // Until scoped ownership is modelled explicitly, creating identities is a
+    // global operation and must fail closed for non-super-admins.
+    await this.assertActorIsSuperAdmin(v.actorUserId, 'create users');
+
+    // user_roles grants global administrative capabilities. Local data access
+    // must instead be granted through node_scope_assignments, where delegation
+    // is checked against the actor's effective permissions.
+    if ((v.roleIds?.length ?? 0) > 0) {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
+      await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles while creating a user');
+    }
 
     return await this.transactionPort.runInTransaction(async () => {
       const existing = await this.userRepository.findByEmail(v.email);
@@ -85,7 +97,7 @@ export class UserAdminApplicationService {
 
   async updateUserStatus(cmd: UpdateUserStatusCommand): Promise<User> {
     const v = this.validateCommand(UpdateUserStatusCommandSchema, cmd, 'updating user status');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.delete', null);
+    await this.assertUserManageable(v.actorUserId, v.userId, 'change user status');
 
     return await this.transactionPort.runInTransaction(async () => {
       const user = await this.userRepository.findById(v.userId);
@@ -109,6 +121,12 @@ export class UserAdminApplicationService {
       await this.userRepository.updateUser(updated);
       if (!updated.isActive) {
         await this.sessionRepository.deleteSessionsForUser(updated.id);
+        const revoked = await this.scopeDelegationLifecycle?.revokeDelegatedScopeAssignmentsOutsideCoverage() ?? [];
+        for (const assignment of revoked) {
+          await this.auditPort.record(v.actorUserId, 'security.revoke_delegated_scope', 'scope_assignment', assignment.id,
+            assignment.nodeId, { userId: assignment.userId, roleId: assignment.roleId, assignedBy: assignment.assignedBy },
+            { reason: 'delegator disabled' });
+        }
       }
       await this.auditPort.record(
         v.actorUserId,
@@ -126,7 +144,7 @@ export class UserAdminApplicationService {
 
   async updateUser(cmd: UpdateUserCommand): Promise<User> {
     const v = this.validateCommand(UpdateUserCommandSchema, cmd, 'updating user details');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.update', null);
+    await this.assertUserManageable(v.actorUserId, v.userId, 'modify user identities');
 
     return await this.transactionPort.runInTransaction(async () => {
       const user = await this.userRepository.findById(v.userId);
@@ -184,6 +202,7 @@ export class UserAdminApplicationService {
   async assignUserRoles(cmd: AssignUserRolesCommand): Promise<void> {
     const v = this.validateCommand(AssignUserRolesCommandSchema, cmd, 'assigning user roles');
     await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
+    await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles');
 
     return await this.transactionPort.runInTransaction(async () => {
       const user = await this.userRepository.findById(v.userId);
@@ -228,9 +247,19 @@ export class UserAdminApplicationService {
     });
   }
 
+  private async assertUserManageable(actorUserId: string, userId: string, action: string): Promise<void> {
+    if (!await this.userRepository.isUserManageableBy(actorUserId, userId)) {
+      throw new ForbiddenError(`User '${userId}' is outside the actor's delegated boundary; cannot ${action}.`, {
+        actorUserId,
+        userId,
+      });
+    }
+  }
+
   async resetUserPassword(cmd: ResetUserPasswordCommand): Promise<User> {
     const v = this.validateCommand(ResetUserPasswordCommandSchema, cmd, 'resetting user password');
     await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.update', null);
+    await this.assertActorIsSuperAdmin(v.actorUserId, 'reset user passwords');
 
     return await this.transactionPort.runInTransaction(async () => {
       const user = await this.userRepository.findById(v.userId);
@@ -278,5 +307,12 @@ export class UserAdminApplicationService {
       throw new UserAdminValidationError(`Validation failed for ${actionName}.`, issues);
     }
     return res.data;
+  }
+
+  private async assertActorIsSuperAdmin(actorUserId: string, action: string): Promise<void> {
+    const actor = await this.userRepository.findById(actorUserId);
+    if (!actor?.isSuperAdmin || !actor.isActive) {
+      throw new ForbiddenError(`Only Super Admins can ${action}.`, { actorUserId });
+    }
   }
 }

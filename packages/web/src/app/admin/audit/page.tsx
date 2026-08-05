@@ -216,7 +216,7 @@ export default function AuditLogsPage() {
           </div>
         ) : (
           <>
-            <table className="w-full text-left border-collapse">
+            <table className="admin-mobile-cards w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase font-mono tracking-wider">
                   <th className="py-3 px-6">Data &amp; Ora</th>
@@ -230,23 +230,23 @@ export default function AuditLogsPage() {
               <tbody className="divide-y divide-slate-800/60 text-xs">
                 {data.items.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
-                    <td className="py-3.5 px-6 font-mono text-[11px] text-slate-300 whitespace-nowrap">
+                    <td data-label="Data e ora" className="py-3.5 px-6 font-mono text-[11px] text-slate-300 whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString('it-IT')}
                     </td>
-                    <td className="py-3.5 px-6 font-mono font-bold text-purple-300">
+                    <td data-label="Azione" className="py-3.5 px-6 font-mono font-bold text-purple-300">
                       <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]">
                         {log.actionKey}
                       </span>
                     </td>
-                    <td className="py-3.5 px-6 font-mono text-slate-300">
+                    <td data-label="Risorsa" className="py-3.5 px-6 font-mono text-slate-300">
                       <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-[10px] uppercase">
                         {log.resourceKind}
                       </span>
                     </td>
-                    <td className="py-3.5 px-6 font-mono text-[11px] text-slate-400">
+                    <td data-label="ID risorsa" className="py-3.5 px-6 font-mono text-[11px] text-slate-400">
                       {log.resourceId ? `${log.resourceId.substring(0, 8)}...` : '-'}
                     </td>
-                    <td className="py-3.5 px-6 font-mono text-[11px] text-slate-300">
+                    <td data-label="Attore" className="py-3.5 px-6 font-mono text-[11px] text-slate-300">
                       {log.actorEmail ? (
                         <span>{log.actorEmail}</span>
                       ) : log.actorUserId ? (
@@ -255,7 +255,7 @@ export default function AuditLogsPage() {
                         <span className="text-slate-500 font-italic">Sistema</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-6 text-right">
+                    <td data-label="" className="py-3.5 px-6 text-right">
                       <Link
                         href={`/admin/audit/${log.id}`}
                         className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"

@@ -102,7 +102,7 @@ export default function SecurityRolesListPage() {
             <p className="text-xs text-slate-500">Non ci sono ruoli configurati nel sistema.</p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="admin-mobile-cards w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase font-mono tracking-wider">
                 <th className="py-3 px-6">Nome Ruolo</th>
@@ -115,7 +115,7 @@ export default function SecurityRolesListPage() {
             <tbody className="divide-y divide-slate-800/60 text-xs">
               {roles.map((r) => (
                 <tr key={r.id} className="hover:bg-slate-900/40 transition-colors">
-                  <td className="py-4 px-6 font-medium text-slate-200">
+                  <td data-label="Ruolo" className="py-4 px-6 font-medium text-slate-200">
                     <div className="space-y-0.5">
                       <span className="font-bold text-slate-100">{r.name}</span>
                       {r.description && (
@@ -123,13 +123,13 @@ export default function SecurityRolesListPage() {
                       )}
                     </div>
                   </td>
-                  <td className="py-4 px-6 font-mono text-purple-400">{r.roleKey}</td>
-                  <td className="py-4 px-6">
+                  <td data-label="Chiave" className="py-4 px-6 font-mono text-purple-400">{r.roleKey}</td>
+                  <td data-label="Permessi" className="py-4 px-6">
                     <span className="px-2.5 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 font-mono text-[10px]">
                       {r.permissionCount} permessi
                     </span>
                   </td>
-                  <td className="py-4 px-6">
+                  <td data-label="Origine" className="py-4 px-6">
                     {r.isSystem ? (
                       <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 text-[10px] font-mono">
                         Sistema
@@ -140,7 +140,7 @@ export default function SecurityRolesListPage() {
                       </span>
                     )}
                   </td>
-                  <td className="py-4 px-6 text-right">
+                  <td data-label="" className="py-4 px-6 text-right">
                     <Link
                       href={`/admin/security/roles/${r.roleKey}`}
                       className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors inline-block"

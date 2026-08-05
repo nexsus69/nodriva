@@ -45,7 +45,7 @@ interface UserRoleRow {
 export class UserRepositoryPostgres implements UserRepository {
   constructor(
     private readonly executor: PgExecutor,
-    private readonly onRealtimePolicyChanged: () => void = () => undefined,
+    private readonly onRealtimePolicyChanged: (userId?: string) => void = () => undefined,
   ) {}
 
   async findById(id: string): Promise<User | null> {
@@ -101,6 +101,108 @@ export class UserRepositoryPostgres implements UserRepository {
       createdAt: new Date(r.createdAt).toISOString(),
       updatedAt: new Date(r.updatedAt).toISOString(),
     }));
+  }
+
+  async listUsersManageableBy(actorUserId: string): Promise<UserListItemDto[]> {
+    const query = `
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+      ), delegable AS (
+        SELECT n.path
+        FROM node_scope_assignments nsa
+        JOIN nodes n ON n.id = nsa.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = nsa.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE nsa.user_id = $1 AND nsa.assignment_effect = 'allow'::assignment_effect_enum
+          AND nsa.propagation = 'subtree'::scope_propagation_enum
+          AND p.permission_key = 'scope.assign'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM node_scope_assignments deny
+            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+            WHERE deny.user_id = $1
+              AND deny.assignment_effect = 'deny'::assignment_effect_enum
+              AND deny_permission.permission_key = 'scope.assign'
+              AND (
+                (deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
+                OR (deny.propagation = 'subtree'::scope_propagation_enum
+                    AND (n.path @> deny_node.path OR deny_node.path @> n.path))
+              )
+          )
+      )
+      SELECT u.id, u.email, u.is_active AS "isActive", u.is_super_admin AS "isSuperAdmin",
+             u.created_at AS "createdAt", u.updated_at AS "updatedAt",
+             COALESCE(json_agg(json_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name))
+               FILTER (WHERE r.id IS NOT NULL), '[]') AS roles
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN roles r ON r.id = ur.role_id AND r.deleted_at IS NULL
+      WHERE u.deleted_at IS NULL
+        AND (
+          (SELECT is_super_admin FROM actor) = true
+           OR (
+             u.is_super_admin = false
+             AND EXISTS (SELECT 1 FROM node_scope_assignments target WHERE target.user_id = u.id)
+             AND NOT EXISTS (
+               SELECT 1 FROM node_scope_assignments target
+               JOIN nodes target_node ON target_node.id = target.node_id AND target_node.deleted_at IS NULL
+               WHERE target.user_id = u.id
+                 AND target.assignment_effect = 'allow'::assignment_effect_enum
+                 AND NOT EXISTS (
+                   SELECT 1 FROM delegable d
+                   WHERE d.path @> target_node.path
+                     AND (target.propagation = 'self'::scope_propagation_enum OR d.path @> target_node.path)
+                 )
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM user_roles target_role
+               JOIN roles target_role_definition ON target_role_definition.id = target_role.role_id
+               WHERE target_role.user_id = u.id
+                 AND target_role_definition.role_key NOT IN ('default_reader', 'scoped_reader')
+             )
+           )
+        )
+      GROUP BY u.id
+      ORDER BY u.email ASC
+    `;
+    const res = await this.executor.query<UserListRow>(query, [actorUserId]);
+    return res.rows.map((r) => ({
+      id: r.id, email: r.email, isActive: Boolean(r.isActive), isSuperAdmin: Boolean(r.isSuperAdmin),
+      roles: Array.isArray(r.roles) ? r.roles : [],
+      createdAt: new Date(r.createdAt).toISOString(), updatedAt: new Date(r.updatedAt).toISOString(),
+    }));
+  }
+
+  async isUserManageableBy(actorUserId: string, userId: string): Promise<boolean> {
+    const result = await this.executor.query<{ manageable: boolean }>(`
+      SELECT EXISTS (
+        SELECT 1 FROM (
+          SELECT id FROM users WHERE id = $2 AND deleted_at IS NULL
+        ) candidate
+        WHERE EXISTS (SELECT 1 FROM users actor WHERE actor.id = $1 AND actor.is_active AND actor.is_super_admin)
+           OR candidate.id IN (
+             SELECT manageable.id
+             FROM (
+               ${this.manageableUserIdsSql()}
+             ) manageable
+           )
+      ) AS manageable
+    `, [actorUserId, userId]);
+    return Boolean(result.rows[0]?.manageable);
+  }
+
+  async getUserDetailManageableBy(actorUserId: string, userId: string): Promise<UserDetailDto | null> {
+    if (!await this.isUserManageableBy(actorUserId, userId)) return null;
+    const detail = await this.getUserDetail(userId);
+    if (!detail) return null;
+    const actor = await this.executor.query<{ is_super_admin: boolean }>(
+      'SELECT is_super_admin FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL', [actorUserId]
+    );
+    // Local administrators never receive the global role catalogue.
+    if (!actor.rows[0]?.is_super_admin) detail.allAvailableRoles = [];
+    return detail;
   }
 
   async getUserDetail(id: string): Promise<UserDetailDto | null> {
@@ -198,7 +300,7 @@ export class UserRepositoryPostgres implements UserRepository {
       const actual = check.rows[0]?.row_version ?? 0;
       throw new RowVersionMismatchError(previousRowVersion, actual);
     }
-    this.onRealtimePolicyChanged();
+    this.onRealtimePolicyChanged(user.id);
   }
 
   async assignUserRoles(userId: string, roleIds: string[]): Promise<void> {
@@ -210,7 +312,7 @@ export class UserRepositoryPostgres implements UserRepository {
         [userId, roleId]
       );
     }
-    this.onRealtimePolicyChanged();
+    this.onRealtimePolicyChanged(userId);
   }
 
   private mapToDomain(row: UserRow): User {
@@ -225,5 +327,44 @@ export class UserRepositoryPostgres implements UserRepository {
       row.updated_at,
       row.deleted_at
     );
+  }
+
+  private manageableUserIdsSql(): string {
+    return `
+      WITH delegable AS (
+        SELECT n.path
+        FROM node_scope_assignments nsa
+        JOIN nodes n ON n.id = nsa.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = nsa.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE nsa.user_id = $1
+          AND nsa.assignment_effect = 'allow'::assignment_effect_enum
+          AND nsa.propagation = 'subtree'::scope_propagation_enum
+          AND p.permission_key = 'scope.assign'
+          AND NOT EXISTS (
+            SELECT 1 FROM node_scope_assignments deny
+            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
+              AND deny_permission.permission_key = 'scope.assign'
+              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
+                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
+          )
+      )
+      SELECT u.id
+      FROM users u
+      WHERE u.deleted_at IS NULL AND u.is_super_admin = false
+        AND EXISTS (SELECT 1 FROM node_scope_assignments target WHERE target.user_id = u.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM node_scope_assignments target
+          JOIN nodes target_node ON target_node.id = target.node_id AND target_node.deleted_at IS NULL
+          WHERE target.user_id = u.id AND target.assignment_effect = 'allow'::assignment_effect_enum
+            AND NOT EXISTS (SELECT 1 FROM delegable d WHERE d.path @> target_node.path)
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id = u.id AND r.role_key NOT IN ('default_reader', 'scoped_reader')
+        )`;
   }
 }

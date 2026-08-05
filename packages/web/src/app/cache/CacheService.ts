@@ -471,6 +471,7 @@ export class FetchCoordinator {
           cursor: cursor as SubtreeCursor | undefined,
           search: intent.params.search,
           entityTypeId: intent.params.entityTypeId,
+          filters: intent.params.filters as { name?: string; description?: string; lockState?: 'locked' | 'unlocked' } | undefined,
         });
 
         const newCursor = direction === 'backward' ? res.prevCursor : res.nextCursor;

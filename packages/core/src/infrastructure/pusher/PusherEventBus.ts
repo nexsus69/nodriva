@@ -34,6 +34,14 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
     await this.publish('data:changed', event, () => this.resolveDataChannelNames!(event));
   }
 
+  /** Disconnects authenticated clients so their next subscription is checked
+   * against the current ACL. It intentionally remains a no-op when realtime
+   * is disabled or the provider does not expose user termination. */
+  async revokeUserConnections(userId: string): Promise<void> {
+    if (!this.transport.enabled || !this.transport.terminateUserConnections) return;
+    await this.transport.terminateUserConnections(userId);
+  }
+
   async publishLockAcquired(lock: Lock, scope?: LockEventScope): Promise<void> {
     if (!this.transport.enabled || !this.resolveLockChannelNames) return;
     await this.publish('lock:acquired', {

@@ -29,6 +29,11 @@ export interface EntitySubtreeQueryParams {
   cursor?: SubtreeCursor;
   search?: string;
   entityTypeId?: string;
+  filters?: {
+    name?: string;
+    description?: string;
+    lockState?: 'locked' | 'unlocked';
+  };
   actorUserId: string; // INIETTATO DAL BACKEND, MAI TRUSTED DAL CLIENT
 }
 

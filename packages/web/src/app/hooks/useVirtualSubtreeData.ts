@@ -35,6 +35,7 @@ export interface UseVirtualSubtreeDataOptions {
   maxWindowItems?: number; // non più usato direttamente, gestito dal CacheService (maxWindowChunks)
   search?: string;
   entityTypeId?: string;
+  filters?: { name?: string; description?: string; lockState?: 'locked' | 'unlocked' };
   captureAnchorRef?: RefObject<((direction: 'forward' | 'backward') => void) | null>;
 }
 
@@ -53,7 +54,8 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
     viewType: 'SUBTREE_LIST',
     baseNodeId: options.baseNodeId,
     search: options.search,
-    entityTypeId: options.entityTypeId
+    entityTypeId: options.entityTypeId,
+    filters: options.filters,
   }, false, 'windowed');
 
 

@@ -456,16 +456,14 @@ CREATE TABLE ui_component_bindings (
   UNIQUE (ui_component_id, binding_key)
 );
 
-CREATE TABLE resource_locks (
+CREATE TABLE locks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v7(),
-  resource_kind resource_kind_enum NOT NULL,
-  resource_id UUID NOT NULL,
-  lock_owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  lock_token VARCHAR(255) NOT NULL UNIQUE,
+  resource_type TEXT NOT NULL,
+  resource_id TEXT NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL,
-  UNIQUE (resource_kind, resource_id)
+  UNIQUE (resource_type, resource_id)
 );
 
 CREATE TABLE audit_logs (
@@ -586,8 +584,8 @@ CREATE INDEX idx_node_revisions_node_id ON node_revisions(node_id);
 CREATE INDEX idx_entity_type_revisions_entity_type_id ON entity_type_revisions(entity_type_id);
 CREATE INDEX idx_system_setting_revisions_setting_id ON system_setting_revisions(system_setting_id);
 
-CREATE INDEX idx_resource_locks_owner ON resource_locks(lock_owner_user_id);
-CREATE INDEX idx_resource_locks_expires_at ON resource_locks(expires_at);
+CREATE INDEX idx_locks_owner ON locks(user_id);
+CREATE INDEX idx_locks_expires_at ON locks(expires_at);
 
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
 CREATE INDEX idx_audit_logs_resource_kind_resource_id ON audit_logs(resource_kind, resource_id);
@@ -804,14 +802,14 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION cleanup_expired_resource_locks()
+CREATE OR REPLACE FUNCTION cleanup_expired_locks()
 RETURNS INTEGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
   v_deleted_count INTEGER;
 BEGIN
-  DELETE FROM resource_locks
+  DELETE FROM locks
   WHERE expires_at <= now();
 
   GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
@@ -819,10 +817,10 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION touch_resource_lock(
-  p_resource_kind resource_kind_enum,
-  p_resource_id UUID,
-  p_lock_token VARCHAR,
+CREATE OR REPLACE FUNCTION touch_lock(
+  p_resource_type TEXT,
+  p_resource_id TEXT,
+  p_user_id UUID,
   p_extend_until TIMESTAMPTZ
 )
 RETURNS BOOLEAN
@@ -831,12 +829,11 @@ AS $$
 DECLARE
   v_updated_count INTEGER;
 BEGIN
-  UPDATE resource_locks
-  SET heartbeat_at = now(),
-      expires_at = p_extend_until
-  WHERE resource_kind = p_resource_kind
+  UPDATE locks
+  SET expires_at = p_extend_until
+  WHERE resource_type = p_resource_type
     AND resource_id = p_resource_id
-    AND lock_token = p_lock_token;
+    AND user_id = p_user_id;
 
   GET DIAGNOSTICS v_updated_count = ROW_COUNT;
   RETURN v_updated_count = 1;

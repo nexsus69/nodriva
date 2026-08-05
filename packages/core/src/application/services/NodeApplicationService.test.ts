@@ -58,6 +58,8 @@ describe('NodeApplicationService', () => {
       assertCanDeleteEntity: vi.fn(),
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn(),
+      assertHasPermissionCoverage: vi.fn(),
+      assertIsSuperAdmin: vi.fn(),
     };
 
     mockLockService = {

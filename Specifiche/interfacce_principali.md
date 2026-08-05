@@ -1,3 +1,9 @@
+> **Status: proposta storica di contratti.** Gli esempi tRPC, `lockToken` e le
+> firme qui riportate non descrivono necessariamente il runtime corrente. I
+> contratti implementativi normativi sono definiti dai port/application service
+> in `packages/core/src/application`, dalle Server Action in
+> `packages/web/src/app/actions`, da `ARCHITECTURE.md` e da `docs/`.
+
 Service layer
 
 Il service layer dovrebbe essere organizzato per use case applicativi e non per semplici CRUD generici. Il backend ricostruisce a runtime gli schemi dinamici dal database, li mette in un registry/cache e li usa per validare i payload prima di policy e persistenza; quindi il service layer è l’orchestratore tra schema registry, authorization, persistence abstraction, lock manager, event bus e audit trail.

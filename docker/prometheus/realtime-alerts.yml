@@ -1,0 +1,33 @@
+groups:
+  - name: dashboard-realtime
+    rules:
+      - alert: DashboardRealtimeOutboxBacklog
+        expr: dashboard_realtime_outbox_oldest_pending_age_seconds > 60
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Realtime outbox has an event pending for over one minute"
+      - alert: DashboardRealtimeOutboxRetries
+        expr: dashboard_realtime_outbox_retrying > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Realtime outbox is retrying failed deliveries"
+      - alert: DashboardRealtimeOutboxLeaseStuck
+        expr: dashboard_realtime_outbox_leased > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Realtime outbox lease did not clear; worker recovery may be required"
+      - alert: DashboardRealtimeOutboxRepeatedFailure
+        expr: dashboard_realtime_outbox_max_attempts >= 5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Realtime outbox has repeatedly failing delivery"
+      - alert: DashboardRealtimePublishFailures
+        expr: increase(dashboard_realtime_events_total{result="failure"}[5m]) > 0
+        for: 1m
+        labels: { severity: warning }
+        annotations:
+          summary: "Realtime publisher reported a delivery failure"

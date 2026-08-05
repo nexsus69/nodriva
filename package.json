@@ -2,7 +2,9 @@
   "name": "dashboard-ultimate",
   "private": true,
   "scripts": {
-    "test": "pnpm --filter @dashboard/core exec vitest run",
-    "typecheck": "pnpm --filter @dashboard/core exec tsc --noEmit"
+    "test": "pnpm --filter @dashboard/core exec vitest run && pnpm --filter @dashboard/web test",
+    "typecheck": "pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web typecheck",
+    "lint": "pnpm --filter @dashboard/web lint",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build"
   }
 }

@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS realtime_event_outbox (
   published_at TIMESTAMPTZ NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
   next_attempt_at TIMESTAMPTZ NULL,
-  last_error TEXT NULL
+  last_error TEXT NULL,
+  locked_at TIMESTAMPTZ NULL,
+  locked_by TEXT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_realtime_event_outbox_pending
