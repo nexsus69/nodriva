@@ -1,19 +1,29 @@
 import type { NextAuthConfig } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { runtimeTiming } from './config/runtimeTiming';
 
 // Configurazione compatibile con Edge Runtime (usata dal Middleware)
 export const authConfig = {
   providers: [], // I provider vanno in auth.ts perché usano il Node runtime (database)
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 60, // 30 minuti
-    updateAge: 5 * 60, // Sliding session: aggiorna se sono passati almeno 5 minuti
+    maxAge: runtimeTiming.sessionIdleTimeoutSeconds,
+    updateAge: runtimeTiming.sessionUpdateAgeSeconds,
   },
   pages: {
     signIn: '/login',
   },
   callbacks: {
     authorized({ auth, request }) {
+      // Activity e Sync devono gestire autonomamente la sessione scaduta e
+      // restituire JSON/401. Un redirect HTML a /login renderebbe impossibile
+      // al client distinguere la scadenza da un errore di rete.
+      if (
+        request.nextUrl.pathname === '/api/activity'
+        || request.nextUrl.pathname === '/api/sync/access'
+      ) {
+        return true;
+      }
       const isLoggedIn = !!auth?.userId;
       if (!isLoggedIn) {
         // Se c'è un cookie ma non c'è auth (scaduto o corrotto), aggiungiamo l'errore
@@ -33,6 +43,7 @@ export const authConfig = {
       if (user) {
         token.userId = user.id;
         token.dbToken = user.dbToken;
+        token.dbSessionId = user.dbSessionId;
         if (user.email) token.email = user.email;
       }
       return token;
@@ -40,6 +51,9 @@ export const authConfig = {
     async session({ session, token }) {
       if (token.userId) {
         session.userId = String(token.userId);
+      }
+      if (typeof token.dbSessionId === 'string') {
+        session.activitySessionId = token.dbSessionId;
       }
       if (typeof token.email === 'string') {
         session.user = { ...session.user, email: token.email };

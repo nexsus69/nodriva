@@ -18,6 +18,7 @@ export interface SubtreeEntityItem {
   updatedAt: string;
   payload: Record<string, unknown>;
   lockUserId?: string;
+  lockSessionId?: string;
   lockExpiresAt?: string;
   nodeName: string;
   nodePath: string;
@@ -90,7 +91,11 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
               ...(() => {
                 const lock = AppCache.getLockState('entity', entity.id);
                 return lock.locked
-                  ? { lockUserId: lock.byUserId, lockExpiresAt: lock.expiresAt }
+                  ? {
+                      lockUserId: lock.byUserId,
+                      lockSessionId: lock.bySessionId,
+                      lockExpiresAt: lock.expiresAt,
+                    }
                   : {};
               })()
             });

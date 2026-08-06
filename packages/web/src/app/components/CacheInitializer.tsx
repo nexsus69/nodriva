@@ -4,80 +4,106 @@ import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { CacheGarbageCollector } from '../cache/CacheGarbageCollector';
 import { AppCache } from '../cache/GlobalCacheClient';
-import {
-  listRealtimeChannelsAction,
-  listVirtualRootNodeIdsAction,
-} from '../actions/realtimeActions';
+import { runtimeTiming } from '../../config/runtimeTiming';
+import { activityDebugStore } from '../activity/ActivityDebugStore';
+import { useHumanActivity } from '../activity/ActivityProvider';
+
+interface PassiveSyncResponse {
+  dataChannels: string[];
+  lockChannels: string[];
+  virtualRootNodeIds: string[];
+}
+
+function isLoginRedirect(response: Response): boolean {
+  if (!response.redirected) return false;
+  try {
+    return new URL(response.url).pathname === '/login';
+  } catch {
+    return false;
+  }
+}
 
 export function CacheInitializer() {
   const { data: session } = useSession();
   const userId = session?.userId;
+  const { isSessionExpired } = useHumanActivity();
 
   useEffect(() => {
-    // Le Server Action richiedono una sessione valida. Evitiamo tentativi al
-    // bootstrap della pagina di login o dopo la scadenza della sessione: non è
-    // un errore realtime e non deve produrre retry periodici in console.
-    if (!userId) {
+    // Evitiamo polling al bootstrap della pagina di login o dopo la scadenza.
+    if (!userId || isSessionExpired) {
       AppCache.purgeAll();
       return;
     }
 
-    // Avvio del Garbage Collector delle view semantiche (idempotente)
-    // Esegue sweep ogni 30s usando i default
-    CacheGarbageCollector.start(30000);
+    // Avvio del Garbage Collector delle view semantiche (idempotente).
+    CacheGarbageCollector.start(runtimeTiming.cacheSweepIntervalMs);
 
     let releaseChannels: (() => void) | undefined;
     let disposed = false;
     let retainedChannelKey = '';
-    const synchronizeAccess = () => void Promise.all([listRealtimeChannelsAction(), listVirtualRootNodeIdsAction()]).then(
-      ([channelsResult, virtualRootsResult]) => {
+    const synchronizeAccess = () => {
+      const startedAt = performance.now();
+      activityDebugStore.syncStarted();
+      void fetch('/api/sync/access', {
+        method: 'GET',
+        cache: 'no-store',
+      }).then(async (response) => {
         if (disposed) return;
-        if (channelsResult.success) {
-          const channelKey = JSON.stringify([
-            [...channelsResult.data.dataChannels].sort(),
-            [...channelsResult.data.lockChannels].sort(),
-          ]);
-          if (channelKey !== retainedChannelKey) {
-            releaseChannels?.();
-            releaseChannels = AppCache.retainRealtimeChannels(
-              channelsResult.data.dataChannels,
-              channelsResult.data.lockChannels,
-            );
-            retainedChannelKey = channelKey;
-          }
-        } else if (channelsResult.error.code === 'AUTH_UNAUTHORIZED') {
-          // La sessione può scadere tra un refresh e il successivo. La cache
-          // viene ripulita; SessionProvider/il middleware governano il login.
+        if (response.status === 401 || isLoginRedirect(response)) {
           AppCache.purgeAll();
+          activityDebugStore.syncFinished('unauthorized', performance.now() - startedAt);
           return;
-        } else {
-          console.error('[CacheInitializer] Failed to resolve realtime channels:', channelsResult.error);
         }
-        if (virtualRootsResult.success) {
-          AppCache.setVirtualRootNodeIds(virtualRootsResult.data);
-        } else if (virtualRootsResult.error.code === 'AUTH_UNAUTHORIZED') {
-          AppCache.purgeAll();
+        if (!response.ok) {
+          activityDebugStore.syncFinished('server-error', performance.now() - startedAt);
           return;
-        } else {
-          console.error('[CacheInitializer] Failed to resolve virtual roots:', virtualRootsResult.error);
         }
-      },
-    ).catch((error: unknown) => {
-      console.error('[CacheInitializer] Unexpected realtime initialization error:', error);
-    });
+        const result = await response.json() as PassiveSyncResponse;
+        const channelKey = JSON.stringify([
+          [...result.dataChannels].sort(),
+          [...result.lockChannels].sort(),
+        ]);
+        if (channelKey !== retainedChannelKey) {
+          releaseChannels?.();
+          releaseChannels = AppCache.retainRealtimeChannels(
+            result.dataChannels,
+            result.lockChannels,
+          );
+          retainedChannelKey = channelKey;
+        }
+        AppCache.setVirtualRootNodeIds(result.virtualRootNodeIds);
+        activityDebugStore.syncFinished('success', performance.now() - startedAt, {
+          dataChannels: result.dataChannels.length,
+          lockChannels: result.lockChannels.length,
+          virtualRoots: result.virtualRootNodeIds.length,
+        });
+      }).catch(() => {
+        // Il polling è una rete di sicurezza: una sospensione o perdita di rete
+        // non deve produrre errori applicativi né invalidare cache/sessione.
+        activityDebugStore.syncFinished('network-error', performance.now() - startedAt);
+      });
+    };
     synchronizeAccess();
-    // Server-side termination is the immediate revocation mechanism. This
-    // reconciliation is a provider-independent safety net and also refreshes
-    // virtual roots after an ACL change in another admin session.
-    const accessRefresh = window.setInterval(synchronizeAccess, 60_000);
+    // Il realtime è il canale primario; il polling è una riconciliazione
+    // passiva e non rinnova più la sessione. Al ritorno dal background viene
+    // eseguito anche un riallineamento immediato.
+    const synchronizeWhenVisible = () => {
+      if (document.visibilityState === 'visible') synchronizeAccess();
+    };
+    document.addEventListener('visibilitychange', synchronizeWhenVisible);
+    const accessRefresh = window.setInterval(
+      synchronizeAccess,
+      runtimeTiming.syncPollingIntervalMs,
+    );
 
     return () => {
       disposed = true;
+      document.removeEventListener('visibilitychange', synchronizeWhenVisible);
       window.clearInterval(accessRefresh);
       CacheGarbageCollector.stop();
       releaseChannels?.();
     };
-  }, [userId]);
+  }, [isSessionExpired, userId]);
 
   return null;
 }

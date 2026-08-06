@@ -84,7 +84,7 @@ export class NodeApplicationService {
         // Concurrency locking check basato su runtime capability ed eseguito esplicitamente sul parent
         const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
         if (isLockingEnabled) {
-          await this.lockService.requireOwnedLock('node', parentNode.id, validatedCmd.actorUserId);
+          await this.lockService.requireOwnedLock('node', parentNode.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
         }
       }
 
@@ -186,7 +186,7 @@ export class NodeApplicationService {
       // 5. Controllo anti-ciclo: impedisci spostamento sotto sé stesso o sotto un discendente
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock('node', node.id, validatedCmd.actorUserId);
+        await this.lockService.requireOwnedLock('node', node.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       if (validatedCmd.newParentNodeId !== null) {
@@ -212,7 +212,7 @@ export class NodeApplicationService {
 
         // 5d. Locking sul nuovo parent
         if (isLockingEnabled) {
-          await this.lockService.requireOwnedLock('node', newParent.id, validatedCmd.actorUserId);
+          await this.lockService.requireOwnedLock('node', newParent.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
         }
 
         // 5e. Verifica collisione pathLabel nel nuovo parent
@@ -298,7 +298,7 @@ export class NodeApplicationService {
 
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock('node', node.id, validatedCmd.actorUserId);
+        await this.lockService.requireOwnedLock('node', node.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       const updated = node.update(

@@ -113,6 +113,7 @@ describe('NodeApplicationService', () => {
     it('should successfully create a node and log audit/revision inside a transaction', async () => {
       const cmd: CreateNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: null,
         nodeTypeKey: 'folder',
         name: 'My New Node',
@@ -137,6 +138,7 @@ describe('NodeApplicationService', () => {
     it('should fail validation if name is empty', async () => {
       const cmd: CreateNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: null,
         nodeTypeKey: 'folder',
         name: '',
@@ -166,6 +168,7 @@ describe('NodeApplicationService', () => {
 
       await service.createNode({
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: parent.id,
         nodeTypeKey: 'folder',
         name: 'Child',
@@ -174,7 +177,8 @@ describe('NodeApplicationService', () => {
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
         'node',
         parent.id,
-        '00000000-0000-0000-0000-000000000000'
+        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-7000-8000-000000000001'
       );
     });
 
@@ -186,6 +190,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: CreateNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: null,
         nodeTypeKey: 'folder',
         name: 'Folder Name',
@@ -199,6 +204,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: CreateNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: null,
         nodeTypeKey: 'folder',
         name: 'Duplicate Node',
@@ -308,6 +314,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: siblingNode.id,
       };
@@ -328,6 +335,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: childNode.id, // stesso nodo!
       };
@@ -346,6 +354,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: grandchildNode.id,
       };
@@ -363,6 +372,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: '00000000-0000-0000-0000-000000000099',
         newParentNodeId: rootNode.id,
       };
@@ -379,6 +389,7 @@ describe('NodeApplicationService', () => {
 
       const cmd: MoveNodeCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: siblingNode.id,
       };

@@ -12,13 +12,16 @@ export interface LockRepository {
    * Refreshes an existing lock, extending its expiration time.
    * If the lock does not exist or is held by someone else, throws LockNotFoundError / LockConflictError.
    */
-  refresh(resourceType: string, resourceId: string, userId: string, newExpiresAt: Date): Promise<void>;
+  refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, newExpiresAt: Date): Promise<void>;
 
   /**
    * Releases a lock held by a specific user.
    * If the lock is held by someone else, it throws LockForbiddenError.
    */
-  release(resourceType: string, resourceId: string, userId: string): Promise<void>;
+  release(resourceType: string, resourceId: string, userId: string, sessionId: string): Promise<void>;
+
+  /** Releases every lock owned by one authenticated session. */
+  releaseAllForSession(sessionId: string): Promise<Lock[]>;
 
   /**
    * Force releases a lock regardless of who owns it. Used by admins.

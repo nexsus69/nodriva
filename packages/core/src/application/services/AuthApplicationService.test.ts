@@ -15,8 +15,10 @@ describe('AuthApplicationService', () => {
 
   beforeEach(() => {
     sessionRepoMock = {
-      createSession: vi.fn().mockResolvedValue(undefined),
+      createSession: vi.fn().mockResolvedValue('session-1'),
       getSessionUserId: vi.fn(),
+      getActiveSessionExpiry: vi.fn(),
+      touchSession: vi.fn(),
       deleteSession: vi.fn().mockResolvedValue(undefined),
       deleteSessionsForUser: vi.fn().mockResolvedValue(undefined),
     };
@@ -36,7 +38,7 @@ describe('AuthApplicationService', () => {
     };
 
     rateLimitMock = { assertAllowed: vi.fn(), recordFailure: vi.fn(), clear: vi.fn() };
-    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, rateLimitMock);
+    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, 300, rateLimitMock);
   });
 
   describe('login', () => {
@@ -47,11 +49,14 @@ describe('AuthApplicationService', () => {
         new User('user-1', 'test@test.com', hash, true, false, 1, new Date(), new Date())
       );
 
-      const token = await authService.login('test@test.com', 'correct_password');
+      const result = await authService.login('test@test.com', 'correct_password');
       
-      expect(token).toBeDefined();
-      expect(typeof token).toBe('string');
+      expect(result.sessionId).toBe('session-1');
+      expect(typeof result.token).toBe('string');
       expect(sessionRepoMock.createSession).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date));
+      const expiresAt = vi.mocked(sessionRepoMock.createSession).mock.calls[0]?.[2];
+      expect(expiresAt?.getTime()).toBeGreaterThan(Date.now() + 299_000);
+      expect(expiresAt?.getTime()).toBeLessThanOrEqual(Date.now() + 300_000);
       expect(rateLimitMock.clear).toHaveBeenCalledWith(expect.any(String));
     });
 
@@ -85,6 +90,7 @@ describe('AuthApplicationService', () => {
       vi.mocked(sessionRepoMock.getSessionUserId).mockResolvedValueOnce('user-1');
       const userId = await authService.resolveSession('valid-token');
       expect(userId).toBe('user-1');
+      expect(sessionRepoMock.touchSession).not.toHaveBeenCalled();
     });
 
     it('should throw error for invalid token', async () => {

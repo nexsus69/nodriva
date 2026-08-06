@@ -66,12 +66,14 @@ export async function listNodeTypesAction() {
   });
 }
 
-export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId'>) {
+export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
   return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
+  const identity = await AuthResolver.resolveActorIdentity();
   const cmd: CreateNodeCommand = {
     ...input,
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId: identity.userId,
+    actorSessionId: identity.sessionId,
   };
   const node = await runWithRealtimeOutbox(
     () => nodeService.createNode(cmd),
@@ -93,12 +95,14 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
   });
 }
 
-export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId'>) {
+export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
   return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
+  const identity = await AuthResolver.resolveActorIdentity();
   const cmd: UpdateNodeCommand = {
     ...input,
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId: identity.userId,
+    actorSessionId: identity.sessionId,
   };
   const node = await runWithRealtimeOutbox(
     () => nodeService.updateNode(cmd),
@@ -120,12 +124,14 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
   });
 }
 
-export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId'>) {
+export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' | 'actorSessionId'>) {
   return withSafeActionErrors(async () => {
   const { nodeService } = await import('../../server/db');
+  const identity = await AuthResolver.resolveActorIdentity();
   const cmd: MoveNodeCommand = {
     ...input,
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId: identity.userId,
+    actorSessionId: identity.sessionId,
   };
   const previous = await nodeService.getNodeById(input.nodeId, cmd.actorUserId);
   const { moved } = await runWithRealtimeOutbox(async () => {

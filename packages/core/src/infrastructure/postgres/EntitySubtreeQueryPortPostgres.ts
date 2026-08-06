@@ -22,6 +22,7 @@ interface SubtreeRow {
   node_depth: number;
   node_row_version: number;
   lock_user_id: string | null;
+  lock_session_id: string | null;
   lock_expires_at: Date | null;
 }
 
@@ -212,6 +213,7 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
         n.depth AS node_depth,
         n.row_version AS node_row_version,
         l.user_id AS lock_user_id,
+        l.session_id AS lock_session_id,
         l.expires_at AS lock_expires_at
       FROM entities e
       INNER JOIN nodes n ON e.parent_node_id = n.id
@@ -250,8 +252,15 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
       nodeRowVersion: row.node_row_version,
       ...(row.lock_user_id
         ? row.lock_expires_at
-          ? { lockUserId: row.lock_user_id, lockExpiresAt: row.lock_expires_at }
-          : { lockUserId: row.lock_user_id }
+          ? {
+              lockUserId: row.lock_user_id,
+              ...(row.lock_session_id ? { lockSessionId: row.lock_session_id } : {}),
+              lockExpiresAt: row.lock_expires_at,
+            }
+          : {
+              lockUserId: row.lock_user_id,
+              ...(row.lock_session_id ? { lockSessionId: row.lock_session_id } : {}),
+            }
         : {}),
     }));
 

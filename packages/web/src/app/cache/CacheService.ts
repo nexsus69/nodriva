@@ -29,6 +29,7 @@ type SubtreeListItem = Partial<ClientEntity> & {
   createdAt?: string;
   updatedAt?: string;
   lockUserId?: string;
+  lockSessionId?: string;
   lockExpiresAt?: string;
 };
 type CachedEntityInput = Partial<ClientEntity> & {
@@ -118,7 +119,12 @@ export class IngestionLayer {
     // 1. Ingest EntityStore
     items.forEach(item => {
       AppCache.setLockState('entity', item.id, item.lockUserId
-        ? { locked: true, byUserId: item.lockUserId, expiresAt: item.lockExpiresAt }
+        ? {
+            locked: true,
+            byUserId: item.lockUserId,
+            bySessionId: item.lockSessionId,
+            expiresAt: item.lockExpiresAt,
+          }
         : { locked: false });
       AppCache.nodes.inject(item.parentNodeId, {
         id: item.parentNodeId,

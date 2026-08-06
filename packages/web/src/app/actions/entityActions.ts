@@ -38,8 +38,10 @@ export async function createEntityAction(input: CreateEntityActionInput) {
   if (!entityTypeKey) {
     throw new Error('entityTypeKey is required');
   }
+  const identity = await AuthResolver.resolveActorIdentity();
   const cmd = {
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId: identity.userId,
+    actorSessionId: identity.sessionId,
     parentNodeId: input.parentNodeId,
     entityTypeKey,
     name: input.name,
@@ -77,8 +79,10 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
   if (expectedRowVersion === undefined) {
     throw new Error('expectedRowVersion is required');
   }
+  const identity = await AuthResolver.resolveActorIdentity();
   const cmd = {
-    actorUserId: await AuthResolver.resolveActorUserId(),
+    actorUserId: identity.userId,
+    actorSessionId: identity.sessionId,
     entityId,
     name: input.name,
     description: input.description,
@@ -111,10 +115,12 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
   if (!entityId) {
     throw new Error('entityId is required');
   }
-  const actorUserId = await AuthResolver.resolveActorUserId();
+  const identity = await AuthResolver.resolveActorIdentity();
+  const actorUserId = identity.userId;
   const existing = await entityService.getEntityById(entityId, actorUserId);
   const cmd = {
     actorUserId,
+    actorSessionId: identity.sessionId,
     entityId,
     expectedRowVersion: input.expectedRowVersion,
   };
@@ -125,7 +131,7 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
 
   if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
     try {
-      await lockService.unlock('entity', entityId, actorUserId, { scopeNodeId: existing.parentNodeId });
+      await lockService.unlock('entity', entityId, actorUserId, identity.sessionId, { scopeNodeId: existing.parentNodeId });
     } catch (error) {
       // La cancellazione è già stata completata; il TTL del lock resta il
       // fallback se il rilascio esplicito non riesce.

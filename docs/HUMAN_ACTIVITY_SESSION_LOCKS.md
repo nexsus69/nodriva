@@ -1,0 +1,92 @@
+# Attività umana, sessioni e lock
+
+Questo documento descrive il contratto condiviso tra client e server per
+inattività, rinnovo della sessione autenticata e lock di modifica.
+
+## Unica configurazione temporale
+
+La fonte dei tempi è `packages/web/src/config/runtimeTiming.ts`. Il solo valore
+configurabile è `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS`; tutti gli altri
+intervalli sono derivati, quindi non devono essere introdotti timer applicativi
+hardcoded per sessione, heartbeat, lock o polling.
+
+Con il valore attuale di 300 secondi:
+
+| Concetto | Derivazione | Valore attuale |
+| --- | --- | ---: |
+| Inattività massima sessione | configurazione | 300 s |
+| Throttle heartbeat | sessione / 6 | 50 s |
+| Polling di riconciliazione | sessione / 6 | 50 s |
+| TTL lock | 2 × heartbeat | 100 s |
+
+Il TTL del lock è quindi più corto della sessione. Nel normale flusso di
+inattività, quando la sessione scade non può esserci un suo lock ancora attivo:
+l'ultimo lock è già scaduto. Può rimanere temporaneamente una riga scaduta nel
+database, ma non viene considerata un lock valido e può essere sovrascritta.
+
+## Attività umana e heartbeat
+
+Il client considera attività umana gli eventi `pointerdown`, `keydown`, `input`
+e `wheel`, anche quando originano da scrollbar o pannelli sovrapposti. Se la
+pagina è visibile, il primo evento oltre la finestra di throttle invia
+`POST /api/activity`.
+
+Il server usa l'identità risolta dalla sessione, mai dati identitari forniti dal
+client, e nella stessa transazione:
+
+1. estende la scadenza della specifica sessione autenticata;
+2. estende fino al TTL derivato soltanto i lock registrati come attivi nel
+   client e posseduti dalla medesima sessione;
+3. restituisce la nuova scadenza della sessione e l'elenco dei lock realmente
+   rinnovati.
+
+Un errore di rete o server non prova che la sessione sia scaduta. Solo una
+risposta `401` o una verifica autorevole negativa porta il client allo stato
+`Sessione scaduta`, svuota la cache e interrompe polling, realtime e listener di
+attività.
+
+## Background e verifica della scadenza
+
+I browser, soprattutto su mobile, possono sospendere timer e rete quando la
+pagina è in background. Il sistema non dipende quindi dalla puntualità di un
+timer client per far scadere la sessione: la scadenza autorevole è nel database.
+
+Quando la pagina torna visibile, `GET /api/activity` verifica lo stato senza
+rinnovarlo. Anche il watcher locale esegue la stessa verifica poco dopo la
+scadenza conosciuta; in caso di rete irraggiungibile ritenta senza dichiarare
+falsamente la sessione scaduta.
+
+## Polling e realtime
+
+`GET /api/sync/access` è una riconciliazione passiva di canali realtime, scope e
+radici virtuali. Non rappresenta attività umana e non rinnova né sessione né
+lock. Il realtime rimane il canale primario; il polling recupera cambi di
+permessi o sottoscrizioni persi e viene eseguito anche al ritorno in foreground.
+
+## Proprietà del lock
+
+Ogni lock contiene sia `user_id` sia `session_id`. La proprietà è della
+specifica sessione autenticata:
+
+- due schede che condividono la stessa sessione browser condividono la
+  proprietà;
+- un altro dispositivo o un altro login dello stesso utente ha una sessione
+  diversa e vede il lock come appartenente ad altri;
+- tutte le mutazioni protette verificano sul server sia utente sia sessione;
+- eventi realtime e cache client conservano `sessionId`, così un rilascio
+  ritardato di una vecchia sessione non cancella un lock acquisito nel frattempo
+  da un'altra.
+
+L'uscita dalla modalità modifica tenta il rilascio esplicito. Il logout
+volontario rilascia e pubblica gli eventi per tutti i lock della sessione prima
+di eliminare la sessione. La foreign key
+`locks.session_id -> user_sessions.id ON DELETE CASCADE` è la garanzia finale
+per revoche, errori o percorsi amministrativi. Alla scadenza per inattività, il
+TTL più breve del lock resta invece il meccanismo normale di sicurezza.
+
+## Diagnostica
+
+Con `NEXT_PUBLIC_ACTIVITY_DEBUG=true` il pannello Activity/Sync mostra attività
+rilevata, heartbeat, scadenza nota, polling, lock registrati e relativi errori.
+Il pannello è osservabilità: interagirvi conta come normale attività umana, ma
+non modifica direttamente sessione o lock.

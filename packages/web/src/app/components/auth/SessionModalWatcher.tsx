@@ -1,56 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+import { runtimeTiming } from '../../../config/runtimeTiming';
+import { useHumanActivity } from '../../activity/ActivityProvider';
 
-interface SessionModalWatcherProps {
-  initialExpires?: string;
-}
+export function SessionModalWatcher() {
+  const { sessionExpiresAt, isSessionExpired, checkSession } = useHumanActivity();
 
-export function SessionModalWatcher({ initialExpires }: SessionModalWatcherProps) {
-  const [isExpired, setIsExpired] = useState(false);
-  const pathname = usePathname();
-  
   useEffect(() => {
-    // Prefer the server-provided expiry; fall back to the configured session age
-    // when the initial session was not available during the first render.
-    const MAX_AGE_MS = 30 * 60 * 1000;
-    const SAFETY_BUFFER = 1000;
-    const expiresAt = initialExpires ? Date.parse(initialExpires) : Date.now() + MAX_AGE_MS;
-    const delay = Math.max(0, expiresAt - Date.now() + SAFETY_BUFFER);
+    if (!sessionExpiresAt || isSessionExpired) return;
+    const parsedExpiry = Date.parse(sessionExpiresAt);
+    if (!Number.isFinite(parsedExpiry)) return;
 
-    let isCancelled = false;
-
-    const timeoutId = setTimeout(async () => {
-      if (isCancelled) return;
-      console.log(`[SessionWatcher] Timer fired! Checking session...`);
-      
-      try {
-        const res = await fetch('/api/auth/session');
-        const session = await res.json();
-        
-        if (!session || Object.keys(session).length === 0 || !session.expires) {
-          console.log(`[SessionWatcher] Session expired, showing modal.`);
-          if (!isCancelled) setIsExpired(true);
-        } else {
-          // Se il server dice che è ancora valida (magari c'è stata una Server Action 
-          // che non ha cambiato il pathname), dovremmo aggiornare il timer, ma per 
-          // ora aspettiamo che scada veramente.
-          console.log(`[SessionWatcher] Session was silently extended on server.`);
-        }
-      } catch (err) {
-        console.error('Error fetching session:', err);
-        if (!isCancelled) setIsExpired(true);
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const verify = async () => {
+      const status = await checkSession();
+      if (!cancelled && status === 'unreachable') {
+        timeoutId = setTimeout(verify, runtimeTiming.cacheSweepIntervalMs);
       }
-    }, delay);
+    };
+    timeoutId = setTimeout(
+      verify,
+      Math.max(0, parsedExpiry - Date.now() + runtimeTiming.sessionExpirySafetyBufferMs),
+    );
 
     return () => {
-      isCancelled = true;
+      cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [initialExpires, pathname]);
+  }, [checkSession, isSessionExpired, sessionExpiresAt]);
 
-  if (!isExpired) return null;
+  if (!isSessionExpired) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/25 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-2xl shadow-slate-900/20">

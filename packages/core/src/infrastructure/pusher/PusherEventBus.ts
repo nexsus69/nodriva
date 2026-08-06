@@ -48,16 +48,18 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
         resourceType: lock.resourceType,
         resourceId: lock.resourceId,
         userId: lock.userId,
+        sessionId: lock.sessionId,
         expiresAt: lock.expiresAt.toISOString()
       }, () => this.resolveLockChannelNames!(lock.resourceType, lock.resourceId, scope?.scopeNodeId));
   }
 
-  async publishLockReleased(resourceType: string, resourceId: string, userId: string, scope?: LockEventScope): Promise<void> {
+  async publishLockReleased(resourceType: string, resourceId: string, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
     if (!this.transport.enabled || !this.resolveLockChannelNames) return;
     await this.publish('lock:released', {
         resourceType,
         resourceId,
-        userId
+        userId,
+        sessionId
       }, () => this.resolveLockChannelNames!(resourceType, resourceId, scope?.scopeNodeId));
   }
 

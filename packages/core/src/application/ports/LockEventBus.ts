@@ -14,7 +14,7 @@ export interface LockEventBus {
   /**
    * Dispatched when a lock is released by its owner.
    */
-  publishLockReleased(resourceType: string, resourceId: string, userId: string, scope?: LockEventScope): Promise<void>;
+  publishLockReleased(resourceType: string, resourceId: string, userId: string, sessionId: string, scope?: LockEventScope): Promise<void>;
 
   /**
    * Dispatched when an admin force-releases a lock.

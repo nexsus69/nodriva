@@ -4,6 +4,7 @@ export class Lock {
     public readonly resourceType: string,
     public readonly resourceId: string,
     public readonly userId: string,
+    public readonly sessionId: string,
     public readonly acquiredAt: Date,
     public readonly expiresAt: Date
   ) {}

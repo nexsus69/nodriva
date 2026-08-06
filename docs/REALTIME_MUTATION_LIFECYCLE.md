@@ -42,8 +42,9 @@ policy corrente dell'utente. La connessione Pusher è inoltre autenticata con
 l'utente applicativo: una variazione di scope, ruolo o stato utente invalida la
 cache dopo il commit e termina le connessioni dell'utente, imponendo una nuova
 autorizzazione delle sottoscrizioni. Il client riconcilia canali e virtual root
-ogni 60 secondi come rete di sicurezza per provider compatibili senza
-terminazione utenti.
+con l'intervallo derivato dalla durata di sessione (attualmente 50 secondi) come
+rete di sicurezza per provider compatibili senza terminazione utenti. Questa
+riconciliazione è passiva e non rinnova la sessione.
 
 ## Sequenze garantite
 
@@ -56,17 +57,20 @@ create -> data:changed(created) -> response
 ### Aggiornamento
 
 ```text
-lock (sessione di editing) -> update -> data:changed(updated) -> response -> unlock (UI)
+lock (sessione autenticata) -> update -> data:changed(updated) -> response -> unlock (UI)
 ```
 
 Il lock non viene rilasciato automaticamente dall'update: può proteggere una
-sessione di editing composta da più salvataggi. Il rilascio avviene quando la
-sessione termina o il componente viene smontato.
+modalità di modifica composta da più salvataggi. Appartiene alla specifica
+sessione autenticata, non genericamente all'utente, e viene rinnovato soltanto
+da attività umana della medesima sessione. Il rilascio avviene uscendo dalla
+modalità di modifica, smontando il componente o effettuando il logout; TTL e
+cascata sulla sessione restano garanzie server-side.
 
 ### Spostamento
 
 ```text
-lock (sessione di editing) -> move -> data:changed(moved) -> response -> unlock (UI)
+lock (sessione autenticata) -> move -> data:changed(moved) -> response -> unlock (UI)
 ```
 
 L'evento include il nuovo contenitore e, quando disponibile, il contenitore
@@ -81,6 +85,9 @@ lock (eventuale) -> delete -> data:changed(deleted) -> unlock automatico -> resp
 Il rilascio automatico evita di lasciare un lock orfano su una risorsa ormai
 inesistente. Se il rilascio fallisce, il TTL del lock resta il meccanismo di
 fallback e l'operazione di cancellazione non viene annullata.
+
+Il contratto completo di attività, timeout e proprietà dei lock è descritto in
+[`HUMAN_ACTIVITY_SESSION_LOCKS.md`](./HUMAN_ACTIVITY_SESSION_LOCKS.md).
 
 ## Realtime disabilitato
 

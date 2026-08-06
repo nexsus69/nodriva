@@ -50,7 +50,11 @@ Nel contesto specifico di Dashboard V2:
 
 **Implicazioni Future Protette dalla Scelta:**
 - **Logout Reale & Sicurezza:** Una sessione può essere fisicamente distrutta dal DB, bloccando all'istante l'utente (es. disabilitazione forzata da Admin).
-- **Lock/Unlock Concorrenza:** I lock sulle entità possono essere intrinsecamente legati al ciclo di vita della sessione esatta; se la sessione cade, il lock decade, garantendo zero deadlock invisibili.
+- **Lock/Unlock Concorrenza (implementato):** Ogni lock è legato tramite
+  `session_id` alla sessione esatta, quindi un secondo dispositivo dello stesso
+  utente non eredita il lock. Il TTL del lock è più breve dell'inattività
+  massima della sessione; logout e cancellazione della sessione forniscono
+  inoltre rilascio esplicito e cascata di sicurezza.
 ### Trade-off RISOLTO: Storage Session Token in chiaro
 
 **Contesto (Ex Problema):**

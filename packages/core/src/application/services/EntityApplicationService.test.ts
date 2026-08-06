@@ -147,6 +147,7 @@ describe('EntityApplicationService', () => {
     it('should successfully create an entity with valid dynamic payload and record audit', async () => {
       const cmd: CreateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'device',
         name: 'Oscilloscope',
@@ -172,13 +173,15 @@ describe('EntityApplicationService', () => {
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
         'node',
         'parent-uuid',
-        cmd.actorUserId
+        cmd.actorUserId,
+        cmd.actorSessionId
       );
     });
 
     it('should fail structural command validation if actorUserId is not a uuid', async () => {
       const cmd: CreateEntityCommand = {
         actorUserId: 'invalid-uuid',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'device',
         name: 'Oscilloscope',
@@ -194,6 +197,7 @@ describe('EntityApplicationService', () => {
     it('should fail if dynamic schema validation fails (missing required field)', async () => {
       const cmd: CreateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'device',
         name: 'Oscilloscope',
@@ -211,6 +215,7 @@ describe('EntityApplicationService', () => {
 
       const cmd: CreateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'unknown-key',
         name: 'Oscilloscope',
@@ -223,6 +228,7 @@ describe('EntityApplicationService', () => {
     it('should fail if parent node rowVersion mismatches', async () => {
       const cmd: CreateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'device',
         name: 'Oscilloscope',
@@ -258,6 +264,7 @@ describe('EntityApplicationService', () => {
 
       const cmd: UpdateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         entityId: '00000000-0000-0000-0000-000000000002',
         name: 'New Name',
         payloadDelta: {
@@ -280,7 +287,8 @@ describe('EntityApplicationService', () => {
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
         'entity',
         existingEntity.id,
-        cmd.actorUserId
+        cmd.actorUserId,
+        cmd.actorSessionId
       );
     });
   });
@@ -306,6 +314,7 @@ describe('EntityApplicationService', () => {
 
       const cmd: DeleteEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
         entityId: '00000000-0000-0000-0000-000000000002',
         expectedRowVersion: 1,
       };
@@ -319,7 +328,8 @@ describe('EntityApplicationService', () => {
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
         'entity',
         existingEntity.id,
-        cmd.actorUserId
+        cmd.actorUserId,
+        cmd.actorSessionId
       );
     });
   });

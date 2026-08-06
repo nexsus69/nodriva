@@ -10,19 +10,20 @@ export class LockService {
     private readonly lockRepository: LockRepository,
     private readonly lockEventBus: LockEventBus,
     private readonly idGenerator: IdGeneratorPort,
-    private readonly defaultTtlSeconds: number = 120
+    private readonly defaultTtlSeconds: number,
   ) {}
 
   /**
    * Acquires a lock on a resource for a user.
    */
-  async lock(resourceType: string, resourceId: string, userId: string, ttlSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
+  async lock(resourceType: string, resourceId: string, userId: string, sessionId: string, ttlSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     const lock = new Lock(
       this.idGenerator.generate(),
       resourceType,
       resourceId,
       userId,
+      sessionId,
       new Date(),
       expiresAt
     );
@@ -38,9 +39,14 @@ export class LockService {
   /**
    * Refreshes an existing lock.
    */
-  async refresh(resourceType: string, resourceId: string, userId: string, extendSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
+  async refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, extendSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
     const newExpiresAt = new Date(Date.now() + extendSeconds * 1000);
-    await this.lockRepository.refresh(resourceType, resourceId, userId, newExpiresAt);
+    return await this.refreshUntil(resourceType, resourceId, userId, sessionId, newExpiresAt, scope);
+  }
+
+  /** Refreshes an owned lock to an externally coordinated activity deadline. */
+  async refreshUntil(resourceType: string, resourceId: string, userId: string, sessionId: string, newExpiresAt: Date, scope?: LockEventScope): Promise<Lock> {
+    await this.lockRepository.refresh(resourceType, resourceId, userId, sessionId, newExpiresAt);
 
     const lock = await this.lockRepository.getLock(resourceType, resourceId);
     if (lock) {
@@ -53,9 +59,26 @@ export class LockService {
   /**
    * Releases a lock held by a specific user.
    */
-  async unlock(resourceType: string, resourceId: string, userId: string, scope?: LockEventScope): Promise<void> {
-    await this.lockRepository.release(resourceType, resourceId, userId);
-    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resourceType, resourceId, userId, scope));
+  async unlock(resourceType: string, resourceId: string, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
+    await this.lockRepository.release(resourceType, resourceId, userId, sessionId);
+    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resourceType, resourceId, userId, sessionId, scope));
+  }
+
+  /** Releases and broadcasts all locks belonging to an intentional logout. */
+  async releaseAllForSession(sessionId: string): Promise<void> {
+    const released = await this.lockRepository.releaseAllForSession(sessionId);
+    await Promise.all(released.map(async (lock) => {
+      try {
+        await this.lockEventBus.publishLockReleased(
+        lock.resourceType,
+        lock.resourceId,
+        lock.userId,
+        lock.sessionId,
+        );
+      } catch (error) {
+        console.error('[LockService] Failed to publish session lock release:', error);
+      }
+    }));
   }
 
   /**
@@ -70,10 +93,10 @@ export class LockService {
    * Checks if a resource is currently locked by ANYONE.
    * If it's expired, it's considered unlocked.
    */
-  async isLocked(resourceType: string, resourceId: string): Promise<{ locked: boolean; byUserId?: string }> {
+  async isLocked(resourceType: string, resourceId: string): Promise<{ locked: boolean; byUserId?: string; bySessionId?: string }> {
     const lock = await this.lockRepository.getLock(resourceType, resourceId);
     if (lock && !lock.isExpired()) {
-      return { locked: true, byUserId: lock.userId };
+      return { locked: true, byUserId: lock.userId, bySessionId: lock.sessionId };
     }
     return { locked: false };
   }
@@ -82,7 +105,7 @@ export class LockService {
    * Used by other Domain Services to assert that the current user holds the lock if needed.
    * If there is an active lock belonging to someone else, throws LockConflictError.
    */
-  async requireLockIfNeeded(resourceType: string, resourceId: string, actorUserId: string): Promise<void> {
+  async requireLockIfNeeded(resourceType: string, resourceId: string, actorUserId: string, actorSessionId: string): Promise<void> {
     const lock = await this.lockRepository.getLock(resourceType, resourceId);
     
     // Se non c'è lock o è scaduto, è modificabile (chiunque può rubarlo acquisendolo)
@@ -91,7 +114,7 @@ export class LockService {
     }
 
     // Se c'è un lock attivo, DEVE essere dell'attore che sta tentando di modificare
-    if (lock.userId !== actorUserId) {
+    if (lock.userId !== actorUserId || lock.sessionId !== actorSessionId) {
       throw new LockConflictError(resourceType, resourceId);
     }
   }
@@ -99,7 +122,7 @@ export class LockService {
   /**
    * Requires an active lock owned by the actor. Used by edit-mode mutations.
    */
-  async requireOwnedLock(resourceType: string, resourceId: string, actorUserId: string): Promise<void> {
+  async requireOwnedLock(resourceType: string, resourceId: string, actorUserId: string, actorSessionId: string): Promise<void> {
     const lock = await this.lockRepository.getLock(resourceType, resourceId);
     if (!lock) {
       throw new LockNotFoundError(resourceType, resourceId);
@@ -107,7 +130,7 @@ export class LockService {
     if (lock.isExpired()) {
       throw new LockExpiredError(resourceType, resourceId);
     }
-    if (lock.userId !== actorUserId) {
+    if (lock.userId !== actorUserId || lock.sessionId !== actorSessionId) {
       throw new LockConflictError(resourceType, resourceId);
     }
   }

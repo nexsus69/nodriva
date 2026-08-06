@@ -1,6 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
-import { authApplicationService } from './server/db';
+import { authApplicationService, lockService } from './server/db';
 import { authConfig } from './auth.config';
 import { parseLoginCredentials } from './app/actions/auth/authInputValidation';
 
@@ -11,12 +11,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user?.id && user.dbToken) {
         token.userId = user.id;
         token.dbToken = user.dbToken;
+        token.dbSessionId = user.dbSessionId;
         if (user.email) token.email = user.email;
         return token;
       }
 
       if (typeof token.dbToken !== 'string') {
         delete token.userId;
+        delete token.dbSessionId;
         return token;
       }
 
@@ -29,12 +31,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       } catch {
         delete token.userId;
         delete token.dbToken;
+        delete token.dbSessionId;
       }
       return token;
     },
     async session({ session, token }) {
       if (token.userId) {
         session.userId = String(token.userId);
+      }
+      if (typeof token.dbSessionId === 'string') {
+        session.activitySessionId = token.dbSessionId;
       }
       if (typeof token.email === 'string') {
         session.user = { ...session.user, email: token.email };
@@ -57,7 +63,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         try {
-          const dbToken = await authApplicationService.login(
+          const loginResult = await authApplicationService.login(
             parsedCredentials.email,
             parsedCredentials.password,
             request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -66,12 +72,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             parsedCredentials.mfaCode,
           );
 
-          const userId = await authApplicationService.resolveSession(dbToken);
+          const userId = await authApplicationService.resolveSession(loginResult.token);
 
           return {
             id: userId,
             email: parsedCredentials.email,
-            dbToken,
+            dbToken: loginResult.token,
+            dbSessionId: loginResult.sessionId,
           };
         } catch (err: unknown) {
           console.error('NextAuth authorize error:', err instanceof Error ? err.message : 'Unknown error');
@@ -83,8 +90,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   events: {
     async signOut(message) {
       const token = 'token' in message ? message.token?.dbToken : undefined;
+      const sessionId = 'token' in message ? message.token?.dbSessionId : undefined;
       if (typeof token === 'string') {
         try {
+          if (typeof sessionId === 'string') {
+            await lockService.releaseAllForSession(sessionId);
+          }
           await authApplicationService.logout(token);
         } catch (err) {
           console.error('NextAuth signOut DB cleanup error:', err);

@@ -17,7 +17,8 @@ function createService() {
     listAllRoles: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), assignUserRoles: vi.fn(),
   } satisfies UserRepository;
   const sessions: SessionRepositoryPort = {
-    createSession: vi.fn(), getSessionUserId: vi.fn(), deleteSession: vi.fn(), deleteSessionsForUser: vi.fn(),
+    createSession: vi.fn(), getSessionUserId: vi.fn(), getActiveSessionExpiry: vi.fn(), touchSession: vi.fn(),
+    deleteSession: vi.fn(), deleteSessionsForUser: vi.fn(),
   };
   const audit: AuditPort = { record: vi.fn() };
   const transactions: TransactionPort = {

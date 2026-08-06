@@ -176,6 +176,11 @@ export {
 
 // ─── Application Services ────────────────────────────────────────────────────
 export { AuthApplicationService } from './application/services/AuthApplicationService.js';
+export { HumanActivityService } from './application/services/HumanActivityService.js';
+export type {
+  ActivityLockRef,
+  HumanActivityResult,
+} from './application/services/HumanActivityService.js';
 export { NodeApplicationService } from './application/services/NodeApplicationService.js';
 export { EntityApplicationService } from './application/services/EntityApplicationService.js';
 export { TypeAdminApplicationService } from './application/services/TypeAdminApplicationService.js';

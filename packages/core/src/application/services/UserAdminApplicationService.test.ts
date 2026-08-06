@@ -73,6 +73,8 @@ describe('UserAdminApplicationService', () => {
     mockSessionRepository = {
       createSession: vi.fn(),
       getSessionUserId: vi.fn(),
+      getActiveSessionExpiry: vi.fn(),
+      touchSession: vi.fn(),
       deleteSession: vi.fn(),
       deleteSessionsForUser: vi.fn(),
     };

@@ -11,19 +11,20 @@ import {
 async function resolveAuthorizedActor(
   resourceType: string,
   resourceId: string
-): Promise<{ actorUserId: string; resourceType: LockResourceType; scopeNodeId: string }> {
+): Promise<{ actorUserId: string; actorSessionId: string; resourceType: LockResourceType; scopeNodeId: string }> {
   const validatedType = validateLockResource(resourceType, resourceId);
-  const actorUserId = await AuthResolver.resolveActorUserId();
+  const identity = await AuthResolver.resolveActorIdentity();
+  const actorUserId = identity.userId;
   const { accessControlPort, entityRepository } = await import('../../server/db');
 
   if (validatedType === 'node') {
     await accessControlPort.assertHasPermission(actorUserId, 'node.edit', resourceId);
-    return { actorUserId, resourceType: validatedType, scopeNodeId: resourceId };
+    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: resourceId };
   } else {
     const entity = await entityRepository.findById(resourceId);
     if (!entity || entity.deletedAt) throw new Error('Entità non trovata.');
     await accessControlPort.assertHasPermission(actorUserId, 'entity.edit', entity.parentNodeId);
-    return { actorUserId, resourceType: validatedType, scopeNodeId: entity.parentNodeId };
+    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: entity.parentNodeId };
   }
 }
 
@@ -36,8 +37,8 @@ export async function acquireLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    const lock = await lockService.lock(actor.resourceType, resourceId, actor.actorUserId, undefined, { scopeNodeId: actor.scopeNodeId });
-    return { success: true as const, lock: { id: lock.id, expiresAt: lock.expiresAt.toISOString() } };
+    const lock = await lockService.lock(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
+    return { success: true as const, lock: { id: lock.id, sessionId: lock.sessionId, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to acquire lock:', error);
     return mapLockError(error);
@@ -48,7 +49,7 @@ export async function refreshLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    const lock = await lockService.refresh(actor.resourceType, resourceId, actor.actorUserId, undefined, { scopeNodeId: actor.scopeNodeId });
+    const lock = await lockService.refresh(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const, lock: { id: lock.id, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to refresh lock:', error);
@@ -60,7 +61,7 @@ export async function releaseLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    await lockService.unlock(actor.resourceType, resourceId, actor.actorUserId, { scopeNodeId: actor.scopeNodeId });
+    await lockService.unlock(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const };
   } catch (error) {
     console.error('[LockActions] Failed to release lock:', error);
@@ -83,7 +84,8 @@ export async function isLockedAction(resourceType: string, resourceId: string) {
 export async function getLockStateAction(resourceType: string, resourceId: string) {
   try {
     const validatedType = validateLockResource(resourceType, resourceId);
-    const actorUserId = await AuthResolver.resolveActorUserId();
+    const identity = await AuthResolver.resolveActorIdentity();
+    const actorUserId = identity.userId;
     const { accessControlPort, lockService, entityRepository } = await import('../../server/db');
 
     if (validatedType === 'node') {

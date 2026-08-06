@@ -70,7 +70,7 @@ describe('PusherEventBus', () => {
       resolveLockChannelNames,
       onPublishMetric,
     }, mock);
-    const lock = new Lock('lock-1', 'node', 'node-a', 'user-1', new Date('2026-08-03T10:00:00Z'), new Date('2026-08-03T10:02:00Z'));
+    const lock = new Lock('lock-1', 'node', 'node-a', 'user-1', 'session-1', new Date('2026-08-03T10:00:00Z'), new Date('2026-08-03T10:02:00Z'));
 
     await bus.publishLockAcquired(lock, { scopeNodeId: 'node-parent' });
     expect(mock.trigger).toHaveBeenCalledWith('lock-channel', 'lock:acquired', expect.objectContaining({ resourceId: 'node-a' }));

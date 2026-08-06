@@ -42,6 +42,7 @@ import {
   MfaTotpPortPostgres,
   MfaTotpApplicationService,
   AuthApplicationService,
+  HumanActivityService,
   RealtimeScopeResolverPostgres,
   RealtimeOutboxPostgres,
   RealtimeChannelRouter,
@@ -50,6 +51,7 @@ import {
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
 import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
+import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
 
 if (!process.env.DATABASE_URL) {
@@ -71,7 +73,7 @@ const pool = new pg.Pool({
 
 export const pgExecutor = new PgExecutor(pool);
 
-const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(30_000);
+const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
 export const realtimeMetrics = new RealtimeMetrics();
 
 export function invalidateRealtimePolicyCache(): void {
@@ -192,7 +194,12 @@ export const idGenerator = {
   }
 };
 
-export const lockService = new LockService(lockRepository, pusherEventBus, idGenerator);
+export const lockService = new LockService(
+  lockRepository,
+  pusherEventBus,
+  idGenerator,
+  runtimeTiming.lockTtlSeconds,
+);
 
 // Istanziamo i Service Layer concreti pronti per l'uso
 export const nodeService = new NodeApplicationService(
@@ -285,7 +292,19 @@ export const systemSeedService = new SystemSeedPostgres(
 );
 
 export const authApplicationService = new AuthApplicationService(
-  sessionRepository, userRepository, loginRateLimitPort, mfaTotpService, auditPort,
+  sessionRepository,
+  userRepository,
+  runtimeTiming.sessionIdleTimeoutSeconds,
+  loginRateLimitPort,
+  mfaTotpService,
+  auditPort,
+);
+export const humanActivityService = new HumanActivityService(
+  sessionRepository,
+  lockService,
+  transactionPort,
+  runtimeTiming.sessionIdleTimeoutSeconds,
+  runtimeTiming.lockTtlSeconds,
 );
 export const accountRecoveryService = new AccountRecoveryApplicationService(
   accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort,

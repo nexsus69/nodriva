@@ -21,6 +21,7 @@ export interface LockChannelEvent {
   resourceType: RealtimeResourceType;
   resourceId: string;
   userId?: string;
+  sessionId?: string;
   expiresAt?: string;
 }
 

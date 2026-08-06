@@ -17,6 +17,7 @@ import { AdminCacheClient } from './AdminCacheClient';
 export interface CachedLockState {
   locked: boolean;
   byUserId?: string;
+  bySessionId?: string;
   expiresAt?: string;
 }
 
@@ -215,10 +216,18 @@ export class GlobalCacheClient {
       this.setLockState(event.resourceType, event.resourceId, {
         locked: true,
         byUserId: event.userId,
+        bySessionId: event.sessionId,
         expiresAt: event.expiresAt,
       });
-    } else {
+    } else if (eventName === 'lock:force-released') {
       this.setLockState(event.resourceType, event.resourceId, { locked: false });
+    } else {
+      const current = this.getLockState(event.resourceType, event.resourceId);
+      // Ignore a delayed release belonging to an older session after another
+      // session has already acquired the same resource.
+      if (!event.sessionId || current.bySessionId === event.sessionId) {
+        this.setLockState(event.resourceType, event.resourceId, { locked: false });
+      }
     }
   }
 

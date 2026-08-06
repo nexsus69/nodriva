@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useSession } from 'next-auth/react';
 import {
   acquireLockAction,
-  refreshLockAction,
   releaseLockAction,
 } from '../actions/lockActions';
 import { AppCache } from '../cache/GlobalCacheClient';
+import { useHumanActivity } from '../activity/ActivityProvider';
 
 type LockResourceType = 'node' | 'entity';
 
@@ -19,6 +19,7 @@ interface UseLockProps {
 export function useLock({ resourceType, resourceId }: UseLockProps) {
   const { data: session } = useSession();
   const currentUserId = (session as { userId?: string } | null)?.userId;
+  const currentSessionId = session?.activitySessionId;
   const subscribeLock = useCallback(
     (onStoreChange: () => void) =>
       AppCache.subscribeLock(resourceType, resourceId, onStoreChange),
@@ -34,33 +35,8 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     getLockSnapshot
   );
   const [error, setError] = useState<string | null>(null);
-  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const ownsLockRef = useRef(false);
-
-  const stopRefreshTimer = useCallback(() => {
-    if (refreshTimerRef.current) {
-      clearInterval(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-  }, []);
-
-  const startRefreshTimer = useCallback(() => {
-    stopRefreshTimer();
-    refreshTimerRef.current = setInterval(async () => {
-      const result = await refreshLockAction(resourceType, resourceId);
-      if (!result.success) {
-        stopRefreshTimer();
-        AppCache.setLockState(resourceType, resourceId, { locked: false });
-        setError(result.message || 'Il lock di modifica è scaduto.');
-        return;
-      }
-      AppCache.setLockState(resourceType, resourceId, {
-        locked: true,
-        byUserId: currentUserId,
-        expiresAt: result.lock.expiresAt,
-      });
-    }, 60_000);
-  }, [currentUserId, resourceId, resourceType, stopRefreshTimer]);
+  const { registerActiveLock } = useHumanActivity();
 
   const acquireLock = useCallback(async (): Promise<boolean> => {
     setError(null);
@@ -73,11 +49,11 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     AppCache.setLockState(resourceType, resourceId, {
       locked: true,
       byUserId: currentUserId,
+      bySessionId: currentSessionId,
       expiresAt: result.lock.expiresAt,
     });
-    startRefreshTimer();
     return true;
-  }, [currentUserId, resourceId, resourceType, startRefreshTimer]);
+  }, [currentSessionId, currentUserId, resourceId, resourceType]);
 
   const releaseLock = useCallback(async (): Promise<void> => {
     if (!ownsLockRef.current) return;
@@ -88,38 +64,34 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     }
 
     AppCache.setLockState(resourceType, resourceId, { locked: false });
-    stopRefreshTimer();
-  }, [resourceId, resourceType, stopRefreshTimer]);
+  }, [resourceId, resourceType]);
 
   useEffect(() => {
     void AppCache.hydrateLockState(resourceType, resourceId);
   }, [resourceId, resourceType]);
 
   useEffect(() => {
-    if (lockState.locked && lockState.byUserId === currentUserId) {
+    if (lockState.locked && lockState.bySessionId === currentSessionId) {
       ownsLockRef.current = true;
-      startRefreshTimer();
+      return registerActiveLock({ resourceType, resourceId });
     } else {
       ownsLockRef.current = false;
-      stopRefreshTimer();
     }
-    return stopRefreshTimer;
-  }, [currentUserId, lockState.byUserId, lockState.locked, startRefreshTimer, stopRefreshTimer]);
+  }, [currentSessionId, lockState.bySessionId, lockState.locked, registerActiveLock, resourceId, resourceType]);
 
   useEffect(() => {
     return () => {
-      stopRefreshTimer();
       if (ownsLockRef.current) {
         ownsLockRef.current = false;
         void releaseLockAction(resourceType, resourceId);
         AppCache.setLockState(resourceType, resourceId, { locked: false });
       }
     };
-  }, [resourceId, resourceType, stopRefreshTimer]);
+  }, [resourceId, resourceType]);
 
   const isMyLock = useMemo(
-    () => lockState.locked && !!currentUserId && lockState.byUserId === currentUserId,
-    [currentUserId, lockState.byUserId, lockState.locked]
+    () => lockState.locked && !!currentSessionId && lockState.bySessionId === currentSessionId,
+    [currentSessionId, lockState.bySessionId, lockState.locked]
   );
   const lockedByOther = useMemo(
     () => ({

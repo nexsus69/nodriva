@@ -462,6 +462,7 @@ CREATE TABLE locks (
   resource_type TEXT NOT NULL,
   resource_id TEXT NOT NULL,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID NOT NULL REFERENCES user_sessions(id) ON DELETE CASCADE,
   acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL,
   UNIQUE (resource_type, resource_id)

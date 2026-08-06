@@ -11,12 +11,18 @@ export class AuthApplicationService {
   constructor(
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly userRepository: UserRepository,
+    private readonly sessionIdleTimeoutSeconds: number,
     private readonly loginRateLimit?: LoginRateLimitPort,
     private readonly mfa?: MfaTotpApplicationService,
     private readonly audit?: AuditPort,
   ) {}
 
-  async login(email: string, plainTextPassword: string, sourceAddress?: string, mfaCode?: string): Promise<string> {
+  async login(
+    email: string,
+    plainTextPassword: string,
+    sourceAddress?: string,
+    mfaCode?: string,
+  ): Promise<{ token: string; sessionId: string }> {
     const accountSubject = this.hashRateLimitSubject(`account:${email.trim().toLowerCase()}`);
     const subjects = [accountSubject];
     if (sourceAddress) subjects.push(this.hashRateLimitSubject(`source:${sourceAddress}`));
@@ -55,13 +61,12 @@ export class AuthApplicationService {
     const token = crypto.randomBytes(32).toString('hex');
     // Compute SHA256 hash to store in DB
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    // Expire in 30 minutes (allineato con maxAge JWT)
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + this.sessionIdleTimeoutSeconds * 1000);
 
-    await this.sessionRepository.createSession(user.id, hashedToken, expiresAt);
+    const sessionId = await this.sessionRepository.createSession(user.id, hashedToken, expiresAt);
     await Promise.all(subjects.map((subject) => this.loginRateLimit?.clear(subject)));
 
-    return token;
+    return { token, sessionId };
   }
 
   async resolveSession(token: string): Promise<string> {

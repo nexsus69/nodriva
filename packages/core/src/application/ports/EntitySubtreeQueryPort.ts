@@ -13,6 +13,7 @@ export interface SubtreeEntityDto {
   nodeDepth: number;
   nodeRowVersion: number;
   lockUserId?: string;
+  lockSessionId?: string;
   lockExpiresAt?: Date;
 }
 
