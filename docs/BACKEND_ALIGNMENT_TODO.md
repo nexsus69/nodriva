@@ -48,6 +48,22 @@
 - [x] Add end-to-end tests for policy revocation, Pusher user termination and
   eventual outbox replay.
 
+## P1 — Runtime session policy
+
+- [ ] Replace the temporary build/deployment value
+  `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS` with an authoritative backend
+  system setting for the session inactivity timeout. The current 300-second
+  value is for testing and is not the production default.
+- [ ] Expose the effective timing policy to authenticated clients through a
+  backend bootstrap/configuration contract; do not require a frontend rebuild
+  when an administrator changes it.
+- [ ] Continue deriving heartbeat throttle, passive sync interval, lock TTL,
+  expiry safety buffer and cache sweep interval from the single backend value;
+  reject independent or hardcoded timer values.
+- [ ] Add validation bounds, administrative authorization, audit history and
+  tests for runtime changes, including the behaviour of sessions and locks
+  created before a policy change.
+
 ## P2 — Scale and hardening
 
 - [x] Optimize subtree ACL SQL by materializing/indexing the assigned node path

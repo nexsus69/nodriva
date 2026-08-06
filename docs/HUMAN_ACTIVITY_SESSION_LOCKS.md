@@ -5,12 +5,18 @@ inattività, rinnovo della sessione autenticata e lock di modifica.
 
 ## Unica configurazione temporale
 
-La fonte dei tempi è `packages/web/src/config/runtimeTiming.ts`. Il solo valore
-configurabile è `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS`; tutti gli altri
+Nella fase di test la fonte dei tempi è
+`packages/web/src/config/runtimeTiming.ts`. Il solo valore configurabile è
+temporaneamente `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS`; tutti gli altri
 intervalli sono derivati, quindi non devono essere introdotti timer applicativi
 hardcoded per sessione, heartbeat, lock o polling.
 
-Con il valore attuale di 300 secondi:
+Prima della produzione, la durata deve diventare una configurazione backend
+autorevole e modificabile a runtime, distribuita al client senza rebuild. Il
+lavoro ancora aperto è tracciato nella sezione **Runtime session policy** di
+[`BACKEND_ALIGNMENT_TODO.md`](./BACKEND_ALIGNMENT_TODO.md).
+
+Con il valore di test attuale di 300 secondi:
 
 | Concetto | Derivazione | Valore attuale |
 | --- | --- | ---: |
