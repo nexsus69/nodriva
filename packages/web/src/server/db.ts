@@ -39,6 +39,8 @@ import {
   LoginRateLimitPortPostgres,
   AccountActionTokenPortPostgres,
   AccountRecoveryApplicationService,
+  MfaTotpPortPostgres,
+  MfaTotpApplicationService,
   AuthApplicationService,
   RealtimeScopeResolverPostgres,
   RealtimeOutboxPostgres,
@@ -47,10 +49,19 @@ import {
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
+import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import crypto from 'crypto';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
+}
+
+const databaseUser = new URL(process.env.DATABASE_URL).username;
+if (
+  databaseUser === 'postgres'
+  && (process.env.NODE_ENV === 'production' || process.env.REQUIRE_RESTRICTED_DB_ROLE === 'true')
+) {
+  throw new Error('Refusing to start the Web application with the PostgreSQL superuser. Configure a restricted login role.');
 }
 
 // Inizializza il pool di connessione a PostgreSQL
@@ -152,6 +163,18 @@ export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecu
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
+export const accountActionDelivery = process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL
+  && process.env.ACCOUNT_ACTION_PUBLIC_BASE_URL
+  ? new WebhookAccountActionDelivery(
+      process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL,
+      process.env.ACCOUNT_ACTION_PUBLIC_BASE_URL,
+      process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET,
+    )
+  : undefined;
+export const mfaTotpPort = new MfaTotpPortPostgres(pgExecutor);
+export const mfaTotpService = process.env.MFA_ENCRYPTION_KEY
+  ? new MfaTotpApplicationService(mfaTotpPort, auditPort, process.env.MFA_ENCRYPTION_KEY)
+  : undefined;
 
 // Registry degli schemi ed invalidazione
 export const typeReader = new TypeDefinitionReaderPostgres(pgExecutor);
@@ -218,6 +241,7 @@ export const userAdminService = new UserAdminApplicationService(
   accessControlPort,
   sessionRepository,
   securityRepository,
+  mfaTotpPort,
 );
 
 export const scopedUserProvisioningService = new ScopedUserProvisioningService(
@@ -234,7 +258,8 @@ export const securityAdminService = new SecurityAdminApplicationService(
   auditPort,
   transactionPort,
   idGenerator,
-  accessControlPort
+  accessControlPort,
+  userRepository,
 );
 
 export const systemAdminService = new SystemAdminApplicationService(
@@ -259,7 +284,10 @@ export const systemSeedService = new SystemSeedPostgres(
   process.env.SEED_ADMIN_PASSWORD
 );
 
-export const authApplicationService = new AuthApplicationService(sessionRepository, userRepository, loginRateLimitPort);
+export const authApplicationService = new AuthApplicationService(
+  sessionRepository, userRepository, loginRateLimitPort, mfaTotpService, auditPort,
+);
 export const accountRecoveryService = new AccountRecoveryApplicationService(
-  accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort
+  accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort,
+  mfaTotpPort, accountActionDelivery,
 );

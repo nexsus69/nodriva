@@ -12,7 +12,17 @@ import { listSubtreeEntitiesAction } from '../app/actions/entityActions.js';
 
 type SubtreePage = Awaited<ReturnType<typeof listSubtreeEntitiesAction>>;
 
-describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Entities with Incomplete Page (limit 20)', () => {
+const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
+const integrationDatabaseName = integrationDatabaseUrl
+  ? new URL(integrationDatabaseUrl).pathname.slice(1)
+  : '';
+const isIsolatedTestDatabase = Boolean(
+  integrationDatabaseUrl
+  && process.env.DATABASE_URL === integrationDatabaseUrl
+  && /(?:^|_)test(?:_|$)/.test(integrationDatabaseName),
+);
+
+(isIsolatedTestDatabase ? describe : describe.skip)('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Entities with Incomplete Page (limit 20)', () => {
   let pool: pg.Pool;
   let executor: PgExecutor;
 
@@ -24,7 +34,7 @@ describe('Layer 1 (Server Action listSubtreeEntitiesAction) - PostgreSQL 150 Ent
 
   beforeAll(async () => {
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:masterpass@localhost:5433/dashboard',
+      connectionString: integrationDatabaseUrl,
     });
     executor = new PgExecutor(pool);
 

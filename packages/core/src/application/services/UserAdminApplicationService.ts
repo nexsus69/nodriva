@@ -23,6 +23,7 @@ import { z } from 'zod';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { SecurityRepository } from '../ports/SecurityRepository.js';
+import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
 
 export class UserAdminApplicationService {
   constructor(
@@ -33,6 +34,7 @@ export class UserAdminApplicationService {
     private readonly accessControlPort: AccessControlPort,
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly scopeDelegationLifecycle?: Pick<SecurityRepository, 'revokeDelegatedScopeAssignmentsOutsideCoverage'>,
+    private readonly mfa?: MfaTotpPort,
   ) {}
 
   async listUsers(actorUserId: string): Promise<UserListItemDto[]> {
@@ -287,6 +289,7 @@ export class UserAdminApplicationService {
       const updated = user.changePassword(PasswordHasher.hash(v.newPassword));
       await this.userRepository.updateUser(updated);
       await this.sessionRepository.deleteSessionsForUser(user.id);
+      await this.mfa?.deleteForUser(user.id);
       await this.auditPort.record(
         v.actorUserId,
         'user.reset_password',
@@ -294,7 +297,7 @@ export class UserAdminApplicationService {
         user.id,
         null,
         null,
-        { sessionsRevoked: true }
+        { sessionsRevoked: true, mfaRevoked: Boolean(this.mfa) }
       );
       return updated;
     });

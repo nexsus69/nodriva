@@ -1,6 +1,4 @@
--- Relation fields are UUID references to a managed node/entity type.
--- Referential deletion is restricted at the application layer: target type
--- metadata is validated when the field is created and never silently cascaded.
+BEGIN;
 
 ALTER TABLE node_type_fields
   ADD COLUMN IF NOT EXISTS relation_target_domain VARCHAR(16),
@@ -17,3 +15,5 @@ CREATE INDEX IF NOT EXISTS idx_node_type_fields_relation_target
 CREATE INDEX IF NOT EXISTS idx_entity_type_fields_relation_target
   ON entity_type_fields (relation_target_domain, relation_target_type_key)
   WHERE data_type = 'relation';
+
+COMMIT;

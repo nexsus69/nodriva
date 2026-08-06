@@ -46,6 +46,18 @@ would not share state. Use a database or Redis-backed adapter and emit a
 structured audit/security event for a block, without exposing whether the
 email address exists.
 
+The Web composition uses the shared PostgreSQL limiter for both a normalized
+account key and the trusted proxy source address. Configure the proxy to replace
+(`not append to`) its client-IP header. Account-action delivery is fail-closed:
+set `ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL`, `ACCOUNT_ACTION_PUBLIC_BASE_URL` and
+the optional bearer secret. The HTTPS endpoint receives `to`, `template`,
+`actionUrl` and `expiresAt` and must send the corresponding email.
+
+TOTP requires `MFA_ENCRYPTION_KEY`, a base64-encoded 32-byte deployment secret.
+Enrollment secrets are AES-256-GCM encrypted; recovery codes are stored only as
+SHA-256 hashes. Rotate this key only with a planned re-enrollment or a dedicated
+data re-encryption procedure.
+
 ## Portability review
 
 PostgreSQL-specific features are confined to `infrastructure/postgres` and its

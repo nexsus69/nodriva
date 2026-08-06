@@ -60,5 +60,5 @@ La cache non è autorevole: la validazione finale del valore viene eseguita dal 
 La struttura è introdotta da:
 
 ```text
-packages/core/src/infrastructure/schema/006_managed_enum_options.sql
+db/migrations/012_managed_enum_options.sql
 ```

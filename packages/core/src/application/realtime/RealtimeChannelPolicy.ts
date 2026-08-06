@@ -62,6 +62,7 @@ export function policyAllowsResource(
   resourceType: RealtimeResourceType,
   scope: RealtimeResourceScope
 ): boolean {
+  if (policy.isGlobal) return true;
   const permissionKey: RealtimePermissionKey = resourceType === 'node' ? 'node.read' : 'entity.read';
   const directScopeNodeIds = new Set(scope.directScopeNodeIds ?? scope.scopeNodeIds.slice(0, 1));
   const allScopeNodeIds = new Set(scope.scopeNodeIds);
@@ -71,7 +72,7 @@ export function policyAllowsResource(
       ? allScopeNodeIds.has(rule.nodeId)
       : directScopeNodeIds.has(rule.nodeId));
 
-  const allowed = policy.isGlobal || policy.rules.some((rule) => rule.assignmentEffect === 'allow' && applies(rule));
+  const allowed = policy.rules.some((rule) => rule.assignmentEffect === 'allow' && applies(rule));
   const denied = policy.rules.some((rule) => rule.assignmentEffect === 'deny' && applies(rule));
   return allowed && !denied;
 }

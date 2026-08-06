@@ -5,6 +5,7 @@ import { AuditPort } from '../ports/AuditPort.js';
 import { TransactionPort } from '../ports/TransactionPort.js';
 import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { AccessControlPort } from '../ports/AccessControlPort.js';
+import { UserRepository } from '../ports/UserRepository.js';
 import { Role } from '../../domain/models/Role.js';
 import {
   RoleKeyAlreadyExistsError,
@@ -23,6 +24,7 @@ describe('SecurityAdminApplicationService', () => {
   let mockTransactionPort: TransactionPort;
   let mockIdGenerator: IdGeneratorPort;
   let mockAccessControlPort: AccessControlPort;
+  let mockUserRepository: UserRepository;
   let service: SecurityAdminApplicationService;
 
   beforeEach(() => {
@@ -70,7 +72,14 @@ describe('SecurityAdminApplicationService', () => {
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
       assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverageBatch: vi.fn().mockResolvedValue(undefined),
       assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockUserRepository = {
+      findById: vi.fn(), findByEmail: vi.fn(), listUsers: vi.fn(), listUsersManageableBy: vi.fn(),
+      getUserDetailManageableBy: vi.fn(), isUserManageableBy: vi.fn().mockResolvedValue(true),
+      getUserDetail: vi.fn(), listAllRoles: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), assignUserRoles: vi.fn(),
     };
 
     service = new SecurityAdminApplicationService(
@@ -78,7 +87,8 @@ describe('SecurityAdminApplicationService', () => {
       mockAuditPort,
       mockTransactionPort,
       mockIdGenerator,
-      mockAccessControlPort
+      mockAccessControlPort,
+      mockUserRepository,
     );
   });
 
@@ -156,6 +166,21 @@ describe('SecurityAdminApplicationService', () => {
     expect(mockSecurityRepository.revokeDelegatedScopeAssignmentsOutsideCoverage).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects scope mutations for a target identity outside the actor boundary', async () => {
+    vi.mocked(mockUserRepository.isUserManageableBy).mockResolvedValue(false);
+
+    await expect(service.createScopeAssignment({
+      userId: USER_ID,
+      nodeId: NODE_ID,
+      roleId: ROLE_ID,
+      assignmentEffect: 'deny',
+      propagation: 'self',
+      actorUserId: ACTOR_ID,
+    })).rejects.toThrow('outside');
+
+    expect(mockSecurityRepository.createScopeAssignment).not.toHaveBeenCalled();
+  });
+
   it('audits each automatically cascaded delegated grant', async () => {
     vi.mocked(mockSecurityRepository.revokeDelegatedScopeAssignmentsOutsideCoverage).mockResolvedValue([{
       id: '00000000-0000-0000-0000-000000000071', userId: USER_ID, nodeId: NODE_ID,
@@ -176,9 +201,7 @@ describe('SecurityAdminApplicationService', () => {
 
   it('rejects an allow assignment when the role contains a permission the actor cannot delegate', async () => {
     vi.mocked(mockSecurityRepository.listRolePermissionKeys).mockResolvedValue(['entity.delete']);
-    vi.mocked(mockAccessControlPort.assertHasPermissionCoverage).mockImplementation(async (_actor, permission) => {
-      if (permission === 'entity.delete') throw new Error('Denied');
-    });
+    vi.mocked(mockAccessControlPort.assertHasPermissionCoverageBatch).mockRejectedValueOnce(new Error('Denied'));
 
     await expect(service.createScopeAssignment({
       userId: USER_ID,

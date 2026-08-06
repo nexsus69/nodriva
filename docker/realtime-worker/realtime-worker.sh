@@ -14,11 +14,11 @@ if [ "$interval" -lt 1 ]; then
 fi
 
 while :; do
-  if ! curl --fail --silent --show-error --max-time 20 \
+  if ! curl --fail --silent --show-error --output /dev/null --max-time 20 \
     -X POST \
     -H "Authorization: Bearer ${REALTIME_WORKER_SECRET}" \
     "$REALTIME_DRAIN_URL"; then
-    echo "[$(date -u +%FT%TZ)] realtime outbox drain failed" >&2
+    printf '{"timestamp":"%s","level":"error","component":"realtime-worker","message":"outbox drain failed"}\n' "$(date -u +%FT%TZ)" >&2
   fi
   sleep "$interval"
 done

@@ -73,7 +73,7 @@ describe('RealtimeChannelPolicy', () => {
     })).toBe(false);
   });
 
-  it('keeps deny precedence for global policies', () => {
+  it('keeps global super-admin policies absolute despite local deny rows', () => {
     const policy = createRealtimeChannelPolicy([{
       nodeId: 'node-c',
       permissionKey: 'entity.read',
@@ -84,7 +84,7 @@ describe('RealtimeChannelPolicy', () => {
     expect(policyAllowsResource(policy, 'entity', {
       scopeNodeIds: ['node-c-child', 'node-c', 'node-a'],
       directScopeNodeIds: ['node-c-child'],
-    })).toBe(false);
+    })).toBe(true);
     expect(policyAllowsResource(policy, 'entity', {
       scopeNodeIds: ['node-b', 'node-a'],
       directScopeNodeIds: ['node-b'],

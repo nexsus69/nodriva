@@ -13,6 +13,7 @@ services:
       - dashboard_db_data:/var/lib/postgresql/data
 
   realtime-worker:
+    profiles: ["realtime"]
     build:
       context: ./docker/realtime-worker
     restart: unless-stopped

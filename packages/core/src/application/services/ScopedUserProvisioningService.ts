@@ -27,13 +27,15 @@ export class ScopedUserProvisioningService {
     const value = parsed.data;
 
     for (const assignment of value.assignments) {
-      await this.access.assertHasPermissionCoverage(value.actorUserId, 'user.create', assignment.nodeId, assignment.propagation);
-      await this.access.assertHasPermissionCoverage(value.actorUserId, 'scope.assign', assignment.nodeId, assignment.propagation);
       const role = await this.security.findRoleById(assignment.roleId);
       if (!role) throw new RoleNotFoundError(assignment.roleId);
-      for (const permissionKey of await this.security.listRolePermissionKeys(assignment.roleId)) {
-        await this.access.assertHasPermissionCoverage(value.actorUserId, permissionKey, assignment.nodeId, assignment.propagation);
-      }
+      const permissionKeys = await this.security.listRolePermissionKeys(assignment.roleId);
+      await this.access.assertHasPermissionCoverageBatch(
+        value.actorUserId,
+        ['user.create', 'scope.assign', ...permissionKeys],
+        assignment.nodeId,
+        assignment.propagation
+      );
     }
 
     return this.transactions.runInTransaction(async () => {

@@ -3,9 +3,9 @@
 The canonical authentication table is `user_sessions`.
 
 Apply migrations in filename order against a database initialized from
-`Specifiche/dashboard_v4_schema_corrected.sql`. The first migration is also
-safe for an existing database that still contains the legacy `sessions` table:
-it stops if that table contains data, avoiding silent session loss.
+`Specifiche/dashboard_v4_schema_corrected.sql`. Legacy `sessions` rows remain
+untouched until migration `009`, which converts their raw tokens to hashes
+before removing the old table.
 
 The migration directory is intentionally kept separate from the specification
 SQL. The specification describes the target schema; migrations describe how an
@@ -35,3 +35,25 @@ entity operations remain constrained by their assigned scopes.
 
 Migration `008_scope_assignment_audit_kind.sql` adds the audit resource kind
 used when delegated scope assignments are revoked by lifecycle enforcement.
+
+Migration `009_shared_test_readiness.sql` safely converts and removes legacy
+`sessions`, installs the canonical `scoped_reader` role and scoped-admin
+indexes, enforces one non-contradictory assignment per user/node/role/scope,
+and creates the non-login `dashboard_app` privilege group. A deployment must
+create a dedicated LOGIN role, grant it `dashboard_app`, and use that identity
+in `DATABASE_URL`; the Web service must never connect as `postgres`.
+
+Example (supply the password through the operator's secret-management flow,
+never commit it):
+
+```sql
+CREATE ROLE dashboard_web LOGIN PASSWORD '<managed-secret>' IN ROLE dashboard_app;
+```
+
+Set `REQUIRE_RESTRICTED_DB_ROLE=true` in the Web deployment. Production also
+rejects `postgres` automatically.
+
+Migrations `010`–`012` are the canonical home for relation-field metadata,
+node custom payloads, and managed-enum option tables. The former second SQL
+track under `packages/core/src/infrastructure/schema` was removed so every
+deployment follows this single ordered directory.

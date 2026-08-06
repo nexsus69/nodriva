@@ -98,8 +98,9 @@ assenza di nuove mutazioni.
 
 Nel deployment Docker fornito dal repository, `realtime-worker` effettua tale
 chiamata ogni cinque secondi. Impostare lo stesso `REALTIME_WORKER_SECRET` nel
-processo Web e nel Compose, quindi avviare con `docker compose up -d --build
-realtime-worker`. Per sviluppo con Web sull'host, l'URL predefinito usa
+processo Web e nel Compose. Il worker appartiene al profilo opzionale
+`realtime`, quindi avviarlo con `docker compose --profile realtime up -d --build
+realtime-worker` solo dopo che il processo Web è raggiungibile. Per sviluppo con Web sull'host, l'URL predefinito usa
 `host.docker.internal:3000`; in un deployment con Web containerizzato impostare
 `REALTIME_DRAIN_URL` al nome DNS interno del servizio Web.
 

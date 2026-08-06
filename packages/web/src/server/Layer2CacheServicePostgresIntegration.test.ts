@@ -13,7 +13,17 @@ import { FetchCoordinator, ViewIntent } from '../app/cache/CacheService';
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { INFINITE_LIST_CONFIG } from '../app/cache/InfiniteListConfig';
 
-describe('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
+const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
+const integrationDatabaseName = integrationDatabaseUrl
+  ? new URL(integrationDatabaseUrl).pathname.slice(1)
+  : '';
+const isIsolatedTestDatabase = Boolean(
+  integrationDatabaseUrl
+  && process.env.DATABASE_URL === integrationDatabaseUrl
+  && /(?:^|_)test(?:_|$)/.test(integrationDatabaseName),
+);
+
+(isIsolatedTestDatabase ? describe : describe.skip)('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
   let pool: pg.Pool;
   let executor: PgExecutor;
 
@@ -26,7 +36,7 @@ describe('Layer 2 Cache Service - Real PostgreSQL Integration Test', () => {
 
   beforeAll(async () => {
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:masterpass@localhost:5433/dashboard',
+      connectionString: integrationDatabaseUrl,
     });
     executor = new PgExecutor(pool);
 

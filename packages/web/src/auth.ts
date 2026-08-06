@@ -48,8 +48,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        mfaCode: { label: 'MFA or recovery code', type: 'text' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsedCredentials = parseLoginCredentials(credentials);
         if (!parsedCredentials) {
           return null;
@@ -58,7 +59,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
           const dbToken = await authApplicationService.login(
             parsedCredentials.email,
-            parsedCredentials.password
+            parsedCredentials.password,
+            request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+              || request.headers.get('x-real-ip')
+              || undefined,
+            parsedCredentials.mfaCode,
           );
 
           const userId = await authApplicationService.resolveSession(dbToken);

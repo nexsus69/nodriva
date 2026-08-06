@@ -59,6 +59,7 @@ describe('NodeApplicationService', () => {
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn(),
       assertHasPermissionCoverage: vi.fn(),
+      assertHasPermissionCoverageBatch: vi.fn(),
       assertIsSuperAdmin: vi.fn(),
     };
 

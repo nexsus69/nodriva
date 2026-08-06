@@ -119,6 +119,7 @@ describe('TypeAdminApplicationService', () => {
     assertCanMoveEntity: ReturnType<typeof vi.fn>;
     assertHasPermission: ReturnType<typeof vi.fn>;
     assertHasPermissionCoverage: ReturnType<typeof vi.fn>;
+    assertHasPermissionCoverageBatch: ReturnType<typeof vi.fn>;
     assertIsSuperAdmin: ReturnType<typeof vi.fn>;
   };
 
@@ -194,6 +195,7 @@ describe('TypeAdminApplicationService', () => {
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
       assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverageBatch: vi.fn().mockResolvedValue(undefined),
       assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
     };
 

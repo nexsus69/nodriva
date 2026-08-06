@@ -111,5 +111,8 @@ export class AdminCacheClient {
   public listNodeTypes = () => this.read('node-types', nodeActions.listNodeTypesAction);
 
   public checkDatabaseSeeded = () => this.read('seed-status', seedActions.checkDatabaseSeededAction);
-  public seedDatabase = () => this.write(['seed-status', 'children', 'types'], seedActions.seedDatabaseAction);
+  public seedDatabase = (confirmation: string) => this.write(
+    ['seed-status', 'children', 'types'],
+    () => seedActions.seedDatabaseAction(confirmation),
+  );
 }

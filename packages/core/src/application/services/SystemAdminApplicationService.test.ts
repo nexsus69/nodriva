@@ -56,6 +56,7 @@ describe('SystemAdminApplicationService', () => {
       assertCanMoveEntity: vi.fn(),
       assertHasPermission: vi.fn().mockResolvedValue(undefined),
       assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+      assertHasPermissionCoverageBatch: vi.fn().mockResolvedValue(undefined),
       assertIsSuperAdmin: vi.fn().mockResolvedValue(undefined),
     };
 

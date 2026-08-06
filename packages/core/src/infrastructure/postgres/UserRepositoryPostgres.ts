@@ -107,30 +107,6 @@ export class UserRepositoryPostgres implements UserRepository {
     const query = `
       WITH actor AS (
         SELECT is_super_admin FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
-      ), delegable AS (
-        SELECT n.path
-        FROM node_scope_assignments nsa
-        JOIN nodes n ON n.id = nsa.node_id AND n.deleted_at IS NULL
-        JOIN role_permissions rp ON rp.role_id = nsa.role_id
-        JOIN permissions p ON p.id = rp.permission_id
-        WHERE nsa.user_id = $1 AND nsa.assignment_effect = 'allow'::assignment_effect_enum
-          AND nsa.propagation = 'subtree'::scope_propagation_enum
-          AND p.permission_key = 'scope.assign'
-          AND NOT EXISTS (
-            SELECT 1
-            FROM node_scope_assignments deny
-            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
-            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
-            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
-            WHERE deny.user_id = $1
-              AND deny.assignment_effect = 'deny'::assignment_effect_enum
-              AND deny_permission.permission_key = 'scope.assign'
-              AND (
-                (deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
-                OR (deny.propagation = 'subtree'::scope_propagation_enum
-                    AND (n.path @> deny_node.path OR deny_node.path @> n.path))
-              )
-          )
       )
       SELECT u.id, u.email, u.is_active AS "isActive", u.is_super_admin AS "isSuperAdmin",
              u.created_at AS "createdAt", u.updated_at AS "updatedAt",
@@ -142,27 +118,7 @@ export class UserRepositoryPostgres implements UserRepository {
       WHERE u.deleted_at IS NULL
         AND (
           (SELECT is_super_admin FROM actor) = true
-           OR (
-             u.is_super_admin = false
-             AND EXISTS (SELECT 1 FROM node_scope_assignments target WHERE target.user_id = u.id)
-             AND NOT EXISTS (
-               SELECT 1 FROM node_scope_assignments target
-               JOIN nodes target_node ON target_node.id = target.node_id AND target_node.deleted_at IS NULL
-               WHERE target.user_id = u.id
-                 AND target.assignment_effect = 'allow'::assignment_effect_enum
-                 AND NOT EXISTS (
-                   SELECT 1 FROM delegable d
-                   WHERE d.path @> target_node.path
-                     AND (target.propagation = 'self'::scope_propagation_enum OR d.path @> target_node.path)
-                 )
-             )
-             AND NOT EXISTS (
-               SELECT 1 FROM user_roles target_role
-               JOIN roles target_role_definition ON target_role_definition.id = target_role.role_id
-               WHERE target_role.user_id = u.id
-                 AND target_role_definition.role_key NOT IN ('default_reader', 'scoped_reader')
-             )
-           )
+           OR u.id IN (${this.manageableUserIdsSql()})
         )
       GROUP BY u.id
       ORDER BY u.email ASC
@@ -332,7 +288,7 @@ export class UserRepositoryPostgres implements UserRepository {
   private manageableUserIdsSql(): string {
     return `
       WITH delegable AS (
-        SELECT n.path
+        SELECT n.id, n.path
         FROM node_scope_assignments nsa
         JOIN nodes n ON n.id = nsa.node_id AND n.deleted_at IS NULL
         JOIN role_permissions rp ON rp.role_id = nsa.role_id
@@ -341,16 +297,6 @@ export class UserRepositoryPostgres implements UserRepository {
           AND nsa.assignment_effect = 'allow'::assignment_effect_enum
           AND nsa.propagation = 'subtree'::scope_propagation_enum
           AND p.permission_key = 'scope.assign'
-          AND NOT EXISTS (
-            SELECT 1 FROM node_scope_assignments deny
-            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
-            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
-            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
-            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
-              AND deny_permission.permission_key = 'scope.assign'
-              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
-                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
-          )
       )
       SELECT u.id
       FROM users u
@@ -360,7 +306,28 @@ export class UserRepositoryPostgres implements UserRepository {
           SELECT 1 FROM node_scope_assignments target
           JOIN nodes target_node ON target_node.id = target.node_id AND target_node.deleted_at IS NULL
           WHERE target.user_id = u.id AND target.assignment_effect = 'allow'::assignment_effect_enum
-            AND NOT EXISTS (SELECT 1 FROM delegable d WHERE d.path @> target_node.path)
+            AND NOT EXISTS (
+              SELECT 1 FROM delegable d
+              WHERE d.path @> target_node.path
+                AND NOT EXISTS (
+                  SELECT 1 FROM node_scope_assignments deny
+                  JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+                  JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+                  JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+                  WHERE deny.user_id = $1
+                    AND deny.assignment_effect = 'deny'::assignment_effect_enum
+                    AND deny_permission.permission_key = 'scope.assign'
+                    AND (
+                      (target.propagation = 'self'::scope_propagation_enum
+                        AND ((deny.propagation = 'self'::scope_propagation_enum AND deny_node.id = target.node_id)
+                          OR (deny.propagation = 'subtree'::scope_propagation_enum AND deny_node.path @> target_node.path)))
+                      OR (target.propagation = 'subtree'::scope_propagation_enum
+                        AND ((deny.propagation = 'self'::scope_propagation_enum AND target_node.path @> deny_node.path)
+                          OR (deny.propagation = 'subtree'::scope_propagation_enum
+                            AND (target_node.path @> deny_node.path OR deny_node.path @> target_node.path))))
+                    )
+                )
+            )
         )
         AND NOT EXISTS (
           SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id

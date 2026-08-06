@@ -9,6 +9,7 @@ export default function WorkspaceOperationalHub() {
   const [isCheckingSeed, setIsCheckingSeed] = useState(true);
   const [dbSeeded, setDbSeeded] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+  const [seedConfirmation, setSeedConfirmation] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { nodes: rootNodes, isLoading: isNodesLoading, error: nodesError } = useSemanticNodeList(null);
@@ -27,7 +28,7 @@ export default function WorkspaceOperationalHub() {
     setIsSeeding(true);
     setErrorMsg(null);
     try {
-      await AppCache.admin.seedDatabase();
+      await AppCache.admin.seedDatabase(seedConfirmation);
       setDbSeeded(true);
       window.location.reload();
     } catch (err: unknown) {
@@ -87,11 +88,18 @@ export default function WorkspaceOperationalHub() {
           <span className="text-4xl block">🌱</span>
           <h2 className="text-base font-semibold text-amber-100">Completa la configurazione iniziale</h2>
           <p className="text-xs text-amber-300/80 max-w-md mx-auto">
-            Il database PostgreSQL non contiene dati iniziali. Clicca il pulsante sottostante per eseguire il seeding con dati demo (nodi, ordini, entità).
+            Operazione distruttiva: inserisci <strong>RESET DEMO DATABASE</strong> per confermare il ripristino dei dati demo.
           </p>
+          <input
+            value={seedConfirmation}
+            onChange={(event) => setSeedConfirmation(event.target.value)}
+            aria-label="Conferma ripristino database demo"
+            className="mx-auto w-full max-w-sm rounded-xl border border-amber-500/30 bg-white px-3 py-2 text-sm text-slate-900"
+            placeholder="RESET DEMO DATABASE"
+          />
           <button
             onClick={handleSeedDatabase}
-            disabled={isSeeding}
+            disabled={isSeeding || seedConfirmation !== 'RESET DEMO DATABASE'}
             className="rounded-xl bg-amber-500 px-6 py-2.5 text-xs font-semibold text-slate-950 shadow-lg shadow-amber-600/20 transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSeeding ? 'Inizializzazione in corso...' : '🌱 Esegui Seeding Dati Demo'}

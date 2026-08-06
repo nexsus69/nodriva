@@ -93,7 +93,7 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
       if (!entity || entity.deletedAt) {
         return { locked: false as const };
       }
-      await accessControlPort.assertCanReadNode(actorUserId, entity.parentNodeId);
+      await accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
     }
 
     return await lockService.isLocked(validatedType, resourceId);

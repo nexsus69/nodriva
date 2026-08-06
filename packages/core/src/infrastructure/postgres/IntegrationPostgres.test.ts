@@ -9,7 +9,15 @@ import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
 
-describe('PostgreSQL Integration Tests', () => {
+const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
+const integrationDatabaseName = integrationDatabaseUrl
+  ? new URL(integrationDatabaseUrl).pathname.slice(1)
+  : '';
+const describeIntegration = integrationDatabaseUrl && /(?:^|_)test(?:_|$)/.test(integrationDatabaseName)
+  ? describe
+  : describe.skip;
+
+describeIntegration('PostgreSQL Integration Tests', () => {
   let pool: pg.Pool;
   let executor: PgExecutor;
   let runtimeConfig: RuntimeConfigurationPortPostgres;
@@ -25,9 +33,8 @@ describe('PostgreSQL Integration Tests', () => {
   const childNodeId = '00000000-0000-0000-0000-000000000501';
 
   beforeAll(async () => {
-    // Connetti al DB reale configurato in docker-compose
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:masterpass@localhost:5433/dashboard',
+      connectionString: integrationDatabaseUrl,
     });
     executor = new PgExecutor(pool);
     runtimeConfig = new RuntimeConfigurationPortPostgres(executor);

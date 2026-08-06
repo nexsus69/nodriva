@@ -44,8 +44,9 @@ export default function LoginPage() {
     try {
       const email = formData.get('email') as string;
       const password = formData.get('password') as string;
+      const mfaCode = formData.get('mfaCode') as string;
 
-      const res = await loginAction(email, password);
+      const res = await loginAction(email, password, mfaCode);
       if (res.success) {
         // La Server Action ha già scritto il cookie lato server. Il render
         // successivo rilegge la sessione autorevole senza rendere obbligatoria
@@ -143,6 +144,13 @@ export default function LoginPage() {
                     </svg>
                     <input id="email-address" name="email" type="email" autoComplete="email" required placeholder="nome@azienda.it" className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
                   </div>
+                </div>
+
+                <div>
+                  <label htmlFor="mfa-code" className="mb-2 block text-xs font-semibold text-slate-700">
+                    Codice MFA <span className="font-normal text-slate-400">(se configurato)</span>
+                  </label>
+                  <input id="mfa-code" name="mfaCode" type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="Codice TOTP o di recupero" className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
                 </div>
 
                 <div>

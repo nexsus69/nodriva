@@ -9,7 +9,17 @@ import pg from 'pg';
 import { PgExecutor } from '@dashboard/core';
 import { listSubtreeEntitiesAction } from '../app/actions/entityActions.js';
 
-describe('Layer 2 Error Handling & Fault Tolerance - PostgreSQL Real DB Integration Test', () => {
+const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
+const integrationDatabaseName = integrationDatabaseUrl
+  ? new URL(integrationDatabaseUrl).pathname.slice(1)
+  : '';
+const isIsolatedTestDatabase = Boolean(
+  integrationDatabaseUrl
+  && process.env.DATABASE_URL === integrationDatabaseUrl
+  && /(?:^|_)test(?:_|$)/.test(integrationDatabaseName),
+);
+
+(isIsolatedTestDatabase ? describe : describe.skip)('Layer 2 Error Handling & Fault Tolerance - PostgreSQL Real DB Integration Test', () => {
   let pool: pg.Pool;
   let executor: PgExecutor;
 
@@ -18,7 +28,7 @@ describe('Layer 2 Error Handling & Fault Tolerance - PostgreSQL Real DB Integrat
 
   beforeAll(async () => {
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL || 'postgresql://postgres:masterpass@localhost:5433/dashboard',
+      connectionString: integrationDatabaseUrl,
     });
     executor = new PgExecutor(pool);
     await executor.query('DELETE FROM users WHERE id = $1', [testActorUserId]);

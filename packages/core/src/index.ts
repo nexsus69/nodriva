@@ -139,6 +139,9 @@ export { AuditPort } from './application/ports/AuditPort.js';
 export { LoginRateLimitPort } from './application/ports/LoginRateLimitPort.js';
 export { AccountActionTokenPort } from './application/ports/AccountActionTokenPort.js';
 export type { AccountActionPurpose } from './application/ports/AccountActionTokenPort.js';
+export { AccountActionDeliveryPort } from './application/ports/AccountActionDeliveryPort.js';
+export { MfaTotpPort } from './application/ports/MfaTotpPort.js';
+export type { MfaTotpRecord } from './application/ports/MfaTotpPort.js';
 export { EntityRepository } from './application/ports/EntityRepository.js';
 export { EntityTypeRepository } from './application/ports/EntityTypeRepository.js';
 export { NodeRepository } from './application/ports/NodeRepository.js';
@@ -178,6 +181,7 @@ export { EntityApplicationService } from './application/services/EntityApplicati
 export { TypeAdminApplicationService } from './application/services/TypeAdminApplicationService.js';
 export { LockService } from './application/services/LockService.js';
 export { ScopedUserProvisioningService } from './application/services/ScopedUserProvisioningService.js';
+export { MfaTotpApplicationService } from './application/services/MfaTotpApplicationService.js';
 
 // ─── Infrastructure (PostgreSQL & Compilers) ──────────────────────────────────
 export { PgExecutor } from './infrastructure/postgres/PgExecutor.js';
@@ -194,6 +198,7 @@ export { SystemSeedPostgres } from './infrastructure/postgres/SystemSeedPostgres
 export { AuditPortPostgres } from './infrastructure/postgres/AuditPortPostgres.js';
 export { LoginRateLimitPortPostgres } from './infrastructure/postgres/LoginRateLimitPortPostgres.js';
 export { AccountActionTokenPortPostgres } from './infrastructure/postgres/AccountActionTokenPortPostgres.js';
+export { MfaTotpPortPostgres } from './infrastructure/postgres/MfaTotpPortPostgres.js';
 export { AccountRecoveryApplicationService } from './application/services/AccountRecoveryApplicationService.js';
 export { RevisionPortPostgres } from './infrastructure/postgres/RevisionPortPostgres.js';
 export { LockRepositoryPostgres } from './infrastructure/postgres/LockRepositoryPostgres.js';

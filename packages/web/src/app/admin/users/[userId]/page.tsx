@@ -8,6 +8,7 @@ import {
   ApiErrorResponse,
 } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
+import { issueAccountActionAction } from '../../../actions/accountRecoveryActions';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -153,6 +154,19 @@ export default function UserDetailPage() {
     });
   };
 
+  const handleIssueAccountAction = (purpose: 'invitation' | 'password_reset') => {
+    setError(null);
+    setSuccessMsg(null);
+    startTransition(async () => {
+      try {
+        const result = await issueAccountActionAction(userId, purpose);
+        setSuccessMsg(`Email inviata. Il link scade il ${new Date(result.expiresAt).toLocaleString()}.`);
+      } catch (err) {
+        setError({ code: 'UNKNOWN_ERROR', message: err instanceof Error ? err.message : 'Invio non riuscito.' });
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div className="p-8 text-center text-xs text-slate-400">
@@ -196,7 +210,7 @@ export default function UserDetailPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => {
               setEditEmail(user.email);
@@ -216,6 +230,20 @@ export default function UserDetailPage() {
             className="px-4 py-2 rounded-xl text-xs font-semibold bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 transition-all"
           >
             🔑 Reimposta Password
+          </button>
+          <button
+            onClick={() => handleIssueAccountAction('password_reset')}
+            disabled={isPending}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/30 transition-all disabled:opacity-50"
+          >
+            Invia link reset
+          </button>
+          <button
+            onClick={() => handleIssueAccountAction('invitation')}
+            disabled={isPending}
+            className="px-4 py-2 rounded-xl text-xs font-semibold bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 transition-all disabled:opacity-50"
+          >
+            Invia invito
           </button>
           <button
             onClick={handleToggleStatus}

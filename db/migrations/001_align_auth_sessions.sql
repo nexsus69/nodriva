@@ -1,21 +1,16 @@
 -- Consolidates the authentication schema on user_sessions.
 --
--- The legacy sessions table is removed only when it is empty. If it contains
--- data, the migration stops instead of silently deleting active sessions.
+-- Legacy sessions are deliberately left in place here. Migration 009 converts
+-- raw tokens into the canonical hashed representation and only then removes
+-- the legacy table, including installations where it contains active rows.
 
 DO $$
 BEGIN
-  IF to_regclass('public.sessions') IS NOT NULL THEN
-    IF EXISTS (SELECT 1 FROM public.sessions LIMIT 1) THEN
-      RAISE EXCEPTION
-        'Legacy public.sessions contains data; migrate those sessions explicitly before continuing';
-    END IF;
-
-    DROP TABLE public.sessions;
-  END IF;
+  -- Kept as a DO block so this migration remains harmless on both schema
+  -- generations. The conversion needs pgcrypto and is performed in 009.
+  PERFORM to_regclass('public.sessions');
 END
 $$;
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_token_hash
   ON user_sessions(session_token_hash);
-

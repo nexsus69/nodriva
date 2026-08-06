@@ -277,26 +277,6 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     const res = await this.executor.query<ScopeAssignmentRow>(`
       WITH actor AS (
         SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
-      ), delegable AS (
-        SELECT n.path
-        FROM node_scope_assignments allow_assignment
-        JOIN nodes n ON n.id = allow_assignment.node_id AND n.deleted_at IS NULL
-        JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
-        JOIN permissions p ON p.id = rp.permission_id
-        WHERE allow_assignment.user_id = $1
-          AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
-          AND allow_assignment.propagation = 'subtree'::scope_propagation_enum
-          AND p.permission_key = 'scope.assign'
-          AND NOT EXISTS (
-            SELECT 1 FROM node_scope_assignments deny
-            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
-            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
-            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
-            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
-              AND deny_permission.permission_key = 'scope.assign'
-              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
-                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
-          )
       )
       SELECT sa.id, sa.user_id AS "userId", u.email AS "userEmail", sa.node_id AS "nodeId",
              COALESCE(n.name, 'Root Node') AS "nodeName", sa.role_id AS "roleId", r.name AS "roleName",
@@ -306,7 +286,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       JOIN nodes n ON n.id = sa.node_id AND n.deleted_at IS NULL
       JOIN roles r ON r.id = sa.role_id AND r.deleted_at IS NULL
       WHERE (SELECT is_super_admin FROM actor) = true
-         OR EXISTS (SELECT 1 FROM delegable d WHERE d.path @> n.path)
+         OR u.id IN (${this.manageableUserIdsSql()})
       ORDER BY sa.assigned_at DESC
     `, [actorUserId]);
     return res.rows.map((r) => this.mapScopeAssignment(r));
@@ -342,24 +322,6 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     const result = await this.executor.query<ScopeAssignmentRow>(`
       WITH actor AS (
         SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
-      ), delegable AS (
-        SELECT n.path
-        FROM node_scope_assignments allow_assignment
-        JOIN nodes n ON n.id = allow_assignment.node_id AND n.deleted_at IS NULL
-        JOIN role_permissions rp ON rp.role_id = allow_assignment.role_id
-        JOIN permissions p ON p.id = rp.permission_id
-        WHERE allow_assignment.user_id = $1 AND allow_assignment.assignment_effect = 'allow'::assignment_effect_enum
-          AND allow_assignment.propagation = 'subtree'::scope_propagation_enum AND p.permission_key = 'scope.assign'
-          AND NOT EXISTS (
-            SELECT 1 FROM node_scope_assignments deny
-            JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
-            JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
-            JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
-            WHERE deny.user_id = $1 AND deny.assignment_effect = 'deny'::assignment_effect_enum
-              AND deny_permission.permission_key = 'scope.assign'
-              AND ((deny.propagation = 'self'::scope_propagation_enum AND n.path @> deny_node.path)
-                OR (deny.propagation = 'subtree'::scope_propagation_enum AND (n.path @> deny_node.path OR deny_node.path @> n.path)))
-          )
       )
       SELECT sa.id, sa.user_id AS "userId", u.email AS "userEmail", sa.node_id AS "nodeId",
              COALESCE(n.name, 'Root Node') AS "nodeName", sa.role_id AS "roleId", r.name AS "roleName",
@@ -369,7 +331,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       JOIN nodes n ON n.id = sa.node_id AND n.deleted_at IS NULL
       JOIN roles r ON r.id = sa.role_id AND r.deleted_at IS NULL
       WHERE sa.id = $2
-        AND ((SELECT is_super_admin FROM actor) = true OR EXISTS (SELECT 1 FROM delegable d WHERE d.path @> n.path))
+        AND ((SELECT is_super_admin FROM actor) = true OR u.id IN (${this.manageableUserIdsSql()}))
     `, [actorUserId, id]);
     return result.rows[0] ? this.mapScopeAssignment(result.rows[0]) : null;
   }
@@ -411,7 +373,9 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
               AND p.permission_key = 'node.read'
           )
         )
-        AND NOT EXISTS (
+        AND (
+          EXISTS (SELECT 1 FROM users su WHERE su.id = $1 AND su.is_active AND su.is_super_admin)
+          OR NOT EXISTS (
           SELECT 1
           FROM node_scope_assignments deny
           JOIN role_permissions rp ON rp.role_id = deny.role_id
@@ -425,6 +389,7 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
               OR
               (deny.propagation = 'subtree'::scope_propagation_enum AND deny_node.path @> n.path)
             )
+          )
         )
       ORDER BY n.id
     `;
@@ -505,8 +470,15 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     const query = `
       INSERT INTO node_scope_assignments (id, user_id, node_id, role_id, assignment_effect, propagation, assigned_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (user_id, node_id, role_id, propagation) DO NOTHING
+      RETURNING id
     `;
-    await this.executor.query(query, [id, userId, nodeId, roleId, assignmentEffect, propagation, assignedBy]);
+    const inserted = await this.executor.query(query, [id, userId, nodeId, roleId, assignmentEffect, propagation, assignedBy]);
+    if (inserted.rowCount === 0) {
+      throw new SecurityAdminValidationError('Invalid or contradictory scope assignment.', {
+        assignment: ['An assignment already exists for this user, node, role and propagation.'],
+      });
+    }
     this.onRealtimePolicyChanged(userId);
   }
 
@@ -530,7 +502,17 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       WHERE id = $4
       RETURNING user_id
     `;
-    const result = await this.executor.query<{ user_id: string }>(query, [roleId, assignmentEffect, propagation, id]);
+    let result;
+    try {
+      result = await this.executor.query<{ user_id: string }>(query, [roleId, assignmentEffect, propagation, id]);
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+        throw new SecurityAdminValidationError('Invalid or contradictory scope assignment.', {
+          assignment: ['An assignment already exists for this user, node, role and propagation.'],
+        });
+      }
+      throw error;
+    }
     if (result.rowCount === 0) {
       throw new SecurityAdminValidationError(`Scope assignment '${id}' not found.`);
     }
@@ -683,5 +665,56 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
     if (Object.keys(issues).length > 0) {
       throw new SecurityAdminValidationError('Invalid or contradictory scope assignment.', issues);
     }
+  }
+
+  private manageableUserIdsSql(): string {
+    return `
+      WITH delegable AS (
+        SELECT n.path
+        FROM node_scope_assignments actor_allow
+        JOIN nodes n ON n.id = actor_allow.node_id AND n.deleted_at IS NULL
+        JOIN role_permissions rp ON rp.role_id = actor_allow.role_id
+        JOIN permissions p ON p.id = rp.permission_id
+        WHERE actor_allow.user_id = $1
+          AND actor_allow.assignment_effect = 'allow'::assignment_effect_enum
+          AND actor_allow.propagation = 'subtree'::scope_propagation_enum
+          AND p.permission_key = 'scope.assign'
+      )
+      SELECT candidate.id
+      FROM users candidate
+      WHERE candidate.deleted_at IS NULL AND candidate.is_super_admin = false
+        AND EXISTS (SELECT 1 FROM node_scope_assignments target WHERE target.user_id = candidate.id)
+        AND NOT EXISTS (
+          SELECT 1 FROM node_scope_assignments target
+          JOIN nodes target_node ON target_node.id = target.node_id AND target_node.deleted_at IS NULL
+          WHERE target.user_id = candidate.id
+            AND target.assignment_effect = 'allow'::assignment_effect_enum
+            AND NOT EXISTS (
+              SELECT 1 FROM delegable d
+              WHERE d.path @> target_node.path
+                AND NOT EXISTS (
+                  SELECT 1 FROM node_scope_assignments deny
+                  JOIN nodes deny_node ON deny_node.id = deny.node_id AND deny_node.deleted_at IS NULL
+                  JOIN role_permissions deny_rp ON deny_rp.role_id = deny.role_id
+                  JOIN permissions deny_permission ON deny_permission.id = deny_rp.permission_id
+                  WHERE deny.user_id = $1
+                    AND deny.assignment_effect = 'deny'::assignment_effect_enum
+                    AND deny_permission.permission_key = 'scope.assign'
+                    AND (
+                      (target.propagation = 'self'::scope_propagation_enum
+                        AND ((deny.propagation = 'self'::scope_propagation_enum AND deny_node.id = target.node_id)
+                          OR (deny.propagation = 'subtree'::scope_propagation_enum AND deny_node.path @> target_node.path)))
+                      OR (target.propagation = 'subtree'::scope_propagation_enum
+                        AND ((deny.propagation = 'self'::scope_propagation_enum AND target_node.path @> deny_node.path)
+                          OR (deny.propagation = 'subtree'::scope_propagation_enum
+                            AND (target_node.path @> deny_node.path OR deny_node.path @> target_node.path))))
+                    )
+                )
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id = candidate.id AND r.role_key NOT IN ('default_reader', 'scoped_reader')
+        )`;
   }
 }

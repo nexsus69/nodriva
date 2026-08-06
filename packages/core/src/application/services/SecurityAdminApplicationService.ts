@@ -3,6 +3,8 @@ import { AuditPort } from '../ports/AuditPort.js';
 import { TransactionPort } from '../ports/TransactionPort.js';
 import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { AccessControlPort } from '../ports/AccessControlPort.js';
+import { UserRepository } from '../ports/UserRepository.js';
+import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { Role } from '../../domain/models/Role.js';
 import {
   RoleListItemDto,
@@ -32,7 +34,8 @@ export class SecurityAdminApplicationService {
     private readonly auditPort: AuditPort,
     private readonly transactionPort: TransactionPort,
     private readonly idGenerator: IdGeneratorPort,
-    private readonly accessControlPort: AccessControlPort
+    private readonly accessControlPort: AccessControlPort,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async listRoles(actorUserId: string): Promise<RoleListItemDto[]> {
@@ -134,6 +137,7 @@ export class SecurityAdminApplicationService {
 
   async createScopeAssignment(cmd: CreateScopeAssignmentCommand): Promise<void> {
     const v = this.validateCommand(CreateScopeAssignmentCommandSchema, cmd, 'creating scope assignment');
+    await this.assertTargetUserManageable(v.actorUserId, v.userId);
     await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', v.nodeId, v.propagation);
     if (v.assignmentEffect === 'allow') {
       await this.assertCanDelegateRole(v.actorUserId, v.roleId, v.nodeId, v.propagation);
@@ -155,7 +159,7 @@ export class SecurityAdminApplicationService {
       await this.auditPort.record(
         v.actorUserId,
         'security.create_scope_assignment',
-        'role',
+        'scope_assignment',
         assignmentId,
         v.nodeId,
         null,
@@ -171,6 +175,7 @@ export class SecurityAdminApplicationService {
     if (!assignment) {
       throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
     }
+    await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
     await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', assignment.nodeId, v.propagation);
     if (v.assignmentEffect === 'allow') {
       await this.assertCanDelegateRole(v.actorUserId, v.roleId, assignment.nodeId, v.propagation);
@@ -187,7 +192,7 @@ export class SecurityAdminApplicationService {
       await this.auditPort.record(
         v.actorUserId,
         'security.update_scope_assignment',
-        'role',
+        'scope_assignment',
         v.assignmentId,
         assignment.nodeId,
         {
@@ -207,6 +212,7 @@ export class SecurityAdminApplicationService {
     if (!assignment) {
       throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
     }
+    await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
     await this.accessControlPort.assertHasPermission(v.actorUserId, 'scope.delete', assignment.nodeId);
 
     return await this.transactionPort.runInTransaction(async () => {
@@ -214,7 +220,7 @@ export class SecurityAdminApplicationService {
       await this.auditPort.record(
         v.actorUserId,
         'security.delete_scope_assignment',
-        'role',
+        'scope_assignment',
         v.assignmentId,
         assignment.nodeId,
         {
@@ -259,8 +265,15 @@ export class SecurityAdminApplicationService {
     if (!role) throw new RoleNotFoundError(roleId);
 
     const permissionKeys = await this.securityRepository.listRolePermissionKeys(roleId);
-    for (const permissionKey of permissionKeys) {
-      await this.accessControlPort.assertHasPermissionCoverage(actorUserId, permissionKey, nodeId, propagation);
+    await this.accessControlPort.assertHasPermissionCoverageBatch(actorUserId, permissionKeys, nodeId, propagation);
+  }
+
+  private async assertTargetUserManageable(actorUserId: string, userId: string): Promise<void> {
+    if (!await this.userRepository.isUserManageableBy(actorUserId, userId)) {
+      throw new ForbiddenError(`User '${userId}' is outside the actor's delegated boundary.`, {
+        actorUserId,
+        userId,
+      });
     }
   }
 

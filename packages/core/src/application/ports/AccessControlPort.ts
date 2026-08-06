@@ -26,6 +26,14 @@ export interface AccessControlPort {
     propagation: 'self' | 'subtree'
   ): Promise<void>;
 
+  /** Set-based equivalent used when delegating a role permission bundle. */
+  assertHasPermissionCoverageBatch(
+    actorUserId: string,
+    permissionKeys: readonly string[],
+    nodeId: string,
+    propagation: 'self' | 'subtree'
+  ): Promise<void>;
+
   /** Global trust-boundary check for operations that alter permission models. */
   assertIsSuperAdmin(actorUserId: string): Promise<void>;
 }

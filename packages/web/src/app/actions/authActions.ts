@@ -22,8 +22,8 @@ function isNextRedirect(error: unknown): boolean {
  * - generazione e impostazione del cookie JWT
  * - protezione CSRF
  */
-export async function loginAction(email: unknown, password: unknown) {
-  const credentials = parseLoginCredentials({ email, password });
+export async function loginAction(email: unknown, password: unknown, mfaCode?: unknown) {
+  const credentials = parseLoginCredentials({ email, password, mfaCode });
   if (!credentials) {
     return { success: false, error: 'Inserisci un indirizzo email e una password validi' };
   }
@@ -32,6 +32,7 @@ export async function loginAction(email: unknown, password: unknown) {
     await signIn('credentials', {
       email: credentials.email,
       password: credentials.password,
+      mfaCode: credentials.mfaCode,
       redirect: false,
     });
 

@@ -16,7 +16,10 @@ function setup() {
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
   const transactions = { runInTransaction: vi.fn().mockImplementation(async (work) => work()) };
   const ids = { generate: vi.fn().mockReturnValueOnce('00000000-0000-0000-0000-000000000010').mockReturnValue('00000000-0000-0000-0000-000000000011') };
-  const access = { assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined) };
+  const access = {
+    assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
+    assertHasPermissionCoverageBatch: vi.fn().mockResolvedValue(undefined),
+  };
   return { users, security, audit, transactions, ids, access, service: new ScopedUserProvisioningService(users as never, security as never, audit as never, transactions as never, ids, access as never) };
 }
 
@@ -31,7 +34,7 @@ describe('ScopedUserProvisioningService', () => {
 
   it('does not create anything when delegated coverage is denied', async () => {
     const { service, users, security, access } = setup();
-    access.assertHasPermissionCoverage.mockRejectedValueOnce(new Error('Denied'));
+    access.assertHasPermissionCoverageBatch.mockRejectedValueOnce(new Error('Denied'));
     await expect(service.createScopedUser({ email: 'local@example.com', password: 'StrongPassword!123', actorUserId: ACTOR, assignments: [{ nodeId: NODE, roleId: ROLE, propagation: 'subtree' }] })).rejects.toThrow('Denied');
     expect(users.createUser).not.toHaveBeenCalled();
     expect(security.createScopeAssignment).not.toHaveBeenCalled();

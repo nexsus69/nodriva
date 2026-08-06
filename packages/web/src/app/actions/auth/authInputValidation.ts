@@ -1,6 +1,7 @@
 export interface LoginCredentials {
   email: string;
   password: string;
+  mfaCode?: string;
 }
 
 const MAX_PASSWORD_LENGTH = 1024;
@@ -19,16 +20,17 @@ export function parseLoginCredentials(input: unknown): LoginCredentials | null {
   const candidate = input as Record<string, unknown>;
   const email = typeof candidate.email === 'string' ? candidate.email.trim() : '';
   const password = typeof candidate.password === 'string' ? candidate.password : '';
+  const mfaCode = typeof candidate.mfaCode === 'string' ? candidate.mfaCode.trim() : '';
 
   if (
     email.length === 0 ||
     email.length > 254 ||
     !EMAIL_PATTERN.test(email) ||
     password.length === 0 ||
-    password.length > MAX_PASSWORD_LENGTH
+    password.length > MAX_PASSWORD_LENGTH || mfaCode.length > 32
   ) {
     return null;
   }
 
-  return { email, password };
+  return { email, password, mfaCode: mfaCode || undefined };
 }

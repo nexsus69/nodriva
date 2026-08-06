@@ -21,7 +21,9 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  if (pathname === '/login' || pathname.startsWith('/admin')) return <>{children}</>;
+  if (pathname === '/login' || pathname === '/account/complete' || pathname.startsWith('/admin')) {
+    return <>{children}</>;
+  }
 
   const email = session?.user?.email ?? 'Utente autenticato';
   const userInitials = initials(email);

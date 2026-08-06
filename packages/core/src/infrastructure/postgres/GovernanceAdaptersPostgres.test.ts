@@ -203,16 +203,25 @@ describe('Governance and Security PostgreSQL Adapters', () => {
 
     it('should allow access if user has global permission', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
-      // nsa query: no deny
+      // active super-admin check: regular user
       mockExecutor.query.mockResolvedValueOnce({ rows: [] });
       // ur query: has permission
       mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
 
-      await expect(adapter.assertCanCreateNode('user-1', 'parent-1', 'device')).resolves.not.toThrow();
+      await expect(adapter.assertHasPermission('user-1', 'system.config', null)).resolves.not.toThrow();
+    });
+
+    it('treats an active super-admin as an absolute bypass before local denies', async () => {
+      const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
+      mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
+
+      await expect(adapter.assertCanCreateNode('super-1', 'parent-1', 'device')).resolves.not.toThrow();
+      expect(mockExecutor.query).toHaveBeenCalledTimes(1);
     });
 
     it('should deny access if user has explicit local deny', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
+      mockExecutor.query.mockResolvedValueOnce({ rows: [] });
       // nsa query: has deny
       mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
 
@@ -220,20 +229,23 @@ describe('Governance and Security PostgreSQL Adapters', () => {
         ForbiddenError
       );
       // the global check shouldn't even run
-      expect(mockExecutor.query).toHaveBeenCalledTimes(1);
+      expect(mockExecutor.query).toHaveBeenCalledTimes(2);
     });
 
     it('uses the scope assignment node id for self-scope permission checks', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
+      mockExecutor.query.mockResolvedValueOnce({ rows: [] });
       mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
 
       await expect(adapter.assertCanCreateNode('user-1', 'parent-1', 'device')).rejects.toThrow(ForbiddenError);
-      expect(mockExecutor.query.mock.calls[0]?.[0]).toContain('nsa.node_id = $3');
-      expect(mockExecutor.query.mock.calls[0]?.[0]).not.toContain('n.id = $3');
+      expect(mockExecutor.query.mock.calls[1]?.[0]).toContain('nsa.node_id = $3');
+      expect(mockExecutor.query.mock.calls[1]?.[0]).not.toContain('n.id = $3');
     });
 
     it('should deny access if user has neither global nor local allow (default deny)', async () => {
       const adapter = new AccessControlPortPostgres(mockExecutor as unknown as PgExecutor);
+      // active super-admin check: regular user
+      mockExecutor.query.mockResolvedValueOnce({ rows: [] });
       // nsa query: no deny
       mockExecutor.query.mockResolvedValueOnce({ rows: [] });
       // ur query: no global allow
@@ -255,9 +267,11 @@ describe('Governance and Security PostgreSQL Adapters', () => {
       });
       // 2. nsa deny check
       mockExecutor.query.mockResolvedValueOnce({ rows: [] });
-      // 3. global allow check
+      // 3. active super-admin check
       mockExecutor.query.mockResolvedValueOnce({ rows: [] });
-      // 4. local allow check
+      // 4. global allow check
+      mockExecutor.query.mockResolvedValueOnce({ rows: [] });
+      // 5. local allow check
       mockExecutor.query.mockResolvedValueOnce({ rows: [{ 1: 1 }] });
 
       await expect(adapter.assertCanEditEntity('user-1', 'entity-1')).resolves.not.toThrow();
