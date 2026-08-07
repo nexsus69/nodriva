@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { runtimeTiming } from '../../../config/runtimeTiming';
 import { useHumanActivity } from '../../activity/ActivityProvider';
 
 export function SessionModalWatcher() {
-  const { sessionExpiresAt, isSessionExpired, checkSession } = useHumanActivity();
+  const { sessionExpiresAt, isSessionExpired, checkSession, timing } = useHumanActivity();
 
   useEffect(() => {
     if (!sessionExpiresAt || isSessionExpired) return;
@@ -17,19 +16,19 @@ export function SessionModalWatcher() {
     const verify = async () => {
       const status = await checkSession();
       if (!cancelled && status === 'unreachable') {
-        timeoutId = setTimeout(verify, runtimeTiming.cacheSweepIntervalMs);
+        timeoutId = setTimeout(verify, timing.cacheSweepIntervalMs);
       }
     };
     timeoutId = setTimeout(
       verify,
-      Math.max(0, parsedExpiry - Date.now() + runtimeTiming.sessionExpirySafetyBufferMs),
+      Math.max(0, parsedExpiry - Date.now() + timing.sessionExpirySafetyBufferMs),
     );
 
     return () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [checkSession, isSessionExpired, sessionExpiresAt]);
+  }, [checkSession, isSessionExpired, sessionExpiresAt, timing]);
 
   if (!isSessionExpired) return null;
   return (

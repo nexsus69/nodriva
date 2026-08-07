@@ -65,6 +65,12 @@ describe('HumanActivityService', () => {
     const { service, sessions } = createContext();
     await expect(service.getStatus(SESSION_ID, USER_ID)).resolves.toEqual({
       sessionExpiresAt: new Date(NOW.getTime() + 60_000),
+      timing: {
+        sessionIdleTimeoutSeconds: 300,
+        sessionUpdateAgeSeconds: 50,
+        lockTtlSeconds: 100,
+        syncPollingIntervalSeconds: 50,
+      },
     });
     expect(sessions.touchSession).not.toHaveBeenCalled();
   });

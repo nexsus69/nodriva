@@ -19,6 +19,7 @@ export type {
 } from './application/ports/ConfigurationRepository.js';
 export { ConfigService } from './application/services/ConfigService.js';
 export type { SessionTimingPolicy } from './application/services/ConfigService.js';
+export type { SessionTimingPolicyPort } from './application/ports/SessionTimingPolicyPort.js';
 export { ConfigurationRepositoryPostgres } from './infrastructure/postgres/ConfigurationRepositoryPostgres.js';
 export { NodeType } from './domain/models/NodeType.js';
 export { EntityType } from './domain/models/EntityType.js';

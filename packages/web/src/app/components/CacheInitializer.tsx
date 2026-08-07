@@ -26,7 +26,7 @@ function isLoginRedirect(response: Response): boolean {
 export function CacheInitializer() {
   const { data: session } = useSession();
   const userId = session?.userId;
-  const { isSessionExpired } = useHumanActivity();
+  const { isSessionExpired, timing } = useHumanActivity();
 
   useEffect(() => {
     // Evitiamo polling al bootstrap della pagina di login o dopo la scadenza.
@@ -93,7 +93,7 @@ export function CacheInitializer() {
     document.addEventListener('visibilitychange', synchronizeWhenVisible);
     const accessRefresh = window.setInterval(
       synchronizeAccess,
-      runtimeTiming.syncPollingIntervalMs,
+      timing.syncPollingIntervalMs,
     );
 
     return () => {
@@ -103,7 +103,7 @@ export function CacheInitializer() {
       CacheGarbageCollector.stop();
       releaseChannels?.();
     };
-  }, [isSessionExpired, userId]);
+  }, [isSessionExpired, timing.syncPollingIntervalMs, userId]);
 
   return null;
 }

@@ -48,6 +48,15 @@ function activityError(error: unknown): NextResponse {
   return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
 }
 
+function serializeTiming(timing: {
+  sessionIdleTimeoutSeconds: number;
+  sessionUpdateAgeSeconds: number;
+  lockTtlSeconds: number;
+  syncPollingIntervalSeconds: number;
+}) {
+  return timing;
+}
+
 export const GET = auth(async (request) => {
   const identity = authenticatedIdentity(request);
   if (!identity) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
@@ -56,7 +65,7 @@ export const GET = auth(async (request) => {
     const { humanActivityService } = await import('../../../server/db');
     const result = await humanActivityService.getStatus(identity.sessionId, identity.userId);
     return NextResponse.json(
-      { sessionExpiresAt: result.sessionExpiresAt.toISOString() },
+      { sessionExpiresAt: result.sessionExpiresAt.toISOString(), timing: serializeTiming(result.timing) },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
@@ -92,6 +101,7 @@ export const POST = auth(async (request) => {
         ...lock,
         expiresAt: lock.expiresAt.toISOString(),
       })),
+      timing: serializeTiming(result.timing),
     });
   } catch (error) {
     return activityError(error);

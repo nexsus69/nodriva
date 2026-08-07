@@ -24,6 +24,7 @@ type SessionCheckResult = 'valid' | 'expired' | 'unreachable';
 interface ActivityContextValue {
   sessionExpiresAt?: string;
   isSessionExpired: boolean;
+  timing: typeof runtimeTiming;
   registerActiveLock(lock: ActivityLockRef): () => void;
   checkSession(): Promise<SessionCheckResult>;
 }
@@ -34,6 +35,25 @@ const ACTIVITY_CHANNEL = 'dashboard-human-activity';
 interface ActivityResponse {
   sessionExpiresAt: string;
   renewedLocks: Array<ActivityLockRef & { expiresAt: string }>;
+  timing?: {
+    sessionIdleTimeoutSeconds: number;
+    sessionUpdateAgeSeconds: number;
+    lockTtlSeconds: number;
+    syncPollingIntervalSeconds: number;
+  };
+}
+
+function toClientTiming(value: ActivityResponse['timing']): typeof runtimeTiming {
+  if (!value) return runtimeTiming;
+  return {
+    ...runtimeTiming,
+    sessionIdleTimeoutSeconds: value.sessionIdleTimeoutSeconds,
+    sessionIdleTimeoutMs: value.sessionIdleTimeoutSeconds * 1000,
+    sessionUpdateAgeSeconds: value.sessionUpdateAgeSeconds,
+    lockTtlSeconds: value.lockTtlSeconds,
+    activityHeartbeatThrottleMs: value.sessionUpdateAgeSeconds * 1000,
+    syncPollingIntervalMs: value.syncPollingIntervalSeconds * 1000,
+  };
 }
 
 function isLoginRedirect(response: Response): boolean {
@@ -56,6 +76,7 @@ export function ActivityProvider({
   const userId = session?.userId;
   const sessionId = session?.activitySessionId;
   const [sessionExpiresAt, setSessionExpiresAt] = useState(initialExpires);
+  const [timing, setTiming] = useState<typeof runtimeTiming>(runtimeTiming);
   const [isSessionExpired, setSessionExpired] = useState(false);
   const activeLocksRef = useRef(new Map<string, ActivityLockRef>());
   const lastHeartbeatAtRef = useRef(0);
@@ -75,6 +96,19 @@ export function ActivityProvider({
     channelRef.current?.postMessage({ type: 'expired' });
   }, []);
 
+  const adoptTiming = useCallback((serverTiming: ActivityResponse['timing']) => {
+    if (!serverTiming) return;
+    const next = toClientTiming(serverTiming);
+    setTiming((current) => (
+      current.sessionIdleTimeoutSeconds === next.sessionIdleTimeoutSeconds
+      && current.sessionUpdateAgeSeconds === next.sessionUpdateAgeSeconds
+      && current.lockTtlSeconds === next.lockTtlSeconds
+      && current.syncPollingIntervalMs === next.syncPollingIntervalMs
+        ? current
+        : next
+    ));
+  }, []);
+
   const checkSession = useCallback(async (): Promise<SessionCheckResult> => {
     try {
       const response = await fetch('/api/activity', {
@@ -89,15 +123,16 @@ export function ActivityProvider({
         activityDebugStore.sessionChecked('server-error');
         return 'unreachable';
       }
-      const result = await response.json() as { sessionExpiresAt: string };
+      const result = await response.json() as { sessionExpiresAt: string; timing?: ActivityResponse['timing'] };
       adoptExpiry(result.sessionExpiresAt);
+      adoptTiming(result.timing);
       activityDebugStore.sessionChecked('success', result.sessionExpiresAt);
       return 'valid';
     } catch {
       activityDebugStore.sessionChecked('network-error');
       return 'unreachable';
     }
-  }, [adoptExpiry, markExpired]);
+  }, [adoptExpiry, adoptTiming, markExpired]);
 
   const sendHeartbeat = useCallback(async () => {
     if (!userId || isSessionExpired || document.visibilityState !== 'visible') return;
@@ -130,6 +165,7 @@ export function ActivityProvider({
       }
       const result = await response.json() as ActivityResponse;
       adoptExpiry(result.sessionExpiresAt);
+      adoptTiming(result.timing);
       activityDebugStore.sessionRenewed(result.sessionExpiresAt, 'heartbeat');
       activityDebugStore.heartbeatFinished(
         'success',
@@ -163,7 +199,7 @@ export function ActivityProvider({
     } finally {
       heartbeatInFlightRef.current = false;
     }
-  }, [adoptExpiry, isSessionExpired, markExpired, sessionId, userId]);
+  }, [adoptExpiry, adoptTiming, isSessionExpired, markExpired, sessionId, userId]);
 
   const registerActiveLock = useCallback((lock: ActivityLockRef) => {
     const key = `${lock.resourceType}:${lock.resourceId}`;
@@ -232,9 +268,10 @@ export function ActivityProvider({
   const value = useMemo<ActivityContextValue>(() => ({
     sessionExpiresAt,
     isSessionExpired,
+    timing,
     registerActiveLock,
     checkSession,
-  }), [checkSession, isSessionExpired, registerActiveLock, sessionExpiresAt]);
+  }), [checkSession, isSessionExpired, registerActiveLock, sessionExpiresAt, timing]);
 
   return <ActivityContext.Provider value={value}>{children}</ActivityContext.Provider>;
 }

@@ -206,7 +206,7 @@ export const lockService = new LockService(
   lockRepository,
   pusherEventBus,
   idGenerator,
-  runtimeTiming.lockTtlSeconds,
+  configService,
 );
 
 // Istanziamo i Service Layer concreti pronti per l'uso
@@ -302,7 +302,7 @@ export const systemSeedService = new SystemSeedPostgres(
 export const authApplicationService = new AuthApplicationService(
   sessionRepository,
   userRepository,
-  runtimeTiming.sessionIdleTimeoutSeconds,
+  configService,
   loginRateLimitPort,
   mfaTotpService,
   auditPort,
@@ -311,8 +311,7 @@ export const humanActivityService = new HumanActivityService(
   sessionRepository,
   lockService,
   transactionPort,
-  runtimeTiming.sessionIdleTimeoutSeconds,
-  runtimeTiming.lockTtlSeconds,
+  configService,
 );
 export const accountRecoveryService = new AccountRecoveryApplicationService(
   accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort,

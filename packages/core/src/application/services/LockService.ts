@@ -4,20 +4,22 @@ import { LockEventBus, type LockEventScope } from '../ports/LockEventBus.js';
 import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { LockExpiredError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
+import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
 
 export class LockService {
   constructor(
     private readonly lockRepository: LockRepository,
     private readonly lockEventBus: LockEventBus,
     private readonly idGenerator: IdGeneratorPort,
-    private readonly defaultTtlSeconds: number,
+    private readonly timing: SessionTimingPolicyPort | number,
   ) {}
 
   /**
    * Acquires a lock on a resource for a user.
    */
-  async lock(resourceType: string, resourceId: string, userId: string, sessionId: string, ttlSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  async lock(resourceType: string, resourceId: string, userId: string, sessionId: string, ttlSeconds?: number, scope?: LockEventScope): Promise<Lock> {
+    const effectiveTtlSeconds = ttlSeconds ?? await this.getLockTtlSeconds();
+    const expiresAt = new Date(Date.now() + effectiveTtlSeconds * 1000);
     const lock = new Lock(
       this.idGenerator.generate(),
       resourceType,
@@ -39,9 +41,15 @@ export class LockService {
   /**
    * Refreshes an existing lock.
    */
-  async refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, extendSeconds: number = this.defaultTtlSeconds, scope?: LockEventScope): Promise<Lock> {
-    const newExpiresAt = new Date(Date.now() + extendSeconds * 1000);
+  async refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, extendSeconds?: number, scope?: LockEventScope): Promise<Lock> {
+    const effectiveExtendSeconds = extendSeconds ?? await this.getLockTtlSeconds();
+    const newExpiresAt = new Date(Date.now() + effectiveExtendSeconds * 1000);
     return await this.refreshUntil(resourceType, resourceId, userId, sessionId, newExpiresAt, scope);
+  }
+
+  private async getLockTtlSeconds(): Promise<number> {
+    if (typeof this.timing === 'number') return this.timing;
+    return (await this.timing.getSessionTimingPolicy()).lockTtlSeconds;
   }
 
   /** Refreshes an owned lock to an externally coordinated activity deadline. */

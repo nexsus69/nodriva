@@ -2,6 +2,7 @@ import { UnauthorizedError, LockConflictError, LockNotFoundError } from '../../d
 import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import { TransactionPort } from '../ports/TransactionPort.js';
 import { LockService } from './LockService.js';
+import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
 
 export interface ActivityLockRef {
   resourceType: string;
@@ -11,6 +12,7 @@ export interface ActivityLockRef {
 export interface HumanActivityResult {
   sessionExpiresAt: Date;
   renewedLocks: Array<ActivityLockRef & { expiresAt: Date }>;
+  timing: Awaited<ReturnType<SessionTimingPolicyPort['getSessionTimingPolicy']>>;
 }
 
 export class HumanActivityService {
@@ -18,14 +20,25 @@ export class HumanActivityService {
     private readonly sessions: SessionRepositoryPort,
     private readonly locks: LockService,
     private readonly transactions: TransactionPort,
-    private readonly sessionIdleTimeoutSeconds: number,
-    private readonly lockIdleTimeoutSeconds: number,
+    private readonly timing: SessionTimingPolicyPort | number,
+    private readonly lockIdleTimeoutSeconds?: number,
   ) {}
 
-  async getStatus(sessionId: string, userId: string): Promise<{ sessionExpiresAt: Date }> {
+  async getStatus(sessionId: string, userId: string): Promise<{ sessionExpiresAt: Date; timing: HumanActivityResult['timing'] }> {
     const sessionExpiresAt = await this.sessions.getActiveSessionExpiry(sessionId, userId);
     if (!sessionExpiresAt) throw new UnauthorizedError('Session invalid or expired');
-    return { sessionExpiresAt };
+    return { sessionExpiresAt, timing: await this.getPolicy() };
+  }
+
+  private async getPolicy() {
+    if (typeof this.timing !== 'number') return await this.timing.getSessionTimingPolicy();
+    const lockTtlSeconds = this.lockIdleTimeoutSeconds ?? Math.max(1, Math.floor(this.timing / 3));
+    return {
+      sessionIdleTimeoutSeconds: this.timing,
+      sessionUpdateAgeSeconds: Math.max(1, Math.floor(this.timing / 6)),
+      lockTtlSeconds,
+      syncPollingIntervalSeconds: Math.max(1, Math.floor(this.timing / 6)),
+    };
   }
 
   async recordActivity(
@@ -34,8 +47,9 @@ export class HumanActivityService {
     activeLocks: ActivityLockRef[],
   ): Promise<HumanActivityResult> {
     return await this.transactions.runInTransaction(async () => {
-      const sessionExpiresAt = new Date(Date.now() + this.sessionIdleTimeoutSeconds * 1000);
-      const lockExpiresAt = new Date(Date.now() + this.lockIdleTimeoutSeconds * 1000);
+      const policy = await this.getPolicy();
+      const sessionExpiresAt = new Date(Date.now() + policy.sessionIdleTimeoutSeconds * 1000);
+      const lockExpiresAt = new Date(Date.now() + policy.lockTtlSeconds * 1000);
       const touched = await this.sessions.touchSession(sessionId, userId, sessionExpiresAt);
       if (!touched) throw new UnauthorizedError('Session invalid or expired');
 
@@ -58,7 +72,7 @@ export class HumanActivityService {
         }
       }
 
-      return { sessionExpiresAt, renewedLocks };
+      return { sessionExpiresAt, renewedLocks, timing: policy };
     });
   }
 }

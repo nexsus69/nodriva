@@ -6,12 +6,13 @@ import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
 import { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
 import { MfaTotpApplicationService } from './MfaTotpApplicationService.js';
 import { AuditPort } from '../ports/AuditPort.js';
+import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
 
 export class AuthApplicationService {
   constructor(
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly userRepository: UserRepository,
-    private readonly sessionIdleTimeoutSeconds: number,
+    private readonly sessionTiming: SessionTimingPolicyPort | number,
     private readonly loginRateLimit?: LoginRateLimitPort,
     private readonly mfa?: MfaTotpApplicationService,
     private readonly audit?: AuditPort,
@@ -61,7 +62,10 @@ export class AuthApplicationService {
     const token = crypto.randomBytes(32).toString('hex');
     // Compute SHA256 hash to store in DB
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
-    const expiresAt = new Date(Date.now() + this.sessionIdleTimeoutSeconds * 1000);
+    const sessionIdleTimeoutSeconds = typeof this.sessionTiming === 'number'
+      ? this.sessionTiming
+      : (await this.sessionTiming.getSessionTimingPolicy()).sessionIdleTimeoutSeconds;
+    const expiresAt = new Date(Date.now() + sessionIdleTimeoutSeconds * 1000);
 
     const sessionId = await this.sessionRepository.createSession(user.id, hashedToken, expiresAt);
     await Promise.all(subjects.map((subject) => this.loginRateLimit?.clear(subject)));
