@@ -262,6 +262,7 @@ export function ActivityProvider({
       if (document.visibilityState === 'visible' && userId && !isSessionExpired) void checkSession();
     };
     document.addEventListener('visibilitychange', validateWhenVisible);
+    validateWhenVisible();
     return () => document.removeEventListener('visibilitychange', validateWhenVisible);
   }, [checkSession, isSessionExpired, userId]);
 
