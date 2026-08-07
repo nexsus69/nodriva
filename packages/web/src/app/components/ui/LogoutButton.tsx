@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { logoutAction } from '../../actions/authActions';
 import { AppCache } from '../../cache/GlobalCacheClient';
+import { useHumanActivity } from '../../activity/ActivityProvider';
 
 interface LogoutButtonProps {
   className?: string;
@@ -14,10 +15,14 @@ export function LogoutButton({ className }: LogoutButtonProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const { update: refreshSession } = useSession();
+  const { resetActivity } = useHumanActivity();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      // Ferma immediatamente timer e polling, prima che il cookie venga
+      // rimosso e prima che useSession aggiorni lo snapshot.
+      resetActivity();
       // 1. Invoca la Server Action per cancellare il cookie HTTP-Only e invalidare su DB
       const res = await logoutAction();
       

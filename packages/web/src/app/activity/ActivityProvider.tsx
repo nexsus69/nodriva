@@ -27,6 +27,7 @@ interface ActivityContextValue {
   timing: typeof runtimeTiming;
   registerActiveLock(lock: ActivityLockRef): () => void;
   checkSession(): Promise<SessionCheckResult>;
+  resetActivity(): void;
 }
 
 const ActivityContext = createContext<ActivityContextValue | null>(null);
@@ -116,7 +117,7 @@ export function ActivityProvider({
     lastHeartbeatAtRef.current = 0;
     heartbeatInFlightRef.current = false;
     setSessionExpiresAt(undefined);
-    setSessionExpired(false);
+    setSessionExpired(true);
     setTiming(runtimeTiming);
     AppCache.purgeAll();
     activityDebugStore.resetForLogout();
@@ -274,7 +275,9 @@ export function ActivityProvider({
       const resetTimer = window.setTimeout(resetForLogout, 0);
       return () => window.clearTimeout(resetTimer);
     }
+    const activateTimer = window.setTimeout(() => setSessionExpired(false), 0);
     activityDebugStore.setAuthenticated(true);
+    return () => window.clearTimeout(activateTimer);
   }, [resetForLogout, userId]);
 
   useEffect(() => {
@@ -293,7 +296,8 @@ export function ActivityProvider({
     timing,
     registerActiveLock,
     checkSession,
-  }), [checkSession, isSessionExpired, registerActiveLock, sessionExpiresAt, timing]);
+    resetActivity: resetForLogout,
+  }), [checkSession, isSessionExpired, registerActiveLock, resetForLogout, sessionExpiresAt, timing]);
 
   return <ActivityContext.Provider value={value}>{children}</ActivityContext.Provider>;
 }
