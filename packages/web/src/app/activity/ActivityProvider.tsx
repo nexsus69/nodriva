@@ -82,6 +82,7 @@ export function ActivityProvider({
   const lastHeartbeatAtRef = useRef(0);
   const heartbeatInFlightRef = useRef(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const activityGenerationRef = useRef(0);
 
   const adoptExpiry = useCallback((expiresAt: string, broadcast = true) => {
     setSessionExpiresAt(expiresAt);
@@ -107,6 +108,18 @@ export function ActivityProvider({
         ? current
         : next
     ));
+  }, []);
+
+  const resetForLogout = useCallback(() => {
+    activityGenerationRef.current += 1;
+    activeLocksRef.current.clear();
+    lastHeartbeatAtRef.current = 0;
+    heartbeatInFlightRef.current = false;
+    setSessionExpiresAt(undefined);
+    setSessionExpired(false);
+    setTiming(runtimeTiming);
+    AppCache.purgeAll();
+    activityDebugStore.resetForLogout();
   }, []);
 
   const checkSession = useCallback(async (): Promise<SessionCheckResult> => {
@@ -136,6 +149,7 @@ export function ActivityProvider({
 
   const sendHeartbeat = useCallback(async () => {
     if (!userId || isSessionExpired || document.visibilityState !== 'visible') return;
+    const requestGeneration = activityGenerationRef.current;
     const now = Date.now();
     const nextAllowedAt = lastHeartbeatAtRef.current + timing.activityHeartbeatThrottleMs;
     if (heartbeatInFlightRef.current || now < nextAllowedAt) {
@@ -154,6 +168,7 @@ export function ActivityProvider({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeLocks }),
       });
+      if (requestGeneration !== activityGenerationRef.current || !userId) return;
       if (response.status === 401 || isLoginRedirect(response)) {
         activityDebugStore.heartbeatFinished('unauthorized', performance.now() - startedAt, undefined, 0, response.status);
         markExpired();
@@ -164,6 +179,7 @@ export function ActivityProvider({
         return;
       }
       const result = await response.json() as ActivityResponse;
+      if (requestGeneration !== activityGenerationRef.current || !userId) return;
       adoptExpiry(result.sessionExpiresAt);
       adoptTiming(result.timing);
       activityDebugStore.sessionRenewed(result.sessionExpiresAt, 'heartbeat');
@@ -193,6 +209,7 @@ export function ActivityProvider({
         });
       }
     } catch {
+      if (requestGeneration !== activityGenerationRef.current) return;
       // A transient network failure is not proof of session expiry. The next
       // genuine interaction or the passive status check will retry.
       activityDebugStore.heartbeatFinished('network-error', performance.now() - startedAt);
@@ -253,8 +270,12 @@ export function ActivityProvider({
   }, [isSessionExpired, sendHeartbeat, userId]);
 
   useEffect(() => {
-    activityDebugStore.setAuthenticated(Boolean(userId));
-  }, [userId]);
+    if (!userId) {
+      const resetTimer = window.setTimeout(resetForLogout, 0);
+      return () => window.clearTimeout(resetTimer);
+    }
+    activityDebugStore.setAuthenticated(true);
+  }, [resetForLogout, userId]);
 
   useEffect(() => {
     const validateWhenVisible = () => {

@@ -72,6 +72,15 @@ class ActivityDebugStore {
 
   clearEvents = (): void => this.update({ events: [] });
 
+  resetForLogout(): void {
+    this.sequence = 0;
+    this.snapshot = {
+      ...SERVER_SNAPSHOT,
+      pageVisibility: typeof document === 'undefined' ? 'unknown' : document.visibilityState,
+    };
+    this.subscribers.forEach((subscriber) => subscriber());
+  }
+
   setAuthenticated(authenticated: boolean): void {
     this.update({ authenticated });
   }
