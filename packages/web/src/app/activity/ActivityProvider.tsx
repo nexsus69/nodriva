@@ -137,7 +137,7 @@ export function ActivityProvider({
   const sendHeartbeat = useCallback(async () => {
     if (!userId || isSessionExpired || document.visibilityState !== 'visible') return;
     const now = Date.now();
-    const nextAllowedAt = lastHeartbeatAtRef.current + runtimeTiming.activityHeartbeatThrottleMs;
+    const nextAllowedAt = lastHeartbeatAtRef.current + timing.activityHeartbeatThrottleMs;
     if (heartbeatInFlightRef.current || now < nextAllowedAt) {
       activityDebugStore.heartbeatThrottled();
       return;
@@ -199,7 +199,7 @@ export function ActivityProvider({
     } finally {
       heartbeatInFlightRef.current = false;
     }
-  }, [adoptExpiry, adoptTiming, isSessionExpired, markExpired, sessionId, userId]);
+  }, [adoptExpiry, adoptTiming, isSessionExpired, markExpired, sessionId, timing.activityHeartbeatThrottleMs, userId]);
 
   const registerActiveLock = useCallback((lock: ActivityLockRef) => {
     const key = `${lock.resourceType}:${lock.resourceId}`;

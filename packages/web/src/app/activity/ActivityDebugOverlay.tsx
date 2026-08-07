@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { runtimeTiming } from '../../config/runtimeTiming';
+import { useHumanActivity } from './ActivityProvider';
 import type {
   ActivityDebugSnapshot,
   DebugOutcome,
@@ -51,6 +52,7 @@ export function ActivityDebugOverlay({
   snapshot: ActivityDebugSnapshot;
   onClear: () => void;
 }) {
+  const { timing } = useHumanActivity();
   const [collapsed, setCollapsed] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
@@ -64,7 +66,7 @@ export function ActivityDebugOverlay({
 
   const sessionRemaining = remaining(snapshot.sessionExpiresAt, now);
   const nextHeartbeatAllowedAt = snapshot.lastHeartbeatAt
-    ? new Date(Date.parse(snapshot.lastHeartbeatAt) + runtimeTiming.activityHeartbeatThrottleMs).toISOString()
+    ? new Date(Date.parse(snapshot.lastHeartbeatAt) + timing.activityHeartbeatThrottleMs).toISOString()
     : undefined;
   const heartbeatReady = nextHeartbeatAllowedAt
     ? remaining(nextHeartbeatAllowedAt, now)
