@@ -13,7 +13,7 @@ function SessionWarning() {
     return (
       <div
         role="status"
-        className="mt-6 flex items-start gap-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm leading-5 text-amber-100"
+        className="mt-6 flex items-start gap-3 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm font-medium leading-5 text-amber-50"
       >
         <span aria-hidden="true" className="mt-0.5 text-amber-300">⚠</span>
         <span>La tua sessione è scaduta per inattività. Effettua nuovamente l&apos;accesso.</span>
