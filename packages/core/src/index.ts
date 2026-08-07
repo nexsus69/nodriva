@@ -3,6 +3,23 @@ export { PasswordHasher } from './domain/policies/PasswordHasher.js';
 export { Node } from './domain/models/Node.js';
 export { Entity } from './domain/models/Entity.js';
 export { Lock } from './domain/models/Lock.js';
+export {
+  ConfigurationRegistry,
+  defaultConfigurationRegistry,
+  sessionIdleTimeoutDefinition,
+} from './application/config/ConfigurationRegistry.js';
+export type {
+  ConfigurationDefinition,
+  ConfigurationSource,
+  ConfigurationValueType,
+} from './application/config/ConfigurationRegistry.js';
+export type {
+  ConfigurationRecord,
+  ConfigurationRepository,
+} from './application/ports/ConfigurationRepository.js';
+export { ConfigService } from './application/services/ConfigService.js';
+export type { SessionTimingPolicy } from './application/services/ConfigService.js';
+export { ConfigurationRepositoryPostgres } from './infrastructure/postgres/ConfigurationRepositoryPostgres.js';
 export { NodeType } from './domain/models/NodeType.js';
 export { EntityType } from './domain/models/EntityType.js';
 export { ManagedTypeDefinition } from './domain/models/ManagedTypeDefinition.js';

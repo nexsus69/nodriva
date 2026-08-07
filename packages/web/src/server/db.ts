@@ -47,6 +47,9 @@ import {
   RealtimeOutboxPostgres,
   RealtimeChannelRouter,
   MemoryCache,
+  ConfigService,
+  ConfigurationRepositoryPostgres,
+  defaultConfigurationRegistry,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -150,6 +153,11 @@ export const pusherEventBus = new PusherEventBus({
 });
 export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
+export const configurationRepository = new ConfigurationRepositoryPostgres(pgExecutor);
+export const configService = new ConfigService(
+  configurationRepository,
+  defaultConfigurationRegistry,
+);
 export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
 
 // Repository PostgreSQL

@@ -293,6 +293,17 @@ export class SystemSeedPostgres implements SystemSeedPort {
     await this.executor.query("DELETE FROM runtime_capabilities");
 
     await this.executor.query(`
+      INSERT INTO system_settings (
+        category, setting_key, display_name, description, value_type,
+        value_text, is_runtime_overridable, is_system
+      ) VALUES (
+        'security', 'session.idleTimeoutSeconds', 'Session inactivity timeout',
+        'Maximum inactivity duration in seconds. Heartbeat, polling and lock TTL are derived from this value.',
+        'integer'::setting_value_type_enum, '300', TRUE, TRUE
+      )
+    `);
+
+    await this.executor.query(`
       INSERT INTO runtime_capabilities (capability_key, name, default_status, description)
       VALUES 
         ('hierarchical_structure', 'Hierarchical Tree', 'enabled'::capability_status_enum, 'Node tree structure'),
