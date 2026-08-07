@@ -73,7 +73,7 @@ export function ActivityProvider({
   children: React.ReactNode;
   initialExpires?: string;
 }) {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const userId = session?.userId;
   const sessionId = session?.activitySessionId;
   const [sessionExpiresAt, setSessionExpiresAt] = useState(initialExpires);
@@ -271,14 +271,14 @@ export function ActivityProvider({
   }, [isSessionExpired, sendHeartbeat, userId]);
 
   useEffect(() => {
-    if (!userId) {
+    if (sessionStatus !== 'authenticated' || !userId) {
       const resetTimer = window.setTimeout(resetForLogout, 0);
       return () => window.clearTimeout(resetTimer);
     }
     const activateTimer = window.setTimeout(() => setSessionExpired(false), 0);
     activityDebugStore.setAuthenticated(true);
     return () => window.clearTimeout(activateTimer);
-  }, [resetForLogout, userId]);
+  }, [resetForLogout, sessionStatus, userId]);
 
   useEffect(() => {
     const validateWhenVisible = () => {
