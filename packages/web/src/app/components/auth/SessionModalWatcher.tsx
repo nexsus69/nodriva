@@ -32,7 +32,9 @@ export function SessionModalWatcher() {
     };
   }, [checkSession, isSessionExpired, sessionExpiresAt, timing]);
 
-  if (!session?.userId || !isSessionExpired) return null;
+  // Un logout volontario azzera sessionExpiresAt prima che useSession aggiorni
+  // il proprio snapshot. La modal deve apparire solo per una scadenza reale.
+  if (!session?.userId || !sessionExpiresAt || !isSessionExpired) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/25 p-4 backdrop-blur-sm">
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-2xl shadow-slate-900/20">
