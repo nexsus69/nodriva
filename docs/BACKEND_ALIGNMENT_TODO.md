@@ -74,6 +74,9 @@
 - [x] Define audit retention, export and access-review procedures.
 - [x] Add password-reset/invitation workflow, rate limits and optional MFA for
   administrative identities.
+- [ ] Make MFA factor replacement atomic: keep the active factor enabled until
+  the new TOTP secret is confirmed; store pending secrets separately with an
+  expiry and add recovery-code regeneration/status handling.
 - [x] Document and test portability boundaries outside PostgreSQL (`ltree`,
   locking and dynamic SQL are currently PostgreSQL-specific).
 
