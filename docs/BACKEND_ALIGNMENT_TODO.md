@@ -50,6 +50,9 @@
 
 ## P1 — Runtime session policy
 
+- [ ] Approve the complete runtime/deployment/secret configuration catalog in
+  [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md)
+  before adding further settings to the administrative UI.
 - [ ] Replace the temporary build/deployment value
   `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS` with an authoritative backend
   system setting for the session inactivity timeout. The current 300-second
