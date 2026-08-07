@@ -1,6 +1,6 @@
 'use server';
 
-import { systemAdminService } from '../../server/db';
+import { configService, systemAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
@@ -78,6 +78,7 @@ export async function updateSettingAction(cmd: UpdateSystemSettingUiCommand): Pr
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId: await AuthResolver.resolveActorUserId(),
     });
+    configService.invalidate(cmd.settingKey);
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
