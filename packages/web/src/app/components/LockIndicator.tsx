@@ -20,7 +20,7 @@ function LockIcon({ className }: { className: string }) {
 
 export function LockIndicator({ resourceType, resourceId, className = '' }: LockIndicatorProps) {
   const { data: session } = useSession();
-  const currentUserId = (session as { userId?: string } | null)?.userId;
+  const currentSessionId = session?.activitySessionId;
   const subscribe = useCallback(
     (onStoreChange: () => void) =>
       AppCache.subscribeLock(resourceType, resourceId, onStoreChange),
@@ -38,12 +38,12 @@ export function LockIndicator({ resourceType, resourceId, className = '' }: Lock
 
   if (!state.locked) return null;
 
-  const mine = !!currentUserId && state.byUserId === currentUserId;
+  const mine = !!currentSessionId && state.bySessionId === currentSessionId;
   return (
     <span
       className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md align-middle ${className} ${mine ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600'}`}
-      title={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un altro utente'}
-      aria-label={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un altro utente'}
+      title={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un\'altra sessione'}
+      aria-label={mine ? 'Elemento bloccato da te' : 'Elemento bloccato da un\'altra sessione'}
     >
       <LockIcon className="h-3.5 w-3.5" />
     </span>
