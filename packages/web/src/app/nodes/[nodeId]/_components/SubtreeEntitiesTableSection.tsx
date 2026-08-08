@@ -92,9 +92,9 @@ export function SubtreeEntitiesTableSection({
 
   return (
     <section className="space-y-4 border-t border-slate-200 pt-6">
-      <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Esplora dati</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Entità del sottoalbero</h2></div>
-        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm">{items.length} caricate</span>
+        <span className="self-start rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm sm:self-auto">{items.length} caricate</span>
       </div>
       <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cerca

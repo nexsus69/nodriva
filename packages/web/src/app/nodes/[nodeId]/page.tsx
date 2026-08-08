@@ -170,7 +170,7 @@ export default function NodeDetailPage() {
           activeNodePath={currentNode?.path}
         />
         <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Contesto</p><h2 className="mt-1 text-sm font-semibold text-slate-800">Riepilogo nodo</h2></div>
             <span className={`h-2.5 w-2.5 rounded-full ${isMyLock ? 'bg-emerald-500' : lockedByOther ? 'bg-amber-500' : 'bg-slate-300'}`} title={isMyLock ? 'Modifica attiva' : lockedByOther ? 'Bloccato da altro utente' : 'Sola lettura'} />
           </div>
@@ -196,7 +196,7 @@ export default function NodeDetailPage() {
 
       {/* Testata Nodo Selezionato */}
       <section className="glass-panel space-y-2 rounded-2xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-xl text-indigo-600">
               📦
@@ -312,7 +312,7 @@ export default function NodeDetailPage() {
       </section>
 
       <section className="glass-panel space-y-4 rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-slate-800">Entità del nodo ({nodeEntities.length})</h2>
             <p className="mt-1 text-xs text-slate-500">Le entità vengono visualizzate in base ai metadata del loro tipo.</p>
@@ -365,7 +365,7 @@ export default function NodeDetailPage() {
 
       {/* Sotto-Nodi Figli (es. Sotto-reparti o Sotto-ordini) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-700 font-mono">
             <span>🌿</span> Sotto-Nodi Gerarchici ({childNodes.length})
           </h2>

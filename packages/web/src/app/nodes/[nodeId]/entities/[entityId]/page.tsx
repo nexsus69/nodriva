@@ -153,7 +153,7 @@ export default function EntityDetailPage() {
   }
 
   return (
-    <div className="workspace-page max-w-2xl mx-auto space-y-6">
+    <div className="workspace-page mx-auto max-w-2xl space-y-6">
       <ConfirmModal
         open={showDeleteConfirm}
         title="Elimina entità"
@@ -165,7 +165,7 @@ export default function EntityDetailPage() {
       />
       {/* Breadcrumb */}
       <div className="flex min-w-0 items-center gap-1">
-        <NodeBreadcrumb nodeId={parentNodeId} />
+        <NodeBreadcrumb nodeId={parentNodeId} currentNodeLinkable />
         <span aria-hidden="true" className="text-slate-600">/</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-mono font-semibold leading-none text-slate-100" title={entity.name}>
           <span className="truncate">{entity.name}</span>
@@ -174,13 +174,13 @@ export default function EntityDetailPage() {
       </div>
 
       {/* Header */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 flex items-center justify-between">
-        <div>
-          <span className="text-[10px] font-mono text-indigo-400 uppercase tracking-wider block">
+      <div className="glass-panel flex flex-col gap-4 rounded-2xl border border-slate-800 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="min-w-0">
+          <span className="block break-all text-[10px] font-mono uppercase tracking-wider text-indigo-400">
             ID Entità: {entity.id}
           </span>
-          <h1 className="text-xl font-bold text-slate-100">{entity.name}</h1>
-          <p className="text-xs text-slate-400 mt-1">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
+          <h1 className="mt-1 break-words text-xl font-bold text-slate-100">{entity.name}</h1>
+          <p className="mt-1 break-words text-xs text-slate-400">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
         </div>
 
         <LockBadge
@@ -210,7 +210,7 @@ export default function EntityDetailPage() {
       )}
 
       {/* View mode never opens a lock or a Pusher subscription. */}
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+      <div className="glass-panel space-y-6 rounded-2xl border border-slate-800 p-4 sm:p-6">
         {!isMyLock ? (
           <dl className="space-y-4 text-xs">
             <div>

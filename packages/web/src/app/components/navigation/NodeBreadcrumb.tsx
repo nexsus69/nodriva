@@ -8,9 +8,11 @@ import { LockIndicator } from '../LockIndicator';
 
 export interface NodeBreadcrumbProps {
   nodeId: string;
+  /** The current node is normally plain text; entity pages can link back to it. */
+  currentNodeLinkable?: boolean;
 }
 
-export function NodeBreadcrumb({ nodeId }: NodeBreadcrumbProps) {
+export function NodeBreadcrumb({ nodeId, currentNodeLinkable = false }: NodeBreadcrumbProps) {
   const cacheRevision = useAppCacheRevision();
   void cacheRevision;
 
@@ -43,7 +45,7 @@ export function NodeBreadcrumb({ nodeId }: NodeBreadcrumbProps) {
           return (
             <li key={node.id} className="contents">
               <span aria-hidden="true" className="text-slate-600">/</span>
-              {isCurrent ? (
+              {isCurrent && !currentNodeLinkable ? (
                 <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
                   <span
                     aria-current="page"
