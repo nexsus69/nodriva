@@ -6,6 +6,7 @@ import { AppCache } from './cache/GlobalCacheClient';
 import { useSemanticNodeList } from './hooks/useSemanticNodeList';
 import { PageShell, Panel, SectionHeader } from './components/ui/layout';
 import { Alert, EmptyState, LoadingState } from './components/ui/feedback';
+import { OverflowMenu } from './components/ui/menu';
 
 export default function WorkspaceOperationalHub() {
   const [isCheckingSeed, setIsCheckingSeed] = useState(true);
@@ -139,9 +140,10 @@ export default function WorkspaceOperationalHub() {
                       <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 text-xl text-indigo-400">
                         ⌂
                       </div>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono text-slate-500">
-                        Nodo Radice
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono text-slate-500">Nodo Radice</span>
+                        <OverflowMenu label={`Azioni per ${node.name}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${node.id}`; } }]} />
+                      </div>
                     </div>
                     <div>
                       <h3 className="text-base font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">

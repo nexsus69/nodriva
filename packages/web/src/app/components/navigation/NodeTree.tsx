@@ -7,6 +7,7 @@ import type { ClientNode } from '../../types/models';
 import { isNodeAncestorOfPath } from './nodeTreePath';
 import { useCachedNode } from '../../hooks/useCachedNode';
 import { LockIndicator } from '../LockIndicator';
+import { OverflowMenu } from '../ui/menu';
 
 export interface NodeTreeProps {
   activeNodeId?: string;
@@ -170,6 +171,13 @@ function NodeTreeItem({
         >
           {currentNode.name}
         </Link>
+        <OverflowMenu
+          label={`Azioni per ${currentNode.name}`}
+          className="mr-1"
+          items={[
+            { id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${currentNode.id}`; } },
+          ]}
+        />
         <LockIndicator resourceType="node" resourceId={currentNode.id} />
       </div>
 

@@ -11,6 +11,7 @@ import {
   VirtualTableColumnDef,
 } from '../../../components/ui/VirtualGroupedTable';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
+import { OverflowMenu } from '../../../components/ui/menu';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -136,12 +137,10 @@ export function SubtreeEntitiesTableSection({
             </span>
           )}
           renderRowActions={({ item }) => (
-            <Link
-              href={`/nodes/${item.parentNodeId}/entities/${item.id}`}
-              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-            >
-              Apri →
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Apri →</Link>
+              <OverflowMenu label={`Azioni per ${item.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${item.parentNodeId}/entities/${item.id}`; } }]} />
+            </div>
           )}
         />
       </div>

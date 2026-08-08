@@ -16,6 +16,7 @@ import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { LoadingState } from '../../../../components/ui/feedback';
+import { OverflowMenu } from '../../../../components/ui/menu';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -185,13 +186,10 @@ export default function EntityDetailPage() {
           <p className="mt-1 break-words text-xs text-slate-400">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
         </div>
 
-        <LockBadge
-          lockedByOther={lockedByOther}
-          isMyLock={isMyLock}
-          acquireLock={beginEditing}
-          releaseLock={releaseLock}
-          error={lockError}
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(entity.id); } }]} />
+          <LockBadge lockedByOther={lockedByOther} isMyLock={isMyLock} acquireLock={beginEditing} releaseLock={releaseLock} error={lockError} />
+        </div>
       </Panel>
 
       {/* Feedback Messages */}
