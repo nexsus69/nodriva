@@ -44,11 +44,11 @@ export class SystemSeedPostgres implements SystemSeedPort {
     await this.executor.query("DELETE FROM permissions");
     await this.executor.query("DELETE FROM users WHERE id = $1", [actorId]);
 
-    // 1. Inserimento Utente Olivia Williams (Super Admin)
+    // 1. Inserimento account demo Marco (Super Admin)
     const hash = PasswordHasher.hash(this.seedAdminPassword!);
     await this.executor.query(`
       INSERT INTO users (id, email, password_hash, is_active, is_super_admin)
-      VALUES ($1, 'olivia.williams@mate.com', $2, true, true)
+      VALUES ($1, 'marco123@test.com', $2, true, true)
     `, [actorId, hash]);
 
     // 2. Inserimento Ruoli e Permessi
@@ -129,7 +129,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
       WHERE permission_key IN ('node.read', 'entity.read')
     `, [scopedReaderRoleId]);
 
-    // Associa l'utente Olivia Williams al ruolo admin
+    // Associa l'account demo Marco al ruolo admin
     await this.executor.query(`
       INSERT INTO user_roles (user_id, role_id)
       VALUES ($1, $2)
@@ -382,7 +382,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
     `, [projectBriefId, actorId]);
     await this.executor.query(`
       INSERT INTO entity_project_brief (entity_id, status, owner, client_name, start_date, end_date)
-      VALUES ($1, 'in-progress', 'Olivia Williams', 'Acme Internal', '2026-08-01', '2026-12-31')
+      VALUES ($1, 'in-progress', 'Marco', 'Acme Internal', '2026-08-01', '2026-12-31')
     `, [projectBriefId]);
 
     const taskOneId = '00000000-0000-0000-0000-000000000082';
@@ -399,7 +399,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
     await this.executor.query(`
       INSERT INTO entity_task_record (entity_id, status, priority, assignee, due_date, depends_on)
       VALUES
-        ($1, 'done', 'high', 'Olivia Williams', '2026-08-15', NULL),
+        ($1, 'done', 'high', 'Marco', '2026-08-15', NULL),
         ($2, 'in-progress', 'medium', 'Core Team', '2026-08-30', $1)
     `, [taskOneId, taskTwoId]);
 
@@ -441,7 +441,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
     ] as const;
     const statuses = ['backlog', 'in-progress', 'blocked', 'done'] as const;
     const priorities = ['low', 'medium', 'high', 'critical'] as const;
-    const assignees = ['Olivia Williams', 'Core Team', 'Platform Team', 'Experience Team'];
+    const assignees = ['Marco', 'Core Team', 'Platform Team', 'Experience Team'];
     let taskIndex = 0;
     for (const [milestoneNodeId, milestoneLabel] of milestoneNodes) {
       let previousTaskId: string | null = null;
