@@ -21,7 +21,7 @@ export interface ActionMenuProps {
 /** Small accessible action menu. The caller owns the actions and navigation. */
 export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align = 'right', className = '' }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -40,7 +40,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
   }, [open]);
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <span ref={rootRef} className={`relative inline-flex ${className}`}>
       <button
         type="button"
         aria-haspopup="menu"
@@ -52,7 +52,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         {trigger}
       </button>
       {open && (
-        <div role="menu" className={`absolute z-50 mt-2 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${align === 'right' ? 'right-0' : 'left-0'}`}>
+        <span role="menu" className={`absolute z-50 mt-2 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl ${align === 'right' ? 'right-0' : 'left-0'}`}>
           {items.map((item) => (
             <button
               key={item.id}
@@ -69,9 +69,9 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
               {item.label}
             </button>
           ))}
-        </div>
+        </span>
       )}
-    </div>
+    </span>
   );
 }
 
