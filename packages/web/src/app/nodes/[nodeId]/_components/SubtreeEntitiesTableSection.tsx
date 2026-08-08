@@ -11,7 +11,7 @@ import {
   VirtualTableColumnDef,
 } from '../../../components/ui/VirtualGroupedTable';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
-import { OverflowMenu } from '../../../components/ui/menu';
+import { EntityResourceMenu } from '../../../components/ui/menu';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -73,7 +73,7 @@ export function SubtreeEntitiesTableSection({
       render: (item) => (
         <div className="flex min-w-0 items-center gap-1">
           <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="min-w-0 truncate font-semibold text-indigo-600 hover:text-indigo-700">{item.name}</Link>
-          <OverflowMenu label={`Azioni per ${item.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${item.parentNodeId}/entities/${item.id}`; } }, { id: 'edit', label: 'Modifica entità', onSelect: () => { window.location.href = `/nodes/${item.parentNodeId}/entities/${item.id}`; } }, { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(item.id); } }]} />
+          <EntityResourceMenu entityId={item.id} entityName={item.name} parentNodeId={item.parentNodeId} />
         </div>
       ),
     },

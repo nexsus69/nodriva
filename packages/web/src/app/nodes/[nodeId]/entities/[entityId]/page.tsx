@@ -16,7 +16,7 @@ import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { LoadingState } from '../../../../components/ui/feedback';
-import { OverflowMenu } from '../../../../components/ui/menu';
+import { EntityResourceMenu } from '../../../../components/ui/menu';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -182,7 +182,7 @@ export default function EntityDetailPage() {
           <span className="block break-all text-[10px] font-mono uppercase tracking-wider text-indigo-400">
             ID Entità: {entity.id}
           </span>
-          <h1 className="mt-1 flex items-center gap-1 break-words text-xl font-bold text-slate-100"><span className="break-words">{entity.name}</span><OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'edit', label: isMyLock ? 'In modifica' : 'Modifica entità', disabled: isMyLock, onSelect: () => { void beginEditing(); } }, { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(entity.id); } }]} /></h1>
+          <h1 className="mt-1 flex items-center gap-1 break-words text-xl font-bold text-slate-100"><span className="break-words">{entity.name}</span><EntityResourceMenu entityId={entity.id} entityName={entity.name} parentNodeId={parentNodeId} onEdit={() => { void beginEditing(); }} editDisabled={isMyLock} /></h1>
           <p className="mt-1 break-words text-xs text-slate-400">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
         </div>
 

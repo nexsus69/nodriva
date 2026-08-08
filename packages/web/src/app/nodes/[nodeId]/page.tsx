@@ -15,7 +15,7 @@ import { useLock } from '../../hooks/useLock';
 import { SubtreeEntitiesTableSection } from './_components/SubtreeEntitiesTableSection';
 import { PageShell, Panel, SectionHeader } from '../../components/ui/layout';
 import { Alert } from '../../components/ui/feedback';
-import { OverflowMenu } from '../../components/ui/menu';
+import { EntityResourceMenu, NodeResourceMenu } from '../../components/ui/menu';
 
 export default function NodeDetailPage() {
   const params = useParams();
@@ -206,12 +206,7 @@ export default function NodeDetailPage() {
                   </svg>
                 )}
                 <span className="min-w-0 break-words">{currentNode?.name || 'Caricamento...'}</span>
-                {currentNode && <OverflowMenu label={`Azioni per ${currentNode.name}`} items={[
-                  { id: 'edit', label: 'Modifica nodo', onSelect: () => { void beginNodeEditing(); } },
-                  { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => { window.location.href = `/nodes/${currentNode.id}/new`; } },
-                  { id: 'new-entity', label: 'Nuova entità', onSelect: () => { window.location.href = `/nodes/${currentNode.id}/entities/new`; } },
-                  { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(currentNode.id); } },
-                ]} />}
+                {currentNode && <NodeResourceMenu nodeId={currentNode.id} nodeName={currentNode.name} onEdit={() => { void beginNodeEditing(); }} />}
               </h1>
               <p className="mt-0.5 text-xs font-mono text-slate-400">
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
@@ -349,11 +344,7 @@ export default function NodeDetailPage() {
                   <div className="flex min-w-0 items-start justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-1">
                       <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="min-w-0 truncate text-sm font-semibold text-slate-800 hover:text-indigo-600">{entity.name}</Link>
-                      <OverflowMenu label={`Azioni per ${entity.name}`} items={[
-                        { id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${nodeId}/entities/${entity.id}`; } },
-                        { id: 'edit', label: 'Modifica entità', onSelect: () => { window.location.href = `/nodes/${nodeId}/entities/${entity.id}`; } },
-                        { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(entity.id); } },
-                      ]} />
+                      <EntityResourceMenu entityId={entity.id} entityName={entity.name} parentNodeId={nodeId} />
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-mono text-slate-500">{entityType?.name ?? entity.entityTypeId}</span>
@@ -397,7 +388,7 @@ export default function NodeDetailPage() {
               return (
                 <div key={cId} className="glass-panel group rounded-xl border border-slate-200 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-1"><Link href={`/nodes/${cId}`} className="min-w-0 truncate text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{childNode?.name || cId}</Link><OverflowMenu label={`Azioni per ${childNode?.name || cId}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${cId}`; } }, { id: 'edit', label: 'Modifica nodo', onSelect: () => { window.location.href = `/nodes/${cId}`; } }, { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => { window.location.href = `/nodes/${cId}/new`; } }, { id: 'new-entity', label: 'Nuova entità', onSelect: () => { window.location.href = `/nodes/${cId}/entities/new`; } }, { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(cId); } }]} /></div>
+                    <div className="flex min-w-0 flex-1 items-center gap-1"><Link href={`/nodes/${cId}`} className="min-w-0 truncate text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{childNode?.name || cId}</Link><NodeResourceMenu nodeId={cId} nodeName={childNode?.name || cId} /></div>
                     <Link href={`/nodes/${cId}`} className="shrink-0 text-slate-500 group-hover:text-indigo-400 font-mono text-xs">→</Link>
                   </div>
                   <Link href={`/nodes/${cId}`} className="block"><p className="mt-1 truncate text-[11px] text-slate-400">{childNode?.description || 'Nessuna descrizione.'}</p></Link>

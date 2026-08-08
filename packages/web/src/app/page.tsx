@@ -6,7 +6,7 @@ import { AppCache } from './cache/GlobalCacheClient';
 import { useSemanticNodeList } from './hooks/useSemanticNodeList';
 import { PageShell, Panel, SectionHeader } from './components/ui/layout';
 import { Alert, EmptyState, LoadingState } from './components/ui/feedback';
-import { OverflowMenu } from './components/ui/menu';
+import { NodeResourceMenu } from './components/ui/menu';
 
 export default function WorkspaceOperationalHub() {
   const [isCheckingSeed, setIsCheckingSeed] = useState(true);
@@ -147,13 +147,7 @@ export default function WorkspaceOperationalHub() {
                     <div>
                       <h3 className="flex min-w-0 items-center gap-1 text-base font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">
                         <span className="truncate">{node.name}</span>
-                        <OverflowMenu label={`Azioni per ${node.name}`} items={[
-                          { id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${node.id}`; } },
-                          { id: 'edit', label: 'Modifica nodo', onSelect: () => { window.location.href = `/nodes/${node.id}`; } },
-                          { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => { window.location.href = `/nodes/${node.id}/new`; } },
-                          { id: 'new-entity', label: 'Nuova entità', onSelect: () => { window.location.href = `/nodes/${node.id}/entities/new`; } },
-                          { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(node.id); } },
-                        ]} />
+                        <NodeResourceMenu nodeId={node.id} nodeName={node.name} />
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-2">
                         {node.description || 'Nessuna descrizione specificata per questo nodo radice.'}

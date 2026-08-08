@@ -4,7 +4,7 @@ import React, { ReactNode } from 'react';
 import { GroupHeaderSlotProps } from './types';
 import { useCachedNode } from '../../../hooks/useCachedNode';
 import { LockIndicator } from '../../LockIndicator';
-import { OverflowMenu } from '../menu';
+import { NodeResourceMenu } from '../menu';
 
 interface VirtualGroupHeaderProps {
   nodeId: string;
@@ -46,10 +46,7 @@ export function VirtualGroupHeader({
             ⌂
           </span>
           <span className="min-w-0 whitespace-normal break-words font-semibold leading-5 text-slate-800">{resolvedNodeName}</span>
-          <OverflowMenu
-            label={`Azioni per ${resolvedNodeName}`}
-            items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${nodeId}`; } }]}
-          />
+          <NodeResourceMenu nodeId={nodeId} nodeName={resolvedNodeName} />
           <span className="hidden truncate text-xs font-mono text-slate-400 sm:inline">
             ({resolvedNodePath})
           </span>
