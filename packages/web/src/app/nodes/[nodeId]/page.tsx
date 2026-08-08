@@ -205,7 +205,8 @@ export default function NodeDetailPage() {
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                 )}
-                {currentNode?.name || 'Caricamento...'}
+                <span className="min-w-0 break-words">{currentNode?.name || 'Caricamento...'}</span>
+                {currentNode && <OverflowMenu label={`Azioni per ${currentNode.name}`} items={[{ id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(currentNode.id); } }]} />}
               </h1>
               <p className="mt-0.5 text-xs font-mono text-slate-400">
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
@@ -232,7 +233,6 @@ export default function NodeDetailPage() {
             )}
           </div>
           <div className="flex flex-col items-end gap-2">
-            {currentNode && <OverflowMenu label={`Azioni per ${currentNode.name}`} items={[{ id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(currentNode.id); } }]} />}
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono uppercase text-slate-500">
               Version {currentNode?.rowVersion || 1}
             </span>
@@ -342,10 +342,12 @@ export default function NodeDetailPage() {
               return (
                 <div key={entity.id} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200 hover:shadow-sm">
                   <div className="flex min-w-0 items-start justify-between gap-3">
-                    <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800 hover:text-indigo-600">{entity.name}</Link>
+                    <div className="flex min-w-0 flex-1 items-center gap-1">
+                      <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="min-w-0 truncate text-sm font-semibold text-slate-800 hover:text-indigo-600">{entity.name}</Link>
+                      <OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${nodeId}/entities/${entity.id}`; } }]} />
+                    </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-mono text-slate-500">{entityType?.name ?? entity.entityTypeId}</span>
-                      <OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${nodeId}/entities/${entity.id}`; } }]} />
                     </div>
                   </div>
                   <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="block">

@@ -142,12 +142,12 @@ export default function WorkspaceOperationalHub() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono text-slate-500">Nodo Radice</span>
-                        <OverflowMenu label={`Azioni per ${node.name}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${node.id}`; } }]} />
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">
-                        {node.name}
+                      <h3 className="flex min-w-0 items-center gap-1 text-base font-semibold text-slate-800 transition-colors group-hover:text-indigo-600">
+                        <span className="truncate">{node.name}</span>
+                        <OverflowMenu label={`Azioni per ${node.name}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${node.id}`; } }]} />
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-2">
                         {node.description || 'Nessuna descrizione specificata per questo nodo radice.'}

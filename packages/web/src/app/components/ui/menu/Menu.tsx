@@ -47,7 +47,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-indigo-300 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent p-0 text-slate-400 shadow-none transition hover:bg-slate-100 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
       >
         {trigger}
       </button>

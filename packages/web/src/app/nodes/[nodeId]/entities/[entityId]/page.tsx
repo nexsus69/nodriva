@@ -182,12 +182,11 @@ export default function EntityDetailPage() {
           <span className="block break-all text-[10px] font-mono uppercase tracking-wider text-indigo-400">
             ID Entità: {entity.id}
           </span>
-          <h1 className="mt-1 break-words text-xl font-bold text-slate-100">{entity.name}</h1>
+          <h1 className="mt-1 flex items-center gap-1 break-words text-xl font-bold text-slate-100"><span className="break-words">{entity.name}</span><OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(entity.id); } }]} /></h1>
           <p className="mt-1 break-words text-xs text-slate-400">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <OverflowMenu label={`Azioni per ${entity.name}`} items={[{ id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(entity.id); } }]} />
           <LockBadge lockedByOther={lockedByOther} isMyLock={isMyLock} acquireLock={beginEditing} releaseLock={releaseLock} error={lockError} />
         </div>
       </Panel>
