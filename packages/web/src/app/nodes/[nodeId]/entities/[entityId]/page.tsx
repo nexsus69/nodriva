@@ -14,6 +14,8 @@ import { NodeBreadcrumb } from '../../../../components/navigation/NodeBreadcrumb
 import { LockIndicator } from '../../../../components/LockIndicator';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
+import { PageShell, Panel } from '../../../../components/ui/layout';
+import { LoadingState } from '../../../../components/ui/feedback';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -138,22 +140,22 @@ export default function EntityDetailPage() {
 
   if (isLoading || !entity) {
     return (
-      <div className="max-w-xl mx-auto space-y-4">
+      <PageShell className="max-w-xl">
         <Link
           href={`/nodes/${parentNodeId}`}
           className="text-xs text-slate-400 hover:text-slate-200 inline-flex items-center gap-1 font-mono"
         >
           ← Torna al Nodo Padre
         </Link>
-        <div className="glass-panel p-8 text-center text-xs text-slate-400 rounded-2xl">
-          {isError ? `Errore: ${error?.message}` : 'Caricamento entità in corso dal nuovo engine...'}
-        </div>
-      </div>
+        <Panel className="bg-slate-900 text-center text-slate-400">
+          {isError ? `Errore: ${error?.message}` : <LoadingState label="Caricamento entità in corso…" />}
+        </Panel>
+      </PageShell>
     );
   }
 
   return (
-    <div className="workspace-page mx-auto max-w-2xl space-y-6">
+    <PageShell className="max-w-2xl">
       <ConfirmModal
         open={showDeleteConfirm}
         title="Elimina entità"
@@ -174,7 +176,7 @@ export default function EntityDetailPage() {
       </div>
 
       {/* Header */}
-      <div className="glass-panel flex flex-col gap-4 rounded-2xl border border-slate-800 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <Panel className="flex flex-col gap-4 border-slate-800 bg-slate-900 p-4 text-slate-100 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <span className="block break-all text-[10px] font-mono uppercase tracking-wider text-indigo-400">
             ID Entità: {entity.id}
@@ -190,7 +192,7 @@ export default function EntityDetailPage() {
           releaseLock={releaseLock}
           error={lockError}
         />
-      </div>
+      </Panel>
 
       {/* Feedback Messages */}
       {errorMsg && (
@@ -210,7 +212,7 @@ export default function EntityDetailPage() {
       )}
 
       {/* View mode never opens a lock or a Pusher subscription. */}
-      <div className="glass-panel space-y-6 rounded-2xl border border-slate-800 p-4 sm:p-6">
+      <Panel className="space-y-6 border-slate-800 bg-slate-900 p-4 sm:p-6">
         {!isMyLock ? (
           <dl className="space-y-4 text-xs">
             <div>
@@ -351,7 +353,7 @@ export default function EntityDetailPage() {
           </div>
         </form>
         )}
-      </div>
-    </div>
+      </Panel>
+    </PageShell>
   );
 }

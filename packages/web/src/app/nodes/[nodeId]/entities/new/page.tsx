@@ -10,6 +10,8 @@ import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../hooks/useLock';
 import { LockBadge } from '../../../../components/LockBadge';
 import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
+import { PageShell, Panel } from '../../../../components/ui/layout';
+import { Alert } from '../../../../components/ui/feedback';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -136,7 +138,7 @@ export default function CreateEntityPage() {
   };
 
   return (
-    <div className="workspace-page max-w-xl mx-auto space-y-6">
+    <PageShell className="max-w-xl">
       {/* Breadcrumb */}
       <Link
         href={`/nodes/${parentNodeId}`}
@@ -145,7 +147,7 @@ export default function CreateEntityPage() {
         ← Torna al Nodo Padre
       </Link>
 
-      <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6">
+      <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
         <div>
           <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <span>🧩</span> Nuova Entità Operativa
@@ -155,11 +157,7 @@ export default function CreateEntityPage() {
           </p>
         </div>
 
-        {errorMsg && (
-          <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-            {errorMsg}
-          </div>
-        )}
+        {errorMsg && <Alert tone="danger" className="bg-rose-500/10 text-rose-300">{errorMsg}</Alert>}
         <LockBadge
           lockedByOther={lockedByOther}
           isMyLock={isMyLock}
@@ -313,7 +311,7 @@ export default function CreateEntityPage() {
             </button>
           </div>
         </form>
-      </div>
+      </Panel>
 
       {relationField && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
@@ -437,6 +435,6 @@ export default function CreateEntityPage() {
           </form>
         </div>
       )}
-    </div>
+    </PageShell>
   );
 }

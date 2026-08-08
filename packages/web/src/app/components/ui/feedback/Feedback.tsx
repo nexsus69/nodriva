@@ -11,14 +11,14 @@ export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNod
   return <span className={`inline-flex max-w-full items-center rounded-full border px-2 py-1 text-[10px] font-semibold ${tones[tone]}`}>{children}</span>;
 }
 
-export function Alert({ children, tone = 'info', role = 'status' }: { children: ReactNode; tone?: 'info' | 'success' | 'warning' | 'danger'; role?: 'alert' | 'status' }) {
+export function Alert({ children, tone = 'info', role = 'status', className = '' }: { children: ReactNode; tone?: 'info' | 'success' | 'warning' | 'danger'; role?: 'alert' | 'status'; className?: string }) {
   const tones = {
     info: 'border-indigo-200 bg-indigo-50 text-indigo-700',
     success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     warning: 'border-amber-200 bg-amber-50 text-amber-700',
     danger: 'border-rose-200 bg-rose-50 text-rose-700',
   } as const;
-  return <div role={role} className={`break-words rounded-xl border p-4 text-xs ${tones[tone]}`}>{children}</div>;
+  return <div role={role} className={`break-words rounded-xl border p-4 text-xs ${tones[tone]} ${className}`}>{children}</div>;
 }
 
 export function EmptyState({ title = 'Nessun elemento', description, action }: { title?: ReactNode; description?: ReactNode; action?: ReactNode }) {
