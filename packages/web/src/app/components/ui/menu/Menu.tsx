@@ -63,7 +63,11 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
-        onClick={() => setOpen((current) => !current)}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((current) => !current);
+        }}
         className="inline-flex h-auto min-h-0 w-auto items-center justify-center rounded-md border-0 bg-transparent px-1 py-0 text-[0.9em] leading-none text-slate-400 shadow-none transition hover:bg-slate-100 hover:text-indigo-600 focus:border-0 focus:outline-none focus:ring-0"
       >
         {trigger}
@@ -84,6 +88,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
               type="button"
               role="menuitem"
               disabled={item.disabled}
+              onPointerDown={(event) => event.stopPropagation()}
               onClick={() => {
                 if (item.disabled) return;
                 setOpen(false);
