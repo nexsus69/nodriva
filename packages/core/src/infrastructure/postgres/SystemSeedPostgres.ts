@@ -325,6 +325,41 @@ export class SystemSeedPostgres implements SystemSeedPort {
       SET relation_target_domain = 'entity', relation_target_type_key = 'task-record'
       WHERE entity_type_id = '00000000-0000-0000-0000-000000000062' AND field_key = 'depends_on'
     `);
+    await this.executor.query(`
+      UPDATE entity_type_fields
+      SET data_type = 'enum', enum_mode = 'managed'
+      WHERE (entity_type_id = '00000000-0000-0000-0000-000000000061' AND field_key = 'status')
+         OR (entity_type_id = '00000000-0000-0000-0000-000000000062' AND field_key IN ('status', 'priority'))
+         OR (entity_type_id = '00000000-0000-0000-0000-000000000063' AND field_key IN ('document_type', 'review_status'))
+    `);
+    await this.executor.query(`
+      INSERT INTO entity_type_field_enum_options (id, field_id, value, label, position, is_active)
+      SELECT gen_random_uuid(), field.id, option.value, option.label, option.position, TRUE
+      FROM (VALUES
+        ('project-brief', 'status', 'planned', 'Planned', 1),
+        ('project-brief', 'status', 'in-progress', 'In progress', 2),
+        ('project-brief', 'status', 'completed', 'Completed', 3),
+        ('project-brief', 'status', 'on-hold', 'On hold', 4),
+        ('task-record', 'status', 'backlog', 'Backlog', 1),
+        ('task-record', 'status', 'in-progress', 'In progress', 2),
+        ('task-record', 'status', 'blocked', 'Blocked', 3),
+        ('task-record', 'status', 'done', 'Done', 4),
+        ('task-record', 'priority', 'low', 'Low', 1),
+        ('task-record', 'priority', 'medium', 'Medium', 2),
+        ('task-record', 'priority', 'high', 'High', 3),
+        ('task-record', 'priority', 'critical', 'Critical', 4),
+        ('project-document', 'document_type', 'architecture', 'Architecture', 1),
+        ('project-document', 'document_type', 'requirements', 'Requirements', 2),
+        ('project-document', 'document_type', 'runbook', 'Runbook', 3),
+        ('project-document', 'document_type', 'design', 'Design', 4),
+        ('project-document', 'document_type', 'decision', 'Decision', 5),
+        ('project-document', 'review_status', 'draft', 'Draft', 1),
+        ('project-document', 'review_status', 'in-review', 'In review', 2),
+        ('project-document', 'review_status', 'approved', 'Approved', 3)
+      ) AS option(type_key, field_key, value, label, position)
+      JOIN entity_types type ON type.type_key = option.type_key
+      JOIN entity_type_fields field ON field.entity_type_id = type.id AND field.field_key = option.field_key
+    `);
 
     await this.executor.query(`
       DROP TABLE IF EXISTS entity_project_brief CASCADE;
