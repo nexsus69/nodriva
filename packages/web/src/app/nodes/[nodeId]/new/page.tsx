@@ -26,7 +26,7 @@ export default function CreateChildNodePage() {
 
   const [nodeName, setNodeName] = useState('');
   const [nodeDesc, setNodeDesc] = useState('');
-  const [nodeTypeKey, setNodeTypeKey] = useState('order-record');
+  const [nodeTypeKey, setNodeTypeKey] = useState('');
   const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
   type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
   const [fieldsDef, setFieldsDef] = useState<DynamicField[]>([]);
@@ -46,6 +46,10 @@ export default function CreateChildNodePage() {
   }, [acquireLock]);
 
   useEffect(() => {
+    if (!nodeTypeKey && nodeTypesList.length > 0) {
+      const timer = window.setTimeout(() => setNodeTypeKey(nodeTypesList[0]!.typeKey), 0);
+      return () => window.clearTimeout(timer);
+    }
     if (!nodeTypeKey) return;
     const timer = window.setTimeout(() => {
       AppCache.admin.getTypeDefinition('node', nodeTypeKey).then((definition) => {
@@ -57,7 +61,7 @@ export default function CreateChildNodePage() {
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [nodeTypeKey]);
+  }, [nodeTypeKey, nodeTypesList]);
 
   const handleCreateNode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,7 +148,7 @@ export default function CreateChildNodePage() {
             <input
               type="text"
               required
-              placeholder="es. Ordine #1059"
+              placeholder="es. Nome del nodo"
               value={nodeName}
               onChange={(e) => setNodeName(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
