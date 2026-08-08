@@ -26,6 +26,7 @@ interface TypeMetaRow {
 interface FieldWithConstraintRow {
   id: string;
   field_key: string;
+  label: string;
   data_type: string;
   is_required: boolean;
   relation_target_domain: TypeDomain | null;
@@ -117,6 +118,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
       SELECT
         f.id,
         f.field_key,
+        f.label,
         f.data_type,
         f.is_required,
         f.relation_target_domain,
@@ -143,6 +145,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
       enumMode: 'static' | 'managed';
       enumOptions: EnumOptionDefinition[];
       id: string;
+      label: string;
       constraints: TypeFieldConstraint[];
     }>();
 
@@ -156,6 +159,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           enumMode: row.enum_mode ?? 'static',
           enumOptions: row.enum_options ?? [],
           id: row.id,
+          label: row.label,
           constraints: [],
         });
       }
@@ -185,6 +189,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           , entry.enumOptions
           , entry.enumMode
           , entry.id
+          , entry.label
         )
       );
     }

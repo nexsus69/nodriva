@@ -48,7 +48,8 @@ export class TypeFieldDefinition {
     readonly relationTargetTypeKey: string | null = null,
     readonly enumOptions: readonly EnumOptionDefinition[] = [],
     readonly enumMode: 'static' | 'managed' = 'static',
-    readonly id: string | null = null
+    readonly id: string | null = null,
+    readonly label: string = fieldKey
   ) {}
 }
 

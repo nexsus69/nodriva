@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSemanticEntityDetail } from '../../../../hooks/useSemanticEntityDetail';
@@ -12,6 +12,9 @@ import { LockBadge } from '../../../../components/LockBadge';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 import { NodeBreadcrumb } from '../../../../components/navigation/NodeBreadcrumb';
 import { LockIndicator } from '../../../../components/LockIndicator';
+import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
+
+const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
 export default function EntityDetailPage() {
   const params = useParams();
@@ -20,11 +23,14 @@ export default function EntityDetailPage() {
   const entityId = params.entityId as string;
 
   const { entity, isLoading, isError, error } = useSemanticEntityDetail(entityId, parentNodeId);
+  const { entityTypes } = useSemanticMetadata();
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [payloadJsonText, setPayloadJsonText] = useState('');
+  type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
+  const [fields, setFields] = useState<DynamicField[]>([]);
+  const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -36,12 +42,25 @@ export default function EntityDetailPage() {
     error: lockError,
   } = useLock({ resourceType: 'entity', resourceId: entityId });
 
+  const entityType = entity ? entityTypes[entity.entityTypeId] : undefined;
+
+  useEffect(() => {
+    if (!entity || !entityType?.typeKey) return;
+    const timer = window.setTimeout(() => {
+      void AppCache.admin.getTypeDefinition('entity', entityType.typeKey).then((definition) => {
+        setFields(definition?.fields ?? []);
+        setPayload(entity.payload ?? {});
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [entity, entityType?.typeKey]);
+
 
   const beginEditing = async (): Promise<boolean> => {
     if (!entity) return false;
     setName(entity.name || '');
     setDescription(entity.description || '');
-    setPayloadJsonText(JSON.stringify(entity.payload || {}, null, 2));
+    setPayload(entity.payload || {});
     return await acquireLock();
   };
 
@@ -53,16 +72,22 @@ export default function EntityDetailPage() {
 
     startTransition(async () => {
       try {
-        let parsedPayload = {};
-        if (payloadJsonText) {
-          parsedPayload = JSON.parse(payloadJsonText);
+        const processedPayload = { ...entity.payload, ...payload };
+        for (const field of fields) {
+          const value = processedPayload[field.fieldKey];
+          if (value === '' && !field.isRequired) {
+            processedPayload[field.fieldKey] = null;
+          } else if (NUMBER_TYPES.has(field.dataType.toLowerCase()) && value !== '') {
+            const parsed = Number(value);
+            if (!Number.isNaN(parsed)) processedPayload[field.fieldKey] = parsed;
+          }
         }
 
         await AppCache.updateEntity({
           entityId,
           name,
           description,
-          payloadDelta: parsedPayload,
+          payloadDelta: processedPayload,
           expectedRowVersion: entity.rowVersion,
         });
 
@@ -144,7 +169,7 @@ export default function EntityDetailPage() {
             ID Entità: {entity.id}
           </span>
           <h1 className="text-xl font-bold text-slate-100">{entity.name}</h1>
-          <p className="text-xs text-slate-400 mt-1">Tipo: {entity.entityTypeId} (V: {entity.rowVersion})</p>
+          <p className="text-xs text-slate-400 mt-1">Tipo: {entityType?.name ?? entity.entityTypeId} (V: {entity.rowVersion})</p>
         </div>
 
         <LockBadge
@@ -186,11 +211,19 @@ export default function EntityDetailPage() {
               <dd className="text-slate-300">{entity.description || '—'}</dd>
             </div>
             <div>
-              <dt className="text-slate-500 mb-1">Payload</dt>
-              <dd>
-                <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-indigo-300 overflow-auto">
-                  {JSON.stringify(entity.payload || {}, null, 2)}
-                </pre>
+              <dt className="mb-2 text-slate-500">Campi</dt>
+              <dd className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {(fields.length > 0 ? fields : Object.keys(entity.payload ?? {}).map((fieldKey) => ({ fieldKey, label: fieldKey, dataType: 'string' }))).map((field) => {
+                  const value = entity.payload?.[field.fieldKey];
+                  return (
+                    <div key={field.fieldKey} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">{field.label ?? field.fieldKey}</div>
+                      <div className={`mt-1 break-words text-slate-200 ${field.dataType === 'relation' ? 'font-mono text-[11px]' : ''}`}>
+                        {value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value)}
+                      </div>
+                    </div>
+                  );
+                })}
               </dd>
             </div>
           </dl>
@@ -217,17 +250,41 @@ export default function EntityDetailPage() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1 font-mono">
-              Payload JSON (Campi Custom)
-            </label>
-            <textarea
-              rows={8}
-              value={payloadJsonText}
-              onChange={(e) => setPayloadJsonText(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-indigo-300 font-mono focus:outline-none focus:border-indigo-500 leading-relaxed"
-            />
-          </div>
+          {fields.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 border-t border-slate-800 pt-4 sm:grid-cols-2">
+              {fields.map((field) => {
+                const dataType = field.dataType.toLowerCase();
+                const value = payload[field.fieldKey];
+                if (dataType === 'boolean') {
+                  return (
+                    <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-300">
+                      <input type="checkbox" checked={Boolean(value)} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.checked }))} />
+                      {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
+                    </label>
+                  );
+                }
+                if (dataType === 'enum' && field.enumOptions?.length) {
+                  return (
+                    <label key={field.fieldKey} className="text-xs text-slate-300">
+                      <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
+                      <select required={field.isRequired} value={String(value ?? '')} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100">
+                        <option value="">Seleziona…</option>
+                        {field.enumOptions.filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                  );
+                }
+                const inputType = NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text';
+                const inputValue = inputType === 'date' ? String(value ?? '').slice(0, 10) : String(value ?? '');
+                return (
+                  <label key={field.fieldKey} className="text-xs text-slate-300">
+                    <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
+                    <input type={inputType} step={NUMBER_TYPES.has(dataType) && dataType !== 'integer' ? 'any' : undefined} required={field.isRequired} value={inputValue} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100" />
+                  </label>
+                );
+              })}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link
@@ -236,7 +293,7 @@ export default function EntityDetailPage() {
                 event.preventDefault();
                 setName(entity.name || '');
                 setDescription(entity.description || '');
-                setPayloadJsonText(JSON.stringify(entity.payload || {}, null, 2));
+                setPayload(entity.payload || {});
                 void releaseLock();
               }}
               className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"

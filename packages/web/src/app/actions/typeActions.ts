@@ -63,6 +63,7 @@ export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string)
     fields: definition.fields.map((f) => ({
       id: f.id,
       fieldKey: f.fieldKey,
+      label: f.label,
       dataType: f.dataType,
       isRequired: f.isRequired,
       relationTargetDomain: f.relationTargetDomain,
