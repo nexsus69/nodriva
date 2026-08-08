@@ -49,7 +49,22 @@ export class RealtimeMetrics {
   toPrometheus(outbox?: {
     pendingCount: number; leasedCount: number; retryingCount: number; oldestPendingAgeSeconds: number; maxAttempts: number;
   }): string {
-    const lines = ['# TYPE dashboard_realtime_events_total counter'];
+    const memory = process.memoryUsage();
+    const lines = [
+      '# TYPE nodejs_process_resident_memory_bytes gauge',
+      `nodejs_process_resident_memory_bytes ${memory.rss}`,
+      '# TYPE nodejs_heap_size_total_bytes gauge',
+      `nodejs_heap_size_total_bytes ${memory.heapTotal}`,
+      '# TYPE nodejs_heap_size_used_bytes gauge',
+      `nodejs_heap_size_used_bytes ${memory.heapUsed}`,
+      '# TYPE nodejs_external_memory_bytes gauge',
+      `nodejs_external_memory_bytes ${memory.external}`,
+      '# TYPE nodejs_array_buffers_bytes gauge',
+      `nodejs_array_buffers_bytes ${memory.arrayBuffers}`,
+      '# TYPE nodejs_process_uptime_seconds gauge',
+      `nodejs_process_uptime_seconds ${process.uptime()}`,
+      '# TYPE dashboard_realtime_events_total counter',
+    ];
     for (const [eventName, bucket] of this.publishing) {
       lines.push(`dashboard_realtime_events_total{event="${eventName}",result="success"} ${bucket.count - bucket.failures}`);
       lines.push(`dashboard_realtime_events_total{event="${eventName}",result="failure"} ${bucket.failures}`);
