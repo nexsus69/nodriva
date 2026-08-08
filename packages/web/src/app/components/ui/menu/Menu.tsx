@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export interface MenuItem {
@@ -23,6 +24,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const rootRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +45,8 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
   useEffect(() => {
     if (!open) return;
     const onDocumentClick = (event: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
@@ -72,15 +75,16 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
       >
         {trigger}
       </button>
-      {open && (
-        <span
+      {open && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={menuRef}
           role="menu"
           style={{
             top: menuPosition.top,
             left: menuPosition.left,
             transform: align === 'right' ? 'translateX(-100%)' : align === 'center' ? 'translateX(-50%)' : undefined,
           } as CSSProperties}
-          className="fixed z-[100] mt-0 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
+          className="fixed z-[100] min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
         >
           {items.map((item) => (
             <button
@@ -89,7 +93,8 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
               role="menuitem"
               disabled={item.disabled}
               onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => {
+              onClick={(event) => {
+                event.stopPropagation();
                 if (item.disabled) return;
                 setOpen(false);
                 item.onSelect();
@@ -99,7 +104,8 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
               {item.label}
             </button>
           ))}
-        </span>
+        </div>,
+        document.body
       )}
     </span>
   );
