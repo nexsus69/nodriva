@@ -176,6 +176,10 @@ function NodeTreeItem({
           className="mr-1"
           items={[
             { id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${currentNode.id}`; } },
+            { id: 'edit', label: 'Modifica nodo', onSelect: () => { window.location.href = `/nodes/${currentNode.id}`; } },
+            { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => { window.location.href = `/nodes/${currentNode.id}/new`; } },
+            { id: 'new-entity', label: 'Nuova entità', onSelect: () => { window.location.href = `/nodes/${currentNode.id}/entities/new`; } },
+            { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => { void navigator.clipboard?.writeText(currentNode.id); } },
           ]}
         />
         <LockIndicator resourceType="node" resourceId={currentNode.id} />
