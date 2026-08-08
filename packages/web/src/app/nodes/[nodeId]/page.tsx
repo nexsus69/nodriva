@@ -388,8 +388,8 @@ export default function NodeDetailPage() {
               return (
                 <div key={cId} className="glass-panel group rounded-xl border border-slate-200 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
                   <div className="flex items-center justify-between gap-2">
-                    <Link href={`/nodes/${cId}`} className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{childNode?.name || cId}</Link>
-                    <div className="flex shrink-0 items-center gap-1"><OverflowMenu label={`Azioni per ${childNode?.name || cId}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${cId}`; } }]} /><Link href={`/nodes/${cId}`} className="text-slate-500 group-hover:text-indigo-400 font-mono text-xs">→</Link></div>
+                    <div className="flex min-w-0 flex-1 items-center gap-1"><Link href={`/nodes/${cId}`} className="min-w-0 truncate text-xs font-semibold text-slate-700 group-hover:text-indigo-600">{childNode?.name || cId}</Link><OverflowMenu label={`Azioni per ${childNode?.name || cId}`} items={[{ id: 'open', label: 'Apri nodo', onSelect: () => { window.location.href = `/nodes/${cId}`; } }]} /></div>
+                    <Link href={`/nodes/${cId}`} className="shrink-0 text-slate-500 group-hover:text-indigo-400 font-mono text-xs">→</Link>
                   </div>
                   <Link href={`/nodes/${cId}`} className="block"><p className="mt-1 truncate text-[11px] text-slate-400">{childNode?.description || 'Nessuna descrizione.'}</p></Link>
                 </div>

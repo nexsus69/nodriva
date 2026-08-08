@@ -66,7 +66,17 @@ export function SubtreeEntitiesTableSection({
   const columns: VirtualTableColumnDef<
     SubtreeEntityItem & { nodeId: string }
   >[] = [
-    { key: 'name', header: 'Nome Entità', width: '1.5fr' },
+    {
+      key: 'name',
+      header: 'Nome Entità',
+      width: '1.5fr',
+      render: (item) => (
+        <div className="flex min-w-0 items-center gap-1">
+          <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="min-w-0 truncate font-semibold text-indigo-600 hover:text-indigo-700">{item.name}</Link>
+          <OverflowMenu label={`Azioni per ${item.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${item.parentNodeId}/entities/${item.id}`; } }]} />
+        </div>
+      ),
+    },
     {
       key: 'entityTypeId',
       header: 'Tipo',
@@ -139,7 +149,6 @@ export function SubtreeEntitiesTableSection({
           renderRowActions={({ item }) => (
             <div className="flex items-center gap-2">
               <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Apri →</Link>
-              <OverflowMenu label={`Azioni per ${item.name}`} items={[{ id: 'open', label: 'Apri entità', onSelect: () => { window.location.href = `/nodes/${item.parentNodeId}/entities/${item.id}`; } }]} />
             </div>
           )}
         />

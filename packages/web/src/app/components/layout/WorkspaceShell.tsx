@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { LogoutButton } from '../ui/LogoutButton';
-import { MobileDrawer, OverflowMenu } from '../ui/menu';
+import { MobileDrawer } from '../ui/menu';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Panoramica', description: 'Workspace operativo', icon: '⌂' },
@@ -84,7 +84,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
               <button type="button" onClick={() => setIsSidebarOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm lg:hidden" aria-label="Apri navigazione">☰</button>
               <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Workspace operativo</p><p className="mt-1 text-sm font-semibold text-slate-800">Panoramica e gerarchia</p></div>
             </div>
-            <div className="flex items-center gap-2"><div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Sistema operativo</div><OverflowMenu items={[{ id: 'account-security', label: 'Sicurezza account', onSelect: () => { window.location.href = '/account/security'; } }]} /></div>
+            <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Sistema operativo</div>
           </header>
           <main className="flex-1 px-5 py-7 sm:px-8 lg:px-10"><div className="mx-auto w-full max-w-7xl">{children}</div></main>
         </div>
