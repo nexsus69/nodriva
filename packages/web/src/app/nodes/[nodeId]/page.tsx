@@ -7,7 +7,6 @@ import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
 import { useSemanticEntityCollection } from '../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../hooks/useSemanticMetadata';
 import { AppCache } from '../../cache/GlobalCacheClient';
-import { useCacheEntity } from '../../hooks/useCacheEntity';
 import { useCacheNode } from '../../hooks/useCacheNode';
 import { LockBadge } from '../../components/LockBadge';
 import { NodeTree } from '../../components/navigation/NodeTree';
@@ -58,27 +57,6 @@ export default function NodeDetailPage() {
   // Combine readModel pending fetch with cache pending fetch
   const isNodeLoading = isLoadingNode || !currentNode;
 
-  // Entità collegate al nodo corrente
-  // Distinzione tra Customer Info ed Order Items per la vista Ordine
-  const customerEntity = nodeEntities.find(
-    (e) => e.entityTypeId === entityTypes['customer-info']?.id || e.entityTypeId === entityTypes['customer-info']?.typeKey
-  );
-  const orderItems = nodeEntities.filter(
-    (e) => e.entityTypeId === entityTypes['order-item']?.id || e.entityTypeId === entityTypes['order-item']?.typeKey
-  );
-  // --- REACTIVE READS FROM APPCACHE ---
-  const { data: cachedCustomer } = useCacheEntity(
-    customerEntity?.entityTypeId || 'customer-info', 
-    customerEntity?.id || null
-  );
-  const activeCustomer = cachedCustomer || customerEntity;
-
-  // Form Aggiunta Veloce Prodotto (Order Item)
-  const [showAddItemForm, setShowAddItemForm] = useState(false);
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [itemName, setItemName] = useState('');
-  const [itemQty, setItemQty] = useState(1);
-  const [itemPrice, setItemPrice] = useState(0.0);
 
   const beginNodeEditing = async (): Promise<boolean> => {
     if (!currentNode) return false;
@@ -90,7 +68,6 @@ export default function NodeDetailPage() {
   };
 
   const exitEditMode = async () => {
-    setShowAddItemForm(false);
     if (currentNode) {
       setNodeName(currentNode.name);
       setNodeDescription(currentNode.description || '');
@@ -133,42 +110,6 @@ export default function NodeDetailPage() {
         ? `Errore nel caricamento delle entità: ${entitiesError.message}`
         : null);
 
-  const handleAddOrderItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setIsAddingItem(true);
-    try {
-      await AppCache.createEntity({
-        parentNodeId: nodeId,
-        entityTypeKey: 'order-item',
-        name: itemName,
-        description: `Product ${itemName}`,
-        payload: {
-          product_name: itemName,
-          quantity: itemQty,
-          unit_price: itemPrice,
-        },
-      });
-      setSuccessMsg('Articolo aggiunto all\'ordine. Ricarica la pagina per vederlo se non appare.');
-      setShowAddItemForm(false);
-      setItemName('');
-      setItemQty(1);
-      setItemPrice(0.0);
-    } catch (err: unknown) {
-      setErrorMsg(
-        err instanceof Error ? `Errore aggiunta articolo: ${err.message}` : 'Errore aggiunta articolo.'
-      );
-    } finally {
-      setIsAddingItem(false);
-    }
-  };
-
-  const orderTotal = orderItems.reduce((acc, item) => {
-    const qty = Number(item.payload?.quantity ?? 0);
-    const price = Number(item.payload?.unit_price ?? 0);
-    return acc + qty * price;
-  }, 0);
-
   return (
     <div className="workspace-page space-y-6 pb-8">
       {/* Breadcrumb / Navigazione Superiore */}
@@ -208,7 +149,6 @@ export default function NodeDetailPage() {
           <dl className="mt-4 space-y-4 text-xs">
             <div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Nodo corrente</dt><dd className="mt-1 truncate font-semibold text-slate-800">{currentNode?.name || 'Caricamento…'}</dd></div>
             <div className="grid grid-cols-2 gap-3"><div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Sotto-nodi</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{childNodes.length}</dd></div><div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Entità</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{nodeEntities.length}</dd></div></div>
-            <div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Totale ordine</dt><dd className="mt-1 text-lg font-semibold text-emerald-600">€{orderTotal.toFixed(2)}</dd></div>
             <div className="border-t border-slate-100 pt-3"><dt className="text-[10px] uppercase tracking-wider text-slate-400">Modalità</dt><dd className="mt-1 font-medium text-slate-600">{isMyLock ? 'Modifica autorizzata' : lockedByOther ? 'Bloccato temporaneamente' : 'Sola lettura'}</dd></div>
           </dl>
         </aside>
@@ -343,202 +283,41 @@ export default function NodeDetailPage() {
         )}
       </section>
 
-      {/* Sezione Cliente & Prodotti per Ordine */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Card Profilo Cliente */}
-        <div className="glass-panel space-y-4 rounded-2xl border border-slate-200 p-5 shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-            <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-              <span>👤</span> Dettaglio Cliente
-            </h2>
-            {customerEntity && (
-              <Link
-                href={`/nodes/${nodeId}/entities/${customerEntity.id}`}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-              >
-                {readOnly ? 'Visualizza →' : 'Apri / modifica →'}
-              </Link>
-            )}
+      <section className="glass-panel space-y-4 rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800">Entità del nodo ({nodeEntities.length})</h2>
+            <p className="mt-1 text-xs text-slate-500">Le entità vengono visualizzate in base ai metadata del loro tipo.</p>
           </div>
-
-          {!activeCustomer ? (
-            <div className="p-6 text-center space-y-2 flex flex-col items-center justify-center">
-              {isEntitiesLoading ? (
-                <>
-                  <svg className="animate-spin h-6 w-6 text-indigo-500 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <p className="text-xs text-slate-400">Caricamento profilo cliente...</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-slate-400">Nessun profilo cliente associato a questo nodo.</p>
-                  {!readOnly && (
-                    <Link
-                      href={`/nodes/${nodeId}/entities/new`}
-                      className="text-xs text-indigo-400 font-semibold hover:underline block"
-                    >
-                      + Crea Cliente
-                    </Link>
+          {!readOnly && <Link href={`/nodes/${nodeId}/entities/new`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">+ Nuova entità</Link>}
+        </div>
+        {isEntitiesLoading ? (
+          <p className="p-6 text-center text-xs text-slate-500">Caricamento entità…</p>
+        ) : nodeEntities.length === 0 ? (
+          <p className="p-6 text-center text-xs text-slate-500">Nessuna entità associata a questo nodo.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {nodeEntities.map((entity) => {
+              const entityType = Object.values(entityTypes).find((type) => type.id === entity.entityTypeId || type.typeKey === entity.entityTypeId);
+              const preview = Object.entries(entity.payload ?? {}).filter(([, value]) => value !== null && value !== '').slice(0, 3);
+              return (
+                <Link key={entity.id} href={`/nodes/${nodeId}/entities/${entity.id}`} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200 hover:shadow-sm">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <span className="truncate text-sm font-semibold text-slate-800">{entity.name}</span>
+                    <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-mono text-slate-500">{entityType?.name ?? entity.entityTypeId}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-2 text-xs text-slate-500">{entity.description || 'Nessuna descrizione.'}</p>
+                  {preview.length > 0 && (
+                    <dl className="mt-3 grid grid-cols-1 gap-1 border-t border-slate-100 pt-3 text-[11px]">
+                      {preview.map(([key, value]) => <div key={key} className="flex min-w-0 justify-between gap-2"><dt className="truncate text-slate-400">{key}</dt><dd className="truncate font-mono text-slate-600">{String(value)}</dd></div>)}
+                    </dl>
                   )}
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3 text-xs">
-              <div>
-                <span className="text-[10px] text-slate-500 font-mono block">NOME CLIENTE</span>
-                <p className="font-semibold text-slate-800">{activeCustomer.name}</p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 font-mono block">EMAIL</span>
-                <p className="font-mono text-slate-600">{String(activeCustomer.payload?.email || '-')}</p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 font-mono block">TELEFONO</span>
-                <p className="font-mono text-slate-600">{String(activeCustomer.payload?.phone || '-')}</p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 font-mono block">INDIRIZZO CONSEGNA</span>
-                <p className="text-slate-600">{String(activeCustomer.payload?.address || '-')}</p>
-              </div>
-              <div className="flex justify-end border-t border-slate-200 pt-2">
-                <Link
-                  href={`/nodes/${nodeId}/entities/${activeCustomer.id}`}
-                  className="text-[11px] font-mono text-slate-500 hover:text-slate-800"
-                >
-                  Dettaglio Completo →
                 </Link>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Tabella Prodotti Ordine (Order Items) */}
-        <div className="glass-panel flex flex-col justify-between space-y-4 rounded-2xl border border-slate-200 p-5 shadow-sm lg:col-span-2">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <span>🛒</span> Articoli dell&apos;Ordine ({orderItems.length})
-              </h2>
-              {!readOnly && (
-                <button
-                  onClick={() => setShowAddItemForm(!showAddItemForm)}
-                  className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 transition-all hover:bg-violet-100"
-                >
-                  {showAddItemForm ? 'Chiudi Form' : '➕ Aggiungi Prodotto'}
-                </button>
-              )}
-            </div>
-
-            {/* Form Veloce Aggiunta Prodotto */}
-            {!readOnly && showAddItemForm && (
-              <form onSubmit={handleAddOrderItem} className="space-y-3 rounded-xl border border-violet-100 bg-violet-50/60 p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[11px] text-slate-600">Nome Prodotto *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="es. Generatore Inverter"
-                      value={itemName}
-                      onChange={(e) => setItemName(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] text-slate-600">Quantità *</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      value={itemQty}
-                      onChange={(e) => setItemQty(parseInt(e.target.value, 10))}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-[11px] text-slate-600">Prezzo Unitario (€) *</label>
-                    <input
-                      type="number"
-                      required
-                      step="0.01"
-                      min={0}
-                      value={itemPrice}
-                      onChange={(e) => setItemPrice(parseFloat(e.target.value))}
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-mono text-slate-900 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="submit"
-                    disabled={isAddingItem || !itemName}
-                    className="rounded-lg bg-violet-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-violet-600/20 hover:bg-violet-500"
-                  >
-                    Aggiungi all&apos;Ordine
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Lista Articoli */}
-            <div className="overflow-x-auto">
-              {orderItems.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-500">
-                  Nessun prodotto presente in questo ordine.
-                </div>
-              ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase text-slate-400 font-mono">
-                      <th className="py-2.5 px-4">Prodotto</th>
-                      <th className="py-2.5 px-4 text-center">Qtà</th>
-                      <th className="py-2.5 px-4 text-right">Prezzo Unitario</th>
-                      <th className="py-2.5 px-4 text-right">Totale Row</th>
-                      <th className="py-2.5 px-4 text-right">Azioni</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {orderItems.map((item) => {
-                      const qty = Number(item.payload?.quantity ?? 1);
-                      const price = Number(item.payload?.unit_price ?? 0);
-                      const rowTotal = qty * price;
-                      return (
-                        <tr key={item.id} className="transition-colors hover:bg-slate-50">
-                          <td className="px-4 py-3 font-semibold text-slate-700">
-                            {String(item.payload?.product_name || item.name)}
-                          </td>
-                          <td className="px-4 py-3 text-center font-mono text-slate-500">{qty}</td>
-                          <td className="px-4 py-3 text-right font-mono text-slate-500">€{price.toFixed(2)}</td>
-                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600">
-                            €{rowTotal.toFixed(2)}
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <Link
-                                href={`/nodes/${nodeId}/entities/${item.id}`}
-                                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
-                              >
-                                Apri
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Totale Ordine */}
-          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-            <span className="text-xs font-mono text-slate-400">TOTALE COMPLESSIVO ORDINE</span>
-            <span className="text-lg font-bold font-mono text-emerald-600">€{orderTotal.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
+        )}
+      </section>
 
       {/* Sotto-Nodi Figli (es. Sotto-reparti o Sotto-ordini) */}
       <div className="space-y-3">
