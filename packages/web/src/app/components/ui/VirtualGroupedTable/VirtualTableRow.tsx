@@ -76,11 +76,11 @@ export function VirtualTableRow<T extends { id: string, entityTypeId?: string }>
               />
             )}
             <div className="min-w-0">
-              <p className="break-words font-semibold leading-5 text-slate-800">
+              <div className="break-words font-semibold leading-5 text-slate-800">
                 {columns[0]?.render
                   ? columns[0].render(renderItem)
                   : String((renderItem as Record<string, unknown>)[columns[0]?.key ?? 'name'] ?? '-')}
-              </p>
+              </div>
               <p className="mt-0.5 break-all text-[10px] font-mono text-slate-400">{renderItem.id}</p>
             </div>
           </div>
