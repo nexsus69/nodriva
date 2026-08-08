@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export interface MenuItem {
   id: string;
@@ -21,7 +21,24 @@ export interface ActionMenuProps {
 /** Small accessible action menu. The caller owns the actions and navigation. */
 export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align = 'right', className = '' }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const rootRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const updatePosition = () => {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMenuPosition({ top: rect.bottom + 8, left: align === 'right' ? rect.right : align === 'center' ? rect.left + rect.width / 2 : rect.left });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [align, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -52,7 +69,15 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         {trigger}
       </button>
       {open && (
-        <span role="menu" className={`absolute z-50 mt-2 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl ${align === 'right' ? 'right-0' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0'}`}>
+        <span
+          role="menu"
+          style={{
+            top: menuPosition.top,
+            left: menuPosition.left,
+            transform: align === 'right' ? 'translateX(-100%)' : align === 'center' ? 'translateX(-50%)' : undefined,
+          } as CSSProperties}
+          className="fixed z-[100] mt-0 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
+        >
           {items.map((item) => (
             <button
               key={item.id}
