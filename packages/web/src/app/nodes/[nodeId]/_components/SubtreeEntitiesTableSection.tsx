@@ -10,6 +10,7 @@ import {
   VirtualGroupedTable,
   VirtualTableColumnDef,
 } from '../../../components/ui/VirtualGroupedTable';
+import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -18,6 +19,7 @@ export interface SubtreeEntitiesTableSectionProps {
 export function SubtreeEntitiesTableSection({
   nodeId,
 }: SubtreeEntitiesTableSectionProps) {
+  const { entityTypes } = useSemanticMetadata();
   const captureAnchorRef = useRef<
     ((direction: 'forward' | 'backward') => void) | null
   >(null);
@@ -64,7 +66,12 @@ export function SubtreeEntitiesTableSection({
     SubtreeEntityItem & { nodeId: string }
   >[] = [
     { key: 'name', header: 'Nome Entità', width: '1.5fr' },
-    { key: 'entityTypeId', header: 'Tipo', width: '1fr' },
+    {
+      key: 'entityTypeId',
+      header: 'Tipo',
+      width: '1fr',
+      render: (item) => entityTypes[item.entityTypeId]?.name ?? item.entityTypeId,
+    },
     { key: 'rowVersion', header: 'Versione', width: '0.8fr' },
     {
       key: 'createdAt',

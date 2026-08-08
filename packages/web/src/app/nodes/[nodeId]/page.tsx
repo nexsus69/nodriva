@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
@@ -30,8 +30,15 @@ export default function NodeDetailPage() {
   const [nodeName, setNodeName] = useState('');
   const [nodeDescription, setNodeDescription] = useState('');
   type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
+  type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
+  const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
+
+  const entitiesById = useMemo(
+    () => Object.fromEntries(nodeEntities.map((entity) => [entity.id, entity])),
+    [nodeEntities]
+  );
 
   // --- LOCK STATE ---
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({ resourceType: 'node', resourceId: nodeId });
@@ -53,6 +60,24 @@ export default function NodeDetailPage() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [currentNode, nodeTypes]);
+
+  useEffect(() => {
+    const typeKeys = [...new Set(nodeEntities.map((entity) => entityTypes[entity.entityTypeId]?.typeKey).filter(Boolean))] as string[];
+    if (typeKeys.length === 0) return;
+    let cancelled = false;
+    Promise.all(typeKeys.map((typeKey) => AppCache.admin.getTypeDefinition('entity', typeKey)))
+      .then((definitions) => {
+        if (cancelled) return;
+        setEntityDefinitions(Object.fromEntries(
+          definitions.filter((definition): definition is EntityTypeDefinition => Boolean(definition))
+            .map((definition) => [definition.typeKey, definition])
+        ));
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) AppCache.handleFetchError(error);
+      });
+    return () => { cancelled = true; };
+  }, [entityTypes, nodeEntities]);
   
   // Combine readModel pending fetch with cache pending fetch
   const isNodeLoading = isLoadingNode || !currentNode;
@@ -299,7 +324,23 @@ export default function NodeDetailPage() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {nodeEntities.map((entity) => {
               const entityType = Object.values(entityTypes).find((type) => type.id === entity.entityTypeId || type.typeKey === entity.entityTypeId);
-              const preview = Object.entries(entity.payload ?? {}).filter(([, value]) => value !== null && value !== '').slice(0, 3);
+              const definition = entityType ? entityDefinitions[entityType.typeKey] : undefined;
+              const fieldsByKey = Object.fromEntries((definition?.fields ?? []).map((field) => [field.fieldKey, field]));
+              const preview = Object.entries(entity.payload ?? {})
+                .filter(([, value]) => value !== null && value !== '')
+                .slice(0, 3)
+                .map(([key, value]) => {
+                  const field = fieldsByKey[key];
+                  const enumLabel = field?.enumOptions?.find((option) => option.value === String(value))?.label;
+                  const relatedEntity = field?.dataType.toLowerCase() === 'relation' && typeof value === 'string'
+                    ? entitiesById[value]
+                    : undefined;
+                  return {
+                    key,
+                    label: field?.label ?? key,
+                    value: enumLabel ?? relatedEntity?.name ?? String(value),
+                  };
+                });
               return (
                 <Link key={entity.id} href={`/nodes/${nodeId}/entities/${entity.id}`} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200 hover:shadow-sm">
                   <div className="flex min-w-0 items-center justify-between gap-3">
@@ -309,7 +350,7 @@ export default function NodeDetailPage() {
                   <p className="mt-2 line-clamp-2 text-xs text-slate-500">{entity.description || 'Nessuna descrizione.'}</p>
                   {preview.length > 0 && (
                     <dl className="mt-3 grid grid-cols-1 gap-1 border-t border-slate-100 pt-3 text-[11px]">
-                      {preview.map(([key, value]) => <div key={key} className="flex min-w-0 justify-between gap-2"><dt className="truncate text-slate-400">{key}</dt><dd className="truncate font-mono text-slate-600">{String(value)}</dd></div>)}
+                      {preview.map((item) => <div key={item.key} className="flex min-w-0 justify-between gap-2"><dt className="truncate text-slate-400">{item.label}</dt><dd className="truncate text-slate-600">{item.value}</dd></div>)}
                     </dl>
                   )}
                 </Link>
