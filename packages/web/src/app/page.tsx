@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppCache } from './cache/GlobalCacheClient';
 import { useSemanticNodeList } from './hooks/useSemanticNodeList';
+import { PageShell, Panel, SectionHeader } from './components/ui/layout';
+import { Alert, EmptyState, LoadingState } from './components/ui/feedback';
 
 export default function WorkspaceOperationalHub() {
   const [isCheckingSeed, setIsCheckingSeed] = useState(true);
@@ -40,7 +42,7 @@ export default function WorkspaceOperationalHub() {
 
 
   return (
-    <div className="space-y-8 pb-8">
+    <PageShell className="space-y-8">
       {/* Banner Principale Hub Operativo */}
       <section className="relative overflow-hidden rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/60 to-violet-50 p-7 shadow-xl shadow-slate-200/70 sm:p-9">
         <div aria-hidden="true" className="absolute -right-28 -top-32 h-80 w-80 rounded-full border-[42px] border-indigo-400/10" />
@@ -109,28 +111,21 @@ export default function WorkspaceOperationalHub() {
 
       {/* Messaggi di Errore */}
       {(errorMsg || nodesError) && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
-          <span className="font-bold">Errore:</span> {errorMsg || nodesError?.message}
-        </div>
+        <Alert tone="danger"><span className="font-bold">Errore:</span> {errorMsg || nodesError?.message}</Alert>
       )}
 
       {/* Griglia Nodi Radice */}
       <div className="space-y-4">
-        <div className="flex items-end justify-between gap-4">
-          <div><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-500">Navigazione</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Nodi radice</h2></div>
-          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm">{rootNodes.length} disponibili</span>
-        </div>
+        <SectionHeader
+          title="Nodi radice"
+          description="Navigazione"
+          actions={<span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm">{rootNodes.length} disponibili</span>}
+        />
 
         {isNodesLoading || isCheckingSeed ? (
-          <div className="glass-panel rounded-2xl p-12 text-center text-xs text-slate-400">
-            Caricamento struttura gerarchica in corso...
-          </div>
+          <Panel><LoadingState label="Caricamento struttura gerarchica in corso…" /></Panel>
         ) : rootNodes.length === 0 ? (
-          <div className="glass-panel space-y-3 rounded-2xl border border-slate-200 p-12 text-center">
-            <span className="text-3xl block">📦</span>
-            <p className="text-sm font-semibold text-slate-700">Nessun Nodo Radice Trovato</p>
-            <p className="text-xs text-slate-500">Inizializza il database o crea un primo nodo dall&apos;amministrazione.</p>
-          </div>
+          <EmptyState title="Nessun nodo radice trovato" description="Inizializza il database o crea un primo nodo dall&apos;amministrazione." />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {rootNodes.map((node) => {
@@ -176,14 +171,14 @@ export default function WorkspaceOperationalHub() {
       </div>
 
       {/* Scheda Riepilogo Architettura Workspace */}
-      <div className="glass-panel space-y-3 rounded-2xl border border-slate-200 p-6 shadow-sm">
+      <Panel className="space-y-3">
         <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 font-mono">
           <span>🛡️</span> Isolamento Architetturale
         </h3>
         <p className="text-xs text-slate-400 leading-relaxed">
           Il Workspace Operativo consuma esclusivamente i servizi applicativi <code className="text-indigo-300 font-mono">NodeApplicationService</code> ed <code className="text-indigo-300 font-mono">EntityApplicationService</code>. Le funzioni di configurazione amministrativa restano nettamente segregate sotto <code className="text-purple-300 font-mono">/admin/*</code>.
         </p>
-      </div>
-    </div>
+      </Panel>
+    </PageShell>
   );
 }

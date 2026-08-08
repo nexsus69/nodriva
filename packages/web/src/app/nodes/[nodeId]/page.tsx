@@ -13,6 +13,8 @@ import { NodeTree } from '../../components/navigation/NodeTree';
 import { NodeBreadcrumb } from '../../components/navigation/NodeBreadcrumb';
 import { useLock } from '../../hooks/useLock';
 import { SubtreeEntitiesTableSection } from './_components/SubtreeEntitiesTableSection';
+import { PageShell, Panel, SectionHeader } from '../../components/ui/layout';
+import { Alert } from '../../components/ui/feedback';
 
 export default function NodeDetailPage() {
   const params = useParams();
@@ -139,7 +141,7 @@ export default function NodeDetailPage() {
         : null);
 
   return (
-    <div className="workspace-page space-y-6 pb-8">
+    <PageShell>
       {/* Breadcrumb / Navigazione Superiore */}
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <NodeBreadcrumb nodeId={nodeId} />
@@ -169,33 +171,26 @@ export default function NodeDetailPage() {
           activeNodeId={nodeId}
           activeNodePath={currentNode?.path}
         />
-        <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500">Contesto</p><h2 className="mt-1 text-sm font-semibold text-slate-800">Riepilogo nodo</h2></div>
-            <span className={`h-2.5 w-2.5 rounded-full ${isMyLock ? 'bg-emerald-500' : lockedByOther ? 'bg-amber-500' : 'bg-slate-300'}`} title={isMyLock ? 'Modifica attiva' : lockedByOther ? 'Bloccato da altro utente' : 'Sola lettura'} />
-          </div>
+        <Panel as="aside">
+          <SectionHeader title="Riepilogo nodo" description="Contesto" actions={<span className={`h-2.5 w-2.5 rounded-full ${isMyLock ? 'bg-emerald-500' : lockedByOther ? 'bg-amber-500' : 'bg-slate-300'}`} title={isMyLock ? 'Modifica attiva' : lockedByOther ? 'Bloccato da altro utente' : 'Sola lettura'} />} />
           <dl className="mt-4 space-y-4 text-xs">
             <div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Nodo corrente</dt><dd className="mt-1 truncate font-semibold text-slate-800">{currentNode?.name || 'Caricamento…'}</dd></div>
             <div className="grid grid-cols-2 gap-3"><div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Sotto-nodi</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{childNodes.length}</dd></div><div><dt className="text-[10px] uppercase tracking-wider text-slate-400">Entità</dt><dd className="mt-1 text-lg font-semibold text-slate-800">{nodeEntities.length}</dd></div></div>
             <div className="border-t border-slate-100 pt-3"><dt className="text-[10px] uppercase tracking-wider text-slate-400">Modalità</dt><dd className="mt-1 font-medium text-slate-600">{isMyLock ? 'Modifica autorizzata' : lockedByOther ? 'Bloccato temporaneamente' : 'Sola lettura'}</dd></div>
           </dl>
-        </aside>
+        </Panel>
       </div>
 
       {/* Messaggi Feedback */}
       {displayedError && (
-        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-700">
-          <span className="font-bold">Errore:</span> {displayedError}
-        </div>
+        <Alert tone="danger"><span className="font-bold">Errore:</span> {displayedError}</Alert>
       )}
       {successMsg && (
-        <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-700">
-          <span className="font-bold">Esito:</span> {successMsg}
-        </div>
+        <Alert tone="success"><span className="font-bold">Esito:</span> {successMsg}</Alert>
       )}
 
       {/* Testata Nodo Selezionato */}
-      <section className="glass-panel space-y-2 rounded-2xl border border-slate-200 p-6 shadow-sm">
+      <Panel className="space-y-2">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-xl text-indigo-600">
@@ -309,16 +304,14 @@ export default function NodeDetailPage() {
             </p>
           )
         )}
-      </section>
+      </Panel>
 
-      <section className="glass-panel space-y-4 rounded-2xl border border-slate-200 p-5 shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-slate-800">Entità del nodo ({nodeEntities.length})</h2>
-            <p className="mt-1 text-xs text-slate-500">Le entità vengono visualizzate in base ai metadata del loro tipo.</p>
-          </div>
-          {!readOnly && <Link href={`/nodes/${nodeId}/entities/new`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">+ Nuova entità</Link>}
-        </div>
+      <Panel className="space-y-4">
+        <SectionHeader
+          title={`Entità del nodo (${nodeEntities.length})`}
+          description="Le entità vengono visualizzate in base ai metadata del loro tipo."
+          actions={!readOnly ? <Link href={`/nodes/${nodeId}/entities/new`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">+ Nuova entità</Link> : undefined}
+        />
         {isEntitiesLoading ? (
           <p className="p-6 text-center text-xs text-slate-500">Caricamento entità…</p>
         ) : nodeEntities.length === 0 ? (
@@ -361,7 +354,7 @@ export default function NodeDetailPage() {
             })}
           </div>
         )}
-      </section>
+      </Panel>
 
       {/* Sotto-Nodi Figli (es. Sotto-reparti o Sotto-ordini) */}
       <div className="space-y-3">
@@ -410,6 +403,6 @@ export default function NodeDetailPage() {
       </div>
       {/* Tabella Virtualizzata Sottoalbero Entità */}
       <SubtreeEntitiesTableSection nodeId={nodeId} />
-    </div>
+    </PageShell>
   );
 }
