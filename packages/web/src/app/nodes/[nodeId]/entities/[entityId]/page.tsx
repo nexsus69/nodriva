@@ -13,6 +13,7 @@ import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 import { NodeBreadcrumb } from '../../../../components/navigation/NodeBreadcrumb';
 import { LockIndicator } from '../../../../components/LockIndicator';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
+import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntityCollection';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -23,6 +24,7 @@ export default function EntityDetailPage() {
   const entityId = params.entityId as string;
 
   const { entity, isLoading, isError, error } = useSemanticEntityDetail(entityId, parentNodeId);
+  const { entities: siblingEntities } = useSemanticEntityCollection(parentNodeId);
   const { entityTypes } = useSemanticMetadata();
   const [isPending, startTransition] = useTransition();
 
@@ -43,6 +45,15 @@ export default function EntityDetailPage() {
   } = useLock({ resourceType: 'entity', resourceId: entityId });
 
   const entityType = entity ? entityTypes[entity.entityTypeId] : undefined;
+
+  const relationCandidates = (field: DynamicField) => {
+    if (field.relationTargetDomain !== 'entity' || !field.relationTargetTypeKey) return [];
+    const targetType = entityTypes[field.relationTargetTypeKey];
+    return siblingEntities.filter((candidate) => (
+      candidate.entityTypeId === field.relationTargetTypeKey
+      || candidate.entityTypeId === targetType?.id
+    ));
+  };
 
   useEffect(() => {
     if (!entity || !entityType?.typeKey) return;
@@ -219,7 +230,12 @@ export default function EntityDetailPage() {
                     <div key={field.fieldKey} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                       <div className="text-[10px] uppercase tracking-wider text-slate-500">{field.label ?? field.fieldKey}</div>
                       <div className={`mt-1 break-words text-slate-200 ${field.dataType === 'relation' ? 'font-mono text-[11px]' : ''}`}>
-                        {value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value)}
+                        {field.dataType === 'relation' && typeof value === 'string' ? (() => {
+                          const related = relationCandidates(field as DynamicField).find((candidate) => candidate.id === value);
+                          return related
+                            ? <Link href={`/nodes/${related.parentNodeId}/entities/${related.id}`} className="text-indigo-300 hover:text-indigo-200">{related.name} →</Link>
+                            : value;
+                        })() : value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value)}
                       </div>
                     </div>
                   );
@@ -270,6 +286,20 @@ export default function EntityDetailPage() {
                       <select required={field.isRequired} value={String(value ?? '')} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100">
                         <option value="">Seleziona…</option>
                         {field.enumOptions.filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </label>
+                  );
+                }
+                if (dataType === 'relation' && field.relationTargetDomain === 'entity') {
+                  const candidates = relationCandidates(field);
+                  const currentValue = String(value ?? '');
+                  return (
+                    <label key={field.fieldKey} className="text-xs text-slate-300">
+                      <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
+                      <select required={field.isRequired} value={currentValue} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100">
+                        <option value="">Nessuna relazione</option>
+                        {currentValue && !candidates.some((candidate) => candidate.id === currentValue) && <option value={currentValue}>{currentValue}</option>}
+                        {candidates.filter((candidate) => candidate.id !== entity.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
                       </select>
                     </label>
                   );
