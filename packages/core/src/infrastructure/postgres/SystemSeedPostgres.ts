@@ -362,6 +362,11 @@ export class SystemSeedPostgres implements SystemSeedPort {
       ['00000000-0000-0000-0000-000000000075', '00000000-0000-0000-0000-000000000074', 'workspace.platform.core.control_center.foundation', 'foundation', 4, '00000000-0000-0000-0000-000000000055', 'Foundation Milestone', 'Architecture foundation'],
       ['00000000-0000-0000-0000-000000000076', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.experience', 'experience', 3, '00000000-0000-0000-0000-000000000054', 'Experience Project', 'Responsive experience demo'],
       ['00000000-0000-0000-0000-000000000077', '00000000-0000-0000-0000-000000000076', 'workspace.platform.core.experience.mobile', 'mobile', 4, '00000000-0000-0000-0000-000000000055', 'Mobile Milestone', 'Mobile delivery milestone'],
+      ['00000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.analytics', 'analytics', 3, '00000000-0000-0000-0000-000000000054', 'Analytics Project', 'Operational analytics demo'],
+      ['00000000-0000-0000-0000-000000000079', '00000000-0000-0000-0000-000000000078', 'workspace.platform.core.analytics.discovery', 'discovery', 4, '00000000-0000-0000-0000-000000000055', 'Discovery Milestone', 'Analytics discovery'],
+      ['00000000-0000-0000-0000-00000000007a', '00000000-0000-0000-0000-000000000078', 'workspace.platform.core.analytics.delivery', 'delivery', 4, '00000000-0000-0000-0000-000000000055', 'Delivery Milestone', 'Analytics delivery'],
+      ['00000000-0000-0000-0000-00000000007b', '00000000-0000-0000-0000-000000000078', 'workspace.platform.core.analytics.operations', 'operations', 4, '00000000-0000-0000-0000-000000000055', 'Operations Milestone', 'Analytics operations'],
+      ['00000000-0000-0000-0000-00000000007c', '00000000-0000-0000-0000-000000000078', 'workspace.platform.core.analytics.scale', 'scale', 4, '00000000-0000-0000-0000-000000000055', 'Scale Milestone', 'Analytics scale-up'],
     ] as const;
     for (const [id, parentId, path, pathLabel, depth, typeId, name, description] of demoNodes) {
       await this.executor.query(`
@@ -407,6 +412,76 @@ export class SystemSeedPostgres implements SystemSeedPort {
       INSERT INTO entity_project_document (entity_id, document_type, version, review_status)
       VALUES ($1, 'architecture', 2, 'approved')
     `, [documentId]);
+
+    // Dataset dimostrativo: 3 progetti, 6 milestone, 120 attività e 30
+    // documenti. Le istanze vengono generate per mantenere il seed leggibile
+    // e offrire dati sufficienti per filtri, paginazione e viste responsive.
+    for (const [projectNodeId, projectName, clientName] of [
+      ['00000000-0000-0000-0000-000000000076', 'Experience', 'Acme Digital'],
+      ['00000000-0000-0000-0000-000000000078', 'Analytics', 'Acme Operations'],
+    ] as const) {
+      const id = crypto.randomUUID();
+      await this.executor.query(`
+        INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+        VALUES ($1, '00000000-0000-0000-0000-000000000061', $2, $3, $4, 1, $5, $5)
+      `, [id, projectNodeId, `${projectName} Workspace`, `${projectName} project workspace`, actorId]);
+      await this.executor.query(`
+        INSERT INTO entity_project_brief (entity_id, status, owner, client_name, start_date, end_date)
+        VALUES ($1, 'planned', 'Core Team', $2, '2026-09-01', '2027-01-31')
+      `, [id, clientName]);
+    }
+
+    const milestoneNodes = [
+      ['00000000-0000-0000-0000-000000000075', 'Control Center / Foundation'],
+      ['00000000-0000-0000-0000-000000000077', 'Experience / Mobile'],
+      ['00000000-0000-0000-0000-000000000079', 'Analytics / Discovery'],
+      ['00000000-0000-0000-0000-00000000007a', 'Analytics / Delivery'],
+      ['00000000-0000-0000-0000-00000000007b', 'Analytics / Operations'],
+      ['00000000-0000-0000-0000-00000000007c', 'Analytics / Scale'],
+    ] as const;
+    const statuses = ['backlog', 'in-progress', 'blocked', 'done'] as const;
+    const priorities = ['low', 'medium', 'high', 'critical'] as const;
+    const assignees = ['Olivia Williams', 'Core Team', 'Platform Team', 'Experience Team'];
+    let taskIndex = 0;
+    for (const [milestoneNodeId, milestoneLabel] of milestoneNodes) {
+      let previousTaskId: string | null = null;
+      for (let offset = 0; offset < 20; offset += 1) {
+        const taskId = crypto.randomUUID();
+        const status = statuses[(taskIndex + offset) % statuses.length]!;
+        const priority = priorities[(taskIndex + offset) % priorities.length]!;
+        const dueDate = `2026-${String(((taskIndex + offset) % 4) + 9).padStart(2, '0')}-${String((offset % 27) + 1).padStart(2, '0')}`;
+        const dependency = offset > 0 && offset % 4 === 0 ? previousTaskId : null;
+        await this.executor.query(`
+          INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+          VALUES ($1, '00000000-0000-0000-0000-000000000062', $2, $3, $4, 1, $5, $5)
+        `, [taskId, milestoneNodeId, `Task ${String(taskIndex + 1).padStart(3, '0')}`, `${milestoneLabel} work item`, actorId]);
+        await this.executor.query(`
+          INSERT INTO entity_task_record (entity_id, status, priority, assignee, due_date, depends_on)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [taskId, status, priority, assignees[taskIndex % assignees.length], dueDate, dependency]);
+        previousTaskId = taskId;
+        taskIndex += 1;
+      }
+    }
+
+    const documentTypes = ['architecture', 'requirements', 'runbook', 'design', 'decision'];
+    const reviewStatuses = ['draft', 'in-review', 'approved'];
+    const documentParents = [
+      '00000000-0000-0000-0000-000000000074',
+      '00000000-0000-0000-0000-000000000076',
+      '00000000-0000-0000-0000-000000000078',
+    ];
+    for (let index = 0; index < 30; index += 1) {
+      const id = crypto.randomUUID();
+      await this.executor.query(`
+        INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+        VALUES ($1, '00000000-0000-0000-0000-000000000063', $2, $3, $4, 1, $5, $5)
+      `, [id, documentParents[index % documentParents.length], `Document ${String(index + 1).padStart(2, '0')}`, 'Project reference document', actorId]);
+      await this.executor.query(`
+        INSERT INTO entity_project_document (entity_id, document_type, version, review_status)
+        VALUES ($1, $2, $3, $4)
+      `, [id, documentTypes[index % documentTypes.length], (index % 3) + 1, reviewStatuses[index % reviewStatuses.length]]);
+    }
 
     await this.executor.query("DROP TABLE IF EXISTS resource_locks CASCADE");
     await this.executor.query("DROP TABLE IF EXISTS locks CASCADE");
