@@ -358,8 +358,8 @@ export class SystemSeedPostgres implements SystemSeedPort {
       ['00000000-0000-0000-0000-000000000071', null, 'workspace', 'workspace', 0, '00000000-0000-0000-0000-000000000051', 'Acme Delivery Organization', 'Demo organization'],
       ['00000000-0000-0000-0000-000000000072', '00000000-0000-0000-0000-000000000071', 'workspace.platform', 'platform', 1, '00000000-0000-0000-0000-000000000052', 'Platform Division', 'Product and platform delivery'],
       ['00000000-0000-0000-0000-000000000073', '00000000-0000-0000-0000-000000000072', 'workspace.platform.core', 'core', 2, '00000000-0000-0000-0000-000000000053', 'Core Team', 'Core product team'],
-      ['00000000-0000-0000-0000-000000000074', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.control-center', 'control-center', 3, '00000000-0000-0000-0000-000000000054', 'Control Center Project', 'Project management demo'],
-      ['00000000-0000-0000-0000-000000000075', '00000000-0000-0000-0000-000000000074', 'workspace.platform.core.control-center.foundation', 'foundation', 4, '00000000-0000-0000-0000-000000000055', 'Foundation Milestone', 'Architecture foundation'],
+      ['00000000-0000-0000-0000-000000000074', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.control_center', 'control_center', 3, '00000000-0000-0000-0000-000000000054', 'Control Center Project', 'Project management demo'],
+      ['00000000-0000-0000-0000-000000000075', '00000000-0000-0000-0000-000000000074', 'workspace.platform.core.control_center.foundation', 'foundation', 4, '00000000-0000-0000-0000-000000000055', 'Foundation Milestone', 'Architecture foundation'],
       ['00000000-0000-0000-0000-000000000076', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.experience', 'experience', 3, '00000000-0000-0000-0000-000000000054', 'Experience Project', 'Responsive experience demo'],
       ['00000000-0000-0000-0000-000000000077', '00000000-0000-0000-0000-000000000076', 'workspace.platform.core.experience.mobile', 'mobile', 4, '00000000-0000-0000-0000-000000000055', 'Mobile Milestone', 'Mobile delivery milestone'],
     ] as const;
