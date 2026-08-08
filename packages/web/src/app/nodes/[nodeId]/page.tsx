@@ -194,12 +194,12 @@ export default function NodeDetailPage() {
                   <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-700">
                     <input type="checkbox" checked={Boolean(dynamicNodePayload[field.fieldKey])}
                       onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.checked })} />
-                    {field.fieldKey} {field.isRequired ? '*' : ''}
+                    {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
                   </label>
                 ) : (
                   <div key={field.fieldKey}>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">{field.fieldKey} {field.isRequired ? '*' : ''}</label>
-                    <input value={String(dynamicNodePayload[field.fieldKey] ?? '')}
+                    <label className="mb-1 block text-xs font-medium text-slate-600">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
+                    <input type={['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'} value={String(dynamicNodePayload[field.fieldKey] ?? '').slice(0, ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 10 : undefined)}
                       onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.value })}
                       className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900" />
                   </div>

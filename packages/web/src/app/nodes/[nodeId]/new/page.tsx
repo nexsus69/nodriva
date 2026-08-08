@@ -171,6 +171,7 @@ export default function CreateChildNodePage() {
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Campi dinamici</h3>
               {fieldsDef.map((field) => field.dataType.toLowerCase() === 'enum' ? (
                 <div key={field.fieldKey}>
+                  <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
                   <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')}
                     onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.value })}
                     className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100">
@@ -184,12 +185,12 @@ export default function CreateChildNodePage() {
                   <input type="checkbox" checked={Boolean(payload[field.fieldKey])}
                     onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.checked })}
                     className="rounded bg-slate-900 border-slate-800 text-indigo-600" />
-                  {field.fieldKey} {field.isRequired ? '*' : ''}
+                  {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
                 </label>
               ) : (
                 <div key={field.fieldKey}>
-                  <label className="mb-1 block text-xs font-medium text-slate-300">{field.fieldKey} {field.isRequired ? '*' : ''}</label>
-                  <input required={field.isRequired} type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : 'text'}
+                  <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
+                  <input required={field.isRequired} type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'}
                     value={String(payload[field.fieldKey] ?? '')}
                     onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.value })}
                     className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100" />

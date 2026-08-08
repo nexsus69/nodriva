@@ -216,7 +216,7 @@ export default function CreateEntityPage() {
               {fieldsDef.map((field) => (
                 <div key={field.fieldKey}>
                   <label className="block text-xs font-medium text-slate-400 mb-1 font-mono">
-                    {field.fieldKey} {field.isRequired ? '*' : ''}
+                    {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
                   </label>
                   {field.dataType.toLowerCase() === 'enum' ? (
                     <>
@@ -284,7 +284,7 @@ export default function CreateEntityPage() {
                     />
                   ) : (
                     <input
-                      type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : 'text'}
+                      type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'}
                       step={field.dataType.toLowerCase() !== 'integer' ? 'any' : undefined}
                       required={field.isRequired}
                       value={String(payload[field.fieldKey] ?? '')}
@@ -377,13 +377,13 @@ export default function CreateEntityPage() {
                       <input type="checkbox" checked={Boolean(relationPayload[field.fieldKey])}
                         onChange={(event) => setRelationPayload({ ...relationPayload, [field.fieldKey]: event.target.checked })}
                         className="rounded bg-slate-950 border-slate-700 text-indigo-600" />
-                      {field.fieldKey} {field.isRequired ? '*' : ''}
+                      {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
                     </label>
                   ) : (
                     <div key={field.fieldKey}>
-                      <label className="mb-1 block text-xs font-medium text-slate-300">{field.fieldKey} {field.isRequired ? '*' : ''}</label>
+                      <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
                       <input required={field.isRequired}
-                        type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : 'text'}
+                        type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'}
                         value={String(relationPayload[field.fieldKey] ?? '')}
                         onChange={(event) => setRelationPayload({ ...relationPayload, [field.fieldKey]: event.target.value })}
                         className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-white" />
