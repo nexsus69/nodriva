@@ -14,7 +14,7 @@ export interface ActionMenuProps {
   items: readonly MenuItem[];
   trigger: ReactNode;
   label?: string;
-  align?: 'left' | 'right';
+  align?: 'left' | 'center' | 'right';
   className?: string;
 }
 
@@ -47,12 +47,12 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen((current) => !current)}
-        className="inline-flex h-7 w-7 items-center justify-center rounded-md border-0 bg-transparent p-0 text-slate-400 shadow-none transition hover:bg-slate-100 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/40"
+        className="inline-flex h-auto min-h-0 w-auto items-center justify-center rounded-md border-0 bg-transparent px-1 py-0 text-[0.9em] leading-none text-slate-400 shadow-none transition hover:bg-slate-100 hover:text-indigo-600 focus:border-0 focus:outline-none focus:ring-0"
       >
         {trigger}
       </button>
       {open && (
-        <span role="menu" className={`absolute z-50 mt-2 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl ${align === 'right' ? 'right-0' : 'left-0'}`}>
+        <span role="menu" className={`absolute z-50 mt-2 min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl ${align === 'right' ? 'right-0' : align === 'center' ? 'left-1/2 -translate-x-1/2' : 'left-0'}`}>
           {items.map((item) => (
             <button
               key={item.id}
@@ -80,5 +80,5 @@ export interface OverflowMenuProps extends Omit<ActionMenuProps, 'trigger'> {
 }
 
 export function OverflowMenu({ label = 'Altre azioni', ...props }: OverflowMenuProps) {
-  return <ActionMenu {...props} label={label} trigger={<span aria-hidden="true" className="text-lg font-bold leading-none">⋮</span>} />;
+  return <ActionMenu {...props} align="center" label={label} trigger={<span aria-hidden="true" className="font-bold leading-none">⋮</span>} />;
 }
