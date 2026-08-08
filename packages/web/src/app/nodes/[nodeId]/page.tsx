@@ -39,6 +39,9 @@ export default function NodeDetailPage() {
     () => Object.fromEntries(nodeEntities.map((entity) => [entity.id, entity])),
     [nodeEntities]
   );
+  const entityTypeKeysSignature = [...new Set(
+    nodeEntities.map((entity) => entityTypes[entity.entityTypeId]?.typeKey).filter(Boolean)
+  )].sort().join('|');
 
   // --- LOCK STATE ---
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({ resourceType: 'node', resourceId: nodeId });
@@ -62,7 +65,7 @@ export default function NodeDetailPage() {
   }, [currentNode, nodeTypes]);
 
   useEffect(() => {
-    const typeKeys = [...new Set(nodeEntities.map((entity) => entityTypes[entity.entityTypeId]?.typeKey).filter(Boolean))] as string[];
+    const typeKeys = entityTypeKeysSignature ? entityTypeKeysSignature.split('|') : [];
     if (typeKeys.length === 0) return;
     let cancelled = false;
     Promise.all(typeKeys.map((typeKey) => AppCache.admin.getTypeDefinition('entity', typeKey)))
@@ -77,7 +80,7 @@ export default function NodeDetailPage() {
         if (!cancelled) AppCache.handleFetchError(error);
       });
     return () => { cancelled = true; };
-  }, [entityTypes, nodeEntities]);
+  }, [entityTypeKeysSignature]);
   
   // Combine readModel pending fetch with cache pending fetch
   const isNodeLoading = isLoadingNode || !currentNode;

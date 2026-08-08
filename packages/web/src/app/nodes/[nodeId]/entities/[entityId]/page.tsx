@@ -226,6 +226,9 @@ export default function EntityDetailPage() {
               <dd className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(fields.length > 0 ? fields : Object.keys(entity.payload ?? {}).map((fieldKey) => ({ fieldKey, label: fieldKey, dataType: 'string' }))).map((field) => {
                   const value = entity.payload?.[field.fieldKey];
+                  const enumLabel = field.dataType === 'enum'
+                    ? (field as DynamicField).enumOptions?.find((option) => option.value === String(value))?.label
+                    : undefined;
                   return (
                     <div key={field.fieldKey} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                       <div className="text-[10px] uppercase tracking-wider text-slate-500">{field.label ?? field.fieldKey}</div>
@@ -235,7 +238,7 @@ export default function EntityDetailPage() {
                           return related
                             ? <Link href={`/nodes/${related.parentNodeId}/entities/${related.id}`} className="text-indigo-300 hover:text-indigo-200">{related.name} →</Link>
                             : value;
-                        })() : value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : String(value)}
+                        })() : value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : enumLabel ?? String(value)}
                       </div>
                     </div>
                   );
