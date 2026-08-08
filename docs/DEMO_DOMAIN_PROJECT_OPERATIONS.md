@@ -1,0 +1,28 @@
+# Demo domain: project operations
+
+The demo seed keeps the original orders fixture for compatibility and adds a
+representative project-operations scenario:
+
+```text
+Acme Delivery Organization
+└── Platform Division
+    └── Core Team
+        ├── Control Center Project
+        │   └── Foundation Milestone
+        └── Experience Project
+            └── Mobile Milestone
+```
+
+The dynamic entity types are:
+
+- `project-brief`: status, owner, client and dates;
+- `task-record`: status, priority, assignee, due date and a task dependency;
+- `project-document`: document type, version and review status.
+
+The `task-record.depends_on` field is a relation targeting another
+`task-record`, so the fixture exercises relation metadata in addition to
+hierarchy and dynamic storage tables.
+
+The scenario is loaded by the existing destructive demo seed. In development
+it can be activated from the landing page using `RESET DEMO DATABASE` while
+`ALLOW_DESTRUCTIVE_SEED=true`; it must not be run against production data.

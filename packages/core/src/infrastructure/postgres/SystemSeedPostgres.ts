@@ -273,6 +273,141 @@ export class SystemSeedPostgres implements SystemSeedPort {
       }
     }
 
+    // 7. Scenario demo operativo multi-team/multi-progetto.
+    // Manteniamo il dominio ordini precedente come fixture compatibile, ma
+    // aggiungiamo una struttura che esercita gerarchie, relazioni e campi
+    // dinamici senza introdurre logica specifica nel frontend.
+    const projectNodeTypes = [
+      ['00000000-0000-0000-0000-000000000051', 'organization', 'Organization', 'Top-level organization'],
+      ['00000000-0000-0000-0000-000000000052', 'division', 'Division', 'Organizational division'],
+      ['00000000-0000-0000-0000-000000000053', 'team', 'Team', 'Delivery team'],
+      ['00000000-0000-0000-0000-000000000054', 'project', 'Project', 'Project workspace'],
+      ['00000000-0000-0000-0000-000000000055', 'milestone', 'Milestone', 'Project milestone'],
+    ] as const;
+    for (const [id, typeKey, name, description] of projectNodeTypes) {
+      await this.executor.query(`
+        INSERT INTO node_types (id, type_key, name, description, current_schema_version)
+        VALUES ($1, $2, $3, $4, 1)
+      `, [id, typeKey, name, description]);
+    }
+
+    const projectEntityTypes = [
+      ['00000000-0000-0000-0000-000000000061', 'project-brief', 'Project Brief', 'Project metadata and ownership', 'entity_project_brief'],
+      ['00000000-0000-0000-0000-000000000062', 'task-record', 'Task', 'Work item assigned to a team member', 'entity_task_record'],
+      ['00000000-0000-0000-0000-000000000063', 'project-document', 'Project Document', 'Versioned project document', 'entity_project_document'],
+    ] as const;
+    for (const [id, typeKey, name, description, storageTable] of projectEntityTypes) {
+      await this.executor.query(`
+        INSERT INTO entity_types (id, type_key, name, description, storage_table, current_schema_version)
+        VALUES ($1, $2, $3, $4, $5, 1)
+      `, [id, typeKey, name, description, storageTable]);
+    }
+
+    await this.executor.query(`
+      INSERT INTO entity_type_fields (id, entity_type_id, field_key, label, column_name, data_type, is_required, position)
+      VALUES
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000061', 'status', 'Status', 'status', 'string', true, 1),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000061', 'owner', 'Owner', 'owner', 'string', true, 2),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000061', 'client_name', 'Client', 'client_name', 'string', false, 3),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000061', 'start_date', 'Start date', 'start_date', 'date', false, 4),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000061', 'end_date', 'End date', 'end_date', 'date', false, 5),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000062', 'status', 'Status', 'status', 'string', true, 1),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000062', 'priority', 'Priority', 'priority', 'string', true, 2),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000062', 'assignee', 'Assignee', 'assignee', 'string', true, 3),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000062', 'due_date', 'Due date', 'due_date', 'date', false, 4),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000062', 'depends_on', 'Depends on', 'depends_on', 'relation', false, 5),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000063', 'document_type', 'Document type', 'document_type', 'string', true, 1),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000063', 'version', 'Version', 'version', 'integer', true, 2),
+        (gen_random_uuid(), '00000000-0000-0000-0000-000000000063', 'review_status', 'Review status', 'review_status', 'string', true, 3)
+    `);
+    await this.executor.query(`
+      UPDATE entity_type_fields
+      SET relation_target_domain = 'entity', relation_target_type_key = 'task-record'
+      WHERE entity_type_id = '00000000-0000-0000-0000-000000000062' AND field_key = 'depends_on'
+    `);
+
+    await this.executor.query(`
+      DROP TABLE IF EXISTS entity_project_brief CASCADE;
+      DROP TABLE IF EXISTS entity_task_record CASCADE;
+      DROP TABLE IF EXISTS entity_project_document CASCADE;
+      CREATE TABLE entity_project_brief (
+        entity_id UUID PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
+        status VARCHAR(64) NOT NULL,
+        owner VARCHAR(255) NOT NULL,
+        client_name VARCHAR(255),
+        start_date DATE,
+        end_date DATE
+      );
+      CREATE TABLE entity_task_record (
+        entity_id UUID PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
+        status VARCHAR(64) NOT NULL,
+        priority VARCHAR(64) NOT NULL,
+        assignee VARCHAR(255) NOT NULL,
+        due_date DATE,
+        depends_on UUID
+      );
+      CREATE TABLE entity_project_document (
+        entity_id UUID PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
+        document_type VARCHAR(128) NOT NULL,
+        version INTEGER NOT NULL,
+        review_status VARCHAR(64) NOT NULL
+      );
+    `);
+
+    const demoNodes = [
+      ['00000000-0000-0000-0000-000000000071', null, 'workspace', 'workspace', 0, '00000000-0000-0000-0000-000000000051', 'Acme Delivery Organization', 'Demo organization'],
+      ['00000000-0000-0000-0000-000000000072', '00000000-0000-0000-0000-000000000071', 'workspace.platform', 'platform', 1, '00000000-0000-0000-0000-000000000052', 'Platform Division', 'Product and platform delivery'],
+      ['00000000-0000-0000-0000-000000000073', '00000000-0000-0000-0000-000000000072', 'workspace.platform.core', 'core', 2, '00000000-0000-0000-0000-000000000053', 'Core Team', 'Core product team'],
+      ['00000000-0000-0000-0000-000000000074', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.control-center', 'control-center', 3, '00000000-0000-0000-0000-000000000054', 'Control Center Project', 'Project management demo'],
+      ['00000000-0000-0000-0000-000000000075', '00000000-0000-0000-0000-000000000074', 'workspace.platform.core.control-center.foundation', 'foundation', 4, '00000000-0000-0000-0000-000000000055', 'Foundation Milestone', 'Architecture foundation'],
+      ['00000000-0000-0000-0000-000000000076', '00000000-0000-0000-0000-000000000073', 'workspace.platform.core.experience', 'experience', 3, '00000000-0000-0000-0000-000000000054', 'Experience Project', 'Responsive experience demo'],
+      ['00000000-0000-0000-0000-000000000077', '00000000-0000-0000-0000-000000000076', 'workspace.platform.core.experience.mobile', 'mobile', 4, '00000000-0000-0000-0000-000000000055', 'Mobile Milestone', 'Mobile delivery milestone'],
+    ] as const;
+    for (const [id, parentId, path, pathLabel, depth, typeId, name, description] of demoNodes) {
+      await this.executor.query(`
+        INSERT INTO nodes (id, parent_id, path, path_label, depth, node_type_id, name, description, row_version, created_by, updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $9)
+      `, [id, parentId, path, pathLabel, depth, typeId, name, description, actorId]);
+    }
+
+    const projectBriefId = '00000000-0000-0000-0000-000000000081';
+    await this.executor.query(`
+      INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+      VALUES ($1, '00000000-0000-0000-0000-000000000061', '00000000-0000-0000-0000-000000000074', 'Control Center', 'Central operations workspace', 1, $2, $2)
+    `, [projectBriefId, actorId]);
+    await this.executor.query(`
+      INSERT INTO entity_project_brief (entity_id, status, owner, client_name, start_date, end_date)
+      VALUES ($1, 'in-progress', 'Olivia Williams', 'Acme Internal', '2026-08-01', '2026-12-31')
+    `, [projectBriefId]);
+
+    const taskOneId = '00000000-0000-0000-0000-000000000082';
+    const taskTwoId = '00000000-0000-0000-0000-000000000083';
+    for (const [id, name, description] of [
+      [taskOneId, 'Define access model', 'Document delegated access boundaries'],
+      [taskTwoId, 'Implement activity monitor', 'Coordinate session and lock activity'],
+    ] as const) {
+      await this.executor.query(`
+        INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+        VALUES ($1, '00000000-0000-0000-0000-000000000062', '00000000-0000-0000-0000-000000000075', $2, $3, 1, $4, $4)
+      `, [id, name, description, actorId]);
+    }
+    await this.executor.query(`
+      INSERT INTO entity_task_record (entity_id, status, priority, assignee, due_date, depends_on)
+      VALUES
+        ($1, 'done', 'high', 'Olivia Williams', '2026-08-15', NULL),
+        ($2, 'in-progress', 'medium', 'Core Team', '2026-08-30', $1)
+    `, [taskOneId, taskTwoId]);
+
+    const documentId = '00000000-0000-0000-0000-000000000084';
+    await this.executor.query(`
+      INSERT INTO entities (id, entity_type_id, parent_node_id, name, description, row_version, created_by, updated_by)
+      VALUES ($1, '00000000-0000-0000-0000-000000000063', '00000000-0000-0000-0000-000000000074', 'Architecture Decision Record', 'Reference architecture document', 1, $2, $2)
+    `, [documentId, actorId]);
+    await this.executor.query(`
+      INSERT INTO entity_project_document (entity_id, document_type, version, review_status)
+      VALUES ($1, 'architecture', 2, 'approved')
+    `, [documentId]);
+
     await this.executor.query("DROP TABLE IF EXISTS resource_locks CASCADE");
     await this.executor.query("DROP TABLE IF EXISTS locks CASCADE");
 
