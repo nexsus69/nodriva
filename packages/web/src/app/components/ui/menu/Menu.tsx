@@ -80,5 +80,5 @@ export interface OverflowMenuProps extends Omit<ActionMenuProps, 'trigger'> {
 }
 
 export function OverflowMenu({ label = 'Altre azioni', ...props }: OverflowMenuProps) {
-  return <ActionMenu {...props} label={label} trigger={<span aria-hidden="true" className="text-base leading-none">⋯</span>} />;
+  return <ActionMenu {...props} label={label} trigger={<span aria-hidden="true" className="text-lg font-bold leading-none">⋮</span>} />;
 }
