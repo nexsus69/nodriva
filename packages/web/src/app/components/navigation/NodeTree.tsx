@@ -163,15 +163,17 @@ function NodeTreeItem({
         <span aria-hidden="true" className="mr-1.5 text-sm">
           {isExpanded ? '📂' : '📁'}
         </span>
-        <Link
-          href={`/nodes/${currentNode.id}`}
-          aria-current={isActive ? 'page' : undefined}
-          title={currentNode.description || currentNode.name}
-          className="min-w-0 flex-1 truncate py-2 pr-3 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
-        >
-          {currentNode.name}
-        </Link>
-        <NodeResourceMenu nodeId={currentNode.id} nodeName={currentNode.name} />
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          <Link
+            href={`/nodes/${currentNode.id}`}
+            aria-current={isActive ? 'page' : undefined}
+            title={currentNode.description || currentNode.name}
+            className="min-w-0 truncate py-2 pr-0 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400"
+          >
+            {currentNode.name}
+          </Link>
+          <NodeResourceMenu nodeId={currentNode.id} nodeName={currentNode.name} />
+        </div>
         <LockIndicator resourceType="node" resourceId={currentNode.id} />
       </div>
 
