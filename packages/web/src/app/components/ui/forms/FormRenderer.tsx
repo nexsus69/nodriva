@@ -1,4 +1,5 @@
 import type { FormEvent, ReactNode } from 'react';
+import { PasswordInput } from './PasswordInput';
 
 export interface FormOption {
   value: string;
@@ -35,7 +36,9 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
         return (
           <div key={field.name}>
             <label className="block text-xs font-medium text-slate-300 mb-1">{field.label}{field.required ? ' *' : ''}</label>
-            {field.type === 'textarea' ? (
+            {field.type === 'password' ? (
+              <PasswordInput required={field.required} autoComplete={field.autoComplete} value={String(values[field.name] ?? '')} onChange={(value) => onChange(field.name, value)} placeholder={field.placeholder} />
+            ) : field.type === 'textarea' ? (
               <textarea required={field.required} rows={field.rows ?? 3} value={String(values[field.name] ?? '')} placeholder={field.placeholder} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
             ) : (
               <input required={field.required} type={field.type} min={field.type === 'number' ? field.min : undefined} step={field.type === 'number' ? field.step : undefined} value={String(values[field.name] ?? '')} placeholder={field.placeholder} autoComplete={field.autoComplete} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />

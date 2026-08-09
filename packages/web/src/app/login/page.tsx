@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { Suspense } from 'react';
 import { loginAction } from '../actions/authActions';
 import { AppCache } from '../cache/GlobalCacheClient';
+import { PasswordInput } from '../components/ui/forms';
 
 function SessionWarning() {
   const searchParams = useSearchParams();
@@ -25,6 +26,7 @@ function SessionWarning() {
 
 export default function LoginPage() {
   const [error, setError] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { update: refreshSession } = useSession();
@@ -162,7 +164,7 @@ export default function LoginPage() {
                       <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
                       <path d="M8 10V7a4 4 0 1 1 8 0v3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                     </svg>
-                    <input id="password" name="password" type="password" autoComplete="current-password" required placeholder="Inserisci la password" className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
+                    <PasswordInput id="password" name="password" autoComplete="current-password" required value={password} onChange={setPassword} placeholder="Inserisci la password" className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" />
                   </div>
                 </div>
 

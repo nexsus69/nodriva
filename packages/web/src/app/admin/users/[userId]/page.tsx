@@ -11,6 +11,7 @@ import { AppCache } from '../../../cache/GlobalCacheClient';
 import { AdminModalShell } from '../../_components/AdminModalShell';
 import { issueAccountActionAction } from '../../../actions/accountRecoveryActions';
 import { UserAccountDetailsPanel, UserRoleAssignmentPanel } from '../_components/UserDetailPanels';
+import { PasswordInput } from '../../../components/ui/forms';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -225,6 +226,7 @@ export default function UserDetailPage() {
           </button>
           <button
             onClick={() => {
+              setError(null);
               setNewPassword('');
               setConfirmPassword('');
               setShowPasswordModal(true);
@@ -362,30 +364,29 @@ export default function UserDetailPage() {
             <p className="text-xs text-slate-400">
               Il reset invaliderà immediatamente tutte le sessioni attive dell&apos;utente.
             </p>
+            {error && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300"><span className="font-bold">Errore [{error.code}]:</span> {error.message}</div>}
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Nuova password *</label>
-                <input
-                  type="password"
+                <PasswordInput
+                  id="newPassword"
                   required
                   minLength={12}
                   autoComplete="new-password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  onChange={setNewPassword}
                   placeholder="12+ caratteri, maiuscola, minuscola, numero e simbolo"
-                  className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-300 mb-1">Conferma password *</label>
-                <input
-                  type="password"
+                <PasswordInput
+                  id="confirmPassword"
                   required
                   minLength={12}
                   autoComplete="new-password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-100"
+                  onChange={setConfirmPassword}
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/80">

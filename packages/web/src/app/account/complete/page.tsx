@@ -4,6 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
 import Link from 'next/link';
 import { completeAccountActionAction } from '../../actions/accountRecoveryActions';
+import { PasswordInput } from '../../components/ui/forms';
 
 function CompletionForm() {
   const token = useSearchParams().get('token') ?? '';
@@ -30,8 +31,8 @@ function CompletionForm() {
         {!complete ? (
           <form onSubmit={submit} className="space-y-4">
             <p className="text-sm text-slate-600">Scegli una password di almeno 12 caratteri con maiuscola, minuscola, numero e simbolo.</p>
-            <input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Nuova password" />
-            <input type="password" autoComplete="new-password" required minLength={12} maxLength={128} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} className="w-full rounded-xl border border-slate-300 px-3 py-2" placeholder="Ripeti la password" />
+            <PasswordInput autoComplete="new-password" required minLength={12} maxLength={128} value={password} onChange={setPassword} className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-10" placeholder="Nuova password" />
+            <PasswordInput autoComplete="new-password" required minLength={12} maxLength={128} value={confirmation} onChange={setConfirmation} className="w-full rounded-xl border border-slate-300 px-3 py-2 pr-10" placeholder="Ripeti la password" />
             <button disabled={busy || !token} className="w-full rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white disabled:opacity-50">{busy ? 'Verifica…' : 'Imposta password'}</button>
           </form>
         ) : <Link href="/login" className="inline-block rounded-xl bg-indigo-600 px-4 py-2 font-semibold text-white">Vai al login</Link>}
