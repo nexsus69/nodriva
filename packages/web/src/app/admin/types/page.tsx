@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
-import Link from 'next/link';
 import {
   TypeKind,
   TypeListItemDto,
@@ -9,6 +8,8 @@ import {
   ApiErrorResponse,
 } from '@dashboard/core';
 import { AppCache } from '../../cache/GlobalCacheClient';
+import { TypeListTable } from './_components/TypeListTable';
+import { AdminModalShell } from '../_components/AdminModalShell';
 
 export default function AdminTypesListPage() {
   const [kind, setKind] = useState<TypeKind>('node');
@@ -135,89 +136,12 @@ export default function AdminTypesListPage() {
 
       {/* Tabella Tipi */}
       <div className="glass-panel rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl">
-        {loading ? (
-          <div className="p-12 text-center text-slate-400 space-y-3">
-            <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="text-sm">Caricamento tipi in corso...</p>
-          </div>
-        ) : types.length === 0 ? (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <p className="text-lg font-medium text-slate-300">Nessun tipo configurato per {kind}</p>
-            <p className="text-sm">Crea il tuo primo tipo per iniziare ad amministrare i dati.</p>
-          </div>
-        ) : (
-          <div>
-            <table className="admin-mobile-cards w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-800/80 bg-slate-900/80 text-slate-400 font-medium">
-                  <th className="py-3.5 px-5">Nome / Tipo</th>
-                  <th className="py-3.5 px-5">Type Key</th>
-                  {kind === 'entity' && <th className="py-3.5 px-5">Storage Table</th>}
-                  <th className="py-3.5 px-5">Schema Ver.</th>
-                  <th className="py-3.5 px-5">Row Ver.</th>
-                  <th className="py-3.5 px-5">Campi</th>
-                  <th className="py-3.5 px-5">Stato</th>
-                  <th className="py-3.5 px-5 text-right">Azione</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/50">
-                {types.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-800/30 transition-colors group">
-                    <td data-label="Tipo" className="py-4 px-5">
-                      <div className="font-semibold text-slate-100 flex items-center gap-2">
-                        {t.name}
-                        {t.isSystem && (
-                          <span className="px-2 py-0.5 text-[10px] font-semibold tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md">
-                            SYSTEM
-                          </span>
-                        )}
-                      </div>
-                      {t.description && (
-                        <p className="text-xs text-slate-400 mt-0.5 truncate max-w-xs">{t.description}</p>
-                      )}
-                    </td>
-                    <td data-label="Chiave" className="py-4 px-5 font-mono text-xs text-indigo-300">{t.typeKey}</td>
-                    {kind === 'entity' && (
-                      <td data-label="Tabella" className="py-4 px-5 font-mono text-xs text-slate-400">{t.storageTable ?? 'N/A'}</td>
-                    )}
-                    <td data-label="Schema" className="py-4 px-5 text-slate-300 font-mono">v{t.currentSchemaVersion}</td>
-                    <td data-label="Versione" className="py-4 px-5 text-slate-400 font-mono">r{t.rowVersion}</td>
-                    <td data-label="Campi" className="py-4 px-5">
-                      <span className="px-2.5 py-1 bg-slate-800 text-slate-300 text-xs font-medium rounded-full">
-                        {t.fieldCount} campi
-                      </span>
-                    </td>
-                    <td data-label="Stato" className="py-4 px-5">
-                      {t.isActive ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Attivo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs text-rose-400 font-medium">
-                          <span className="w-2 h-2 rounded-full bg-rose-500"></span> Disabilitato
-                        </span>
-                      )}
-                    </td>
-                    <td data-label="" className="py-4 px-5 text-right">
-                      <Link
-                        href={`/admin/types/${kind}/${t.typeKey}`}
-                        className="inline-flex items-center gap-1 text-xs font-medium px-3 py-1.5 bg-slate-800 hover:bg-indigo-600 text-slate-200 hover:text-white rounded-lg transition-all"
-                      >
-                        Dettaglio & Campi →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <TypeListTable kind={kind} types={types} loading={loading} />
       </div>
 
       {/* Modal di Creazione Tipo */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel bg-slate-900 border border-slate-700/80 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
+        <AdminModalShell className="max-w-lg bg-slate-900 border-slate-700/80 animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-xl font-bold text-white">Crea Nuovo {kind === 'node' ? 'Nodo' : 'Entità'}</h3>
               <button
@@ -318,8 +242,7 @@ export default function AdminTypesListPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
     </div>
   );

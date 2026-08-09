@@ -17,6 +17,7 @@ import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntity
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { LoadingState } from '../../../../components/ui/feedback';
 import { EntityResourceMenu } from '../../../../components/ui/menu';
+import { DynamicFieldsForm, type DynamicField } from '../../../../components/ui/forms';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -28,12 +29,11 @@ export default function EntityDetailPage() {
 
   const { entity, isLoading, isError, error } = useSemanticEntityDetail(entityId, parentNodeId);
   const { entities: siblingEntities } = useSemanticEntityCollection(parentNodeId);
-  const { entityTypes } = useSemanticMetadata();
+  const { entityTypes, entityTypesList } = useSemanticMetadata();
   const [isPending, startTransition] = useTransition();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
   const [fields, setFields] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -268,55 +268,13 @@ export default function EntityDetailPage() {
             />
           </div>
 
-          {fields.length > 0 && (
-            <div className="grid grid-cols-1 gap-4 border-t border-slate-800 pt-4 sm:grid-cols-2">
-              {fields.map((field) => {
-                const dataType = field.dataType.toLowerCase();
-                const value = payload[field.fieldKey];
-                if (dataType === 'boolean') {
-                  return (
-                    <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-300">
-                      <input type="checkbox" checked={Boolean(value)} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.checked }))} />
-                      {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
-                    </label>
-                  );
-                }
-                if (dataType === 'enum' && field.enumOptions?.length) {
-                  return (
-                    <label key={field.fieldKey} className="text-xs text-slate-300">
-                      <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
-                      <select required={field.isRequired} value={String(value ?? '')} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100">
-                        <option value="">Seleziona…</option>
-                        {field.enumOptions.filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                    </label>
-                  );
-                }
-                if (dataType === 'relation' && field.relationTargetDomain === 'entity') {
-                  const candidates = relationCandidates(field);
-                  const currentValue = String(value ?? '');
-                  return (
-                    <label key={field.fieldKey} className="text-xs text-slate-300">
-                      <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
-                      <select required={field.isRequired} value={currentValue} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100">
-                        <option value="">Nessuna relazione</option>
-                        {currentValue && !candidates.some((candidate) => candidate.id === currentValue) && <option value={currentValue}>{currentValue}</option>}
-                        {candidates.filter((candidate) => candidate.id !== entity.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
-                      </select>
-                    </label>
-                  );
-                }
-                const inputType = NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text';
-                const inputValue = inputType === 'date' ? String(value ?? '').slice(0, 10) : String(value ?? '');
-                return (
-                  <label key={field.fieldKey} className="text-xs text-slate-300">
-                    <span className="mb-1 block">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</span>
-                    <input type={inputType} step={NUMBER_TYPES.has(dataType) && dataType !== 'integer' ? 'any' : undefined} required={field.isRequired} value={inputValue} onChange={(event) => setPayload((current) => ({ ...current, [field.fieldKey]: event.target.value }))} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-slate-100" />
-                  </label>
-                );
-              })}
-            </div>
-          )}
+          <DynamicFieldsForm
+            fields={fields}
+            payload={payload}
+            setPayload={setPayload}
+            entityTypes={entityTypesList}
+            siblingEntities={siblingEntities.filter((candidate) => candidate.id !== entity.id)}
+          />
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link

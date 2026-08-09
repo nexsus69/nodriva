@@ -19,6 +19,8 @@ import {
 } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
+import { TypeFieldsTable } from '../../_components/TypeFieldsTable';
+import { TypeFieldEditorModal } from '../../_components/TypeFieldEditorModal';
 
 export default function AdminTypeDetailPage() {
   const params = useParams();
@@ -586,333 +588,49 @@ export default function AdminTypeDetailPage() {
           )}
         </div>
 
-        {typeDetail.fields.length === 0 ? (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            Nessun campo definito per questo tipo. Clicca su &quot;Aggiungi Campo&quot; per iniziare.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-medium text-xs uppercase tracking-wider">
-                  <th className="py-3 px-3 w-16 text-center">Posizione</th>
-                  <th className="py-3 px-4">Label & Key</th>
-                  <th className="py-3 px-4">Colonna Fisica</th>
-                  <th className="py-3 px-4">Tipo Dato</th>
-                  <th className="py-3 px-4">Proprietà</th>
-                  <th className="py-3 px-4 text-right">Azioni</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {typeDetail.fields.map((f, idx) => (
-                  <tr key={f.id} className="hover:bg-slate-800/20 transition-colors">
-                    {/* Reorder Buttons */}
-                    <td className="py-3 px-3 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {typeDetail.isEditable && (
-                          <>
-                            <button
-                              disabled={idx === 0 || isPending}
-                              onClick={() => handleMoveField(idx, 'up')}
-                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-20 text-xs font-bold"
-                              title="Sposta Su"
-                            >
-                              ▲
-                            </button>
-                            <button
-                              disabled={idx === typeDetail.fields.length - 1 || isPending}
-                              onClick={() => handleMoveField(idx, 'down')}
-                              className="p-1 hover:bg-slate-700 rounded text-slate-400 hover:text-white disabled:opacity-20 text-xs font-bold"
-                              title="Sposta Giù"
-                            >
-                              ▼
-                            </button>
-                          </>
-                        )}
-                        <span className="font-mono text-xs text-slate-400 ml-1">#{f.position + 1}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-200 flex items-center gap-2">
-                        {f.label}
-                        {f.isSystem && (
-                          <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-400 rounded">
-                            SYSTEM
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-mono text-xs text-indigo-300 block">{f.fieldKey}</span>
-                    </td>
-
-                    <td className="py-3 px-4 font-mono text-xs text-slate-300">{f.columnName}</td>
-
-                    <td className="py-3 px-4 font-mono text-xs text-emerald-300">{f.dataType}</td>
-
-                    <td className="py-3 px-4 text-xs space-x-1.5">
-                      {f.isRequired && (
-                        <span className="px-2 py-0.5 bg-red-950/50 text-red-300 border border-red-800/40 rounded text-[10px]">
-                          Required
-                        </span>
-                      )}
-                      {f.isUnique && (
-                        <span className="px-2 py-0.5 bg-purple-950/50 text-purple-300 border border-purple-800/40 rounded text-[10px]">
-                          Unique
-                        </span>
-                      )}
-                      {f.isIndexed && (
-                        <span className="px-2 py-0.5 bg-blue-950/50 text-blue-300 border border-blue-800/40 rounded text-[10px]">
-                          Indexed
-                        </span>
-                      )}
-                      {f.defaultValueText && (
-                        <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px]">
-                          Default: {f.defaultValueText}
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4 text-right space-x-2">
-                      {typeDetail.isEditable && !f.isSystem ? (
-                        <>
-                          <button
-                            onClick={() => openEditFieldModal(f)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded transition-colors"
-                          >
-                            Modifica
-                          </button>
-                          <button
-                            onClick={() => handleDeleteField(f.id, f.label)}
-                            className="px-2.5 py-1 bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-800/50 text-xs rounded transition-colors"
-                          >
-                            Elimina
-                          </button>
-                        </>
-                      ) : (
-                        <span className="text-slate-500 text-xs italic">Read-only</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <TypeFieldsTable
+          fields={typeDetail.fields}
+          isEditable={typeDetail.isEditable}
+          isPending={isPending}
+          onMove={handleMoveField}
+          onEdit={openEditFieldModal}
+          onDelete={handleDeleteField}
+        />
       </div>
 
       {/* Modal Aggiunta / Modifica Campo */}
       {showAddFieldModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel bg-slate-900 border border-slate-700/80 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-xl font-bold text-white">
-                {editingField ? `Modifica Campo '${editingField.label}'` : 'Aggiungi Nuovo Campo'}
-              </h3>
-              <button
-                onClick={() => setShowAddFieldModal(false)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            {fieldFormError && (
-              <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-lg text-red-300 text-xs">
-                <div>⚠️ {fieldFormError.message}</div>
-                {fieldFormError.details && fieldFormError.details.length > 0 && (
-                  <ul className="mt-1 list-disc list-inside text-red-200/90">
-                    {fieldFormError.details.map((detail, index) => (
-                      <li key={`${detail.field ?? 'field'}-${index}`}>
-                        {detail.field ? `${detail.field}: ` : ''}{detail.message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveField} className="space-y-4 text-sm">
-              {!editingField && (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                      Field Key *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="es. serial_number"
-                      pattern="[a-z][a-z0-9_]*"
-                      title="Usa solo snake_case minuscolo, ad esempio customer_id"
-                      value={fieldKey}
-                      onChange={(e) => setFieldKey(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                      Nome Colonna Fisica (DB) *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="es. serial_number"
-                      pattern="[a-z][a-z0-9_]*"
-                      title="Usa solo snake_case minuscolo, ad esempio customer_id"
-                      value={columnName}
-                      onChange={(e) => setColumnName(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 font-mono text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                      Tipo di Dato *
-                    </label>
-                    <select
-                      value={dataType}
-                      onChange={(e) => setDataType(e.target.value as FieldDataType)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="string">String</option>
-                      <option value="text">Text (lungo)</option>
-                      <option value="integer">Integer</option>
-                      <option value="number">Number</option>
-                      <option value="decimal">Decimal</option>
-                      <option value="boolean">Boolean</option>
-                      <option value="date">Date</option>
-                      <option value="datetime">Date e ora</option>
-                      <option value="uuid">UUID</option>
-                      <option value="json">JSON</option>
-                      <option value="enum">Enum</option>
-                      <option value="relation">Relazione (UUID)</option>
-                      <option value="array">Array (JSON)</option>
-                    </select>
-                  </div>
-                  {dataType === 'enum' && (
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Gestione opzioni</label>
-                      <select value={enumMode} onChange={(e) => setEnumMode(e.target.value as 'static' | 'managed')}
-                        className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
-                        <option value="static">Statica — solo configurazione amministrativa</option>
-                        <option value="managed">Gestita — aggiungibile dal frontend autorizzato</option>
-                      </select>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {dataType === 'relation' && !editingField && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Dominio target *</label>
-                    <select value={relationTargetDomain} onChange={(e) => {
-                      setRelationTargetDomain(e.target.value as 'node' | 'entity');
-                      setRelationTargetTypeKey('');
-                    }}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
-                      <option value="entity">Entità</option>
-                      <option value="node">Nodo</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">Type key target *</label>
-                    <select required value={relationTargetTypeKey} disabled={relationTargetTypesLoading}
-                      onChange={(e) => setRelationTargetTypeKey(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500">
-                      <option value="">
-                        {relationTargetTypesLoading ? 'Caricamento tipi...' : 'Seleziona un tipo'}
-                      </option>
-                      {relationTargetTypes.map((target) => (
-                        <option key={target.id} value={target.typeKey}>
-                          {target.name} ({target.typeKey})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                  Label (UI) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="es. Numero di Seriale"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                  Valore di Default (Testo)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Valore opzionale di default"
-                  value={defaultValueText}
-                  onChange={(e) => setDefaultValueText(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-indigo-500 text-xs"
-                />
-              </div>
-
-              {/* Toggles boolean */}
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={isRequired}
-                    onChange={(e) => setIsRequired(e.target.checked)}
-                    className="accent-indigo-600"
-                  />
-                  <span className="text-xs font-medium text-slate-300">Obbligatorio</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={isUnique}
-                    onChange={(e) => setIsUnique(e.target.checked)}
-                    className="accent-indigo-600"
-                  />
-                  <span className="text-xs font-medium text-slate-300">Unico</span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer bg-slate-950 p-2.5 rounded-lg border border-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={isIndexed}
-                    onChange={(e) => setIsIndexed(e.target.checked)}
-                    className="accent-indigo-600"
-                  />
-                  <span className="text-xs font-medium text-slate-300">Indicizzato</span>
-                </label>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAddFieldModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg"
-                >
-                  Annulla
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg shadow-md disabled:opacity-50"
-                >
-                  {isPending ? 'Salvataggio...' : editingField ? 'Salva Campo' : 'Crea Campo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <TypeFieldEditorModal
+          editingField={editingField}
+          fieldFormError={fieldFormError}
+          isPending={isPending}
+          onClose={() => setShowAddFieldModal(false)}
+          onSubmit={handleSaveField}
+          fieldKey={fieldKey}
+          setFieldKey={setFieldKey}
+          label={label}
+          setLabel={setLabel}
+          columnName={columnName}
+          setColumnName={setColumnName}
+          dataType={dataType}
+          setDataType={setDataType}
+          enumMode={enumMode}
+          setEnumMode={setEnumMode}
+          defaultValueText={defaultValueText}
+          setDefaultValueText={setDefaultValueText}
+          isRequired={isRequired}
+          setIsRequired={setIsRequired}
+          isUnique={isUnique}
+          setIsUnique={setIsUnique}
+          isIndexed={isIndexed}
+          setIsIndexed={setIsIndexed}
+          relationTargetDomain={relationTargetDomain}
+          setRelationTargetDomain={setRelationTargetDomain}
+          relationTargetTypeKey={relationTargetTypeKey}
+          setRelationTargetTypeKey={setRelationTargetTypeKey}
+          relationTargetTypes={relationTargetTypes}
+          relationTargetTypesLoading={relationTargetTypesLoading}
+        />
       )}
     </div>
   );

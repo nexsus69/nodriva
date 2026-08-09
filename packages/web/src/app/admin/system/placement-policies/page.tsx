@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
-import Link from 'next/link';
 import {
   PlacementPolicyListItemDto,
   PolicyMode,
@@ -11,6 +10,8 @@ import {
 } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { ConfirmModal } from '../../../components/ui/ConfirmModal';
+import { AdminModalShell } from '../../_components/AdminModalShell';
+import { PlacementPolicyGrid } from './_components/PlacementPolicyGrid';
 
 export default function PlacementPoliciesPage() {
   const [policies, setPolicies] = useState<PlacementPolicyListItemDto[]>([]);
@@ -162,71 +163,12 @@ export default function PlacementPoliciesPage() {
 
       {/* Grid Policies */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {loading ? (
-          <div className="col-span-2 glass-panel p-8 text-center text-xs text-slate-400">
-            Caricamento placement policies in corso...
-          </div>
-        ) : policies.length === 0 ? (
-          <div className="col-span-2 glass-panel p-12 text-center space-y-3">
-            <span className="text-3xl block">🗺️</span>
-            <p className="text-sm font-semibold text-slate-300">Nessuna Placement Policy trovata</p>
-            <p className="text-xs text-slate-500">Crea una nuova policy per regolare l&apos;allocazione delle entità.</p>
-          </div>
-        ) : (
-          policies.map((p) => (
-            <div
-              key={p.id}
-              className="glass-panel p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-all"
-            >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="font-mono text-xs font-bold text-purple-300">
-                    {p.policyKey}
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] uppercase border border-slate-700">
-                    {p.policyMode}
-                  </span>
-                </div>
-                <h3 className="text-base font-bold text-slate-100">{p.name}</h3>
-                <p className="text-xs text-slate-400 mt-1">{p.description || 'Nessuna descrizione specificata.'}</p>
-              </div>
-
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-mono">
-                  Regole attive: <strong className="text-slate-200">{p.ruleCount}</strong>
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleOpenEditModal(p)}
-                    disabled={isPending}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-                  >
-                    ✏️ Modifica
-                  </button>
-                  <button
-                    onClick={() => handleDeletePolicy(p)}
-                    disabled={isPending}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition-colors"
-                  >
-                    🗑️
-                  </button>
-                  <Link
-                    href={`/admin/system/placement-policies/${p.policyKey}`}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-colors"
-                  >
-                    ⚙️ Regole →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
+        <PlacementPolicyGrid policies={policies} loading={loading} isPending={isPending} onEdit={handleOpenEditModal} onDelete={handleDeletePolicy} />
       </div>
 
       {/* Modale Creazione / Modifica Policy */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl">
+        <AdminModalShell>
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <span>{editingPolicy ? '✏️' : '➕'}</span> {editingPolicy ? 'Modifica Placement Policy' : 'Nuova Placement Policy'}
@@ -315,8 +257,7 @@ export default function PlacementPoliciesPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
     </div>
   );

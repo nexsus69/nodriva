@@ -11,12 +11,7 @@ import { useLock } from '../../../hooks/useLock';
 import { LockBadge } from '../../../components/LockBadge';
 import { PageShell, Panel } from '../../../components/ui/layout';
 import { Alert } from '../../../components/ui/feedback';
-
-function getEnumOptions(field: { enumOptions?: readonly { value: string; label: string; isActive: boolean }[]; constraints: readonly { constraintType: string; constraintValueText: string }[] }) {
-  if (field.enumOptions && field.enumOptions.length > 0) return field.enumOptions;
-  const legacy = field.constraints.find((constraint) => constraint.constraintType === 'enum');
-  return legacy ? legacy.constraintValueText.split(',').map((value) => value.trim()).filter(Boolean).map((value) => ({ value, label: value, isActive: true })) : [];
-}
+import { DynamicFieldsForm, EnumOptionModal, type DynamicField } from '../../../components/ui/forms';
 
 export default function CreateChildNodePage() {
   const params = useParams();
@@ -30,12 +25,9 @@ export default function CreateChildNodePage() {
   const [nodeDesc, setNodeDesc] = useState('');
   const [nodeTypeKey, setNodeTypeKey] = useState('');
   const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
-  type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
   const [fieldsDef, setFieldsDef] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
-  const [enumOptionValue, setEnumOptionValue] = useState('');
-  const [enumOptionLabel, setEnumOptionLabel] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
@@ -164,38 +156,12 @@ export default function CreateChildNodePage() {
             />
           </div>
 
-          {fieldsDef.length > 0 && (
-            <div className="space-y-3 border-t border-slate-800 pt-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Campi dinamici</h3>
-              {fieldsDef.map((field) => field.dataType.toLowerCase() === 'enum' ? (
-                <div key={field.fieldKey}>
-                  <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
-                  <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')}
-                    onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                    <option value="">Seleziona un valore</option>
-                    {getEnumOptions(field).filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                  {field.enumMode === 'managed' && <button type="button" onClick={() => { setEnumField(field); setEnumOptionValue(''); setEnumOptionLabel(''); }} className="mt-1 text-xs font-semibold text-indigo-400">+ Aggiungi opzione</button>}
-                </div>
-              ) : field.dataType.toLowerCase() === 'boolean' ? (
-                <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-300">
-                  <input type="checkbox" checked={Boolean(payload[field.fieldKey])}
-                    onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.checked })}
-                    className="rounded bg-slate-900 border-slate-800 text-indigo-600" />
-                  {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
-                </label>
-              ) : (
-                <div key={field.fieldKey}>
-                  <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
-                  <input required={field.isRequired} type={NUMBER_TYPES.has(field.dataType.toLowerCase()) ? 'number' : ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'}
-                    value={String(payload[field.fieldKey] ?? '')}
-                    onChange={(event) => setPayload({ ...payload, [field.fieldKey]: event.target.value })}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100" />
-                </div>
-              ))}
-            </div>
-          )}
+          <DynamicFieldsForm
+            fields={fieldsDef}
+            payload={payload}
+            setPayload={setPayload}
+            onAddEnumOption={setEnumField}
+          />
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link
@@ -215,26 +181,14 @@ export default function CreateChildNodePage() {
         </form>
       </Panel>
       {enumField && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4">
-          <form className="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onSubmit={(event) => {
-            event.preventDefault();
-            void (async () => {
-              try {
-                const result = await AppCache.admin.addEnumOption('node', nodeTypeKey, enumField.id!, enumOptionValue.trim(), enumOptionLabel.trim());
-                if (!result.success || !result.data) { setErrorMsg(result.error?.message ?? 'Impossibile aggiungere l\'opzione.'); return; }
-                setFieldsDef((current) => current.map((field) => field.id === enumField.id ? { ...field, enumOptions: [...(field.enumOptions ?? []), result.data!] } : field));
-                setEnumField(null);
-              } catch (error: unknown) {
-                setErrorMsg(error instanceof Error ? error.message : 'Impossibile aggiungere l\'opzione.');
-              }
-            })();
-          }}>
-            <h2 className="text-lg font-bold text-slate-100">Nuova opzione enum</h2>
-            <input required pattern="[a-z][a-z0-9_-]*" value={enumOptionValue} onChange={(event) => setEnumOptionValue(event.target.value)} placeholder="Valore tecnico" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white" />
-            <input required value={enumOptionLabel} onChange={(event) => setEnumOptionLabel(event.target.value)} placeholder="Etichetta" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
-            <div className="flex justify-end gap-2"><button type="button" onClick={() => setEnumField(null)} className="rounded-lg px-4 py-2 text-xs text-slate-300">Annulla</button><button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">Salva opzione</button></div>
-          </form>
-        </div>
+        <EnumOptionModal
+          kind="node"
+          typeKey={nodeTypeKey}
+          fieldId={enumField.id!}
+          onClose={() => setEnumField(null)}
+          onError={setErrorMsg}
+          onOptionAdded={(option) => setFieldsDef((current) => current.map((field) => field.id === enumField.id ? { ...field, enumOptions: [...(field.enumOptions ?? []), option] } : field))}
+        />
       )}
     </PageShell>
   );

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { RoleDetailDto, ApiErrorResponse } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { RolePermissionsMatrix } from './_components/RolePermissionsMatrix';
 
 export default function RoleDetailPage() {
   const params = useParams();
@@ -154,49 +155,7 @@ export default function RoleDetailPage() {
             )}
           </div>
 
-          <div className="space-y-6">
-            {Object.entries(groupedPermissions).map(([kind, perms]) => (
-              <div key={kind} className="space-y-3">
-                <h3 className="text-xs font-semibold text-purple-300 font-mono tracking-wider uppercase border-b border-slate-800/60 pb-1">
-                  Risorsa: {kind} ({perms.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {perms.map((perm) => {
-                    const isChecked = selectedPermissionIds.includes(perm.id);
-                    return (
-                      <label
-                        key={perm.id}
-                        className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
-                          role.isSystem ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'
-                        } ${
-                          isChecked
-                            ? 'bg-purple-600/10 border-purple-500/40 text-purple-200'
-                            : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          disabled={role.isSystem}
-                          checked={isChecked}
-                          onChange={() => handlePermissionToggle(perm.id)}
-                          className="mt-0.5 rounded bg-slate-900 border-slate-700 text-purple-600 focus:ring-purple-500"
-                        />
-                        <div className="space-y-0.5">
-                          <span className="text-xs font-semibold block">{perm.name}</span>
-                          <span className="text-[10px] font-mono text-purple-400 block">
-                            {perm.permissionKey}
-                          </span>
-                          {perm.description && (
-                            <p className="text-[10px] text-slate-500">{perm.description}</p>
-                          )}
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <RolePermissionsMatrix groupedPermissions={groupedPermissions} isSystem={role.isSystem} selectedPermissionIds={selectedPermissionIds} onToggle={handlePermissionToggle} />
         </div>
       </form>
     </div>

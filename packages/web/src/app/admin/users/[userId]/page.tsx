@@ -8,7 +8,9 @@ import {
   ApiErrorResponse,
 } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
+import { AdminModalShell } from '../../_components/AdminModalShell';
 import { issueAccountActionAction } from '../../../actions/accountRecoveryActions';
+import { UserAccountDetailsPanel, UserRoleAssignmentPanel } from '../_components/UserDetailPanels';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -277,114 +279,15 @@ export default function UserDetailPage() {
 
       {/* Informazioni Anagrafiche & Stato */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
-          <h2 className="text-sm font-bold text-slate-200 border-b border-slate-800/80 pb-3 flex items-center gap-2">
-            <span>📋</span> Dettagli Account
-          </h2>
-
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between py-1 border-b border-slate-800/40">
-              <span className="text-slate-500">Stato Attuale:</span>
-              {user.isActive ? (
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Attivo
-                </span>
-              ) : (
-                <span className="text-rose-400 font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Disabilitato
-                </span>
-              )}
-            </div>
-
-            <div className="flex justify-between py-1 border-b border-slate-800/40">
-              <span className="text-slate-500">Privilegi di Sistema:</span>
-              <span className="font-mono text-purple-400 font-semibold">
-                {user.isSuperAdmin ? 'Super Admin' : 'Standard'}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1 border-b border-slate-800/40">
-              <span className="text-slate-500">Versione Concorrenza (rowVersion):</span>
-              <span className="font-mono text-slate-300">{user.rowVersion}</span>
-            </div>
-
-            <div className="flex justify-between py-1 border-b border-slate-800/40">
-              <span className="text-slate-500">Data Registrazione:</span>
-              <span className="font-mono text-slate-300">
-                {new Date(user.createdAt).toLocaleString()}
-              </span>
-            </div>
-
-            <div className="flex justify-between py-1">
-              <span className="text-slate-500">Ultimo Aggiornamento:</span>
-              <span className="font-mono text-slate-300">
-                {new Date(user.updatedAt).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
+        <UserAccountDetailsPanel user={user} />
 
         {/* Modulo Assegnazione Ruoli */}
-        <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
-          <h2 className="text-sm font-bold text-slate-200 border-b border-slate-800/80 pb-3 flex items-center gap-2">
-            <span>🛡️</span> Assegnazione Ruoli
-          </h2>
-
-          <form onSubmit={handleSaveRoles} className="space-y-4">
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Seleziona i ruoli operativi da attribuire a questo utente. I ruoli determinano la matrice dei permessi sui nodi e le entità.
-            </p>
-
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-              {user.allAvailableRoles.length === 0 ? (
-                <div className="text-xs text-slate-500">Nessun ruolo disponibile a sistema.</div>
-              ) : (
-                user.allAvailableRoles.map((role) => {
-                  const isChecked = selectedRoleIds.includes(role.id);
-                  return (
-                    <label
-                      key={role.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                        isChecked
-                          ? 'bg-indigo-600/10 border-indigo-500/40 text-indigo-200'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleRoleToggle(role.id)}
-                          className="rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <div>
-                          <span className="text-xs font-semibold block">{role.name}</span>
-                          <span className="text-[10px] font-mono text-slate-500">{role.roleKey}</span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="pt-2 border-t border-slate-800/80 flex justify-end">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50"
-              >
-                {isPending ? 'Salvataggio...' : 'Salva Ruoli'}
-              </button>
-            </div>
-          </form>
-        </div>
+        <UserRoleAssignmentPanel user={user} selectedRoleIds={selectedRoleIds} isPending={isPending} onToggle={handleRoleToggle} onSubmit={handleSaveRoles} />
       </div>
 
       {/* Modal Modifica Dati Utente */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl">
+        <AdminModalShell>
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <span>✏️</span> Modifica Anagrafica Utente
@@ -441,13 +344,11 @@ export default function UserDetailPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
 
       {showPasswordModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl">
+        <AdminModalShell>
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
               <h3 className="text-base font-bold text-slate-100">🔑 Reimposta Password</h3>
               <button
@@ -504,8 +405,7 @@ export default function UserDetailPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </AdminModalShell>
       )}
     </div>
   );

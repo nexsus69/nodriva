@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, useTransition } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
@@ -12,10 +12,12 @@ import { LockBadge } from '../../components/LockBadge';
 import { NodeTree } from '../../components/navigation/NodeTree';
 import { NodeBreadcrumb } from '../../components/navigation/NodeBreadcrumb';
 import { useLock } from '../../hooks/useLock';
+import { NodeEntityGrid } from './_components/NodeEntityGrid';
 import { SubtreeEntitiesTableSection } from './_components/SubtreeEntitiesTableSection';
 import { PageShell, Panel, SectionHeader } from '../../components/ui/layout';
 import { Alert } from '../../components/ui/feedback';
-import { EntityResourceMenu, NodeResourceMenu } from '../../components/ui/menu';
+import { NodeResourceMenu } from '../../components/ui/menu';
+import { DynamicFieldsForm } from '../../components/ui/forms';
 
 export default function NodeDetailPage() {
   const params = useParams();
@@ -38,10 +40,6 @@ export default function NodeDetailPage() {
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
 
-  const entitiesById = useMemo(
-    () => Object.fromEntries(nodeEntities.map((entity) => [entity.id, entity])),
-    [nodeEntities]
-  );
   const entityTypeKeysSignature = [...new Set(
     nodeEntities.map((entity) => entityTypes[entity.entityTypeId]?.typeKey).filter(Boolean)
   )].sort().join('|');
@@ -212,25 +210,12 @@ export default function NodeDetailPage() {
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
               </p>
             </div>
-            {dynamicNodeFields.length > 0 && (
-              <div className="space-y-3 border-t border-slate-200 pt-3">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Campi dinamici</h3>
-                {dynamicNodeFields.map((field) => field.dataType.toLowerCase() === 'boolean' ? (
-                  <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-700">
-                    <input type="checkbox" checked={Boolean(dynamicNodePayload[field.fieldKey])}
-                      onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.checked })} />
-                    {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
-                  </label>
-                ) : (
-                  <div key={field.fieldKey}>
-                    <label className="mb-1 block text-xs font-medium text-slate-600">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
-                    <input type={['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 'date' : 'text'} value={String(dynamicNodePayload[field.fieldKey] ?? '').slice(0, ['date', 'datetime', 'timestamp'].includes(field.dataType.toLowerCase()) ? 10 : undefined)}
-                      onChange={(event) => setDynamicNodePayload({ ...dynamicNodePayload, [field.fieldKey]: event.target.value })}
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900" />
-                  </div>
-                ))}
-              </div>
-            )}
+            <DynamicFieldsForm
+              fields={dynamicNodeFields}
+              payload={dynamicNodePayload}
+              setPayload={setDynamicNodePayload}
+              title="Campi dinamici"
+            />
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono uppercase text-slate-500">
@@ -319,45 +304,12 @@ export default function NodeDetailPage() {
         ) : nodeEntities.length === 0 ? (
           <p className="p-6 text-center text-xs text-slate-500">Nessuna entità associata a questo nodo.</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {nodeEntities.map((entity) => {
-              const entityType = Object.values(entityTypes).find((type) => type.id === entity.entityTypeId || type.typeKey === entity.entityTypeId);
-              const definition = entityType ? entityDefinitions[entityType.typeKey] : undefined;
-              const fieldsByKey = Object.fromEntries((definition?.fields ?? []).map((field) => [field.fieldKey, field]));
-              const preview = Object.entries(entity.payload ?? {})
-                .filter(([, value]) => value !== null && value !== '')
-                .slice(0, 3)
-                .map(([key, value]) => {
-                  const field = fieldsByKey[key];
-                  const enumLabel = field?.enumOptions?.find((option) => option.value === String(value))?.label;
-                  const relatedEntity = field?.dataType.toLowerCase() === 'relation' && typeof value === 'string'
-                    ? entitiesById[value]
-                    : undefined;
-                  return {
-                    key,
-                    label: field?.label ?? key,
-                    value: enumLabel ?? relatedEntity?.name ?? String(value),
-                  };
-                });
-              return (
-                <div key={entity.id} className="group rounded-xl border border-slate-200 bg-white p-4 transition hover:border-indigo-200 hover:shadow-sm">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-center gap-1">
-                      <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="min-w-0 truncate text-sm font-semibold text-slate-800 hover:text-indigo-600">{entity.name}</Link>
-                      <EntityResourceMenu entityId={entity.id} entityName={entity.name} parentNodeId={nodeId} />
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-mono text-slate-500">{entityType?.name ?? entity.entityTypeId}</span>
-                    </div>
-                  </div>
-                  <Link href={`/nodes/${nodeId}/entities/${entity.id}`} className="block">
-                    <p className="mt-2 line-clamp-2 text-xs text-slate-500">{entity.description || 'Nessuna descrizione.'}</p>
-                    {preview.length > 0 && <dl className="mt-3 grid grid-cols-1 gap-1 border-t border-slate-100 pt-3 text-[11px]">{preview.map((item) => <div key={item.key} className="flex min-w-0 justify-between gap-2"><dt className="truncate text-slate-400">{item.label}</dt><dd className="truncate text-slate-600">{item.value}</dd></div>)}</dl>}
-                  </Link>
-                </div>
-              );
-            })}
-          </div>
+          <NodeEntityGrid
+            nodeId={nodeId}
+            entities={nodeEntities}
+            entityTypes={entityTypes}
+            entityDefinitions={entityDefinitions}
+          />
         )}
       </Panel>
 

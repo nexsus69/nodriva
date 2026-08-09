@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
-import Link from 'next/link';
 import {
   AuditLogListItemDto,
   AuditLogFilterDto,
@@ -9,6 +8,7 @@ import {
   ApiErrorResponse,
 } from '@dashboard/core';
 import { AppCache } from '../../cache/GlobalCacheClient';
+import { AuditLogTable } from './_components/AuditLogTable';
 
 export default function AuditLogsPage() {
   const [data, setData] = useState<PaginatedResultDto<AuditLogListItemDto> | null>(null);
@@ -204,94 +204,7 @@ export default function AuditLogsPage() {
 
       {/* Tabella Audit Logs */}
       <div className="glass-panel rounded-2xl border border-slate-800 overflow-hidden">
-        {loading || isPending ? (
-          <div className="p-12 text-center text-xs text-slate-400">
-            Caricamento log di audit in corso...
-          </div>
-        ) : !data || data.items.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <span className="text-3xl block">📜</span>
-            <p className="text-sm font-semibold text-slate-300">Nessun evento di audit trovato</p>
-            <p className="text-xs text-slate-500">Prova a modificare i criteri di ricerca o i filtri di data.</p>
-          </div>
-        ) : (
-          <>
-            <table className="admin-mobile-cards w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800/80 bg-slate-900/60 text-[11px] font-semibold text-slate-400 uppercase font-mono tracking-wider">
-                  <th className="py-3 px-6">Data &amp; Ora</th>
-                  <th className="py-3 px-6">Azione</th>
-                  <th className="py-3 px-6">Risorsa</th>
-                  <th className="py-3 px-6">ID Risorsa</th>
-                  <th className="py-3 px-6">Attore</th>
-                  <th className="py-3 px-6 text-right">Dettaglio</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-xs">
-                {data.items.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
-                    <td data-label="Data e ora" className="py-3.5 px-6 font-mono text-[11px] text-slate-300 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString('it-IT')}
-                    </td>
-                    <td data-label="Azione" className="py-3.5 px-6 font-mono font-bold text-purple-300">
-                      <span className="px-2 py-0.5 rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 text-[11px]">
-                        {log.actionKey}
-                      </span>
-                    </td>
-                    <td data-label="Risorsa" className="py-3.5 px-6 font-mono text-slate-300">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300 text-[10px] uppercase">
-                        {log.resourceKind}
-                      </span>
-                    </td>
-                    <td data-label="ID risorsa" className="py-3.5 px-6 font-mono text-[11px] text-slate-400">
-                      {log.resourceId ? `${log.resourceId.substring(0, 8)}...` : '-'}
-                    </td>
-                    <td data-label="Attore" className="py-3.5 px-6 font-mono text-[11px] text-slate-300">
-                      {log.actorEmail ? (
-                        <span>{log.actorEmail}</span>
-                      ) : log.actorUserId ? (
-                        <span className="text-slate-400">{log.actorUserId.substring(0, 8)}...</span>
-                      ) : (
-                        <span className="text-slate-500 font-italic">Sistema</span>
-                      )}
-                    </td>
-                    <td data-label="" className="py-3.5 px-6 text-right">
-                      <Link
-                        href={`/admin/audit/${log.id}`}
-                        className="px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
-                      >
-                        🔍 Ispeziona →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Paginazione */}
-            <div className="p-4 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-between text-xs text-slate-400 font-mono">
-              <div>
-                Pagina <strong>{data.page}</strong> di <strong>{data.totalPages || 1}</strong> ({data.total} record totali)
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  disabled={data.page <= 1 || isPending}
-                  onClick={() => fetchLogs(data.page - 1)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 transition-colors"
-                >
-                  ← Precedente
-                </button>
-                <button
-                  disabled={data.page >= data.totalPages || isPending}
-                  onClick={() => fetchLogs(data.page + 1)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 transition-colors"
-                >
-                  Successiva →
-                </button>
-              </div>
-            </div>
-          </>
-        )}
+        <AuditLogTable data={data} loading={loading} isPending={isPending} onPageChange={fetchLogs} />
       </div>
     </div>
   );
