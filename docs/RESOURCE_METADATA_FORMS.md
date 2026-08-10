@@ -49,6 +49,10 @@ attivare il setting runtime `attachments.antivirusEnabled` e collegare
 un’implementazione di `AttachmentScannerPort`; senza scanner configurato
 l’upload viene rifiutato. `ATTACHMENTS_REQUIRE_SCAN=true` resta disponibile
 come override di deployment fail-closed.
+Il progetto include il profilo Docker opzionale `antivirus`: si avvia con
+`docker compose --profile antivirus up -d clamav` e il server web va avviato
+con `CLAMAV_HOST=127.0.0.1 CLAMAV_PORT=3310`. Il container non è avviato dallo
+stack predefinito e la porta è pubblicata solo sul loopback.
 Il rate limit integrato è per-processo: con più istanze va sostituito con un
 limitatore condiviso.
 
