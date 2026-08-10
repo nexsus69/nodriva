@@ -72,3 +72,14 @@ never SQL parameters), optimistic concurrency, and an atomic outbox claim. Its
 integration suite must cover allow/deny subtree ACL parity, concurrent claims,
 rollback, and invalid dynamic identifiers before it can be wired in the
 composition root.
+
+## Encryption key management — future work
+
+- [ ] Move `FIELD_ENCRYPTION_KEY` and `ATTACHMENTS_ENCRYPTION_KEY` from local
+  environment files to the deployment secret manager or KMS.
+- [ ] Add key identifiers/versioning to encrypted field and attachment formats.
+- [ ] Implement dual-key decrypt / single-key encrypt rotation.
+- [ ] Add an authorised re-encryption job with progress, audit records,
+  rollback strategy and backup verification.
+- [ ] Define emergency revocation, restore and disaster-recovery procedures
+  for lost or compromised keys.
