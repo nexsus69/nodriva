@@ -30,6 +30,8 @@ export { ManagedTypeField } from './domain/models/ManagedTypeField.js';
 export { ManagedTypeFieldConstraint } from './domain/models/ManagedTypeFieldConstraint.js';
 export { resourceTypeReference } from './application/dto/ResourceSchema.js';
 export type { ResourceTypeReference, ResourceFieldDefinition } from './application/dto/ResourceSchema.js';
+export { resourceRelationDefinition, resourceContainmentRule } from './application/dto/ResourceRelations.js';
+export type { ResourceRelationDefinition, ResourceRelationKind, ResourceRelationCardinality, ResourceContainmentRule } from './application/dto/ResourceRelations.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';

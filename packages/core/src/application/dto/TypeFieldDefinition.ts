@@ -1,3 +1,6 @@
+import type { ResourceContainmentRule, ResourceRelationDefinition } from './ResourceRelations.js';
+import type { ResourceFieldDefinition, ResourceTypeReference } from './ResourceSchema.js';
+
 /**
  * Tipi di dominio supportati dal registry unificato.
  * Determina da quale famiglia di tabelle leggere le definizioni.
@@ -72,11 +75,25 @@ export class TypeDefinition {
     readonly name: string,
     readonly description: string,
     readonly currentSchemaVersion: number,
-    readonly fields: readonly TypeFieldDefinition[]
+    readonly fields: readonly TypeFieldDefinition[],
+    readonly containmentRules: readonly ResourceContainmentRule[] = []
   ) {}
 
   get resourceTypeReference(): ResourceTypeReference {
     return { resourceType: this.domain, typeKey: this.typeKey };
   }
+
+  get relationDefinitions(): readonly ResourceRelationDefinition[] {
+    return this.fields.flatMap((field) =>
+      field.relationTarget
+        ? [{
+            source: this.resourceTypeReference,
+            target: field.relationTarget,
+            kind: 'reference' as const,
+            cardinality: 'many-to-one' as const,
+            fieldKey: field.fieldKey,
+          }]
+        : []
+    );
+  }
 }
-import type { ResourceFieldDefinition, ResourceTypeReference } from './ResourceSchema.js';
