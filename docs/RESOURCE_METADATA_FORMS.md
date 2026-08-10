@@ -72,8 +72,8 @@ formato di storage indica autonomamente se il contenuto è cifrato.
 
 ## Cifratura selettiva dei campi
 
-Ogni campo dei tipi nodo/entità può usare `inherit`, `plaintext` o `encrypted`.
-`inherit` e `plaintext` sono in chiaro per impostazione predefinita; `encrypted`
+Ogni campo dei tipi nodo/entità può usare `plaintext` o `encrypted`.
+`plaintext` è il valore predefinito; `encrypted`
 salva il valore nel ciphertext store `resource_field_ciphertexts` solo quando
 `data.fieldsEncryptionEnabled` è `true`, e presenta al repository
 solo il valore decifrato. La chiave server-side è `FIELD_ENCRYPTION_KEY` (con

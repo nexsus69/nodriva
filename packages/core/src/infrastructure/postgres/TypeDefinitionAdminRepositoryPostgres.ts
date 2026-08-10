@@ -76,7 +76,7 @@ interface FieldRow {
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
   enum_mode: 'static' | 'managed';
-  encryption_mode: 'inherit' | 'plaintext' | 'encrypted';
+  encryption_mode: 'plaintext' | 'encrypted';
   created_at: Date;
   updated_at: Date;
 }
@@ -133,7 +133,7 @@ interface FieldDetailRow {
   relationTargetDomain: TypeDomain | null;
   relationTargetTypeKey: string | null;
   enumMode: 'static' | 'managed';
-  encryptionMode: 'inherit' | 'plaintext' | 'encrypted';
+  encryptionMode: 'plaintext' | 'encrypted';
   updatedAt: Date;
 }
 
@@ -319,7 +319,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       relationTargetDomain: f.relationTargetDomain ?? null,
       relationTargetTypeKey: f.relationTargetTypeKey ?? null,
       enumMode: f.enumMode ?? 'static',
-      encryptionMode: f.encryptionMode ?? 'inherit',
+      encryptionMode: f.encryptionMode ?? 'plaintext',
       enumOptions: enumOptionsByField[f.id] ?? [],
       constraints: constraintsByField[f.id] ?? [],
       updatedAt: new Date(f.updatedAt).toISOString(),

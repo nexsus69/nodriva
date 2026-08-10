@@ -555,7 +555,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
         'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
       ), (
         'security', 'data.fieldsEncryptionEnabled', 'Global field encryption',
-        'Encrypt fields whose metadata policy is inherit.',
+        'Allow explicit field encryption when global field encryption is enabled.',
         'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
       )
     `);

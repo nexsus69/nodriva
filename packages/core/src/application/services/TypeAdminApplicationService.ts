@@ -236,7 +236,7 @@ export class TypeAdminApplicationService {
         v.dataType, v.isRequired ?? false, v.isUnique ?? false, v.isIndexed ?? false,
         v.defaultValueText ?? null, v.position, false, now, now,
         v.relationTargetDomain ?? null, v.relationTargetTypeKey ?? null
-        , v.enumMode ?? 'static', v.encryptionMode ?? 'inherit'
+        , v.enumMode ?? 'static', v.encryptionMode ?? 'plaintext'
       );
 
       await this.adminRepository.createField(v.domain, newField);

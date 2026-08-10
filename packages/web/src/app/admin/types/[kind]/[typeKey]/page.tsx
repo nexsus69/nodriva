@@ -53,7 +53,7 @@ export default function AdminTypeDetailPage() {
   const [columnName, setColumnName] = useState('');
   const [dataType, setDataType] = useState<FieldDataType>('string');
   const [enumMode, setEnumMode] = useState<'static' | 'managed'>('static');
-  const [encryptionMode, setEncryptionMode] = useState<'inherit' | 'plaintext' | 'encrypted'>('inherit');
+  const [encryptionMode, setEncryptionMode] = useState<'plaintext' | 'encrypted'>('plaintext');
   const [isRequired, setIsRequired] = useState(false);
   const [isUnique, setIsUnique] = useState(false);
   const [isIndexed, setIsIndexed] = useState(false);
@@ -202,7 +202,7 @@ export default function AdminTypeDetailPage() {
     setColumnName(f.columnName);
     setDataType(f.dataType);
     setEnumMode(f.enumMode ?? 'static');
-    setEncryptionMode(f.encryptionMode ?? 'inherit');
+    setEncryptionMode(f.encryptionMode ?? 'plaintext');
     setIsRequired(f.isRequired);
     setIsUnique(f.isUnique);
     setIsIndexed(f.isIndexed);

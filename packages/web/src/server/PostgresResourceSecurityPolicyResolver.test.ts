@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecurityPolicyResolver';
 
 describe('PostgresResourceSecurityPolicyResolver', () => {
-  it('keeps attachments in plaintext when the global encryption switch is enabled but the type inherits', async () => {
-    const executor = { query: vi.fn().mockResolvedValue({ rows: [{ encryption_mode: 'inherit' }] }) };
+  it('keeps attachments in plaintext when the type policy is disabled', async () => {
+    const executor = { query: vi.fn().mockResolvedValue({ rows: [{ encryption_mode: 'disabled' }] }) };
     const config = { get: vi.fn().mockResolvedValue(true) };
     const nodes = { findById: vi.fn().mockResolvedValue({ nodeTypeId: 'type-1' }) };
     const entities = { findById: vi.fn() };

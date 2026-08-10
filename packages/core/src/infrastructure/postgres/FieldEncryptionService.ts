@@ -3,7 +3,7 @@ import type { ConfigService } from '../../application/services/ConfigService.js'
 import type { PgExecutor } from './PgExecutor.js';
 
 type ResourceType = 'node' | 'entity';
-type Mode = 'inherit' | 'plaintext' | 'encrypted';
+type Mode = 'plaintext' | 'encrypted';
 const HEADER = 'DASHFIELD1';
 
 export class FieldEncryptionService {

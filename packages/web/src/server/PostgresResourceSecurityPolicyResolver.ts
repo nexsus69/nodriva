@@ -13,11 +13,11 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     const [encryptionGlobal, antivirusGlobal, nodePolicy] = await Promise.all([
       this.configService.get<boolean>('attachments.encryptionEnabled'),
       this.configService.get<boolean>('attachments.antivirusEnabled'),
-      this.executor.query<{ encryption_mode: 'inherit' | 'enabled' | 'disabled' }>(
+      this.executor.query<{ encryption_mode: 'enabled' | 'disabled' }>(
         'SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id = $1', [nodeTypeId],
       ),
     ]);
-    const mode = nodePolicy.rows[0]?.encryption_mode ?? 'inherit';
+    const mode = nodePolicy.rows[0]?.encryption_mode ?? 'disabled';
     return {
       encryptionEnabled: encryptionGlobal && mode === 'enabled',
       antivirusEnabled: antivirusGlobal || process.env.ATTACHMENTS_REQUIRE_SCAN === 'true',

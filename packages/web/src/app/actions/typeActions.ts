@@ -31,14 +31,14 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
   return mapAppErrorToApiErrorResponse(err);
 }
 
-export type AttachmentEncryptionMode = 'inherit' | 'enabled' | 'disabled';
+export type AttachmentEncryptionMode = 'enabled' | 'disabled';
 
 export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
     await accessControlPort.assertHasPermission(actorUserId, 'node_type.read', null);
     const result = await pgExecutor.query<{ encryption_mode: AttachmentEncryptionMode }>('SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id = $1', [nodeTypeId]);
-    return { success: true, mode: result.rows[0]?.encryption_mode ?? 'inherit' };
+    return { success: true, mode: result.rows[0]?.encryption_mode ?? 'disabled' };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }
@@ -48,7 +48,7 @@ export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, m
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
     await accessControlPort.assertHasPermission(actorUserId, 'node_type.update', null);
-    if (!['inherit', 'enabled', 'disabled'].includes(mode)) return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Policy di cifratura non valida.' } };
+    if (!['enabled', 'disabled'].includes(mode)) return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Policy di cifratura non valida.' } };
     if (mode === 'enabled' && !(await configService.get<boolean>('attachments.encryptionEnabled'))) {
       return { success: false, error: { code: 'VALIDATION_ERROR', message: 'La cifratura allegati globale è disabilitata.' } };
     }
@@ -248,7 +248,7 @@ export async function createFieldAction(
       relationTargetDomain: cmd.relationTargetDomain ?? null,
       relationTargetTypeKey: cmd.relationTargetTypeKey ?? null,
       enumMode: cmd.enumMode ?? null,
-      encryptionMode: cmd.encryptionMode ?? 'inherit',
+      encryptionMode: cmd.encryptionMode ?? 'plaintext',
       position: cmd.position ?? current.data.fields.length,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId: await AuthResolver.resolveActorUserId(),
