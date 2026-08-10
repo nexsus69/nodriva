@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import {
+import type {
   PlacementPolicyDetailDto,
   CreatePlacementRuleUiCommand,
   UpdatePlacementPolicyUiCommand,

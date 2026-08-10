@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
-import {
+import type {
   ScopeAssignmentDto,
   UserListItemDto,
   RoleListItemDto,

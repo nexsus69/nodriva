@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { RoleDetailDto, ApiErrorResponse } from '@dashboard/core';
+import type { RoleDetailDto, ApiErrorResponse } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { RolePermissionsMatrix } from './_components/RolePermissionsMatrix';
 

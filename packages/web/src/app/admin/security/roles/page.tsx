@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useTransition } from 'react';
-import { RoleListItemDto, CreateRoleUiCommand, ApiErrorResponse } from '@dashboard/core';
+import type { RoleListItemDto, CreateRoleUiCommand, ApiErrorResponse } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { AdminModalShell } from '../../_components/AdminModalShell';
 import { RoleListTable } from './_components/RoleListTable';

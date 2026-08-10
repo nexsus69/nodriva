@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import {
+import type {
   UserDetailDto,
   ApiErrorResponse,
 } from '@dashboard/core';

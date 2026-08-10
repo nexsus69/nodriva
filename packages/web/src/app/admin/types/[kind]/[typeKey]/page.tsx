@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import {
+import type {
   TypeKind,
   TypeDetailDto,
   FieldDto,
