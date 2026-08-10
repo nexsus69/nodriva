@@ -1,5 +1,6 @@
 import type { FormEvent, ReactNode } from 'react';
 import { PasswordInput } from './PasswordInput';
+import { AttachmentInput, type AttachmentInputProps } from './AttachmentInput';
 
 export interface FormOption {
   value: string;
@@ -12,7 +13,8 @@ export type FormFieldSchema =
   | { name: string; type: 'textarea'; label: string; required?: boolean; placeholder?: string; rows?: number }
   | { name: string; type: 'date' | 'datetime-local'; label: string; required?: boolean; placeholder?: string; autoComplete?: string }
   | { name: string; type: 'number'; label: string; required?: boolean; min?: number; step?: number; placeholder?: string; autoComplete?: string }
-  | { name: string; type: 'boolean'; label: string };
+  | { name: string; type: 'boolean'; label: string }
+  | { name: string; type: 'attachment'; label: string; required?: boolean; kind: AttachmentInputProps['kind']; maxFiles?: number; maxSizeBytes?: number; acceptedMimeTypes?: readonly string[] };
 
 export interface FormRendererProps {
   fields: readonly FormFieldSchema[];
@@ -38,7 +40,16 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
         return (
           <div key={field.name}>
             <label className="block text-xs font-medium text-slate-300 mb-1">{field.label}{field.required ? ' *' : ''}</label>
-            {field.type === 'select' ? (
+            {field.type === 'attachment' ? (
+              <AttachmentInput
+                kind={field.kind}
+                maxFiles={field.maxFiles}
+                maxSizeBytes={field.maxSizeBytes}
+                acceptedMimeTypes={field.acceptedMimeTypes}
+                value={Array.isArray(values[field.name]) ? values[field.name] as File[] : []}
+                onChange={(files) => onChange(field.name, files)}
+              />
+            ) : field.type === 'select' ? (
               <select required={field.required} value={String(values[field.name] ?? '')} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName}>
                 <option value="">Seleziona un valore</option>
                 {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

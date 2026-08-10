@@ -20,6 +20,8 @@ describe('buildResourceFormSchema', () => {
       { fieldKey: 'amount', label: 'Importo', dataType: 'decimal', isRequired: true, constraints: [], relationTarget: null },
       { fieldKey: 'status', label: 'Stato', dataType: 'enum', isRequired: true, constraints: [], relationTarget: null },
       { fieldKey: 'owner', label: 'Proprietario', dataType: 'relation', isRequired: false, constraints: [], relationTarget: { resourceType: 'entity', typeKey: 'user' } },
+      { fieldKey: 'document', label: 'Documento', dataType: 'file', isRequired: false, constraints: [], relationTarget: null },
+      { fieldKey: 'photo', label: 'Foto', dataType: 'image', isRequired: false, constraints: [], relationTarget: null },
     ], { status: { options: [{ value: 'open', label: 'Aperto' }] }, owner: { options: [{ value: '1', label: 'Mario' }] } });
 
     expect(fields).toEqual([
@@ -27,6 +29,8 @@ describe('buildResourceFormSchema', () => {
       { name: 'amount', type: 'number', label: 'Importo', required: true },
       { name: 'status', type: 'select', label: 'Stato', required: true, options: [{ value: 'open', label: 'Aperto' }] },
       { name: 'owner', type: 'select', label: 'Proprietario', required: false, options: [{ value: '1', label: 'Mario' }] },
+      { name: 'document', type: 'attachment', label: 'Documento', required: false, kind: 'file' },
+      { name: 'photo', type: 'attachment', label: 'Foto', required: false, kind: 'image' },
     ]);
   });
 });

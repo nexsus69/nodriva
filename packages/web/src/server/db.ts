@@ -56,6 +56,7 @@ import { RealtimeMetrics } from './RealtimeMetrics';
 import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
+import { LocalAttachmentStorage } from './LocalAttachmentStorage';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
@@ -171,6 +172,7 @@ export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRea
 export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
+export const attachmentStorage = new LocalAttachmentStorage();
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
 export const accountActionDelivery = process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL

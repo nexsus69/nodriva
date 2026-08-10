@@ -36,6 +36,7 @@ export { resourceViewDefinition, resourceActionDefinition } from './application/
 export type { ResourceViewColumn, ResourceViewColumnKind, ResourceFilterDefinition, ResourceFilterKind, ResourceViewDefinition, ResourceActionDefinition } from './application/dto/ResourceViews.js';
 export { validateAttachmentSelection } from './application/dto/ResourceAttachment.js';
 export type { ResourceAttachmentKind, ResourceAttachmentReference, ResourceAttachmentConstraints, ResourceAttachmentSelection } from './application/dto/ResourceAttachment.js';
+export type { AttachmentStoragePort, StoredAttachment } from './application/ports/AttachmentStoragePort.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';
