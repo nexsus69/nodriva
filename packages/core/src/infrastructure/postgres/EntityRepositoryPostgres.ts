@@ -3,6 +3,7 @@ import { Entity } from '../../domain/models/Entity.js';
 import { PgExecutor } from './PgExecutor.js';
 import { EntityNotFoundError } from '../../domain/errors/EntityErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import { FieldEncryptionService } from './FieldEncryptionService.js';
 
 interface BaseEntityRow {
   id: string;
@@ -28,7 +29,7 @@ interface FieldMetaRow {
 }
 
 export class EntityRepositoryPostgres implements EntityRepository {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
 
   private escapeIdentifier(id: string): string {
     return `"${id.replace(/"/g, '""')}"`;
@@ -89,6 +90,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
       }
     }
 
+    const restoredPayload = this.fieldEncryption ? await this.fieldEncryption.restore('entity', baseRow.id, payload) : payload;
     return new Entity(
       baseRow.id,
       baseRow.entity_type_id,
@@ -101,12 +103,13 @@ export class EntityRepositoryPostgres implements EntityRepository {
       baseRow.deleted_at,
       baseRow.created_by,
       baseRow.updated_by,
-      payload
+      restoredPayload
     );
   }
 
   async create(entity: Entity): Promise<void> {
     const { storageTable, fieldMapping } = await this.getStorageMeta(entity.entityTypeId);
+    const protectedPayload = this.fieldEncryption ? await this.fieldEncryption.protect('entity', entity.entityTypeId, entity.id, entity.payload) : entity.payload;
     const escapedTable = this.escapeIdentifier(storageTable);
 
     // 1. Inserimento nella tabella comune entities
@@ -136,7 +139,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
     const values: unknown[] = [entity.id];
 
     let paramIndex = 2;
-    for (const [key, val] of Object.entries(entity.payload)) {
+    for (const [key, val] of Object.entries(protectedPayload)) {
       const columnName = fieldMapping.get(key);
       if (columnName) {
         columns.push(this.escapeIdentifier(columnName));
@@ -155,6 +158,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
 
   async update(entity: Entity): Promise<void> {
     const { storageTable, fieldMapping } = await this.getStorageMeta(entity.entityTypeId);
+    const protectedPayload = this.fieldEncryption ? await this.fieldEncryption.protect('entity', entity.entityTypeId, entity.id, entity.payload) : entity.payload;
     const escapedTable = this.escapeIdentifier(storageTable);
 
     // 1. Update nella tabella comune con controllo di concorrenza ottimistica
@@ -192,7 +196,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
     const values: unknown[] = [entity.id];
     let paramIndex = 2;
 
-    for (const [key, val] of Object.entries(entity.payload)) {
+    for (const [key, val] of Object.entries(protectedPayload)) {
       const columnName = fieldMapping.get(key);
       if (columnName) {
         sets.push(`${this.escapeIdentifier(columnName)} = $${paramIndex}`);
@@ -284,7 +288,9 @@ export class EntityRepositoryPostgres implements EntityRepository {
       }
     }
 
-    return baseRows.map((row) => {
+    return await Promise.all(baseRows.map(async (row) => {
+      const payload = payloadMap.get(row.id) ?? {};
+      const restoredPayload = this.fieldEncryption ? await this.fieldEncryption.restore('entity', row.id, payload) : payload;
       return new Entity(
         row.id,
         row.entity_type_id,
@@ -297,8 +303,8 @@ export class EntityRepositoryPostgres implements EntityRepository {
         row.deleted_at,
         row.created_by,
         row.updated_by,
-        payloadMap.get(row.id) ?? {}
+        restoredPayload
       );
-    });
+    }));
   }
 }

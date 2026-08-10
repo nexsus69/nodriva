@@ -76,6 +76,7 @@ interface FieldRow {
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
   enum_mode: 'static' | 'managed';
+  encryption_mode: 'inherit' | 'plaintext' | 'encrypted';
   created_at: Date;
   updated_at: Date;
 }
@@ -132,6 +133,7 @@ interface FieldDetailRow {
   relationTargetDomain: TypeDomain | null;
   relationTargetTypeKey: string | null;
   enumMode: 'static' | 'managed';
+  encryptionMode: 'inherit' | 'plaintext' | 'encrypted';
   updatedAt: Date;
 }
 
@@ -252,7 +254,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
         is_system AS "isSystem",
         relation_target_domain AS "relationTargetDomain",
         relation_target_type_key AS "relationTargetTypeKey",
-        enum_mode AS "enumMode",
+        enum_mode AS "enumMode", encryption_mode AS "encryptionMode",
         updated_at AS "updatedAt"
       FROM ${cfg.fieldsTable}
       WHERE ${cfg.fieldForeignKey} = $1
@@ -317,6 +319,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       relationTargetDomain: f.relationTargetDomain ?? null,
       relationTargetTypeKey: f.relationTargetTypeKey ?? null,
       enumMode: f.enumMode ?? 'static',
+      encryptionMode: f.encryptionMode ?? 'inherit',
       enumOptions: enumOptionsByField[f.id] ?? [],
       constraints: constraintsByField[f.id] ?? [],
       updatedAt: new Date(f.updatedAt).toISOString(),
@@ -400,7 +403,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     const query = `
       SELECT id, ${cfg.fieldForeignKey} AS type_fk_id, field_key, label, column_name, data_type,
              is_required, is_unique, is_indexed, default_value_text, position, is_system,
-             relation_target_domain, relation_target_type_key, enum_mode,
+             relation_target_domain, relation_target_type_key, enum_mode, encryption_mode,
              created_at, updated_at
       FROM ${cfg.fieldsTable}
       WHERE id = $1
@@ -416,12 +419,12 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       `INSERT INTO ${cfg.fieldsTable}
          (id, ${cfg.fieldForeignKey}, field_key, label, column_name, data_type,
           is_required, is_unique, is_indexed, default_value_text, position, is_system,
-          relation_target_domain, relation_target_type_key, enum_mode, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+          relation_target_domain, relation_target_type_key, enum_mode, encryption_mode, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
       [field.id, field.typeDefinitionId, field.fieldKey, field.label, field.columnName,
        field.dataType, field.isRequired, field.isUnique, field.isIndexed,
        field.defaultValueText, field.position, field.isSystem,
-       field.relationTargetDomain, field.relationTargetTypeKey, field.enumMode,
+       field.relationTargetDomain, field.relationTargetTypeKey, field.enumMode, field.encryptionMode,
        field.createdAt, field.updatedAt]
     );
   }
@@ -431,10 +434,10 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     await this.executor.query(
       `UPDATE ${cfg.fieldsTable}
        SET label = $1, is_required = $2, is_unique = $3, is_indexed = $4,
-           default_value_text = $5, position = $6, updated_at = $7
-       WHERE id = $8`,
+           default_value_text = $5, position = $6, encryption_mode = $7, updated_at = $8
+       WHERE id = $9`,
       [field.label, field.isRequired, field.isUnique, field.isIndexed,
-       field.defaultValueText, field.position, field.updatedAt, field.id]
+       field.defaultValueText, field.position, field.encryptionMode, field.updatedAt, field.id]
     );
   }
 
@@ -584,7 +587,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       row.data_type, row.is_required, row.is_unique, row.is_indexed,
       row.default_value_text, row.position, row.is_system,
       row.created_at, row.updated_at,
-      row.relation_target_domain, row.relation_target_type_key, row.enum_mode
+      row.relation_target_domain, row.relation_target_type_key, row.enum_mode, row.encryption_mode
     );
   }
 

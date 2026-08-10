@@ -11,6 +11,7 @@ export {
   sessionIdleTimeoutDefinition,
   attachmentAntivirusEnabledDefinition,
   attachmentEncryptionEnabledDefinition,
+  fieldEncryptionEnabledDefinition,
 } from './application/config/ConfigurationRegistry.js';
 export type {
   ConfigurationDefinition,
@@ -25,6 +26,7 @@ export { ConfigService } from './application/services/ConfigService.js';
 export type { SessionTimingPolicy } from './application/services/ConfigService.js';
 export type { SessionTimingPolicyPort } from './application/ports/SessionTimingPolicyPort.js';
 export { ConfigurationRepositoryPostgres } from './infrastructure/postgres/ConfigurationRepositoryPostgres.js';
+export { FieldEncryptionService } from './infrastructure/postgres/FieldEncryptionService.js';
 export { NodeType } from './domain/models/NodeType.js';
 export { EntityType } from './domain/models/EntityType.js';
 export { ManagedTypeDefinition } from './domain/models/ManagedTypeDefinition.js';
@@ -105,6 +107,7 @@ export {
   EnumOptionDto,
   EnumMode,
   FieldDto,
+  FieldEncryptionMode,
   TypeListItemDto,
   TypeDetailDto,
   CreateTypeCommand as CreateTypeAdminCommand,

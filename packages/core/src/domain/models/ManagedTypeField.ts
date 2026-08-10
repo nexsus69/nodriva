@@ -21,6 +21,7 @@ export class ManagedTypeField {
     readonly updatedAt: Date,
     readonly relationTargetDomain: 'node' | 'entity' | null = null,
     readonly relationTargetTypeKey: string | null = null,
-    readonly enumMode: 'static' | 'managed' = 'static'
+    readonly enumMode: 'static' | 'managed' = 'static',
+    readonly encryptionMode: 'inherit' | 'plaintext' | 'encrypted' = 'inherit'
   ) {}
 }

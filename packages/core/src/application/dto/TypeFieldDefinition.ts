@@ -52,7 +52,8 @@ export class TypeFieldDefinition implements ResourceFieldDefinition {
     readonly enumOptions: readonly EnumOptionDefinition[] = [],
     readonly enumMode: 'static' | 'managed' = 'static',
     readonly id: string | null = null,
-    readonly label: string = fieldKey
+    readonly label: string = fieldKey,
+    readonly encryptionMode: 'inherit' | 'plaintext' | 'encrypted' = 'inherit'
   ) {}
 
   get relationTarget(): ResourceTypeReference | null {

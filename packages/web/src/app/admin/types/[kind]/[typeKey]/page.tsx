@@ -53,6 +53,7 @@ export default function AdminTypeDetailPage() {
   const [columnName, setColumnName] = useState('');
   const [dataType, setDataType] = useState<FieldDataType>('string');
   const [enumMode, setEnumMode] = useState<'static' | 'managed'>('static');
+  const [encryptionMode, setEncryptionMode] = useState<'inherit' | 'plaintext' | 'encrypted'>('inherit');
   const [isRequired, setIsRequired] = useState(false);
   const [isUnique, setIsUnique] = useState(false);
   const [isIndexed, setIsIndexed] = useState(false);
@@ -201,6 +202,7 @@ export default function AdminTypeDetailPage() {
     setColumnName(f.columnName);
     setDataType(f.dataType);
     setEnumMode(f.enumMode ?? 'static');
+    setEncryptionMode(f.encryptionMode ?? 'inherit');
     setIsRequired(f.isRequired);
     setIsUnique(f.isUnique);
     setIsIndexed(f.isIndexed);
@@ -240,6 +242,7 @@ export default function AdminTypeDetailPage() {
           isUnique,
           isIndexed,
           defaultValueText: defaultValueText.trim() || null,
+          encryptionMode,
           expectedTypeRowVersion: typeDetail.rowVersion,
         };
         const res = await AppCache.admin.updateField(kind, typeKey, cmd);
@@ -263,6 +266,7 @@ export default function AdminTypeDetailPage() {
           columnName: columnName.trim(),
           dataType,
           enumMode: dataType === 'enum' ? enumMode : undefined,
+          encryptionMode,
           isRequired,
           isUnique,
           isIndexed,
@@ -619,6 +623,8 @@ export default function AdminTypeDetailPage() {
           setDataType={setDataType}
           enumMode={enumMode}
           setEnumMode={setEnumMode}
+          encryptionMode={encryptionMode}
+          setEncryptionMode={setEncryptionMode}
           defaultValueText={defaultValueText}
           setDefaultValueText={setDefaultValueText}
           isRequired={isRequired}

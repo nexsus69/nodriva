@@ -3,6 +3,7 @@ import { Node } from '../../domain/models/Node.js';
 import { PgExecutor } from './PgExecutor.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
+import { FieldEncryptionService } from './FieldEncryptionService.js';
 
 interface NodeRow {
   id: string;
@@ -23,7 +24,7 @@ interface NodeRow {
 }
 
 export class NodeRepositoryPostgres implements NodeRepository {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
 
   async findById(id: string): Promise<Node | null> {
     const query = `
@@ -38,7 +39,8 @@ export class NodeRepositoryPostgres implements NodeRepository {
     if (!row) {
       return null;
     }
-    return this.mapToDomain(row);
+    const node = this.mapToDomain(row);
+    return this.fieldEncryption ? this.mapToDomain(row, await this.fieldEncryption.restore('node', row.id, node.payload)) : node;
   }
 
   async listChildren(parentId: string | null, limit?: number, offset?: number): Promise<Node[]> {
@@ -63,7 +65,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     }
 
     const result = await this.executor.query<NodeRow>(query, params);
-    return result.rows.map((row) => this.mapToDomain(row));
+    return this.restoreNodes(result.rows);
   }
 
   async listReadableChildren(parentId: string | null, actorUserId: string): Promise<Node[]> {
@@ -79,7 +81,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
        ORDER BY n.path ASC, n.name ASC`,
       params
     );
-    return result.rows.map((row) => this.mapToDomain(row));
+    return this.restoreNodes(result.rows);
   }
 
   async listReadableVirtualRoots(actorUserId: string): Promise<Node[]> {
@@ -96,10 +98,11 @@ export class NodeRepositoryPostgres implements NodeRepository {
          ))
        ORDER BY n.path ASC, n.name ASC`, [actorUserId]
     );
-    return result.rows.map((row) => this.mapToDomain(row));
+    return this.restoreNodes(result.rows);
   }
 
   async create(node: Node): Promise<void> {
+    const payload = this.fieldEncryption ? await this.fieldEncryption.protect('node', node.nodeTypeId, node.id, node.payload) : node.payload;
     const query = `
       INSERT INTO nodes (
         id, parent_id, path, path_label, depth, node_type_id,
@@ -122,11 +125,12 @@ export class NodeRepositoryPostgres implements NodeRepository {
       node.deletedAt,
       node.createdBy,
       node.updatedBy,
-      node.payload,
+      payload,
     ]);
   }
 
   async update(node: Node): Promise<void> {
+    const payload = this.fieldEncryption ? await this.fieldEncryption.protect('node', node.nodeTypeId, node.id, node.payload) : node.payload;
     const query = `
       UPDATE nodes
       SET name = $1, description = $2, payload = $3, row_version = $4,
@@ -138,7 +142,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     const result = await this.executor.query(query, [
       node.name,
       node.description,
-      node.payload,
+      payload,
       node.rowVersion,
       node.updatedAt,
       node.updatedBy,
@@ -237,7 +241,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
        ORDER BY path ASC`,
       [nodeId]
     );
-    return result.rows.map((row) => this.mapToDomain(row));
+    return this.restoreNodes(result.rows);
   }
 
   async existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean> {
@@ -310,7 +314,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     return result.rows.length > 0;
   }
 
-  private mapToDomain(row: NodeRow): Node {
+  private mapToDomain(row: NodeRow, payload = row.payload ?? {}): Node {
     return new Node(
       row.id,
       row.parent_id,
@@ -326,7 +330,14 @@ export class NodeRepositoryPostgres implements NodeRepository {
       row.deleted_at,
       row.created_by,
       row.updated_by,
-      row.payload ?? {}
+      payload
     );
+  }
+
+  private async restoreNodes(rows: readonly NodeRow[]): Promise<Node[]> {
+    return Promise.all(rows.map(async (row) => {
+      const node = this.mapToDomain(row);
+      return this.fieldEncryption ? this.mapToDomain(row, await this.fieldEncryption.restore('node', row.id, node.payload)) : node;
+    }));
   }
 }

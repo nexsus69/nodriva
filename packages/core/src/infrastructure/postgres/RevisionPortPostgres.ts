@@ -2,13 +2,14 @@ import { RevisionPort } from '../../application/ports/RevisionPort.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
 import { PgExecutor } from './PgExecutor.js';
+import { FieldEncryptionService } from './FieldEncryptionService.js';
 
 /**
  * Adapter PostgreSQL per la gestione delle revisioni storiche.
  * Salva gli snapshot serializzati dei modelli in `node_revisions` ed `entity_revisions`.
  */
 export class RevisionPortPostgres implements RevisionPort {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
 
   async recordNodeRevision(
     node: Node,
@@ -73,7 +74,9 @@ export class RevisionPortPostgres implements RevisionPort {
       parentNodeId: entity.parentNodeId,
       name: entity.name,
       description: entity.description,
-      payload: entity.payload,
+      payload: this.fieldEncryption
+        ? await this.fieldEncryption.redact('entity', entity.entityTypeId, entity.payload)
+        : entity.payload,
     };
 
     await this.executor.query(query, [

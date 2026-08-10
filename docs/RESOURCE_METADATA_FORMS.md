@@ -63,6 +63,16 @@ alle entità contenute nel nodo. La modifica della policy vale per i nuovi
 upload: gli allegati esistenti restano leggibili perché il formato di storage
 indica autonomamente se il contenuto è cifrato.
 
+## Cifratura selettiva dei campi
+
+Ogni campo dei tipi nodo/entità può usare `inherit`, `plaintext` o `encrypted`.
+`inherit` segue `data.fieldsEncryptionEnabled`; `encrypted` salva il valore
+nel ciphertext store `resource_field_ciphertexts` e presenta al repository
+solo il valore decifrato. La chiave server-side è `FIELD_ENCRYPTION_KEY` (con
+fallback compatibile a `ATTACHMENTS_ENCRYPTION_KEY`) e non viene mai inviata al
+client. I campi cifrati non sono ricercabili, filtrabili o indicizzabili; il
+frontend li tratta come normali controlli solo dopo la lettura autorizzata.
+
 I download sono autorizzati nuovamente a ogni richiesta; solo immagini raster
 validate possono essere visualizzate inline. Gli altri file vengono scaricati
 come `application/octet-stream` con `nosniff`, CSP, CORP e cache privata.

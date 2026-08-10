@@ -225,7 +225,7 @@ export class TypeAdminApplicationService {
         v.dataType, v.isRequired ?? false, v.isUnique ?? false, v.isIndexed ?? false,
         v.defaultValueText ?? null, v.position, false, now, now,
         v.relationTargetDomain ?? null, v.relationTargetTypeKey ?? null
-        , v.enumMode ?? 'static'
+        , v.enumMode ?? 'static', v.encryptionMode ?? 'inherit'
       );
 
       await this.adminRepository.createField(v.domain, newField);
@@ -278,7 +278,8 @@ export class TypeAdminApplicationService {
         v.isIndexed ?? existing.isIndexed,
         v.defaultValueText !== undefined ? v.defaultValueText : existing.defaultValueText,
         v.position ?? existing.position,
-        existing.isSystem, existing.createdAt, now
+        existing.isSystem, existing.createdAt, now,
+        existing.relationTargetDomain, existing.relationTargetTypeKey, existing.enumMode, v.encryptionMode ?? existing.encryptionMode
       );
 
       await this.adminRepository.updateField(v.domain, updated);

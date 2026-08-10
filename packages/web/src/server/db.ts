@@ -15,6 +15,7 @@ import {
   AuditQueryPortPostgres,
   EntitySubtreeQueryPortPostgres,
   NodeRepositoryPostgres,
+  FieldEncryptionService,
   NodeTypeRepositoryPostgres,
   EntityRepositoryPostgres,
   EntityTypeRepositoryPostgres,
@@ -105,7 +106,6 @@ async function getRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
 // Porte e Adapter concreti infrastrutturali
 export const transactionPort = new TransactionPortPostgres(pool);
 export const auditPort = new AuditPortPostgres(pgExecutor);
-export const revisionPort = new RevisionPortPostgres(pgExecutor);
 export const lockRepository = new LockRepositoryPostgres(pgExecutor);
 export const pusherEventBus = new PusherEventBus({
   appId: process.env.PUSHER_APP_ID || '',
@@ -164,12 +164,14 @@ export const configService = new ConfigService(
   defaultConfigurationRegistry,
 );
 export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
+export const fieldEncryptionService = new FieldEncryptionService(pgExecutor, configService);
+export const revisionPort = new RevisionPortPostgres(pgExecutor, fieldEncryptionService);
 
 // Repository PostgreSQL
-export const nodeRepository = new NodeRepositoryPostgres(pgExecutor);
+export const nodeRepository = new NodeRepositoryPostgres(pgExecutor, fieldEncryptionService);
 export const realtimeScopeResolver = new RealtimeScopeResolverPostgres(nodeRepository);
 export const nodeTypeRepository = new NodeTypeRepositoryPostgres(pgExecutor);
-export const entityRepository = new EntityRepositoryPostgres(pgExecutor);
+export const entityRepository = new EntityRepositoryPostgres(pgExecutor, fieldEncryptionService);
 export const entityTypeRepository = new EntityTypeRepositoryPostgres(pgExecutor);
 export const typeAdminRepository = new TypeDefinitionAdminRepositoryPostgres(pgExecutor);
 export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
@@ -308,7 +310,7 @@ export const auditAdminService = new AuditAdminApplicationService(
   accessControlPort
 );
 
-export const entitySubtreeQueryPort = new EntitySubtreeQueryPortPostgres(pgExecutor);
+export const entitySubtreeQueryPort = new EntitySubtreeQueryPortPostgres(pgExecutor, fieldEncryptionService);
 
 export const systemSeedService = new SystemSeedPostgres(
   pgExecutor,

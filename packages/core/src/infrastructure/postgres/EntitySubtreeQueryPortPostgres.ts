@@ -7,6 +7,7 @@ import {
 } from '../../application/ports/EntitySubtreeQueryPort.js';
 import { PgExecutor } from './PgExecutor.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
+import { FieldEncryptionService } from './FieldEncryptionService.js';
 
 interface SubtreeRow {
   entity_id: string;
@@ -40,7 +41,7 @@ interface EntityFieldMetaRow {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
-  constructor(private readonly executor: PgExecutor) {}
+  constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
 
   private escapeIdentifier(identifier: string): string {
     return `"${identifier.replace(/"/g, '""')}"`;
@@ -104,7 +105,9 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
         for (const [columnName, fieldKey] of fieldsByColumn) {
           payload[fieldKey] = row[columnName];
         }
-        payloads.set(String(row.entity_id), payload);
+        payloads.set(String(row.entity_id), this.fieldEncryption
+          ? await this.fieldEncryption.restore('entity', String(row.entity_id), payload)
+          : payload);
       }
       for (const entityId of entityIds) {
         if (!payloads.has(entityId)) payloads.set(entityId, {});

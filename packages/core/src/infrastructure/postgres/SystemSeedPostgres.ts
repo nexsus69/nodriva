@@ -553,6 +553,10 @@ export class SystemSeedPostgres implements SystemSeedPort {
         'security', 'attachments.encryptionEnabled', 'Global attachment encryption',
         'Encrypt new attachments unless overridden by the containing node type policy.',
         'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
+      ), (
+        'security', 'data.fieldsEncryptionEnabled', 'Global field encryption',
+        'Encrypt fields whose metadata policy is inherit.',
+        'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
       )
     `);
 

@@ -20,6 +20,7 @@ export type FieldDataType =
   | 'array';
 export type RelationTargetDomain = 'node' | 'entity';
 export type EnumMode = 'static' | 'managed';
+export type FieldEncryptionMode = 'inherit' | 'plaintext' | 'encrypted';
 
 export type ConstraintType = 
   | 'min' 
@@ -56,6 +57,7 @@ export interface FieldDto {
   relationTargetDomain?: RelationTargetDomain | null;
   relationTargetTypeKey?: string | null;
   enumMode?: EnumMode | null;
+  encryptionMode: FieldEncryptionMode;
   enumOptions?: EnumOptionDto[];
   isRequired: boolean;
   isUnique: boolean;
@@ -141,6 +143,7 @@ export const CreateFieldCommandSchema = z.object({
   relationTargetDomain: z.enum(['node', 'entity']).optional(),
   relationTargetTypeKey: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_-]*$/, 'Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.').optional(),
   enumMode: z.enum(['static', 'managed']).optional(),
+  encryptionMode: z.enum(['inherit', 'plaintext', 'encrypted']).optional(),
   isRequired: z.boolean().optional(),
   isUnique: z.boolean().optional(),
   isIndexed: z.boolean().optional(),
@@ -162,6 +165,7 @@ export const UpdateFieldCommandSchema = z.object({
   isUnique: z.boolean().optional(),
   isIndexed: z.boolean().optional(),
   defaultValueText: z.string().nullable().optional(),
+  encryptionMode: z.enum(['inherit', 'plaintext', 'encrypted']).optional(),
   position: z.number().int().nonnegative().optional(),
   expectedTypeRowVersion: z.number().int().positive(),
 });

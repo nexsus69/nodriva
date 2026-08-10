@@ -68,8 +68,20 @@ export const attachmentEncryptionEnabledDefinition: ConfigurationDefinition<bool
   },
 };
 
+export const fieldEncryptionEnabledDefinition: ConfigurationDefinition<boolean> = {
+  key: 'data.fieldsEncryptionEnabled',
+  type: 'boolean',
+  defaultValue: false,
+  source: 'runtime',
+  clientVisible: false,
+  validate: (value) => {
+    if (typeof value !== 'boolean') throw new Error('Field encryption setting must be boolean.');
+  },
+};
+
 export const defaultConfigurationRegistry = new ConfigurationRegistry([
   sessionIdleTimeoutDefinition,
   attachmentAntivirusEnabledDefinition,
   attachmentEncryptionEnabledDefinition,
+  fieldEncryptionEnabledDefinition,
 ]);

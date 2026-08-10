@@ -98,6 +98,7 @@ export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string)
       relationTargetTypeKey: f.relationTargetTypeKey,
       enumOptions: f.enumOptions,
       enumMode: f.enumMode,
+      encryptionMode: f.encryptionMode,
       constraints: f.constraints.map((c) => ({
         constraintType: c.constraintType,
         constraintValueText: c.value,
@@ -243,6 +244,7 @@ export async function createFieldAction(
       relationTargetDomain: cmd.relationTargetDomain ?? null,
       relationTargetTypeKey: cmd.relationTargetTypeKey ?? null,
       enumMode: cmd.enumMode ?? null,
+      encryptionMode: cmd.encryptionMode ?? 'inherit',
       position: cmd.position ?? current.data.fields.length,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId: await AuthResolver.resolveActorUserId(),
@@ -306,6 +308,7 @@ export async function updateFieldAction(
       isUnique: cmd.isUnique,
       isIndexed: cmd.isIndexed,
       defaultValueText: cmd.defaultValueText,
+      encryptionMode: cmd.encryptionMode,
       position: cmd.position,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId: await AuthResolver.resolveActorUserId(),
