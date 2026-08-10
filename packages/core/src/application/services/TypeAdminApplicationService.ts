@@ -219,6 +219,12 @@ export class TypeAdminApplicationService {
         }
       }
 
+      if (['file', 'image'].includes(v.dataType) && (v.isRequired || v.isUnique || v.isIndexed || v.defaultValueText !== undefined && v.defaultValueText !== null)) {
+        throw new TypeAdminValidationError('Attachment fields cannot be required, unique, indexed, or have a database default.', {
+          dataType: ['File and image fields are stored in the attachment store.'],
+        });
+      }
+
       const now = new Date();
       const newField = new ManagedTypeField(
         this.idGenerator.generate(), type.id, v.fieldKey, v.label, v.columnName,
@@ -229,7 +235,7 @@ export class TypeAdminApplicationService {
       );
 
       await this.adminRepository.createField(v.domain, newField);
-      if (v.domain === 'entity' && type.storageTable) {
+      if (v.domain === 'entity' && type.storageTable && !['file', 'image'].includes(newField.dataType.toLowerCase())) {
         await this.storageTableManager.addColumn(
           type.storageTable,
           newField.columnName,
@@ -269,6 +275,12 @@ export class TypeAdminApplicationService {
         throw new SystemFieldModificationError(v.fieldId, v.domain);
       }
 
+      if (['file', 'image'].includes(existing.dataType.toLowerCase()) && (v.isRequired || v.isUnique || v.isIndexed || v.defaultValueText !== undefined && v.defaultValueText !== null)) {
+        throw new TypeAdminValidationError('Attachment fields cannot be required, unique, indexed, or have a database default.', {
+          fieldId: ['File and image fields are stored in the attachment store.'],
+        });
+      }
+
       const now = new Date();
       const updated = new ManagedTypeField(
         existing.id, existing.typeDefinitionId, existing.fieldKey,
@@ -283,7 +295,7 @@ export class TypeAdminApplicationService {
       );
 
       await this.adminRepository.updateField(v.domain, updated);
-      if (v.domain === 'entity' && type.storageTable) {
+      if (v.domain === 'entity' && type.storageTable && !['file', 'image'].includes(existing.dataType.toLowerCase())) {
         if (existing.isRequired !== updated.isRequired) {
           await this.storageTableManager.updateColumnNullability(type.storageTable, updated.columnName, updated.isRequired);
         }
@@ -333,18 +345,14 @@ export class TypeAdminApplicationService {
         throw new SystemFieldModificationError(v.fieldId, v.domain);
       }
 
-      const hasFieldValues = await this.adminRepository.hasValuesInField(
-        v.domain,
-        type.id,
-        existing.fieldKey,
-        existing.columnName
-      );
+      const isAttachmentField = ['file', 'image'].includes(existing.dataType.toLowerCase());
+      const hasFieldValues = await this.adminRepository.hasValuesInField(v.domain, type.id, existing.fieldKey, existing.columnName);
       if (hasFieldValues) {
         throw new TypeFieldHasValuesError(existing.id, existing.fieldKey, v.domain);
       }
 
       await this.adminRepository.deleteField(v.domain, v.fieldId);
-      if (v.domain === 'entity' && type.storageTable) {
+      if (v.domain === 'entity' && type.storageTable && !isAttachmentField) {
         await this.storageTableManager.dropColumn(type.storageTable, existing.columnName);
       }
       await this.bumpTypeSchemaVersion(v.domain, type);

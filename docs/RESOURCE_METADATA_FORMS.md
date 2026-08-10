@@ -22,11 +22,15 @@ label, obbligatorietà, valori e submit.
 | `array` | textarea | Rappresentazione serializzata dell’array |
 | `enum` | select | Opzioni fornite dai metadati |
 | `relation` | select | Target e opzioni forniti dal coordinator |
+| `file` | selettore allegati | Documenti collegati al campo; storage separato |
+| `image` | selettore immagini | Immagini collegate al campo; storage separato |
 
-File e immagini non sono ancora tipi di colonna dinamica: vengono trattati
-come allegati collegati alla risorsa. `AttachmentInput` gestisce la selezione
-locale e i limiti di quantità, dimensione e MIME type; il contenuto non viene
-salvato nel `payload` né in una colonna PostgreSQL.
+File e immagini sono tipi di campo metadata, ma non tipi di colonna dinamica:
+il backend li registra nel tipo e salva i contenuti in `resource_attachments`.
+`AttachmentInput` viene mostrato solo quando il tipo della risorsa dichiara
+quel campo; il contenuto non viene salvato nel `payload` né in una colonna
+PostgreSQL. L’API rifiuta upload/lista se il campo non esiste o se il tipo
+richiesto (`file`/`image`) non corrisponde al metadata.
 
 `timestamp` è accettato come alias compatibile per `datetime` nei dati già
 presenti nel sistema.

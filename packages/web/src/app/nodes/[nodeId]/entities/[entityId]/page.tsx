@@ -40,7 +40,7 @@ export default function EntityDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [attachments, setAttachments] = useState<readonly File[]>([]);
+  const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
   const {
     lockedByOther,
     isMyLock,
@@ -77,7 +77,7 @@ export default function EntityDetailPage() {
     setName(entity.name || '');
     setDescription(entity.description || '');
     setPayload(entity.payload || {});
-    setAttachments([]);
+    setAttachmentsByField({});
     return await acquireLock();
   };
 
@@ -90,7 +90,7 @@ export default function EntityDetailPage() {
     startTransition(async () => {
       try {
         const processedPayload = { ...entity.payload, ...payload };
-        for (const field of fields) {
+        for (const field of fields.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           const value = processedPayload[field.fieldKey];
           if (value === '' && !field.isRequired) {
             processedPayload[field.fieldKey] = null;
@@ -107,8 +107,10 @@ export default function EntityDetailPage() {
           payloadDelta: processedPayload,
           expectedRowVersion: entity.rowVersion,
         });
-        for (const file of attachments) {
-          await uploadResourceAttachment({ resourceType: 'entity', resourceId: entityId, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        for (const field of fields.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            await uploadResourceAttachment({ resourceType: 'entity', resourceId: entityId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+          }
         }
 
         await releaseLock();
@@ -229,7 +231,7 @@ export default function EntityDetailPage() {
             <div>
               <dt className="mb-2 text-slate-500">Campi</dt>
               <dd className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {(fields.length > 0 ? fields : Object.keys(entity.payload ?? {}).map((fieldKey) => ({ fieldKey, label: fieldKey, dataType: 'string' }))).map((field) => {
+                {(fields.length > 0 ? fields : Object.keys(entity.payload ?? {}).map((fieldKey) => ({ fieldKey, label: fieldKey, dataType: 'string' }))).filter((field) => !['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
                   const value = entity.payload?.[field.fieldKey];
                   const enumLabel = field.dataType === 'enum'
                     ? (field as DynamicField).enumOptions?.find((option) => option.value === String(value))?.label
@@ -282,10 +284,10 @@ export default function EntityDetailPage() {
             siblingEntities={siblingEntities.filter((candidate) => candidate.id !== entity.id)}
           />
 
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-slate-300">Nuovi allegati</label>
-            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
-          </div>
+          {fields.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
+            const kind = field.dataType.toLowerCase() as 'file' | 'image';
+            return <div key={field.fieldKey} className="space-y-2"><label className="block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey}</label><AttachmentInput kind={kind} maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachmentsByField[field.fieldKey] ?? []} onChange={(files) => setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} /></div>;
+          })}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link
@@ -320,10 +322,7 @@ export default function EntityDetailPage() {
         </form>
         )}
       </Panel>
-      <Panel className="space-y-3 border-slate-800 bg-slate-900 p-4 text-slate-100 sm:p-6">
-        <h2 className="text-sm font-semibold">Allegati</h2>
-        <AttachmentList resourceType="entity" resourceId={entityId} canDelete={isMyLock} />
-      </Panel>
+      {fields.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => <Panel key={field.fieldKey} className="space-y-3 border-slate-800 bg-slate-900 p-4 text-slate-100 sm:p-6"><h2 className="text-sm font-semibold">{field.label ?? field.fieldKey}</h2><AttachmentList resourceType="entity" resourceId={entityId} fieldKey={field.fieldKey} kind={field.dataType.toLowerCase() as 'file' | 'image'} canDelete={isMyLock} /></Panel>)}
     </PageShell>
   );
 }

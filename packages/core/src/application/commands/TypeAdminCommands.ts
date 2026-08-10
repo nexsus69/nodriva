@@ -41,7 +41,10 @@ export const AddFieldCommandSchema = z.object({
   fieldKey: z.string().min(1, 'La chiave campo è obbligatoria.').max(100).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
   label: z.string().min(1).max(150),
   columnName: z.string().min(1, 'Il nome colonna è obbligatorio.').max(100).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
-  dataType: z.string().min(1).max(50),
+  dataType: z.enum([
+    'string', 'text', 'integer', 'number', 'decimal', 'boolean', 'date', 'datetime',
+    'uuid', 'json', 'enum', 'relation', 'array', 'file', 'image',
+  ]),
   relationTargetDomain: DomainSchema.nullable().optional(),
   relationTargetTypeKey: z.string().min(2, 'Il type key target deve contenere almeno 2 caratteri.').max(64).regex(/^[a-z][a-z0-9_-]*$/, 'Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.').nullable().optional(),
   enumMode: z.enum(['static', 'managed']).nullable().optional(),

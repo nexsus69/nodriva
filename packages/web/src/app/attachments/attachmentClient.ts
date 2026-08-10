@@ -31,9 +31,8 @@ export async function uploadResourceAttachment(input: {
   return await readResponse(await fetch('/api/attachments', { method: 'POST', body: form })) as AttachmentItem;
 }
 
-export async function listResourceAttachments(resourceType: 'node' | 'entity', resourceId: string, fieldKey?: string): Promise<AttachmentItem[]> {
-  const query = new URLSearchParams({ resourceType, resourceId });
-  if (fieldKey) query.set('fieldKey', fieldKey);
+export async function listResourceAttachments(resourceType: 'node' | 'entity', resourceId: string, fieldKey: string, kind: 'file' | 'image'): Promise<AttachmentItem[]> {
+  const query = new URLSearchParams({ resourceType, resourceId, fieldKey, kind });
   return await readResponse(await fetch(`/api/attachments?${query.toString()}`, { cache: 'no-store' })) as AttachmentItem[];
 }
 

@@ -15,6 +15,7 @@ const JSON_TYPES = new Set(['json']);
 const ARRAY_TYPES = new Set(['array']);
 const ENUM_TYPES = new Set(['enum']);
 const RELATION_TYPES = new Set(['relation']);
+const ATTACHMENT_TYPES = new Set(['file', 'image']);
 
 /**
  * Compilatore puro: trasforma una lista di TypeFieldDefinition in uno z.ZodObject.
@@ -87,6 +88,10 @@ export class FieldSchemaCompiler {
     }
     if (RELATION_TYPES.has(dt)) {
       return z.string().uuid();
+    }
+    if (ATTACHMENT_TYPES.has(dt)) {
+      // File content is stored in resource_attachments, not in the resource payload.
+      return z.unknown();
     }
 
     throw new UnsupportedFieldDataTypeError(field.fieldKey, field.dataType, typeKey);

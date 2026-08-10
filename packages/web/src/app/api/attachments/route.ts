@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
-import { authenticatedUser, assertAttachmentAccess, parseAttachmentTarget } from './attachmentAccess';
+import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, parseAttachmentTarget } from './attachmentAccess';
 
 export const GET = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
@@ -16,7 +16,9 @@ export const GET = auth(async (request) => {
   });
   if (!target) return NextResponse.json({ error: 'INVALID_ATTACHMENT_TARGET' }, { status: 400 });
   try {
-    if (!(await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId, 'read'))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId, 'read');
+    if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
     const { pgExecutor } = await import('../../../server/db');
     const result = await pgExecutor.query(
       `SELECT id, resource_type AS "resourceType", resource_id AS "resourceId", field_key AS "fieldKey", kind, file_name AS "fileName", mime_type AS "mimeType", size_bytes AS "sizeBytes"
@@ -48,6 +50,7 @@ export const POST = auth(async (request) => {
   try {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
     const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, pgExecutor, resourceSecurityPolicyResolver } = await import('../../../server/db');
     if (!attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour)) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });

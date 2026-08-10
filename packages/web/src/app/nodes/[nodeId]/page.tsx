@@ -39,7 +39,7 @@ export default function NodeDetailPage() {
   type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
-  const [attachments, setAttachments] = useState<readonly File[]>([]);
+  const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
 
   const entityTypeKeysSignature = [...new Set(
@@ -95,7 +95,7 @@ export default function NodeDetailPage() {
     setSuccessMsg(null);
     setNodeName(currentNode.name);
     setNodeDescription(currentNode.description || '');
-    setAttachments([]);
+    setAttachmentsByField({});
     return await acquireLock();
   };
 
@@ -122,8 +122,10 @@ export default function NodeDetailPage() {
           expectedRowVersion: currentNode.rowVersion,
           payloadDelta: dynamicNodePayload,
         });
-        for (const file of attachments) {
-          await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        for (const field of dynamicNodeFields.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+          }
         }
         await releaseLock();
         setSuccessMsg('Nodo aggiornato con successo.');
@@ -216,16 +218,16 @@ export default function NodeDetailPage() {
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="mb-1 block text-xs font-medium text-slate-700">Nuovi allegati</label>
-              <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
-            </div>
             <DynamicFieldsForm
               fields={dynamicNodeFields}
               payload={dynamicNodePayload}
               setPayload={setDynamicNodePayload}
               title="Campi dinamici"
             />
+            {isMyLock && dynamicNodeFields.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
+              const kind = field.dataType.toLowerCase() as 'file' | 'image';
+              return <div key={field.fieldKey} className="mt-3 space-y-2"><label className="block text-xs font-medium text-slate-700">{field.label ?? field.fieldKey}</label><AttachmentInput kind={kind} maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachmentsByField[field.fieldKey] ?? []} onChange={(files) => setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} /></div>;
+            })}
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono uppercase text-slate-500">
@@ -303,10 +305,7 @@ export default function NodeDetailPage() {
         )}
       </Panel>
 
-      <Panel className="space-y-3">
-        <SectionHeader title="Allegati" description="Documenti e immagini collegati al nodo." />
-        <AttachmentList resourceType="node" resourceId={nodeId} canDelete={isMyLock} />
-      </Panel>
+      {dynamicNodeFields.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => <Panel key={field.fieldKey} className="space-y-3"><SectionHeader title={field.label ?? field.fieldKey} description={field.dataType.toLowerCase() === 'image' ? 'Immagini collegate al campo.' : 'Documenti collegati al campo.'} /><AttachmentList resourceType="node" resourceId={nodeId} fieldKey={field.fieldKey} kind={field.dataType.toLowerCase() as 'file' | 'image'} canDelete={isMyLock} /></Panel>)}
 
       <Panel className="space-y-4">
         <SectionHeader

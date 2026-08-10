@@ -32,6 +32,7 @@ export class StorageTableManagementPostgres implements StorageTableManagementPor
     isUnique: boolean,
     defaultValueText: string | null
   ): Promise<void> {
+    if (['file', 'image'].includes(dataType.toLowerCase())) return;
     const escapedTable = this.escapeIdentifier(storageTable);
     const escapedColumn = this.escapeIdentifier(columnName);
     const pgType = this.mapDataTypeToPgType(dataType, columnName, storageTable);

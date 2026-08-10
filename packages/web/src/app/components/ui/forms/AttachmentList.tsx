@@ -6,16 +6,18 @@ import { deleteResourceAttachment, listResourceAttachments, type AttachmentItem 
 export interface AttachmentListProps {
   resourceType: 'node' | 'entity';
   resourceId: string;
+  fieldKey: string;
+  kind: 'file' | 'image';
   canDelete?: boolean;
 }
 
-export function AttachmentList({ resourceType, resourceId, canDelete = false }: AttachmentListProps) {
+export function AttachmentList({ resourceType, resourceId, fieldKey, kind, canDelete = false }: AttachmentListProps) {
   const [items, setItems] = useState<AttachmentItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
-    void listResourceAttachments(resourceType, resourceId).then(setItems).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Impossibile caricare gli allegati.'));
-  }, [resourceId, resourceType]);
+    void listResourceAttachments(resourceType, resourceId, fieldKey, kind).then(setItems).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Impossibile caricare gli allegati.'));
+  }, [fieldKey, kind, resourceId, resourceType]);
   useEffect(() => { refresh(); }, [refresh]);
 
   if (error) return <p className="text-xs text-rose-400">{error}</p>;

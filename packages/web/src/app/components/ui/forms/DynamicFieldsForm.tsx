@@ -48,6 +48,7 @@ export function DynamicFieldsForm({
       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}{title === 'Campi dinamici' && ` (${fields.length})`}</h3>
       {fields.map((field) => {
         const dataType = field.dataType.toLowerCase();
+        if (dataType === 'file' || dataType === 'image') return null;
         const relationTarget: ResourceTypeReference | null = field.relationTargetDomain && field.relationTargetTypeKey
           ? { resourceType: field.relationTargetDomain, typeKey: field.relationTargetTypeKey }
           : null;

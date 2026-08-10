@@ -62,7 +62,7 @@ export class FieldEncryptionService {
   private async modes(resourceType: ResourceType, typeId: string): Promise<Map<string, Mode>> {
     const table = resourceType === 'node' ? 'node_type_fields' : 'entity_type_fields';
     const column = resourceType === 'node' ? 'node_type_id' : 'entity_type_id';
-    const result = await this.executor.query<{ field_key: string; encryption_mode: Mode }>(`SELECT field_key, encryption_mode FROM ${table} WHERE ${column} = $1`, [typeId]);
+    const result = await this.executor.query<{ field_key: string; encryption_mode: Mode }>(`SELECT field_key, encryption_mode FROM ${table} WHERE ${column} = $1 AND data_type NOT IN ('file', 'image')`, [typeId]);
     return new Map(result.rows.map((row) => [row.field_key, row.encryption_mode]));
   }
 

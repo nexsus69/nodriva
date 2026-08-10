@@ -31,7 +31,7 @@ export default function CreateChildNodePage() {
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<readonly File[]>([]);
+  const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
     resourceId: parentNodeId,
@@ -53,7 +53,7 @@ export default function CreateChildNodePage() {
         const fields = definition?.fields ?? [];
         setFieldsDef(fields);
         const initial: Record<string, unknown> = {};
-        for (const field of fields) initial[field.fieldKey] = field.dataType.toLowerCase() === 'boolean' ? false : '';
+        for (const field of fields.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) initial[field.fieldKey] = field.dataType.toLowerCase() === 'boolean' ? false : '';
         setPayload(initial);
       });
     }, 0);
@@ -67,7 +67,7 @@ export default function CreateChildNodePage() {
     startTransition(async () => {
       try {
         const processedPayload = { ...payload };
-        for (const field of fieldsDef) {
+        for (const field of fieldsDef.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           if (NUMBER_TYPES.has(field.dataType.toLowerCase()) && processedPayload[field.fieldKey] !== '') {
             const numberValue = Number(processedPayload[field.fieldKey]);
             if (!Number.isNaN(numberValue)) processedPayload[field.fieldKey] = numberValue;
@@ -80,8 +80,10 @@ export default function CreateChildNodePage() {
           description: nodeDesc,
           payload: processedPayload,
         });
-        for (const file of attachments) {
-          await uploadResourceAttachment({ resourceType: 'node', resourceId: created.id, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        for (const field of fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            await uploadResourceAttachment({ resourceType: 'node', resourceId: created.id, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+          }
         }
 
         const listKey = ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId });
@@ -169,10 +171,10 @@ export default function CreateChildNodePage() {
             onAddEnumOption={setEnumField}
           />
 
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-slate-300">Allegati</label>
-            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
-          </div>
+          {fieldsDef.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
+            const kind = field.dataType.toLowerCase() as 'file' | 'image';
+            return <div key={field.fieldKey} className="space-y-2"><label className="block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey}</label><AttachmentInput kind={kind} maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachmentsByField[field.fieldKey] ?? []} onChange={(files) => setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} /></div>;
+          })}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link

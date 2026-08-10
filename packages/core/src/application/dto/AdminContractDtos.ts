@@ -17,7 +17,9 @@ export type FieldDataType =
   | 'json'
   | 'enum'
   | 'relation'
-  | 'array';
+  | 'array'
+  | 'file'
+  | 'image';
 export type RelationTargetDomain = 'node' | 'entity';
 export type EnumMode = 'static' | 'managed';
 export type FieldEncryptionMode = 'inherit' | 'plaintext' | 'encrypted';
@@ -138,7 +140,7 @@ export const CreateFieldCommandSchema = z.object({
   columnName: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_]*$/, 'Usa solo snake_case minuscolo, ad esempio customer_id.'),
   dataType: z.enum([
     'string', 'text', 'integer', 'number', 'decimal', 'boolean',
-    'date', 'datetime', 'uuid', 'json', 'enum', 'relation', 'array',
+    'date', 'datetime', 'uuid', 'json', 'enum', 'relation', 'array', 'file', 'image',
   ]),
   relationTargetDomain: z.enum(['node', 'entity']).optional(),
   relationTargetTypeKey: z.string().min(2).max(64).regex(/^[a-z][a-z0-9_-]*$/, 'Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.').optional(),

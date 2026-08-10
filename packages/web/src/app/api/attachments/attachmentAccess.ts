@@ -27,14 +27,25 @@ export async function assertAttachmentAccess(actorUserId: string, resourceType: 
     const node = await nodeRepository.findById(resourceId);
     if (!node) return null;
     await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('node', access), node.id);
-    return { scopeNodeId: node.id, nodeTypeId: node.nodeTypeId };
+    return { scopeNodeId: node.id, nodeTypeId: node.nodeTypeId, resourceTypeId: node.nodeTypeId };
   }
   const entity = await entityRepository.findById(resourceId);
   if (!entity) return null;
   await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('entity', access), entity.parentNodeId);
   const parentNode = await nodeRepository.findById(entity.parentNodeId);
   if (!parentNode) return null;
-  return { scopeNodeId: entity.parentNodeId, nodeTypeId: parentNode.nodeTypeId };
+  return { scopeNodeId: entity.parentNodeId, nodeTypeId: parentNode.nodeTypeId, resourceTypeId: entity.entityTypeId };
+}
+
+export async function assertAttachmentField(resourceType: TypeDomain, typeId: string, fieldKey: string, kind: 'file' | 'image'): Promise<boolean> {
+  const { pgExecutor } = await import('../../../server/db');
+  const table = resourceType === 'node' ? 'node_type_fields' : 'entity_type_fields';
+  const typeColumn = resourceType === 'node' ? 'node_type_id' : 'entity_type_id';
+  const result = await pgExecutor.query(
+    `SELECT 1 FROM ${table} WHERE ${typeColumn} = $1 AND field_key = $2 AND data_type = $3`,
+    [typeId, fieldKey, kind],
+  );
+  return result.rows.length > 0;
 }
 
 export function authenticatedUser(request: { auth?: { userId?: string } | null }): string | null {

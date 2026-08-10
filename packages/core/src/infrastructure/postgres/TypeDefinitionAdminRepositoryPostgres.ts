@@ -528,6 +528,16 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
 
   async hasValuesInField(domain: TypeDomain, typeId: string, fieldKey: string, columnName: string): Promise<boolean> {
     if (domain === 'node') {
+      const attachmentResult = await this.executor.query<{ data_type: string }>(
+        'SELECT data_type FROM node_type_fields WHERE node_type_id = $1 AND field_key = $2', [typeId, fieldKey]
+      );
+      if (['file', 'image'].includes(attachmentResult.rows[0]?.data_type?.toLowerCase() ?? '')) {
+        const result = await this.executor.query(
+          `SELECT 1 FROM resource_attachments ra JOIN nodes n ON n.id = ra.resource_id
+           WHERE ra.resource_type = 'node' AND ra.field_key = $2 AND n.node_type_id = $1 LIMIT 1`, [typeId, fieldKey]
+        );
+        return result.rows.length > 0;
+      }
       const result = await this.executor.query(
         `SELECT 1 FROM nodes
          WHERE node_type_id = $1 AND deleted_at IS NULL
@@ -544,6 +554,17 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     );
     const storageTable = typeResult.rows[0]?.storage_table;
     if (!storageTable) return false;
+
+    const attachmentResult = await this.executor.query<{ data_type: string }>(
+      'SELECT data_type FROM entity_type_fields WHERE entity_type_id = $1 AND field_key = $2', [typeId, fieldKey]
+    );
+    if (['file', 'image'].includes(attachmentResult.rows[0]?.data_type?.toLowerCase() ?? '')) {
+      const result = await this.executor.query(
+        `SELECT 1 FROM resource_attachments ra JOIN entities e ON e.id = ra.resource_id
+         WHERE ra.resource_type = 'entity' AND ra.field_key = $2 AND e.entity_type_id = $1 LIMIT 1`, [typeId, fieldKey]
+      );
+      return result.rows.length > 0;
+    }
 
     const escapedTable = this.escapeIdentifier(storageTable);
     const escapedColumn = this.escapeIdentifier(columnName);

@@ -34,7 +34,7 @@ export default function CreateEntityPage() {
   const [fieldsDef, setFieldsDef] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<readonly File[]>([]);
+  const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
   const [relationField, setRelationField] = useState<DynamicField | null>(null);
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [relationFieldsDef, setRelationFieldsDef] = useState<DynamicField[]>([]);
@@ -58,7 +58,7 @@ export default function CreateEntityPage() {
         if (def && def.fields) {
           setFieldsDef(def.fields);
           const initial: Record<string, unknown> = {};
-          for (const f of def.fields) {
+          for (const f of def.fields.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
             initial[f.fieldKey] = f.dataType.toLowerCase() === 'boolean' ? false : '';
           }
           setPayload(initial);
@@ -76,7 +76,7 @@ export default function CreateEntityPage() {
         const fields = definition?.fields ?? [];
         setRelationFieldsDef(fields);
         const initial: Record<string, unknown> = {};
-        for (const field of fields) {
+        for (const field of fields.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           initial[field.fieldKey] = field.dataType.toLowerCase() === 'boolean' ? false : '';
         }
         setRelationPayload(initial);
@@ -92,7 +92,7 @@ export default function CreateEntityPage() {
     startTransition(async () => {
       try {
         const processedPayload: Record<string, unknown> = {};
-        for (const field of fieldsDef) {
+        for (const field of fieldsDef.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           const val = payload[field.fieldKey];
           const dt = (field.dataType || '').toLowerCase();
 
@@ -118,8 +118,10 @@ export default function CreateEntityPage() {
           description: entityDesc,
           payload: processedPayload,
         });
-        for (const file of attachments) {
-          await uploadResourceAttachment({ resourceType: 'entity', resourceId: created.id, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        for (const field of fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            await uploadResourceAttachment({ resourceType: 'entity', resourceId: created.id, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+          }
         }
 
         // Invalidate Node Entity Collection Semantic View
@@ -219,10 +221,10 @@ export default function CreateEntityPage() {
             title={`Campi Dinamici (${fieldsDef.length})`}
           />
 
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-slate-300">Allegati</label>
-            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
-          </div>
+          {fieldsDef.filter((field) => ['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
+            const kind = field.dataType.toLowerCase() as 'file' | 'image';
+            return <div key={field.fieldKey} className="space-y-2"><label className="block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey}</label><AttachmentInput kind={kind} maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachmentsByField[field.fieldKey] ?? []} onChange={(files) => setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} /></div>;
+          })}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link
@@ -263,7 +265,7 @@ export default function CreateEntityPage() {
                   try {
                     if (!relationField?.relationTargetTypeKey) return;
                     const processedRelationPayload = { ...relationPayload };
-                    for (const field of relationFieldsDef) {
+                    for (const field of relationFieldsDef.filter((candidate) => !['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
                       if (NUMBER_TYPES.has(field.dataType.toLowerCase()) && processedRelationPayload[field.fieldKey] !== '') {
                         const numberValue = Number(processedRelationPayload[field.fieldKey]);
                         if (!Number.isNaN(numberValue)) processedRelationPayload[field.fieldKey] = numberValue;
