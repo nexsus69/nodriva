@@ -60,6 +60,7 @@ import { LocalAttachmentStorage } from './LocalAttachmentStorage';
 import type { AttachmentScannerPort } from '@dashboard/core';
 import { AttachmentRateLimiter } from './AttachmentRateLimiter';
 import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
+import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecurityPolicyResolver';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
@@ -177,6 +178,12 @@ export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecu
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 export const attachmentStorage = new LocalAttachmentStorage();
 export const attachmentRateLimiter = new AttachmentRateLimiter();
+export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicyResolver(
+  pgExecutor,
+  configService,
+  nodeRepository,
+  entityRepository,
+);
 export const attachmentScanner: AttachmentScannerPort | undefined = process.env.CLAMAV_HOST
   ? new ClamAvAttachmentScanner()
   : undefined;

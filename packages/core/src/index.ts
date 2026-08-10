@@ -42,6 +42,7 @@ export type { AttachmentSecurityPolicy } from './application/dto/AttachmentSecur
 export type { ResourceAttachmentKind, ResourceAttachmentReference, ResourceAttachmentConstraints, ResourceAttachmentSelection } from './application/dto/ResourceAttachment.js';
 export type { AttachmentStoragePort, StoredAttachment } from './application/ports/AttachmentStoragePort.js';
 export type { AttachmentScannerPort, AttachmentScanResult } from './application/ports/AttachmentScannerPort.js';
+export type { ResourceSecurityPolicyResolver, ResourceSecurityPolicy, SecuredResourceType } from './application/ports/ResourceSecurityPolicyResolver.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';

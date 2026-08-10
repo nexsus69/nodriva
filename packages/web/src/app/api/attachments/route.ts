@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
 import { authenticatedUser, assertAttachmentAccess, parseAttachmentTarget } from './attachmentAccess';
-import { resolveAttachmentEncryption } from '../../../server/AttachmentEncryptionPolicy';
 
 export const GET = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
@@ -49,19 +48,18 @@ export const POST = auth(async (request) => {
   try {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
-    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, configService, pgExecutor } = await import('../../../server/db');
+    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, pgExecutor, resourceSecurityPolicyResolver } = await import('../../../server/db');
     if (!attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour)) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });
     }
     const content = new Uint8Array(await file.arrayBuffer());
     const detected = detectAttachmentType(file.name, file.type || 'application/octet-stream', content, target.kind);
     if (!detected) return NextResponse.json({ error: 'ATTACHMENT_CONTENT_TYPE_MISMATCH' }, { status: 415 });
-    const antivirusEnabled = await configService.get<boolean>('attachments.antivirusEnabled');
-    const antivirusRequired = antivirusEnabled || process.env.ATTACHMENTS_REQUIRE_SCAN === 'true';
-    if (antivirusRequired && !attachmentScanner) {
+    const securityPolicy = await resourceSecurityPolicyResolver.resolve(target.resourceType, target.resourceId);
+    if (securityPolicy.antivirusEnabled && !attachmentScanner) {
       return NextResponse.json({ error: 'ATTACHMENT_SCANNER_UNAVAILABLE' }, { status: 503 });
     }
-    if (antivirusRequired && attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
+    if (securityPolicy.antivirusEnabled && attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
       return NextResponse.json({ error: 'ATTACHMENT_INFECTED' }, { status: 422 });
     }
     const quota = await pgExecutor.query<{ total: string }>(
@@ -74,9 +72,7 @@ export const POST = auth(async (request) => {
     const attachmentId = randomUUID();
     const safeName = file.name.replace(/[\r\n"\\/]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-255) || 'upload';
     const storageKey = `${target.resourceType}/${target.resourceId}/${attachmentId}-${safeName}`;
-    const encryptionEnabled = await configService.get<boolean>('attachments.encryptionEnabled');
-    const shouldEncrypt = await resolveAttachmentEncryption(pgExecutor, access.nodeTypeId, encryptionEnabled);
-    const stored = await attachmentStorage.put(storageKey, content, { encrypt: shouldEncrypt });
+    const stored = await attachmentStorage.put(storageKey, content, { encrypt: securityPolicy.encryptionEnabled });
     try {
       await pgExecutor.query(
       `INSERT INTO resource_attachments
