@@ -57,6 +57,8 @@ import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
 import { LocalAttachmentStorage } from './LocalAttachmentStorage';
+import type { AttachmentScannerPort } from '@dashboard/core';
+import { AttachmentRateLimiter } from './AttachmentRateLimiter';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
@@ -173,6 +175,8 @@ export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, sch
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 export const attachmentStorage = new LocalAttachmentStorage();
+export const attachmentRateLimiter = new AttachmentRateLimiter();
+export const attachmentScanner: AttachmentScannerPort | undefined = undefined;
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
 export const accountActionDelivery = process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL

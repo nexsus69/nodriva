@@ -36,8 +36,23 @@ presenti nel sistema.
 La primitiva `ResourceAttachmentReference` conserva i metadati dell’allegato:
 risorsa, campo, nome, MIME type, dimensione, chiave di storage, checksum e
 autore. Il file dovrà essere caricato in uno storage dedicato e il database
-dovrà conservare solo questi metadati. Il provider di storage e la tabella
-degli allegati saranno introdotti insieme al vertical slice di persistenza.
+dovrà conservare solo questi metadati. Il provider locale salva i contenuti
+fuori dal database e applica un checksum SHA-256. In produzione va impostato
+`ATTACHMENTS_ENCRYPTION_KEY` con una chiave AES-256 casuale in formato
+esadecimale; `ATTACHMENTS_REQUIRE_ENCRYPTION=true` fa fallire l’avvio se la
+chiave manca. La chiave non va committata nel repository.
+
+L’upload verifica estensione, MIME dichiarato e magic bytes, rifiuta SVG/HTML
+e altri contenuti eseguibili, applica limiti per file, risorsa e utente, e non
+include mai il contenuto nell’audit. Per una modalità antivirus obbligatoria
+impostare `ATTACHMENTS_REQUIRE_SCAN=true` e collegare un’implementazione di
+`AttachmentScannerPort`; senza scanner configurato l’upload viene rifiutato.
+Il rate limit integrato è per-processo: con più istanze va sostituito con un
+limitatore condiviso.
+
+I download sono autorizzati nuovamente a ogni richiesta; solo immagini raster
+validate possono essere visualizzate inline. Gli altri file vengono scaricati
+come `application/octet-stream` con `nosniff`, CSP, CORP e cache privata.
 
 ## Separazione delle responsabilità
 

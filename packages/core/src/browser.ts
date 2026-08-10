@@ -23,6 +23,8 @@ export type {
   ResourceActionDefinition,
 } from './application/dto/ResourceViews.js';
 export { validateAttachmentSelection } from './application/dto/ResourceAttachment.js';
+export { defaultAttachmentSecurityPolicy, detectAttachmentType } from './application/dto/AttachmentSecurityPolicy.js';
+export type { AttachmentSecurityPolicy } from './application/dto/AttachmentSecurityPolicy.js';
 export type {
   ResourceAttachmentKind,
   ResourceAttachmentReference,

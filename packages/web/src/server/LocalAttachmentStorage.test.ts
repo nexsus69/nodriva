@@ -27,4 +27,24 @@ describe('LocalAttachmentStorage', () => {
     const storage = new LocalAttachmentStorage('/tmp/dashboard-attachment-test');
     await expect(storage.put('../outside.txt', new Uint8Array([1]))).rejects.toThrow('Invalid attachment storage key');
   });
+
+  it('encrypts contents at rest and decrypts them with the same key', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
+    try {
+      const storage = new LocalAttachmentStorage(root, '11'.repeat(32));
+      const content = new TextEncoder().encode('secret content');
+      await storage.put('secure/file.bin', content);
+      const { readFile } = await import('node:fs/promises');
+      expect(await readFile(path.join(root, 'secure/file.bin'), 'utf8')).not.toContain('secret content');
+      await expect(storage.get('secure/file.bin')).resolves.toEqual(content);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects invalid encryption keys', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
+    expect(() => new LocalAttachmentStorage(root, 'bad-key')).toThrow('32-byte hex key');
+    await rm(root, { recursive: true, force: true });
+  });
 });

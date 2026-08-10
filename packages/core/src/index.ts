@@ -35,8 +35,11 @@ export type { ResourceRelationDefinition, ResourceRelationKind, ResourceRelation
 export { resourceViewDefinition, resourceActionDefinition } from './application/dto/ResourceViews.js';
 export type { ResourceViewColumn, ResourceViewColumnKind, ResourceFilterDefinition, ResourceFilterKind, ResourceViewDefinition, ResourceActionDefinition } from './application/dto/ResourceViews.js';
 export { validateAttachmentSelection } from './application/dto/ResourceAttachment.js';
+export { defaultAttachmentSecurityPolicy, detectAttachmentType } from './application/dto/AttachmentSecurityPolicy.js';
+export type { AttachmentSecurityPolicy } from './application/dto/AttachmentSecurityPolicy.js';
 export type { ResourceAttachmentKind, ResourceAttachmentReference, ResourceAttachmentConstraints, ResourceAttachmentSelection } from './application/dto/ResourceAttachment.js';
 export type { AttachmentStoragePort, StoredAttachment } from './application/ports/AttachmentStoragePort.js';
+export type { AttachmentScannerPort, AttachmentScanResult } from './application/ports/AttachmentScannerPort.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';
