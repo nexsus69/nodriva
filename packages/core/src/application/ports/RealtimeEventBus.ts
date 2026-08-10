@@ -1,11 +1,12 @@
-export type RealtimeResourceType = 'node' | 'entity';
+import type { ResourceKind } from '../../domain/models/ResourceReference.js';
+import type { ResourceReference } from '../../domain/models/ResourceReference.js';
+
+export type RealtimeResourceType = ResourceKind;
 export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved';
 
-export interface RealtimeDataChangedEvent {
+export interface RealtimeDataChangedEvent extends ResourceReference {
   eventId: string;
   occurredAt: string;
-  resourceType: RealtimeResourceType;
-  resourceId: string;
   changeType: RealtimeChangeType;
   actorUserId: string;
   /** Node scopes that should receive this event. Resolved by the composition root. */

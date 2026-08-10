@@ -1,3 +1,4 @@
+import type { ResourceReference } from '@dashboard/core';
 import { AppError } from '@dashboard/core';
 import { NextResponse } from 'next/server';
 import { auth } from '../../../auth';
@@ -5,10 +6,7 @@ import { validateLockResource } from '../../actions/lockResourceValidation';
 
 const MAX_ACTIVE_LOCKS = 4;
 
-interface ActivityLockPayload {
-  resourceType: 'node' | 'entity';
-  resourceId: string;
-}
+type ActivityLockPayload = ResourceReference;
 
 function parseActiveLocks(value: unknown): ActivityLockPayload[] | null {
   if (!Array.isArray(value) || value.length > MAX_ACTIVE_LOCKS) return null;

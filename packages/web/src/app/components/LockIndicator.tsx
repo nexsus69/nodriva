@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { useSession } from 'next-auth/react';
+import type { ResourceReference } from '@dashboard/core';
 import { AppCache } from '../cache/GlobalCacheClient';
 
-interface LockIndicatorProps {
-  resourceType: 'node' | 'entity';
-  resourceId: string;
+interface LockIndicatorProps extends ResourceReference {
   className?: string;
 }
 

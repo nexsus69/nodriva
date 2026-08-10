@@ -207,6 +207,7 @@ export const lockService = new LockService(
   pusherEventBus,
   idGenerator,
   configService,
+  auditPort,
 );
 
 // Istanziamo i Service Layer concreti pronti per l'uso

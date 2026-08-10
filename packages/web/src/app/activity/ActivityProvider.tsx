@@ -10,14 +10,12 @@ import {
   useState,
 } from 'react';
 import { useSession } from 'next-auth/react';
+import type { ResourceReference } from '@dashboard/core';
 import { runtimeTiming } from '../../config/runtimeTiming';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { activityDebugStore } from './ActivityDebugStore';
 
-export interface ActivityLockRef {
-  resourceType: 'node' | 'entity';
-  resourceId: string;
-}
+export type ActivityLockRef = ResourceReference;
 
 type SessionCheckResult = 'valid' | 'expired' | 'unreachable';
 

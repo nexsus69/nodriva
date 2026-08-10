@@ -6,15 +6,11 @@ import {
   acquireLockAction,
   releaseLockAction,
 } from '../actions/lockActions';
+import type { ResourceReference } from '@dashboard/core';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { useHumanActivity } from '../activity/ActivityProvider';
 
-type LockResourceType = 'node' | 'entity';
-
-interface UseLockProps {
-  resourceType: LockResourceType;
-  resourceId: string;
-}
+type UseLockProps = ResourceReference;
 
 export function useLock({ resourceType, resourceId }: UseLockProps) {
   const { data: session } = useSession();

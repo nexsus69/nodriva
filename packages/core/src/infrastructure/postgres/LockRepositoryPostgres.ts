@@ -2,6 +2,7 @@ import { LockRepository } from '../../application/ports/LockRepository.js';
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockNotFoundError, LockForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { PgExecutor } from './PgExecutor.js';
+import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 
 interface LockRow {
   id: string;
@@ -47,7 +48,7 @@ export class LockRepositoryPostgres implements LockRepository {
     }
   }
 
-  async refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, newExpiresAt: Date): Promise<void> {
+  async refresh(resource: ResourceReference, userId: string, sessionId: string, newExpiresAt: Date): Promise<void> {
     const query = `
       UPDATE locks
       SET expires_at = $1
@@ -55,37 +56,37 @@ export class LockRepositoryPostgres implements LockRepository {
       RETURNING id
     `;
     
-    const result = await this.executor.query(query, [newExpiresAt, resourceType, resourceId, userId, sessionId]);
+    const result = await this.executor.query(query, [newExpiresAt, resource.resourceType, resource.resourceId, userId, sessionId]);
     if (result.rowCount === 0) {
       // Se non aggiorna, controlliamo il motivo per lanciare l'errore specifico
       const checkQuery = `SELECT user_id, session_id, expires_at FROM locks WHERE resource_type = $1 AND resource_id = $2`;
-      const checkRes = await this.executor.query<{user_id: string; session_id: string; expires_at: Date}>(checkQuery, [resourceType, resourceId]);
+      const checkRes = await this.executor.query<{user_id: string; session_id: string; expires_at: Date}>(checkQuery, [resource.resourceType, resource.resourceId]);
       
       const row = checkRes.rows[0];
       if (!checkRes.rowCount || !row || row.expires_at < new Date()) {
-        throw new LockNotFoundError(resourceType, resourceId);
+        throw new LockNotFoundError(resource.resourceType, resource.resourceId);
       } else {
-        throw new LockConflictError(resourceType, resourceId);
+        throw new LockConflictError(resource.resourceType, resource.resourceId);
       }
     }
   }
 
-  async release(resourceType: string, resourceId: string, userId: string, sessionId: string): Promise<void> {
+  async release(resource: ResourceReference, userId: string, sessionId: string): Promise<void> {
     const query = `
       DELETE FROM locks
       WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3 AND session_id = $4
       RETURNING id
     `;
     
-    const result = await this.executor.query(query, [resourceType, resourceId, userId, sessionId]);
+    const result = await this.executor.query(query, [resource.resourceType, resource.resourceId, userId, sessionId]);
     if (result.rowCount === 0) {
       // Controlliamo perché non ha cancellato
       const checkQuery = `SELECT user_id, session_id FROM locks WHERE resource_type = $1 AND resource_id = $2`;
-      const checkRes = await this.executor.query<{user_id: string; session_id: string}>(checkQuery, [resourceType, resourceId]);
+      const checkRes = await this.executor.query<{user_id: string; session_id: string}>(checkQuery, [resource.resourceType, resource.resourceId]);
       
       const row = checkRes.rows[0];
       if ((checkRes.rowCount ?? 0) > 0 && row && (row.user_id !== userId || row.session_id !== sessionId)) {
-        throw new LockForbiddenError(resourceType, resourceId);
+        throw new LockForbiddenError(resource.resourceType, resource.resourceId);
       }
       // Se non esiste, non facciamo nulla (idempotenza).
     }
@@ -101,21 +102,21 @@ export class LockRepositoryPostgres implements LockRepository {
     return result.rows.map((row) => this.toLock(row));
   }
 
-  async forceRelease(resourceType: string, resourceId: string): Promise<void> {
+  async forceRelease(resource: ResourceReference): Promise<void> {
     const query = `
       DELETE FROM locks
       WHERE resource_type = $1 AND resource_id = $2
     `;
-    await this.executor.query(query, [resourceType, resourceId]);
+    await this.executor.query(query, [resource.resourceType, resource.resourceId]);
   }
 
-  async getLock(resourceType: string, resourceId: string): Promise<Lock | null> {
+  async getLock(resource: ResourceReference): Promise<Lock | null> {
     const query = `
       SELECT id, resource_type, resource_id, user_id, session_id, acquired_at, expires_at
       FROM locks
       WHERE resource_type = $1 AND resource_id = $2
     `;
-    const result = await this.executor.query<LockRow>(query, [resourceType, resourceId]);
+    const result = await this.executor.query<LockRow>(query, [resource.resourceType, resource.resourceId]);
     
     if (!result.rowCount || result.rows.length === 0) return null;
     
@@ -125,8 +126,7 @@ export class LockRepositoryPostgres implements LockRepository {
   private toLock(row: LockRow): Lock {
     return new Lock(
       row.id,
-      row.resource_type,
-      row.resource_id,
+      { resourceType: row.resource_type as 'node' | 'entity', resourceId: row.resource_id },
       row.user_id,
       row.session_id,
       row.acquired_at,

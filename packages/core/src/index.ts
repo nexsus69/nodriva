@@ -3,6 +3,8 @@ export { PasswordHasher } from './domain/policies/PasswordHasher.js';
 export { Node } from './domain/models/Node.js';
 export { Entity } from './domain/models/Entity.js';
 export { Lock } from './domain/models/Lock.js';
+export { resourceReference } from './domain/models/ResourceReference.js';
+export type { ResourceKind, ResourceReference } from './domain/models/ResourceReference.js';
 export {
   ConfigurationRegistry,
   defaultConfigurationRegistry,

@@ -5,6 +5,7 @@ import {
 } from '../../application/ports/RealtimeEventBus.js';
 import { Lock } from '../../domain/models/Lock.js';
 import type { LockEventScope } from '../../application/ports/LockEventBus.js';
+import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 import { PusherTransport, type PusherTransportPort, type PusherTransportConfig } from './PusherTransport.js';
 
 export interface PusherConfig extends PusherTransportConfig {
@@ -53,23 +54,23 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
       }, () => this.resolveLockChannelNames!(lock.resourceType, lock.resourceId, scope?.scopeNodeId));
   }
 
-  async publishLockReleased(resourceType: string, resourceId: string, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
+  async publishLockReleased(resource: ResourceReference, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
     if (!this.transport.enabled || !this.resolveLockChannelNames) return;
     await this.publish('lock:released', {
-        resourceType,
-        resourceId,
+        resourceType: resource.resourceType,
+        resourceId: resource.resourceId,
         userId,
         sessionId
-      }, () => this.resolveLockChannelNames!(resourceType, resourceId, scope?.scopeNodeId));
+      }, () => this.resolveLockChannelNames!(resource.resourceType, resource.resourceId, scope?.scopeNodeId));
   }
 
-  async publishLockForceReleased(resourceType: string, resourceId: string, scope?: LockEventScope): Promise<void> {
+  async publishLockForceReleased(resource: ResourceReference, scope?: LockEventScope): Promise<void> {
     if (!this.transport.enabled || !this.resolveLockChannelNames) return;
     await this.publish('lock:force-released', {
-        resourceType,
-        resourceId,
+        resourceType: resource.resourceType,
+        resourceId: resource.resourceId,
         byAdmin: true
-      }, () => this.resolveLockChannelNames!(resourceType, resourceId, scope?.scopeNodeId));
+      }, () => this.resolveLockChannelNames!(resource.resourceType, resource.resourceId, scope?.scopeNodeId));
   }
 
   private async publish(eventName: string, payload: unknown, resolveChannels: () => Promise<string[]>): Promise<void> {

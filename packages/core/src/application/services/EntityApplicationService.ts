@@ -99,7 +99,7 @@ export class EntityApplicationService {
       // Concurrency locking check sul parent node
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock('node', parentNode.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+        await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: parentNode.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       // 6. Validazione del payload contro lo schema Zod dinamico
@@ -203,7 +203,7 @@ export class EntityApplicationService {
       // 5. Editing an existing entity requires the lock on that entity.
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock('entity', entity.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+        await this.lockService.requireOwnedLock({ resourceType: 'entity', resourceId: entity.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       let updatedPayload = entity.payload;
@@ -309,7 +309,7 @@ export class EntityApplicationService {
       // 4. Locking
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock('entity', entity.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+        await this.lockService.requireOwnedLock({ resourceType: 'entity', resourceId: entity.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       // 5. Persistenza (Soft Delete)

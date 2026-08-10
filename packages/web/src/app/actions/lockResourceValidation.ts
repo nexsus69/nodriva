@@ -1,4 +1,6 @@
-export type LockResourceType = 'node' | 'entity';
+import type { ResourceKind } from '@dashboard/core';
+
+export type LockResourceType = ResourceKind;
 
 // PostgreSQL accepts UUID values independently of their RFC version/variant
 // bits. Seed data intentionally uses deterministic UUID-shaped identifiers

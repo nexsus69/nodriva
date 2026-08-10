@@ -5,6 +5,8 @@ import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { LockExpiredError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
 import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 
 export class LockService {
   constructor(
@@ -12,25 +14,42 @@ export class LockService {
     private readonly lockEventBus: LockEventBus,
     private readonly idGenerator: IdGeneratorPort,
     private readonly timing: SessionTimingPolicyPort | number,
+    private readonly auditPort?: AuditPort,
   ) {}
 
   /**
    * Acquires a lock on a resource for a user.
    */
-  async lock(resourceType: string, resourceId: string, userId: string, sessionId: string, ttlSeconds?: number, scope?: LockEventScope): Promise<Lock> {
+  async lock(resource: ResourceReference, userId: string, sessionId: string, ttlSeconds?: number, scope?: LockEventScope): Promise<Lock> {
     const effectiveTtlSeconds = ttlSeconds ?? await this.getLockTtlSeconds();
     const expiresAt = new Date(Date.now() + effectiveTtlSeconds * 1000);
     const lock = new Lock(
       this.idGenerator.generate(),
-      resourceType,
-      resourceId,
+      resource,
       userId,
       sessionId,
       new Date(),
       expiresAt
     );
 
-    await this.lockRepository.acquire(lock);
+    try {
+      await this.lockRepository.acquire(lock);
+    } catch (error) {
+      if (error instanceof LockConflictError) {
+        await this.recordAudit(userId, 'lock.conflict', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, null, {
+          attemptedSessionId: sessionId,
+          reason: 'active_lock',
+        });
+      }
+      throw error;
+    }
+
+    await this.recordAudit(userId, 'lock.acquire', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, null, {
+      lockId: lock.id,
+      sessionId: lock.sessionId,
+      acquiredAt: lock.acquiredAt.toISOString(),
+      expiresAt: lock.expiresAt.toISOString(),
+    });
 
     // Publish event asynchronously without failing the operation
     this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock, scope));
@@ -41,10 +60,10 @@ export class LockService {
   /**
    * Refreshes an existing lock.
    */
-  async refresh(resourceType: string, resourceId: string, userId: string, sessionId: string, extendSeconds?: number, scope?: LockEventScope): Promise<Lock> {
+  async refresh(resource: ResourceReference, userId: string, sessionId: string, extendSeconds?: number, scope?: LockEventScope): Promise<Lock> {
     const effectiveExtendSeconds = extendSeconds ?? await this.getLockTtlSeconds();
     const newExpiresAt = new Date(Date.now() + effectiveExtendSeconds * 1000);
-    return await this.refreshUntil(resourceType, resourceId, userId, sessionId, newExpiresAt, scope);
+    return await this.refreshUntil(resource, userId, sessionId, newExpiresAt, scope);
   }
 
   private async getLockTtlSeconds(): Promise<number> {
@@ -53,23 +72,24 @@ export class LockService {
   }
 
   /** Refreshes an owned lock to an externally coordinated activity deadline. */
-  async refreshUntil(resourceType: string, resourceId: string, userId: string, sessionId: string, newExpiresAt: Date, scope?: LockEventScope): Promise<Lock> {
-    await this.lockRepository.refresh(resourceType, resourceId, userId, sessionId, newExpiresAt);
+  async refreshUntil(resource: ResourceReference, userId: string, sessionId: string, newExpiresAt: Date, scope?: LockEventScope): Promise<Lock> {
+    await this.lockRepository.refresh(resource, userId, sessionId, newExpiresAt);
 
-    const lock = await this.lockRepository.getLock(resourceType, resourceId);
+    const lock = await this.lockRepository.getLock(resource);
     if (lock) {
       this.publishGracefully(() => this.lockEventBus.publishLockAcquired(lock, scope));
       return lock;
     }
-    throw new LockConflictError(resourceType, resourceId); // Fallback se sparito nel mentre
+    throw new LockConflictError(resource.resourceType, resource.resourceId); // Fallback se sparito nel mentre
   }
 
   /**
    * Releases a lock held by a specific user.
    */
-  async unlock(resourceType: string, resourceId: string, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
-    await this.lockRepository.release(resourceType, resourceId, userId, sessionId);
-    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resourceType, resourceId, userId, sessionId, scope));
+  async unlock(resource: ResourceReference, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
+    await this.lockRepository.release(resource, userId, sessionId);
+    await this.recordAudit(userId, 'lock.release', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, { sessionId }, null);
+    this.publishGracefully(() => this.lockEventBus.publishLockReleased(resource, userId, sessionId, scope));
   }
 
   /** Releases and broadcasts all locks belonging to an intentional logout. */
@@ -77,12 +97,8 @@ export class LockService {
     const released = await this.lockRepository.releaseAllForSession(sessionId);
     await Promise.all(released.map(async (lock) => {
       try {
-        await this.lockEventBus.publishLockReleased(
-        lock.resourceType,
-        lock.resourceId,
-        lock.userId,
-        lock.sessionId,
-        );
+        await this.lockEventBus.publishLockReleased(lock.resource, lock.userId, lock.sessionId);
+        await this.recordAudit(lock.userId, 'lock.release', lock.resourceType, lock.resourceId, null, { sessionId: lock.sessionId, reason: 'session_release' }, null);
       } catch (error) {
         console.error('[LockService] Failed to publish session lock release:', error);
       }
@@ -92,17 +108,18 @@ export class LockService {
   /**
    * Force releases a lock. Typically used by admins.
    */
-  async forceUnlock(resourceType: string, resourceId: string, scope?: LockEventScope): Promise<void> {
-    await this.lockRepository.forceRelease(resourceType, resourceId);
-    this.publishGracefully(() => this.lockEventBus.publishLockForceReleased(resourceType, resourceId, scope));
+  async forceUnlock(resource: ResourceReference, scope?: LockEventScope): Promise<void> {
+    await this.lockRepository.forceRelease(resource);
+    await this.recordAudit(null, 'lock.force_release', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, null, { reason: 'administrative_release' });
+    this.publishGracefully(() => this.lockEventBus.publishLockForceReleased(resource, scope));
   }
 
   /**
    * Checks if a resource is currently locked by ANYONE.
    * If it's expired, it's considered unlocked.
    */
-  async isLocked(resourceType: string, resourceId: string): Promise<{ locked: boolean; byUserId?: string; bySessionId?: string }> {
-    const lock = await this.lockRepository.getLock(resourceType, resourceId);
+  async isLocked(resource: ResourceReference): Promise<{ locked: boolean; byUserId?: string; bySessionId?: string }> {
+    const lock = await this.lockRepository.getLock(resource);
     if (lock && !lock.isExpired()) {
       return { locked: true, byUserId: lock.userId, bySessionId: lock.sessionId };
     }
@@ -113,8 +130,8 @@ export class LockService {
    * Used by other Domain Services to assert that the current user holds the lock if needed.
    * If there is an active lock belonging to someone else, throws LockConflictError.
    */
-  async requireLockIfNeeded(resourceType: string, resourceId: string, actorUserId: string, actorSessionId: string): Promise<void> {
-    const lock = await this.lockRepository.getLock(resourceType, resourceId);
+  async requireLockIfNeeded(resource: ResourceReference, actorUserId: string, actorSessionId: string): Promise<void> {
+    const lock = await this.lockRepository.getLock(resource);
     
     // Se non c'è lock o è scaduto, è modificabile (chiunque può rubarlo acquisendolo)
     if (!lock || lock.isExpired()) {
@@ -123,23 +140,23 @@ export class LockService {
 
     // Se c'è un lock attivo, DEVE essere dell'attore che sta tentando di modificare
     if (lock.userId !== actorUserId || lock.sessionId !== actorSessionId) {
-      throw new LockConflictError(resourceType, resourceId);
+      throw new LockConflictError(resource.resourceType, resource.resourceId);
     }
   }
 
   /**
    * Requires an active lock owned by the actor. Used by edit-mode mutations.
    */
-  async requireOwnedLock(resourceType: string, resourceId: string, actorUserId: string, actorSessionId: string): Promise<void> {
-    const lock = await this.lockRepository.getLock(resourceType, resourceId);
+  async requireOwnedLock(resource: ResourceReference, actorUserId: string, actorSessionId: string): Promise<void> {
+    const lock = await this.lockRepository.getLock(resource);
     if (!lock) {
-      throw new LockNotFoundError(resourceType, resourceId);
+      throw new LockNotFoundError(resource.resourceType, resource.resourceId);
     }
     if (lock.isExpired()) {
-      throw new LockExpiredError(resourceType, resourceId);
+      throw new LockExpiredError(resource.resourceType, resource.resourceId);
     }
     if (lock.userId !== actorUserId || lock.sessionId !== actorSessionId) {
-      throw new LockConflictError(resourceType, resourceId);
+      throw new LockConflictError(resource.resourceType, resource.resourceId);
     }
   }
 
@@ -150,5 +167,22 @@ export class LockService {
     action().catch(err => {
       console.error('[LockEventBus] Error publishing lock event:', err);
     });
+  }
+
+  private async recordAudit(
+    actorUserId: string | null,
+    actionKey: string,
+    resourceKind: string,
+    resourceId: string,
+    nodeId: string | null,
+    beforePayload: Record<string, unknown> | null,
+    afterPayload: Record<string, unknown> | null,
+  ): Promise<void> {
+    if (!this.auditPort) return;
+    try {
+      await this.auditPort.record(actorUserId, actionKey, resourceKind, resourceId, nodeId, beforePayload, afterPayload);
+    } catch (error) {
+      console.error('[LockService] Failed to record audit event:', error);
+    }
   }
 }

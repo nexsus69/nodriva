@@ -31,8 +31,7 @@ function createContext() {
     forceRelease: vi.fn(),
     getLock: vi.fn().mockImplementation(async () => new Lock(
       'lock-id',
-      'node',
-      RESOURCE_ID,
+      { resourceType: 'node', resourceId: RESOURCE_ID },
       USER_ID,
       SESSION_ID,
       NOW,

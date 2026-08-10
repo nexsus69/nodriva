@@ -1,6 +1,6 @@
 'use server';
 
-import { ApiErrorResponse } from '@dashboard/core';
+import { ApiErrorResponse, resourceReference } from '@dashboard/core';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
@@ -37,7 +37,7 @@ export async function acquireLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    const lock = await lockService.lock(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
+    const lock = await lockService.lock(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const, lock: { id: lock.id, sessionId: lock.sessionId, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to acquire lock:', error);
@@ -49,7 +49,7 @@ export async function refreshLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    const lock = await lockService.refresh(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
+    const lock = await lockService.refresh(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, undefined, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const, lock: { id: lock.id, expiresAt: lock.expiresAt.toISOString() } };
   } catch (error) {
     console.error('[LockActions] Failed to refresh lock:', error);
@@ -61,7 +61,7 @@ export async function releaseLockAction(resourceType: string, resourceId: string
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    await lockService.unlock(actor.resourceType, resourceId, actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId });
+    await lockService.unlock(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const };
   } catch (error) {
     console.error('[LockActions] Failed to release lock:', error);
@@ -73,7 +73,7 @@ export async function isLockedAction(resourceType: string, resourceId: string) {
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId);
     const { lockService } = await import('../../server/db');
-    return await lockService.isLocked(actor.resourceType, resourceId);
+    return await lockService.isLocked(resourceReference(actor.resourceType, resourceId));
   } catch (error) {
     console.error('[LockActions] Failed to check lock:', error);
     return { locked: false, error: mapAppErrorToApiErrorResponse(error) as ApiErrorResponse };
@@ -98,7 +98,7 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
       await accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
     }
 
-    return await lockService.isLocked(validatedType, resourceId);
+    return await lockService.isLocked(resourceReference(validatedType, resourceId));
   } catch (error) {
     console.error('[LockActions] Failed to read lock state:', error);
     return { locked: false as const, error: mapAppErrorToApiErrorResponse(error) as ApiErrorResponse };

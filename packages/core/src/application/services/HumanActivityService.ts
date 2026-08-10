@@ -3,9 +3,10 @@ import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import { TransactionPort } from '../ports/TransactionPort.js';
 import { LockService } from './LockService.js';
 import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
+import type { ResourceKind } from '../../domain/models/ResourceReference.js';
 
 export interface ActivityLockRef {
-  resourceType: string;
+  resourceType: ResourceKind;
   resourceId: string;
 }
 
@@ -57,8 +58,7 @@ export class HumanActivityService {
       for (const lockRef of activeLocks) {
         try {
           const lock = await this.locks.refreshUntil(
-            lockRef.resourceType,
-            lockRef.resourceId,
+            { resourceType: lockRef.resourceType, resourceId: lockRef.resourceId },
             userId,
             sessionId,
             lockExpiresAt,
