@@ -5,7 +5,7 @@ export interface StoredAttachment {
 }
 
 export interface AttachmentStoragePort {
-  put(storageKey: string, content: Uint8Array): Promise<StoredAttachment>;
+  put(storageKey: string, content: Uint8Array, options?: { encrypt?: boolean }): Promise<StoredAttachment>;
   get(storageKey: string): Promise<Uint8Array | null>;
   delete(storageKey: string): Promise<void>;
 }

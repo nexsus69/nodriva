@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ConfigurationRegistry, attachmentAntivirusEnabledDefinition, sessionIdleTimeoutDefinition } from '../config/ConfigurationRegistry.js';
+import { ConfigurationRegistry, attachmentAntivirusEnabledDefinition, attachmentEncryptionEnabledDefinition, sessionIdleTimeoutDefinition } from '../config/ConfigurationRegistry.js';
 import type { ConfigurationRepository } from '../ports/ConfigurationRepository.js';
 import { ConfigService } from './ConfigService.js';
 
@@ -34,5 +34,7 @@ describe('ConfigService', () => {
     expect(attachmentAntivirusEnabledDefinition.clientVisible).toBe(false);
     expect(() => attachmentAntivirusEnabledDefinition.validate(true)).not.toThrow();
     expect(() => attachmentAntivirusEnabledDefinition.validate('true' as never)).toThrow();
+    expect(attachmentEncryptionEnabledDefinition.key).toBe('attachments.encryptionEnabled');
+    expect(attachmentEncryptionEnabledDefinition.defaultValue).toBe(false);
   });
 });

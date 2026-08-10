@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
 import { authenticatedUser, assertAttachmentAccess, parseAttachmentTarget } from './attachmentAccess';
+import { resolveAttachmentEncryption } from '../../../server/AttachmentEncryptionPolicy';
 
 export const GET = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
@@ -73,7 +74,9 @@ export const POST = auth(async (request) => {
     const attachmentId = randomUUID();
     const safeName = file.name.replace(/[\r\n"\\/]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-255) || 'upload';
     const storageKey = `${target.resourceType}/${target.resourceId}/${attachmentId}-${safeName}`;
-    const stored = await attachmentStorage.put(storageKey, content);
+    const encryptionEnabled = await configService.get<boolean>('attachments.encryptionEnabled');
+    const shouldEncrypt = await resolveAttachmentEncryption(pgExecutor, access.nodeTypeId, encryptionEnabled);
+    const stored = await attachmentStorage.put(storageKey, content, { encrypt: shouldEncrypt });
     try {
       await pgExecutor.query(
       `INSERT INTO resource_attachments

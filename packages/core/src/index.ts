@@ -10,6 +10,7 @@ export {
   defaultConfigurationRegistry,
   sessionIdleTimeoutDefinition,
   attachmentAntivirusEnabledDefinition,
+  attachmentEncryptionEnabledDefinition,
 } from './application/config/ConfigurationRegistry.js';
 export type {
   ConfigurationDefinition,

@@ -56,6 +56,13 @@ stack predefinito e la porta è pubblicata solo sul loopback.
 Il rate limit integrato è per-processo: con più istanze va sostituito con un
 limitatore condiviso.
 
+La cifratura dei nuovi allegati è controllata dal setting globale
+`attachments.encryptionEnabled`. Ogni tipo di nodo può sovrascriverlo con una
+policy `inherit`, `enabled` o `disabled`; la policy del nodo si applica anche
+alle entità contenute nel nodo. La modifica della policy vale per i nuovi
+upload: gli allegati esistenti restano leggibili perché il formato di storage
+indica autonomamente se il contenuto è cifrato.
+
 I download sono autorizzati nuovamente a ogni richiesta; solo immagini raster
 validate possono essere visualizzate inline. Gli altri file vengono scaricati
 come `application/octet-stream` con `nosniff`, CSP, CORP e cache privata.

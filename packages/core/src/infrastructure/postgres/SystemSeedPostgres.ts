@@ -549,6 +549,10 @@ export class SystemSeedPostgres implements SystemSeedPort {
         'security', 'attachments.antivirusEnabled', 'Real-time attachment antivirus',
         'Scan uploaded attachments with the configured antivirus service before storage.',
         'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
+      ), (
+        'security', 'attachments.encryptionEnabled', 'Global attachment encryption',
+        'Encrypt new attachments unless overridden by the containing node type policy.',
+        'boolean'::setting_value_type_enum, 'false', TRUE, TRUE
       )
     `);
 

@@ -21,6 +21,7 @@ import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 import { TypeFieldsTable } from '../../_components/TypeFieldsTable';
 import { TypeFieldEditorModal } from '../../_components/TypeFieldEditorModal';
+import { NodeTypeEncryptionPolicy } from '../../_components/NodeTypeEncryptionPolicy';
 
 export default function AdminTypeDetailPage() {
   const params = useParams();
@@ -567,6 +568,8 @@ export default function AdminTypeDetailPage() {
           </div>
         </div>
       </div>
+
+      {kind === 'node' && <NodeTypeEncryptionPolicy nodeTypeId={typeDetail.id} />}
 
       {/* Section: Gestione dei Campi (Fields Management & Reordering) */}
       <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">

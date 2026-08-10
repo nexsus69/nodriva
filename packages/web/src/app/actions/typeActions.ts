@@ -4,6 +4,8 @@ import {
   typeAdminService,
   typeReader,
   accessControlPort,
+  pgExecutor,
+  auditPort,
 } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import {
@@ -26,6 +28,32 @@ import { mapAppErrorToApiErrorResponse } from './errorMapping';
 /** Helper per mappare le eccezioni del Core alla forma ApiErrorResponse */
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
   return mapAppErrorToApiErrorResponse(err);
+}
+
+export type AttachmentEncryptionMode = 'inherit' | 'enabled' | 'disabled';
+
+export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await accessControlPort.assertHasPermission(actorUserId, 'node_type.read', null);
+    const result = await pgExecutor.query<{ encryption_mode: AttachmentEncryptionMode }>('SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id = $1', [nodeTypeId]);
+    return { success: true, mode: result.rows[0]?.encryption_mode ?? 'inherit' };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, mode: AttachmentEncryptionMode): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await accessControlPort.assertHasPermission(actorUserId, 'node_type.update', null);
+    if (!['inherit', 'enabled', 'disabled'].includes(mode)) return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Policy di cifratura non valida.' } };
+    await pgExecutor.query(`INSERT INTO node_type_attachment_policies (node_type_id, encryption_mode, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (node_type_id) DO UPDATE SET encryption_mode = EXCLUDED.encryption_mode, updated_at = NOW()`, [nodeTypeId, mode]);
+    await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
+    return { success: true, mode };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
 }
 
 /** Caricamento della lista dei tipi (TypeListItemDto[]) */

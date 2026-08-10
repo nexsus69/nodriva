@@ -23,12 +23,14 @@ export async function assertAttachmentAccess(actorUserId: string, resourceType: 
     const node = await nodeRepository.findById(resourceId);
     if (!node) return null;
     await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('node', access), node.id);
-    return { scopeNodeId: node.id };
+    return { scopeNodeId: node.id, nodeTypeId: node.nodeTypeId };
   }
   const entity = await entityRepository.findById(resourceId);
   if (!entity) return null;
   await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('entity', access), entity.parentNodeId);
-  return { scopeNodeId: entity.parentNodeId };
+  const parentNode = await nodeRepository.findById(entity.parentNodeId);
+  if (!parentNode) return null;
+  return { scopeNodeId: entity.parentNodeId, nodeTypeId: parentNode.nodeTypeId };
 }
 
 export function authenticatedUser(request: { auth?: { userId?: string } | null }): string | null {

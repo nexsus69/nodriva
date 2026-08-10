@@ -16,11 +16,13 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     }
   }
 
-  async put(storageKey: string, content: Uint8Array): Promise<StoredAttachment> {
+  async put(storageKey: string, content: Uint8Array, options?: { encrypt?: boolean }): Promise<StoredAttachment> {
     const target = this.safePath(storageKey);
     await mkdir(path.dirname(target), { recursive: true });
     await mkdir(this.rootDirectory, { recursive: true, mode: 0o700 });
-    const payload = this.encrypt(content);
+    const shouldEncrypt = options?.encrypt ?? Boolean(this.encryptionKey);
+    if (shouldEncrypt && !this.encryptionKey) throw new Error('Attachment encryption requested but key is missing');
+    const payload = this.encrypt(content, shouldEncrypt);
     await writeFile(target, payload, { mode: 0o600, flag: 'wx' });
     return { storageKey, checksum: createHash('sha256').update(content).digest('hex'), sizeBytes: content.byteLength };
   }
@@ -49,8 +51,8 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     return target;
   }
 
-  private encrypt(content: Uint8Array): Buffer {
-    if (!this.encryptionKey) return Buffer.from(content);
+  private encrypt(content: Uint8Array, enabled: boolean): Buffer {
+    if (!enabled || !this.encryptionKey) return Buffer.from(content);
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey, iv);
     const encrypted = Buffer.concat([cipher.update(content), cipher.final()]);
