@@ -12,6 +12,8 @@ import { LockBadge } from '../../../components/LockBadge';
 import { PageShell, Panel } from '../../../components/ui/layout';
 import { Alert } from '../../../components/ui/feedback';
 import { DynamicFieldsForm, EnumOptionModal, type DynamicField } from '../../../components/ui/forms';
+import { AttachmentInput } from '../../../components/ui/forms';
+import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
 
 export default function CreateChildNodePage() {
   const params = useParams();
@@ -29,6 +31,7 @@ export default function CreateChildNodePage() {
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<readonly File[]>([]);
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
     resourceId: parentNodeId,
@@ -70,13 +73,16 @@ export default function CreateChildNodePage() {
             if (!Number.isNaN(numberValue)) processedPayload[field.fieldKey] = numberValue;
           }
         }
-        await AppCache.createNode({
+        const created = await AppCache.createNode({
           parentNodeId,
           nodeTypeKey,
           name: nodeName,
           description: nodeDesc,
           payload: processedPayload,
         });
+        for (const file of attachments) {
+          await uploadResourceAttachment({ resourceType: 'node', resourceId: created.id, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        }
 
         const listKey = ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId });
         GlobalViewStore.delete(listKey);
@@ -162,6 +168,11 @@ export default function CreateChildNodePage() {
             setPayload={setPayload}
             onAddEnumOption={setEnumField}
           />
+
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-slate-300">Allegati</label>
+            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
+          </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link

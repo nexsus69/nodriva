@@ -13,6 +13,8 @@ import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntity
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { Alert } from '../../../../components/ui/feedback';
 import { DynamicFieldsForm, EnumOptionModal, type DynamicField } from '../../../../components/ui/forms';
+import { AttachmentInput } from '../../../../components/ui/forms';
+import { uploadResourceAttachment } from '../../../../attachments/attachmentClient';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -32,6 +34,7 @@ export default function CreateEntityPage() {
   const [fieldsDef, setFieldsDef] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<readonly File[]>([]);
   const [relationField, setRelationField] = useState<DynamicField | null>(null);
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [relationFieldsDef, setRelationFieldsDef] = useState<DynamicField[]>([]);
@@ -108,13 +111,16 @@ export default function CreateEntityPage() {
         }
 
         // Canonical Mutation
-        await AppCache.createEntity({
+        const created = await AppCache.createEntity({
           parentNodeId,
           entityTypeKey: selectedEntityTypeKey,
           name: entityName,
           description: entityDesc,
           payload: processedPayload,
         });
+        for (const file of attachments) {
+          await uploadResourceAttachment({ resourceType: 'entity', resourceId: created.id, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        }
 
         // Invalidate Node Entity Collection Semantic View
         const listKey = ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId });
@@ -212,6 +218,11 @@ export default function CreateEntityPage() {
             onAddEnumOption={setEnumField}
             title={`Campi Dinamici (${fieldsDef.length})`}
           />
+
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-slate-300">Allegati</label>
+            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
+          </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link

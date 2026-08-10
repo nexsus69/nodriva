@@ -10,3 +10,5 @@ export { PasswordInput } from './PasswordInput';
 export type { PasswordInputProps } from './PasswordInput';
 export { AttachmentInput } from './AttachmentInput';
 export type { AttachmentInputProps } from './AttachmentInput';
+export { AttachmentList } from './AttachmentList';
+export type { AttachmentListProps } from './AttachmentList';

@@ -5,6 +5,32 @@ import { authenticatedUser, assertAttachmentAccess, parseAttachmentTarget } from
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+export const GET = auth(async (request) => {
+  const actorUserId = authenticatedUser(request);
+  if (!actorUserId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
+  const url = new URL(request.url);
+  const target = parseAttachmentTarget({
+    resourceType: url.searchParams.get('resourceType') ?? undefined,
+    resourceId: url.searchParams.get('resourceId') ?? undefined,
+    fieldKey: url.searchParams.get('fieldKey') ?? 'attachments',
+    kind: url.searchParams.get('kind') ?? 'file',
+  });
+  if (!target) return NextResponse.json({ error: 'INVALID_ATTACHMENT_TARGET' }, { status: 400 });
+  try {
+    if (!(await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    const { pgExecutor } = await import('../../../server/db');
+    const result = await pgExecutor.query(
+      `SELECT id, resource_type AS "resourceType", resource_id AS "resourceId", field_key AS "fieldKey", kind, file_name AS "fileName", mime_type AS "mimeType", size_bytes AS "sizeBytes"
+       FROM resource_attachments WHERE resource_type = $1 AND resource_id = $2 AND ($3 = '' OR field_key = $3) ORDER BY created_at DESC`,
+      [target.resourceType, target.resourceId, url.searchParams.get('fieldKey') ?? ''],
+    );
+    return NextResponse.json(result.rows);
+  } catch (error) {
+    console.error('[Attachments] List failed', error);
+    return NextResponse.json({ error: 'ATTACHMENT_LIST_FAILED' }, { status: 500 });
+  }
+});
+
 export const POST = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
   if (!actorUserId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });

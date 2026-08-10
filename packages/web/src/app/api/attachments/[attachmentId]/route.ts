@@ -30,3 +30,21 @@ export const GET = auth(async (request, context: { params: Promise<{ attachmentI
     return NextResponse.json({ error: 'ATTACHMENT_DOWNLOAD_FAILED' }, { status: 500 });
   }
 });
+
+export const DELETE = auth(async (request, context: { params: Promise<{ attachmentId: string }> }) => {
+  const actorUserId = authenticatedUser(request);
+  if (!actorUserId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
+  const { attachmentId } = await context.params;
+  const attachment = await findAttachment(attachmentId);
+  if (!attachment) return NextResponse.json({ error: 'ATTACHMENT_NOT_FOUND' }, { status: 404 });
+  try {
+    if (!(await assertAttachmentAccess(actorUserId, attachment.resource_type, attachment.resource_id))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    const { attachmentStorage, pgExecutor } = await import('../../../../server/db');
+    await attachmentStorage.delete(attachment.storage_key);
+    await pgExecutor.query('DELETE FROM resource_attachments WHERE id = $1', [attachmentId]);
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    console.error('[Attachments] Delete failed', error);
+    return NextResponse.json({ error: 'ATTACHMENT_DELETE_FAILED' }, { status: 500 });
+  }
+});

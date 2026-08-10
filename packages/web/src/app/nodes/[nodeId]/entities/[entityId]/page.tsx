@@ -17,7 +17,8 @@ import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntity
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { LoadingState } from '../../../../components/ui/feedback';
 import { EntityResourceMenu } from '../../../../components/ui/menu';
-import { DynamicFieldsForm, type DynamicField } from '../../../../components/ui/forms';
+import { AttachmentInput, AttachmentList, DynamicFieldsForm, type DynamicField } from '../../../../components/ui/forms';
+import { uploadResourceAttachment } from '../../../../attachments/attachmentClient';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -39,6 +40,7 @@ export default function EntityDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [attachments, setAttachments] = useState<readonly File[]>([]);
   const {
     lockedByOther,
     isMyLock,
@@ -75,6 +77,7 @@ export default function EntityDetailPage() {
     setName(entity.name || '');
     setDescription(entity.description || '');
     setPayload(entity.payload || {});
+    setAttachments([]);
     return await acquireLock();
   };
 
@@ -104,6 +107,9 @@ export default function EntityDetailPage() {
           payloadDelta: processedPayload,
           expectedRowVersion: entity.rowVersion,
         });
+        for (const file of attachments) {
+          await uploadResourceAttachment({ resourceType: 'entity', resourceId: entityId, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        }
 
         await releaseLock();
         setSuccessMsg('Entità aggiornata con successo.');
@@ -276,6 +282,11 @@ export default function EntityDetailPage() {
             siblingEntities={siblingEntities.filter((candidate) => candidate.id !== entity.id)}
           />
 
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-slate-300">Nuovi allegati</label>
+            <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
+          </div>
+
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
             <Link
               href="#"
@@ -308,6 +319,10 @@ export default function EntityDetailPage() {
           </div>
         </form>
         )}
+      </Panel>
+      <Panel className="space-y-3 border-slate-800 bg-slate-900 p-4 text-slate-100 sm:p-6">
+        <h2 className="text-sm font-semibold">Allegati</h2>
+        <AttachmentList resourceType="entity" resourceId={entityId} canDelete={isMyLock} />
       </Panel>
     </PageShell>
   );

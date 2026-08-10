@@ -17,7 +17,8 @@ import { SubtreeEntitiesTableSection } from './_components/SubtreeEntitiesTableS
 import { PageShell, Panel, SectionHeader } from '../../components/ui/layout';
 import { Alert } from '../../components/ui/feedback';
 import { NodeResourceMenu } from '../../components/ui/menu';
-import { DynamicFieldsForm } from '../../components/ui/forms';
+import { AttachmentInput, AttachmentList, DynamicFieldsForm } from '../../components/ui/forms';
+import { uploadResourceAttachment } from '../../attachments/attachmentClient';
 
 export default function NodeDetailPage() {
   const params = useParams();
@@ -38,6 +39,7 @@ export default function NodeDetailPage() {
   type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
+  const [attachments, setAttachments] = useState<readonly File[]>([]);
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
 
   const entityTypeKeysSignature = [...new Set(
@@ -93,6 +95,7 @@ export default function NodeDetailPage() {
     setSuccessMsg(null);
     setNodeName(currentNode.name);
     setNodeDescription(currentNode.description || '');
+    setAttachments([]);
     return await acquireLock();
   };
 
@@ -119,6 +122,9 @@ export default function NodeDetailPage() {
           expectedRowVersion: currentNode.rowVersion,
           payloadDelta: dynamicNodePayload,
         });
+        for (const file of attachments) {
+          await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: 'attachments', kind: file.type.startsWith('image/') ? 'image' : 'file', file });
+        }
         await releaseLock();
         setSuccessMsg('Nodo aggiornato con successo.');
       } catch (error: unknown) {
@@ -210,6 +216,10 @@ export default function NodeDetailPage() {
                 Path: {currentNode?.pathLabel || currentNode?.path || '-'}
               </p>
             </div>
+            <div className="space-y-2">
+              <label className="mb-1 block text-xs font-medium text-slate-700">Nuovi allegati</label>
+              <AttachmentInput kind="file" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={attachments} onChange={setAttachments} />
+            </div>
             <DynamicFieldsForm
               fields={dynamicNodeFields}
               payload={dynamicNodePayload}
@@ -291,6 +301,11 @@ export default function NodeDetailPage() {
             </p>
           )
         )}
+      </Panel>
+
+      <Panel className="space-y-3">
+        <SectionHeader title="Allegati" description="Documenti e immagini collegati al nodo." />
+        <AttachmentList resourceType="node" resourceId={nodeId} canDelete={isMyLock} />
       </Panel>
 
       <Panel className="space-y-4">
