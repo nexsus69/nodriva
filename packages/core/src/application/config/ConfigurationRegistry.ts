@@ -46,6 +46,18 @@ export const sessionIdleTimeoutDefinition: ConfigurationDefinition<number> = {
   validate: integerInRange(60, 86_400),
 };
 
+export const attachmentAntivirusEnabledDefinition: ConfigurationDefinition<boolean> = {
+  key: 'attachments.antivirusEnabled',
+  type: 'boolean',
+  defaultValue: false,
+  source: 'runtime',
+  clientVisible: false,
+  validate: (value) => {
+    if (typeof value !== 'boolean') throw new Error('Attachment antivirus setting must be boolean.');
+  },
+};
+
 export const defaultConfigurationRegistry = new ConfigurationRegistry([
   sessionIdleTimeoutDefinition,
+  attachmentAntivirusEnabledDefinition,
 ]);

@@ -48,17 +48,19 @@ export const POST = auth(async (request) => {
   try {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
-    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, pgExecutor } = await import('../../../server/db');
+    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, configService, pgExecutor } = await import('../../../server/db');
     if (!attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour)) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });
     }
     const content = new Uint8Array(await file.arrayBuffer());
     const detected = detectAttachmentType(file.name, file.type || 'application/octet-stream', content, target.kind);
     if (!detected) return NextResponse.json({ error: 'ATTACHMENT_CONTENT_TYPE_MISMATCH' }, { status: 415 });
-    if (process.env.ATTACHMENTS_REQUIRE_SCAN === 'true' && !attachmentScanner) {
+    const antivirusEnabled = await configService.get<boolean>('attachments.antivirusEnabled');
+    const antivirusRequired = antivirusEnabled || process.env.ATTACHMENTS_REQUIRE_SCAN === 'true';
+    if (antivirusRequired && !attachmentScanner) {
       return NextResponse.json({ error: 'ATTACHMENT_SCANNER_UNAVAILABLE' }, { status: 503 });
     }
-    if (attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
+    if (antivirusRequired && attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
       return NextResponse.json({ error: 'ATTACHMENT_INFECTED' }, { status: 422 });
     }
     const quota = await pgExecutor.query<{ total: string }>(

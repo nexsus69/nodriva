@@ -45,8 +45,10 @@ chiave manca. La chiave non va committata nel repository.
 L’upload verifica estensione, MIME dichiarato e magic bytes, rifiuta SVG/HTML
 e altri contenuti eseguibili, applica limiti per file, risorsa e utente, e non
 include mai il contenuto nell’audit. Per una modalità antivirus obbligatoria
-impostare `ATTACHMENTS_REQUIRE_SCAN=true` e collegare un’implementazione di
-`AttachmentScannerPort`; senza scanner configurato l’upload viene rifiutato.
+attivare il setting runtime `attachments.antivirusEnabled` e collegare
+un’implementazione di `AttachmentScannerPort`; senza scanner configurato
+l’upload viene rifiutato. `ATTACHMENTS_REQUIRE_SCAN=true` resta disponibile
+come override di deployment fail-closed.
 Il rate limit integrato è per-processo: con più istanze va sostituito con un
 limitatore condiviso.
 
