@@ -1,5 +1,7 @@
 import type { TypeDomain } from '@dashboard/core';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface AttachmentTarget {
   resourceType: 'node' | 'entity';
   resourceId: string;
@@ -12,7 +14,9 @@ export function parseAttachmentTarget(value: Partial<Record<string, FormDataEntr
   if (!resourceType || !resourceId || !fieldKey || !kind) return null;
   if (resourceType !== 'node' && resourceType !== 'entity') return null;
   if (kind !== 'file' && kind !== 'image') return null;
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resourceId as string)) return null;
+  // PostgreSQL UUID values are syntactically valid even when they use a
+  // non-RFC version nibble (for example seeded all-zero node identifiers).
+  if (!UUID_PATTERN.test(resourceId as string)) return null;
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(fieldKey as string)) return null;
   return { resourceType, resourceId: resourceId as string, fieldKey: fieldKey as string, kind };
 }
