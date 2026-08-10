@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { validateAttachmentSelection, type ResourceAttachmentConstraints, type ResourceAttachmentKind } from '@dashboard/core';
+import { validateAttachmentSelection, type ResourceAttachmentConstraints, type ResourceAttachmentKind } from '@dashboard/core/browser';
 
 export interface AttachmentInputProps extends ResourceAttachmentConstraints {
   kind: ResourceAttachmentKind;
