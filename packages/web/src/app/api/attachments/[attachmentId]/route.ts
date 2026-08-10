@@ -20,7 +20,7 @@ export const GET = auth(async (request, context: { params: Promise<{ attachmentI
   const attachment = await findAttachment(attachmentId);
   if (!attachment) return NextResponse.json({ error: 'ATTACHMENT_NOT_FOUND' }, { status: 404 });
   try {
-    if (!(await assertAttachmentAccess(actorUserId, attachment.resource_type, attachment.resource_id))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    if (!(await assertAttachmentAccess(actorUserId, attachment.resource_type, attachment.resource_id, 'read'))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     const { attachmentStorage } = await import('../../../../server/db');
     const content = await attachmentStorage.get(attachment.storage_key);
     if (!content) return NextResponse.json({ error: 'ATTACHMENT_CONTENT_NOT_FOUND' }, { status: 404 });

@@ -17,7 +17,7 @@ export const GET = auth(async (request) => {
   });
   if (!target) return NextResponse.json({ error: 'INVALID_ATTACHMENT_TARGET' }, { status: 400 });
   try {
-    if (!(await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
+    if (!(await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId, 'read'))) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     const { pgExecutor } = await import('../../../server/db');
     const result = await pgExecutor.query(
       `SELECT id, resource_type AS "resourceType", resource_id AS "resourceId", field_key AS "fieldKey", kind, file_name AS "fileName", mime_type AS "mimeType", size_bytes AS "sizeBytes"

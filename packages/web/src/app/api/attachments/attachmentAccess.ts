@@ -17,20 +17,24 @@ export function parseAttachmentTarget(value: Partial<Record<string, FormDataEntr
   return { resourceType, resourceId: resourceId as string, fieldKey: fieldKey as string, kind };
 }
 
-export async function assertAttachmentAccess(actorUserId: string, resourceType: TypeDomain, resourceId: string) {
+export async function assertAttachmentAccess(actorUserId: string, resourceType: TypeDomain, resourceId: string, access: 'read' | 'write' = 'write') {
   const { accessControlPort, nodeRepository, entityRepository } = await import('../../../server/db');
   if (resourceType === 'node') {
     const node = await nodeRepository.findById(resourceId);
     if (!node) return null;
-    await accessControlPort.assertHasPermission(actorUserId, 'node.edit', node.id);
+    await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('node', access), node.id);
     return { scopeNodeId: node.id };
   }
   const entity = await entityRepository.findById(resourceId);
   if (!entity) return null;
-  await accessControlPort.assertHasPermission(actorUserId, 'entity.edit', entity.parentNodeId);
+  await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('entity', access), entity.parentNodeId);
   return { scopeNodeId: entity.parentNodeId };
 }
 
 export function authenticatedUser(request: { auth?: { userId?: string } | null }): string | null {
   return typeof request.auth?.userId === 'string' ? request.auth.userId : null;
+}
+
+export function attachmentPermission(resourceType: TypeDomain, access: 'read' | 'write'): string {
+  return `${resourceType}.${access === 'write' ? 'edit' : 'read'}`;
 }
