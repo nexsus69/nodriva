@@ -32,6 +32,8 @@ export { resourceTypeReference } from './application/dto/ResourceSchema.js';
 export type { ResourceTypeReference, ResourceFieldDefinition } from './application/dto/ResourceSchema.js';
 export { resourceRelationDefinition, resourceContainmentRule } from './application/dto/ResourceRelations.js';
 export type { ResourceRelationDefinition, ResourceRelationKind, ResourceRelationCardinality, ResourceContainmentRule } from './application/dto/ResourceRelations.js';
+export { resourceViewDefinition, resourceActionDefinition } from './application/dto/ResourceViews.js';
+export type { ResourceViewColumn, ResourceViewColumnKind, ResourceFilterDefinition, ResourceFilterKind, ResourceViewDefinition, ResourceActionDefinition } from './application/dto/ResourceViews.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';
