@@ -53,6 +53,15 @@ CREATE ROLE dashboard_web LOGIN PASSWORD '<managed-secret>' IN ROLE dashboard_ap
 Set `REQUIRE_RESTRICTED_DB_ROLE=true` in the Web deployment. Production also
 rejects `postgres` automatically.
 
+Migration `020_controlled_schema_ddl.sql` removes generic `CREATE` access from
+the application role and installs the controlled DDL gateway used for dynamic
+entity storage tables. The `dashboard_schema_manager` role is `NOLOGIN` and
+owns only the `SECURITY DEFINER` functions and dynamic entity tables. The web
+role receives `EXECUTE` on those functions, never direct `ALTER TABLE`,
+`CREATE TABLE`, `DROP`, or arbitrary schema DDL privileges. Each function
+checks the requested table and column against the entity metadata before
+executing a narrowly scoped operation.
+
 Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL
 track under `packages/core/src/infrastructure/schema` was removed so every

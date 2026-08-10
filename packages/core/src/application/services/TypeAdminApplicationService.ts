@@ -351,10 +351,10 @@ export class TypeAdminApplicationService {
         throw new TypeFieldHasValuesError(existing.id, existing.fieldKey, v.domain);
       }
 
-      await this.adminRepository.deleteField(v.domain, v.fieldId);
       if (v.domain === 'entity' && type.storageTable && !isAttachmentField) {
         await this.storageTableManager.dropColumn(type.storageTable, existing.columnName);
       }
+      await this.adminRepository.deleteField(v.domain, v.fieldId);
       await this.bumpTypeSchemaVersion(v.domain, type);
       await this.auditPort.record(v.actorUserId, 'type_admin.remove_field', v.domain === 'entity' ? 'entity_type' : 'node_type', type.id, null,
         { fieldId: existing.id, fieldKey: existing.fieldKey }, null
