@@ -28,6 +28,8 @@ export { EntityType } from './domain/models/EntityType.js';
 export { ManagedTypeDefinition } from './domain/models/ManagedTypeDefinition.js';
 export { ManagedTypeField } from './domain/models/ManagedTypeField.js';
 export { ManagedTypeFieldConstraint } from './domain/models/ManagedTypeFieldConstraint.js';
+export { resourceTypeReference } from './application/dto/ResourceSchema.js';
+export type { ResourceTypeReference, ResourceFieldDefinition } from './application/dto/ResourceSchema.js';
 
 // ─── Domain & Application Errors ─────────────────────────────────────────────
 export { AppError } from './domain/errors/AppError.js';

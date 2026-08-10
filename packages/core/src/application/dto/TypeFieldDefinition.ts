@@ -38,7 +38,7 @@ export interface EnumOptionDefinition {
  * Definizione di un campo all'interno di un tipo dinamico.
  * Indipendente dal dominio (node o entity).
  */
-export class TypeFieldDefinition {
+export class TypeFieldDefinition implements ResourceFieldDefinition {
   constructor(
     readonly fieldKey: string,
     readonly dataType: string,
@@ -51,6 +51,12 @@ export class TypeFieldDefinition {
     readonly id: string | null = null,
     readonly label: string = fieldKey
   ) {}
+
+  get relationTarget(): ResourceTypeReference | null {
+    return this.relationTargetDomain && this.relationTargetTypeKey
+      ? { resourceType: this.relationTargetDomain, typeKey: this.relationTargetTypeKey }
+      : null;
+  }
 }
 
 /**
@@ -68,4 +74,9 @@ export class TypeDefinition {
     readonly currentSchemaVersion: number,
     readonly fields: readonly TypeFieldDefinition[]
   ) {}
+
+  get resourceTypeReference(): ResourceTypeReference {
+    return { resourceType: this.domain, typeKey: this.typeKey };
+  }
 }
+import type { ResourceFieldDefinition, ResourceTypeReference } from './ResourceSchema.js';

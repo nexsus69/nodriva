@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ClientEntity, EntityTypeMeta } from '../../../types/models';
+import type { ResourceTypeReference } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
 
 export type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
@@ -47,7 +48,10 @@ export function DynamicFieldsForm({
       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}{title === 'Campi dinamici' && ` (${fields.length})`}</h3>
       {fields.map((field) => {
         const dataType = field.dataType.toLowerCase();
-        const targetType = entityTypes?.find((type) => type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey);
+        const relationTarget: ResourceTypeReference | null = field.relationTargetDomain && field.relationTargetTypeKey
+          ? { resourceType: field.relationTargetDomain, typeKey: field.relationTargetTypeKey }
+          : null;
+        const targetType = entityTypes?.find((type) => type.typeKey === relationTarget?.typeKey || type.id === relationTarget?.typeKey);
         const relationOptions = targetType && siblingEntities
           ? siblingEntities.filter((entity) => entity.entityTypeId === targetType.id || entity.entityTypeId === targetType.typeKey)
           : [];
