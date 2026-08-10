@@ -23,8 +23,21 @@ label, obbligatorietà, valori e submit.
 | `enum` | select | Opzioni fornite dai metadati |
 | `relation` | select | Target e opzioni forniti dal coordinator |
 
+File e immagini non sono ancora tipi di colonna dinamica: vengono trattati
+come allegati collegati alla risorsa. `AttachmentInput` gestisce la selezione
+locale e i limiti di quantità, dimensione e MIME type; il contenuto non viene
+salvato nel `payload` né in una colonna PostgreSQL.
+
 `timestamp` è accettato come alias compatibile per `datetime` nei dati già
 presenti nel sistema.
+
+## Allegati
+
+La primitiva `ResourceAttachmentReference` conserva i metadati dell’allegato:
+risorsa, campo, nome, MIME type, dimensione, chiave di storage, checksum e
+autore. Il file dovrà essere caricato in uno storage dedicato e il database
+dovrà conservare solo questi metadati. Il provider di storage e la tabella
+degli allegati saranno introdotti insieme al vertical slice di persistenza.
 
 ## Separazione delle responsabilità
 
