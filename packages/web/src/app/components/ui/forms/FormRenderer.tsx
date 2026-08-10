@@ -8,6 +8,7 @@ export interface FormOption {
 
 export type FormFieldSchema =
   | { name: string; type: 'text' | 'email' | 'password'; label: string; required?: boolean; placeholder?: string; autoComplete?: string }
+  | { name: string; type: 'select'; label: string; required?: boolean; options: readonly FormOption[] }
   | { name: string; type: 'textarea'; label: string; required?: boolean; placeholder?: string; rows?: number }
   | { name: string; type: 'number'; label: string; required?: boolean; min?: number; step?: number; placeholder?: string; autoComplete?: string }
   | { name: string; type: 'boolean'; label: string };
@@ -36,7 +37,12 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
         return (
           <div key={field.name}>
             <label className="block text-xs font-medium text-slate-300 mb-1">{field.label}{field.required ? ' *' : ''}</label>
-            {field.type === 'password' ? (
+            {field.type === 'select' ? (
+              <select required={field.required} value={String(values[field.name] ?? '')} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName}>
+                <option value="">Seleziona un valore</option>
+                {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            ) : field.type === 'password' ? (
               <PasswordInput required={field.required} autoComplete={field.autoComplete} value={String(values[field.name] ?? '')} onChange={(value) => onChange(field.name, value)} placeholder={field.placeholder} />
             ) : field.type === 'textarea' ? (
               <textarea required={field.required} rows={field.rows ?? 3} value={String(values[field.name] ?? '')} placeholder={field.placeholder} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
