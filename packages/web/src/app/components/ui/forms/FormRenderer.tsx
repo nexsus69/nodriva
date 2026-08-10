@@ -10,6 +10,7 @@ export type FormFieldSchema =
   | { name: string; type: 'text' | 'email' | 'password'; label: string; required?: boolean; placeholder?: string; autoComplete?: string }
   | { name: string; type: 'select'; label: string; required?: boolean; options: readonly FormOption[] }
   | { name: string; type: 'textarea'; label: string; required?: boolean; placeholder?: string; rows?: number }
+  | { name: string; type: 'date' | 'datetime-local'; label: string; required?: boolean; placeholder?: string; autoComplete?: string }
   | { name: string; type: 'number'; label: string; required?: boolean; min?: number; step?: number; placeholder?: string; autoComplete?: string }
   | { name: string; type: 'boolean'; label: string };
 

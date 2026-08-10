@@ -1,0 +1,42 @@
+# Form e metadati delle risorse
+
+Il frontend costruisce i form delle risorse dai metadati dei campi tramite
+`ResourceFormRenderer`. Il backend definisce il tipo del campo; il renderer
+sceglie il controllo HTML appropriato e mantiene un comportamento comune per
+label, obbligatorietà, valori e submit.
+
+## Tipi supportati
+
+| Tipo metadato | Controllo frontend | Note |
+|---|---|---|
+| `string` | input testuale | Testo breve |
+| `text` | input testuale | Testo libero breve |
+| `integer` | input numerico | Step intero |
+| `number` | input numerico | Valore numerico |
+| `decimal` | input numerico | Valore decimale |
+| `boolean` | checkbox | Valore vero/falso |
+| `date` | input `date` | Data senza orario |
+| `datetime` | input `datetime-local` | Data e ora locali |
+| `uuid` | input testuale | Il backend valida il formato UUID |
+| `json` | textarea | Payload JSON multilinea |
+| `array` | textarea | Rappresentazione serializzata dell’array |
+| `enum` | select | Opzioni fornite dai metadati |
+| `relation` | select | Target e opzioni forniti dal coordinator |
+
+`timestamp` è accettato come alias compatibile per `datetime` nei dati già
+presenti nel sistema.
+
+## Separazione delle responsabilità
+
+`ResourceFormRenderer` si occupa solo del mapping schema → controllo.
+`FormRenderer` rende i controlli comuni e gestisce il submit. Il coordinator
+della pagina deve fornire valori iniziali, opzioni per enum/relazioni e la
+mutazione; autorizzazioni e validazione restano responsabilità del backend.
+
+Per aggiungere un nuovo tipo occorre aggiornare nello stesso cambiamento:
+
+1. il contratto del backend;
+2. il mapping in `ResourceFormRenderer`;
+3. il controllo o la variante di `FormRenderer`;
+4. i test del mapping e del rendering;
+5. questa tabella documentale.
