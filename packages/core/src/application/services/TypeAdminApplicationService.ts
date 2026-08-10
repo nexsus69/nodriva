@@ -39,6 +39,7 @@ import {
 } from '../commands/TypeAdminCommands.js';
 
 import { TypeListItemDto, TypeDetailDto } from '../dto/AdminContractDtos.js';
+import type { ConfigService } from './ConfigService.js';
 
 export class TypeAdminApplicationService {
   constructor(
@@ -48,7 +49,8 @@ export class TypeAdminApplicationService {
     private readonly transactionPort: TransactionPort,
     private readonly idGenerator: IdGeneratorPort,
     private readonly storageTableManager: StorageTableManagementPort,
-    private readonly accessControlPort: AccessControlPort
+    private readonly accessControlPort: AccessControlPort,
+    private readonly configService?: ConfigService
   ) {}
 
   private permission(domain: TypeDomain, action: 'create' | 'update' | 'delete' | 'read'): string {
@@ -198,6 +200,9 @@ export class TypeAdminApplicationService {
   async addField(cmd: AddFieldCommand): Promise<ManagedTypeField> {
     const v = this.validateCommand(AddFieldCommandSchema, cmd, 'adding field');
     await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
+    if (v.encryptionMode === 'encrypted' && this.configService && !(await this.configService.get<boolean>('data.fieldsEncryptionEnabled'))) {
+      throw new TypeAdminValidationError('Field encryption is globally disabled.', { encryptionMode: ['Enable data.fieldsEncryptionEnabled before selecting encrypted.'] });
+    }
 
     const { field, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -263,6 +268,9 @@ export class TypeAdminApplicationService {
   async updateField(cmd: UpdateFieldCommand): Promise<ManagedTypeField> {
     const v = this.validateCommand(UpdateFieldCommandSchema, cmd, 'updating field');
     await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
+    if (v.encryptionMode === 'encrypted' && this.configService && !(await this.configService.get<boolean>('data.fieldsEncryptionEnabled'))) {
+      throw new TypeAdminValidationError('Field encryption is globally disabled.', { encryptionMode: ['Enable data.fieldsEncryptionEnabled before selecting encrypted.'] });
+    }
 
     const { field, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);

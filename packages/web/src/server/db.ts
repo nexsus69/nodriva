@@ -264,7 +264,8 @@ export const typeAdminService = new TypeAdminApplicationService(
   transactionPort,
   idGenerator,
   storageTableManager,
-  accessControlPort
+  accessControlPort,
+  configService,
 );
 
 export const userAdminService = new UserAdminApplicationService(

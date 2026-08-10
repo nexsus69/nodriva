@@ -6,6 +6,7 @@ import {
   accessControlPort,
   pgExecutor,
   auditPort,
+  configService,
 } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import {
@@ -48,6 +49,9 @@ export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, m
     const actorUserId = await AuthResolver.resolveActorUserId();
     await accessControlPort.assertHasPermission(actorUserId, 'node_type.update', null);
     if (!['inherit', 'enabled', 'disabled'].includes(mode)) return { success: false, error: { code: 'VALIDATION_ERROR', message: 'Policy di cifratura non valida.' } };
+    if (mode === 'enabled' && !(await configService.get<boolean>('attachments.encryptionEnabled'))) {
+      return { success: false, error: { code: 'VALIDATION_ERROR', message: 'La cifratura allegati globale è disabilitata.' } };
+    }
     await pgExecutor.query(`INSERT INTO node_type_attachment_policies (node_type_id, encryption_mode, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (node_type_id) DO UPDATE SET encryption_mode = EXCLUDED.encryption_mode, updated_at = NOW()`, [nodeTypeId, mode]);
     await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
     return { success: true, mode };

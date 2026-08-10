@@ -14,7 +14,7 @@ describe('FieldEncryptionService', () => {
         return { rows: [] };
       }),
     };
-    const config = { get: vi.fn().mockResolvedValue(false) };
+    const config = { get: vi.fn().mockResolvedValue(true) };
     const service = new FieldEncryptionService(executor as never, config as never, '22'.repeat(32));
     const protectedPayload = await service.protect('entity', 'type-1', 'entity-1', { secret: 'value', label: 'visible' });
     expect(protectedPayload).toEqual({ secret: null, label: 'visible' });
@@ -22,9 +22,15 @@ describe('FieldEncryptionService', () => {
     await expect(service.restore('entity', 'entity-1', protectedPayload)).resolves.toEqual({ secret: 'value', label: 'visible' });
   });
 
-  it('fails closed when encryption is requested without a key', async () => {
+  it('does not encrypt when the global encryption switch is disabled', async () => {
     const executor = { query: vi.fn().mockResolvedValue({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] }) };
     const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(false) } as never, undefined);
+    await expect(service.protect('node', 'type-1', 'node-1', { secret: 'value' })).resolves.toEqual({ secret: 'value' });
+  });
+
+  it('fails closed when encryption is enabled but the key is missing', async () => {
+    const executor = { query: vi.fn().mockResolvedValue({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] }) };
+    const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, undefined);
     await expect(service.protect('node', 'type-1', 'node-1', { secret: 'value' })).rejects.toThrow('FIELD_ENCRYPTION_KEY');
   });
 });

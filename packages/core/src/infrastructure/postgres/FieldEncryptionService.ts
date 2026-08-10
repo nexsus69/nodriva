@@ -21,7 +21,7 @@ export class FieldEncryptionService {
     const globalEnabled = await this.config.get<boolean>('data.fieldsEncryptionEnabled');
     const result: Record<string, unknown> = { ...payload };
     for (const [fieldKey, mode] of modes) {
-      const enabled = mode === 'encrypted' || (mode === 'inherit' && globalEnabled);
+      const enabled = globalEnabled && mode === 'encrypted';
       if (!Object.prototype.hasOwnProperty.call(payload, fieldKey)) continue;
       if (enabled) {
         if (!this.key) throw new Error('Field encryption requested but FIELD_ENCRYPTION_KEY is missing');
@@ -54,7 +54,7 @@ export class FieldEncryptionService {
     const globalEnabled = await this.config.get<boolean>('data.fieldsEncryptionEnabled');
     return Object.fromEntries(Object.entries(payload).map(([key, value]) => {
       const mode = modes.get(key);
-      const encrypted = mode === 'encrypted' || (mode === 'inherit' && globalEnabled);
+      const encrypted = globalEnabled && mode === 'encrypted';
       return [key, encrypted ? '[ENCRYPTED]' : value];
     }));
   }

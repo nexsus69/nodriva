@@ -19,7 +19,7 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     ]);
     const mode = nodePolicy.rows[0]?.encryption_mode ?? 'inherit';
     return {
-      encryptionEnabled: mode === 'enabled' || (mode === 'inherit' && encryptionGlobal),
+      encryptionEnabled: encryptionGlobal && mode === 'enabled',
       antivirusEnabled: antivirusGlobal || process.env.ATTACHMENTS_REQUIRE_SCAN === 'true',
     };
   }

@@ -61,17 +61,21 @@ Il rate limit integrato è per-processo: con più istanze va sostituito con un
 limitatore condiviso.
 
 La cifratura dei nuovi allegati è controllata dal setting globale
-`attachments.encryptionEnabled`. Ogni tipo di nodo può sovrascriverlo con una
-policy `inherit`, `enabled` o `disabled`; la policy del nodo si applica anche
-alle entità contenute nel nodo. La modifica della policy vale per i nuovi
-upload: gli allegati esistenti restano leggibili perché il formato di storage
-indica autonomamente se il contenuto è cifrato.
+`attachments.encryptionEnabled`. Il caricamento dei file resta sempre
+disponibile: quando il setting è `false`, ogni nuovo allegato viene salvato in
+chiaro anche se il tipo di nodo ha una policy `enabled`. Quando il setting è
+`true`, il comportamento predefinito resta in chiaro e la policy `enabled` del
+tipo di nodo abilita la cifratura; `disabled` la forza in chiaro. La policy del
+nodo si applica anche alle entità contenute nel nodo. La modifica della policy
+vale per i nuovi upload: gli allegati esistenti restano leggibili perché il
+formato di storage indica autonomamente se il contenuto è cifrato.
 
 ## Cifratura selettiva dei campi
 
 Ogni campo dei tipi nodo/entità può usare `inherit`, `plaintext` o `encrypted`.
-`inherit` segue `data.fieldsEncryptionEnabled`; `encrypted` salva il valore
-nel ciphertext store `resource_field_ciphertexts` e presenta al repository
+`inherit` e `plaintext` sono in chiaro per impostazione predefinita; `encrypted`
+salva il valore nel ciphertext store `resource_field_ciphertexts` solo quando
+`data.fieldsEncryptionEnabled` è `true`, e presenta al repository
 solo il valore decifrato. La chiave server-side è `FIELD_ENCRYPTION_KEY` (con
 fallback compatibile a `ATTACHMENTS_ENCRYPTION_KEY`) e non viene mai inviata al
 client. I campi cifrati non sono ricercabili, filtrabili o indicizzabili; il
