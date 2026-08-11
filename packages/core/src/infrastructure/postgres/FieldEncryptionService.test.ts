@@ -28,6 +28,32 @@ describe('FieldEncryptionService', () => {
     await expect(service.protect('node', 'type-1', 'node-1', { secret: 'value' })).resolves.toEqual({ secret: 'value' });
   });
 
+  it('removes the sidecar when an encrypted field is cleared', async () => {
+    const executor = { query: vi.fn()
+      .mockResolvedValueOnce({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] })
+      .mockResolvedValue({ rows: [] }) };
+    const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, '22'.repeat(32));
+
+    await expect(service.protect('entity', 'type-1', 'entity-1', { secret: null })).resolves.toEqual({ secret: null });
+    expect(executor.query).toHaveBeenCalledWith(
+      'DELETE FROM resource_field_ciphertexts WHERE resource_type = $1 AND resource_id = $2 AND field_key = $3',
+      ['entity', 'entity-1', 'secret'],
+    );
+  });
+
+  it('removes a sidecar when an encrypted field is omitted from a complete update payload', async () => {
+    const executor = { query: vi.fn()
+      .mockResolvedValueOnce({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] })
+      .mockResolvedValue({ rows: [] }) };
+    const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, '22'.repeat(32));
+
+    await expect(service.protect('entity', 'type-1', 'entity-1', { label: 'visible' })).resolves.toEqual({ label: 'visible' });
+    expect(executor.query).toHaveBeenCalledWith(
+      'DELETE FROM resource_field_ciphertexts WHERE resource_type = $1 AND resource_id = $2 AND field_key = $3',
+      ['entity', 'entity-1', 'secret'],
+    );
+  });
+
   it('fails closed when encryption is enabled but the key is missing', async () => {
     const executor = { query: vi.fn().mockResolvedValue({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] }) };
     const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, undefined);

@@ -49,10 +49,13 @@ describe('EntityApplicationService', () => {
   beforeEach(() => {
     mockEntityRepository = {
       findById: vi.fn(),
+      findDeletedById: vi.fn(),
+      listDeletedByScope: vi.fn(),
       listByNode: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       softDelete: vi.fn(),
+      restore: vi.fn(),
     };
 
     mockEntityTypeRepository = {
@@ -63,6 +66,8 @@ describe('EntityApplicationService', () => {
 
     mockNodeRepository = {
       findById: vi.fn().mockResolvedValue(new Node('parent-uuid', null, 'root', 'root', 0, 'folder-type', 'Root Node', '', 1, new Date(), new Date(), null, null, null)),
+      findDeletedById: vi.fn(),
+      listDeletedByScope: vi.fn(),
       listChildren: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -71,6 +76,10 @@ describe('EntityApplicationService', () => {
       existsByParentAndPathLabel: vi.fn().mockResolvedValue(false),
       listAncestorIds: vi.fn().mockResolvedValue([]),
       isDescendantOf: vi.fn().mockResolvedValue(false),
+      softDeleteSubtree: vi.fn().mockResolvedValue([]),
+      assertSubtreeUnlocked: vi.fn(),
+      getDeletionBatchId: vi.fn().mockResolvedValue(null),
+      restoreSubtree: vi.fn().mockResolvedValue([]),
     };
 
     mockSchemaRegistry = {
@@ -171,8 +180,7 @@ describe('EntityApplicationService', () => {
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalledWith(entity, 'created', cmd.actorUserId);
       expect(mockAuditPort.record).toHaveBeenCalled();
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        'node',
-        'parent-uuid',
+        { resourceType: 'node', resourceId: 'parent-uuid' },
         cmd.actorUserId,
         cmd.actorSessionId
       );
@@ -285,8 +293,7 @@ describe('EntityApplicationService', () => {
       expect(mockEntityRepository.update).toHaveBeenCalledWith(updated);
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalledWith(updated, 'updated', cmd.actorUserId);
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        'entity',
-        existingEntity.id,
+        { resourceType: 'entity', resourceId: existingEntity.id },
         cmd.actorUserId,
         cmd.actorSessionId
       );
@@ -326,8 +333,7 @@ describe('EntityApplicationService', () => {
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalled();
       expect(mockAuditPort.record).toHaveBeenCalled();
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        'entity',
-        existingEntity.id,
+        { resourceType: 'entity', resourceId: existingEntity.id },
         cmd.actorUserId,
         cmd.actorSessionId
       );
@@ -335,6 +341,36 @@ describe('EntityApplicationService', () => {
   });
 
   describe('authorized reads', () => {
+    it('lists deleted entities through the repository scope boundary', async () => {
+      const deleted = [{ id: 'deleted-1', entityTypeName: 'Device', parentNodeName: 'Operations' }];
+      mockEntityRepository.listDeletedByScope = vi.fn().mockResolvedValue(deleted);
+
+      await expect(service.listDeletedEntities('actor-1', 50, 10)).resolves.toEqual(deleted);
+      expect(mockEntityRepository.listDeletedByScope).toHaveBeenCalledWith('actor-1', 50, 10);
+    });
+
+    it('restores a scoped entity only when its type is active and audits the transition', async () => {
+      const entity = new Entity(
+        '00000000-0000-0000-0000-000000000002', 'type-id-1', 'parent-uuid', 'Deleted', '', 4,
+        new Date(), new Date(), new Date(), 'user-1', 'user-1', { serialNumber: 'OSC-000', voltage: 220 },
+      );
+      mockEntityRepository.findDeletedById = vi.fn().mockResolvedValue(entity);
+
+      await service.restoreEntity({
+        actorUserId: '00000000-0000-0000-0000-000000000000',
+        actorSessionId: '00000000-0000-7000-8000-000000000001',
+        entityId: entity.id,
+        expectedRowVersion: 4,
+      });
+
+      expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith(
+        '00000000-0000-0000-0000-000000000000', 'entity.restore', 'parent-uuid',
+      );
+      expect(mockEntityRepository.restore).toHaveBeenCalledWith(entity.id, '00000000-0000-0000-0000-000000000000', 4);
+      expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalledWith(expect.objectContaining({ deletedAt: null }), 'restored', expect.any(String));
+      expect(mockAuditPort.record).toHaveBeenCalledWith(expect.any(String), 'entity.restore', 'entity', entity.id, 'parent-uuid', expect.any(Object), { deletedAt: null });
+    });
+
     it('checks node read permission before returning an entity', async () => {
       const entity = new Entity(
         '00000000-0000-0000-0000-000000000002',

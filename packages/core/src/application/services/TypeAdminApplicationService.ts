@@ -29,6 +29,7 @@ import {
   CreateTypeCommand, CreateTypeCommandSchema,
   UpdateTypeCommand, UpdateTypeCommandSchema,
   DisableTypeCommand, DisableTypeCommandSchema,
+  EnableTypeCommand, EnableTypeCommandSchema,
   AddFieldCommand, AddFieldCommandSchema,
   UpdateFieldCommand, UpdateFieldCommandSchema,
   RemoveFieldCommand, RemoveFieldCommandSchema,
@@ -192,6 +193,26 @@ export class TypeAdminApplicationService {
       return type.typeKey;
     });
 
+    this.schemaInvalidation.invalidate(v.domain, typeKey);
+  }
+
+  async enableType(cmd: EnableTypeCommand): Promise<void> {
+    const v = this.validateCommand(EnableTypeCommandSchema, cmd, 'enabling type');
+    await this.accessControlPort.assertHasPermission(v.actorUserId, this.permission(v.domain, 'update'), null);
+    const typeKey = await this.transactionPort.runInTransaction(async () => {
+      const type = await this.adminRepository.findTypeById(v.domain, v.typeId);
+      if (!type || type.deletedAt) throw new TypeDefinitionNotFoundError(v.typeId, v.domain);
+      if (type.isSystem) throw new SystemTypeModificationError(type.typeKey, v.domain);
+      if (type.rowVersion !== v.expectedRowVersion) throw new RowVersionMismatchError(v.expectedRowVersion, type.rowVersion);
+      if (type.isActive) return type.typeKey;
+      const enabled = new ManagedTypeDefinition(
+        type.id, type.typeKey, type.name, type.description, type.storageTable, type.placementPolicyId,
+        type.currentSchemaVersion, true, type.isSystem, type.rowVersion + 1, type.createdAt, new Date(), type.deletedAt,
+      );
+      await this.adminRepository.updateType(v.domain, enabled);
+      await this.auditPort.record(v.actorUserId, 'type_admin.enable_type', v.domain === 'entity' ? 'entity_type' : 'node_type', type.id, null, { isActive: false }, { isActive: true });
+      return type.typeKey;
+    });
     this.schemaInvalidation.invalidate(v.domain, typeKey);
   }
 

@@ -141,6 +141,10 @@ export {
   UpdateNodeCommandSchema,
   MoveNodeCommand,
   MoveNodeCommandSchema,
+  DeleteNodeCommand,
+  DeleteNodeCommandSchema,
+  RestoreNodeCommand,
+  RestoreNodeCommandSchema,
 } from './application/commands/NodeCommands.js';
 export {
   CreateEntityCommand,
@@ -156,6 +160,8 @@ export {
   UpdateTypeCommand,
   UpdateTypeCommandSchema,
   DisableTypeCommand,
+  EnableTypeCommandSchema,
+  EnableTypeCommand,
   DisableTypeCommandSchema,
   AddFieldCommand,
   AddFieldCommandSchema,

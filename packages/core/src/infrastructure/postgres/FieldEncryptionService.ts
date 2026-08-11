@@ -22,14 +22,22 @@ export class FieldEncryptionService {
     const result: Record<string, unknown> = { ...payload };
     for (const [fieldKey, mode] of modes) {
       const enabled = globalEnabled && mode === 'encrypted';
-      if (!Object.prototype.hasOwnProperty.call(payload, fieldKey)) continue;
-      if (enabled) {
+      if (!Object.prototype.hasOwnProperty.call(payload, fieldKey)) {
+        // Entity/node updates carry the complete payload.  A missing encrypted
+        // field therefore means that its value was cleared, and must not leave
+        // a stale sidecar behind.
+        await this.executor.query('DELETE FROM resource_field_ciphertexts WHERE resource_type = $1 AND resource_id = $2 AND field_key = $3', [resourceType, resourceId, fieldKey]);
+        continue;
+      }
+      const value = payload[fieldKey];
+      const isEmpty = value === null || value === '';
+      if (enabled && !isEmpty) {
         if (!this.key) throw new Error('Field encryption requested but FIELD_ENCRYPTION_KEY is missing');
         await this.executor.query(
           `INSERT INTO resource_field_ciphertexts (resource_type, resource_id, field_key, key_version, ciphertext)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (resource_type, resource_id, field_key) DO UPDATE SET key_version = EXCLUDED.key_version, ciphertext = EXCLUDED.ciphertext, updated_at = NOW()`,
-          [resourceType, resourceId, fieldKey, 'v1', this.encrypt(payload[fieldKey])],
+          [resourceType, resourceId, fieldKey, 'v1', this.encrypt(value)],
         );
         result[fieldKey] = null;
       } else {

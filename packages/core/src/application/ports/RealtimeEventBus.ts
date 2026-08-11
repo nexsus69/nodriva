@@ -2,7 +2,7 @@ import type { ResourceKind } from '../../domain/models/ResourceReference.js';
 import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 
 export type RealtimeResourceType = ResourceKind;
-export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved';
+export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved' | 'restored';
 
 export interface RealtimeDataChangedEvent extends ResourceReference {
   eventId: string;

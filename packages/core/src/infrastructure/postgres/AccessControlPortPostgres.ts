@@ -21,7 +21,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
   static getReadAccessControlSql(
     actorIdParam: string,
     nodeAlias: string = 'n',
-    readPermissionKey: 'node.read' | 'entity.read' = 'node.read'
+    readPermissionKey: string = 'node.read'
   ): string {
     const escapedPermissionKey = readPermissionKey.replace(/'/g, "''");
     return `

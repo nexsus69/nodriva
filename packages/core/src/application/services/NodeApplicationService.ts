@@ -11,7 +11,7 @@ import { TransactionPort } from '../ports/TransactionPort.js';
 import { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 
-import { CreateNodeCommand, CreateNodeCommandSchema, UpdateNodeCommand, UpdateNodeCommandSchema, MoveNodeCommand, MoveNodeCommandSchema } from '../commands/NodeCommands.js';
+import { CreateNodeCommand, CreateNodeCommandSchema, UpdateNodeCommand, UpdateNodeCommandSchema, MoveNodeCommand, MoveNodeCommandSchema, DeleteNodeCommand, DeleteNodeCommandSchema, RestoreNodeCommand, RestoreNodeCommandSchema } from '../commands/NodeCommands.js';
 import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError, NodeTypeNotFoundError, NodePathCollisionError, NodeCyclicMoveError } from '../../domain/errors/DomainErrors.js';
 
@@ -347,6 +347,51 @@ export class NodeApplicationService {
       );
 
       return updatedWithPayload;
+    });
+  }
+
+  async deleteNode(cmd: DeleteNodeCommand): Promise<void> {
+    const parseResult = DeleteNodeCommandSchema.safeParse(cmd);
+    if (!parseResult.success) throw new ValidationError('Validation failed for deleting node.', { root: parseResult.error.issues.map((issue) => issue.message) });
+    const validatedCmd = parseResult.data;
+    await this.transactionPort.runInTransaction(async () => {
+      const node = await this.nodeRepository.findById(validatedCmd.nodeId);
+      if (!node) throw new NodeNotFoundError(validatedCmd.nodeId);
+      if (node.rowVersion !== validatedCmd.expectedRowVersion) throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, node.rowVersion);
+      await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'node.delete', node.id);
+      if (await this.runtimeConfigPort.isCapabilityEnabled('locking')) {
+        await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: node.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+        await this.nodeRepository.assertSubtreeUnlocked(node.id, validatedCmd.actorUserId);
+      }
+      const batchId = this.idGenerator.generate();
+      const affectedIds = await this.nodeRepository.softDeleteSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
+      for (const affectedId of affectedIds) await this.auditPort.record(validatedCmd.actorUserId, 'node.delete', 'node', affectedId, node.id, null, { deletionBatchId: batchId });
+    });
+  }
+
+  async listDeletedNodes(actorUserId: string, limit?: number, offset?: number) {
+    return await this.nodeRepository.listDeletedByScope(actorUserId, limit, offset);
+  }
+
+  async restoreNode(cmd: RestoreNodeCommand): Promise<void> {
+    const parseResult = RestoreNodeCommandSchema.safeParse(cmd);
+    if (!parseResult.success) throw new ValidationError('Validation failed for restoring node.', { root: parseResult.error.issues.map((issue) => issue.message) });
+    const validatedCmd = parseResult.data;
+    await this.transactionPort.runInTransaction(async () => {
+      const node = await this.nodeRepository.findDeletedById(validatedCmd.nodeId);
+      if (!node || !node.deletedAt) throw new NodeNotFoundError(validatedCmd.nodeId);
+      if (node.rowVersion !== validatedCmd.expectedRowVersion) throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, node.rowVersion);
+      await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'node.restore', node.id);
+      if (node.parentId && !(await this.nodeRepository.findById(node.parentId))) {
+        throw new NodeNotFoundError(node.parentId);
+      }
+      if (await this.runtimeConfigPort.isCapabilityEnabled('locking')) {
+        await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: node.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+      }
+      const batchId = await this.nodeRepository.getDeletionBatchId(node.id);
+      if (!batchId) throw new ValidationError('The node has no subtree deletion batch.', { nodeId: ['Missing deletion batch.'] });
+      const restoredIds = await this.nodeRepository.restoreSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
+      await this.auditPort.record(validatedCmd.actorUserId, 'node.restore', 'node', node.id, node.id, { deletionBatchId: batchId }, { restoredNodeIds: restoredIds });
     });
   }
 

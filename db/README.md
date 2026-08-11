@@ -62,6 +62,25 @@ role receives `EXECUTE` on those functions, never direct `ALTER TABLE`,
 checks the requested table and column against the entity metadata before
 executing a narrowly scoped operation.
 
+Migration `022_field_ciphertext_lifecycle.sql` keeps encrypted field sidecars
+aligned with their metadata and resources through database triggers. Removing
+a field or resource removes its ciphertexts in the same transaction,
+preventing orphaned encrypted values.
+
+Migration `023_dynamic_table_crud_privileges.sql` grants the application role
+CRUD access to registered dynamic entity tables while keeping schema creation
+and alteration restricted to the controlled DDL gateway.
+
+Migration `024_deleted_entity_management_permissions.sql` adds separate
+`entity.restore` and `entity.purge` permissions. The current recycle-bin
+increment uses only `entity.restore`; permanent purge remains a separate,
+explicitly protected feature.
+
+Migration `025_subtree_deletion_batches.sql` adds deletion-batch provenance to
+nodes and entities. Subtree restoration can therefore restore only records
+deleted by that cascade, without resurrecting records that had been deleted
+individually beforehand.
+
 Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL
 track under `packages/core/src/infrastructure/schema` was removed so every

@@ -33,6 +33,8 @@ describe('NodeApplicationService', () => {
   beforeEach(() => {
     mockNodeRepository = {
       findById: vi.fn(),
+      findDeletedById: vi.fn(),
+      listDeletedByScope: vi.fn(),
       listChildren: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -41,6 +43,10 @@ describe('NodeApplicationService', () => {
       existsByParentAndPathLabel: vi.fn().mockResolvedValue(false),
       listAncestorIds: vi.fn().mockResolvedValue([]),
       isDescendantOf: vi.fn().mockResolvedValue(false),
+      softDeleteSubtree: vi.fn().mockResolvedValue([]),
+      assertSubtreeUnlocked: vi.fn(),
+      getDeletionBatchId: vi.fn().mockResolvedValue(null),
+      restoreSubtree: vi.fn().mockResolvedValue([]),
     };
 
     mockNodeTypeRepository = {
@@ -175,8 +181,7 @@ describe('NodeApplicationService', () => {
       });
 
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        'node',
-        parent.id,
+        { resourceType: 'node', resourceId: parent.id },
         '00000000-0000-0000-0000-000000000000',
         '00000000-0000-7000-8000-000000000001'
       );
@@ -396,6 +401,30 @@ describe('NodeApplicationService', () => {
 
       await expect(service.moveNode(cmd)).rejects.toThrow(NodePathCollisionError);
       expect(mockNodeRepository.moveSubtree).not.toHaveBeenCalled();
+    });
+
+    it('soft-deletes a node subtree using one deletion batch', async () => {
+      const node = new Node('00000000-0000-0000-0000-000000000010', null, 'root', 'root', 0, 'type-123', 'Root', '', 3, new Date(), new Date(), null, 'user-1', 'user-1', {});
+      mockNodeRepository.findById = vi.fn().mockResolvedValue(node);
+      mockNodeRepository.softDeleteSubtree = vi.fn().mockResolvedValue([node.id, '00000000-0000-0000-0000-000000000011']);
+
+      await service.deleteNode({ actorUserId: '00000000-0000-0000-0000-000000000001', actorSessionId: '00000000-0000-7000-8000-000000000001', nodeId: node.id, expectedRowVersion: 3 });
+
+      expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.delete', node.id);
+      expect(mockNodeRepository.softDeleteSubtree).toHaveBeenCalledWith(node.id, '00000000-0000-0000-0000-000000000001', 3, expect.any(String));
+      expect(mockAuditPort.record).toHaveBeenCalledTimes(2);
+    });
+
+    it('restores only the recorded deletion batch', async () => {
+      const deleted = new Node('00000000-0000-0000-0000-000000000010', null, 'root', 'root', 0, 'type-123', 'Root', '', 4, new Date(), new Date(), new Date(), 'user-1', 'user-1', {});
+      mockNodeRepository.findDeletedById = vi.fn().mockResolvedValue(deleted);
+      mockNodeRepository.getDeletionBatchId = vi.fn().mockResolvedValue('00000000-0000-0000-0000-000000000099');
+      mockNodeRepository.restoreSubtree = vi.fn().mockResolvedValue([deleted.id]);
+
+      await service.restoreNode({ actorUserId: '00000000-0000-0000-0000-000000000001', actorSessionId: '00000000-0000-7000-8000-000000000001', nodeId: deleted.id, expectedRowVersion: 4 });
+
+      expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.restore', deleted.id);
+      expect(mockNodeRepository.restoreSubtree).toHaveBeenCalledWith(deleted.id, '00000000-0000-0000-0000-000000000001', 4, '00000000-0000-0000-0000-000000000099');
     });
   });
 });

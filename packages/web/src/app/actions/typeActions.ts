@@ -218,6 +218,21 @@ export async function disableTypeAction(
   }
 }
 
+export async function enableTypeAction(
+  kind: TypeKind,
+  typeKey: string,
+  cmd: DisableTypeUiCommand,
+): Promise<{ success: boolean; data?: TypeDetailDto; error?: ApiErrorResponse }> {
+  try {
+    const current = await getTypeDetailAction(kind, typeKey);
+    if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
+    await typeAdminService.enableType({ domain: kind, typeId: current.data.id, expectedRowVersion: cmd.expectedRowVersion, actorUserId: await AuthResolver.resolveActorUserId() });
+    return await getTypeDetailAction(kind, typeKey);
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
 /** 4. Aggiunta Campo */
 export async function createFieldAction(
   kind: TypeKind,

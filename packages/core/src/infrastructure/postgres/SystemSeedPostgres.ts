@@ -69,6 +69,8 @@ export class SystemSeedPostgres implements SystemSeedPort {
       { key: 'entity.read', name: 'Read Entities', kind: 'entity' },
       { key: 'entity.edit', name: 'Edit Entity', kind: 'entity' },
       { key: 'entity.delete', name: 'Delete Entity', kind: 'entity' },
+      { key: 'entity.restore', name: 'Restore Entity', kind: 'entity' },
+      { key: 'entity.purge', name: 'Permanently Delete Entity', kind: 'entity' },
       { key: 'entity.move', name: 'Move Entity', kind: 'entity' },
       { key: 'entity_type.read', name: 'Read Entity Types', kind: 'entity_type' },
       { key: 'node_type.create', name: 'Create Node Type', kind: 'node_type' },

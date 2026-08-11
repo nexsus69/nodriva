@@ -4,6 +4,8 @@ import {
   CreateNodeCommand,
   UpdateNodeCommand,
   MoveNodeCommand,
+  DeleteNodeCommand,
+  RestoreNodeCommand,
 } from '@dashboard/core';
 
 import { AuthResolver } from './auth/AuthResolver';
@@ -147,6 +149,32 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
     return toNodeDto(moved);
   }
   return moved;
+  });
+}
+
+export async function deleteNodeAction(input: Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+  return withSafeActionErrors(async () => {
+    const { nodeService } = await import('../../server/db');
+    const identity = await AuthResolver.resolveActorIdentity();
+    const cmd: DeleteNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };
+    await runWithRealtimeOutbox(
+      () => nodeService.deleteNode(cmd),
+      () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
+    );
+    return { deleted: true };
+  });
+}
+
+export async function restoreNodeAction(input: Omit<RestoreNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+  return withSafeActionErrors(async () => {
+    const { nodeService } = await import('../../server/db');
+    const identity = await AuthResolver.resolveActorIdentity();
+    const cmd: RestoreNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };
+    await runWithRealtimeOutbox(
+      () => nodeService.restoreNode(cmd),
+      () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId }),
+    );
+    return { restored: true };
   });
 }
 

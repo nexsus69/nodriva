@@ -1,9 +1,10 @@
-import { EntityRepository } from '../../application/ports/EntityRepository.js';
+import { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
 import { Entity } from '../../domain/models/Entity.js';
 import { PgExecutor } from './PgExecutor.js';
 import { EntityNotFoundError } from '../../domain/errors/EntityErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { FieldEncryptionService } from './FieldEncryptionService.js';
+import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 
 interface BaseEntityRow {
   id: string;
@@ -105,6 +106,42 @@ export class EntityRepositoryPostgres implements EntityRepository {
       baseRow.updated_by,
       restoredPayload
     );
+  }
+
+  async findDeletedById(id: string): Promise<Entity | null> {
+    const baseResult = await this.executor.query<BaseEntityRow>(`
+      SELECT id, entity_type_id, parent_node_id, name, description, row_version,
+             created_at, updated_at, deleted_at, created_by, updated_by
+      FROM entities WHERE id = $1 AND deleted_at IS NOT NULL
+    `, [id]);
+    const baseRow = baseResult.rows[0];
+    if (!baseRow) return null;
+    const { storageTable, fields } = await this.getStorageMeta(baseRow.entity_type_id);
+    const specResult = await this.executor.query<Record<string, unknown>>(`SELECT * FROM ${this.escapeIdentifier(storageTable)} WHERE entity_id = $1`, [id]);
+    const payload: Record<string, unknown> = {};
+    const specRow = specResult.rows[0];
+    if (specRow) for (const field of fields) payload[field.field_key] = specRow[field.column_name];
+    const restoredPayload = this.fieldEncryption ? await this.fieldEncryption.restore('entity', id, payload) : payload;
+    return new Entity(baseRow.id, baseRow.entity_type_id, baseRow.parent_node_id, baseRow.name, baseRow.description,
+      baseRow.row_version, baseRow.created_at, baseRow.updated_at, baseRow.deleted_at, baseRow.created_by,
+      baseRow.updated_by, restoredPayload);
+  }
+
+  async listDeletedByScope(actorUserId: string, limit = 100, offset = 0): Promise<DeletedEntitySummary[]> {
+    const scopeSql = AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'entity.restore');
+    const result = await this.executor.query<DeletedEntitySummary>(`
+      SELECT e.id, e.entity_type_id AS "entityTypeId", et.name AS "entityTypeName", et.is_active AS "entityTypeActive",
+             e.parent_node_id AS "parentNodeId", n.name AS "parentNodeName",
+             e.name, e.description, e.row_version AS "rowVersion", e.deleted_at AS "deletedAt",
+             e.updated_by AS "updatedBy"
+      FROM entities e
+      JOIN nodes n ON n.id = e.parent_node_id
+      JOIN entity_types et ON et.id = e.entity_type_id
+      WHERE e.deleted_at IS NOT NULL AND (${scopeSql})
+      ORDER BY e.deleted_at DESC
+      LIMIT $2 OFFSET $3
+    `, [actorUserId, limit, offset]);
+    return result.rows;
   }
 
   async create(entity: Entity): Promise<void> {
@@ -228,6 +265,20 @@ export class EntityRepositoryPostgres implements EntityRepository {
       );
       const row = current.rows[0];
       if (!row || row.deleted_at !== null) throw new EntityNotFoundError(id);
+      throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
+    }
+  }
+
+  async restore(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
+    const result = await this.executor.query(
+      `UPDATE entities SET deleted_at = NULL, row_version = row_version + 1, updated_at = now(), updated_by = $1
+       WHERE id = $2 AND row_version = $3 AND deleted_at IS NOT NULL`,
+      [actorUserId, id, expectedRowVersion],
+    );
+    if (result.rowCount === 0) {
+      const current = await this.executor.query<{ row_version: number; deleted_at: Date | null }>('SELECT row_version, deleted_at FROM entities WHERE id = $1', [id]);
+      const row = current.rows[0];
+      if (!row || row.deleted_at === null) throw new EntityNotFoundError(id);
       throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
     }
   }

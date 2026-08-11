@@ -148,6 +148,14 @@ export default function AdminTypeDetailPage() {
 
   const handleDisableType = () => {
     if (!typeDetail) return;
+    if (!typeDetail.isActive) {
+      startTransition(async () => {
+        const res = await AppCache.admin.enableType(kind, typeKey, { expectedRowVersion: typeDetail.rowVersion });
+        if (res.success && res.data) { setTypeDetail(res.data); setSuccessMsg('Tipo riattivato con successo.'); }
+        else if (res.error) setError(res.error);
+      });
+      return;
+    }
     setShowDisableConfirm(true);
   };
 
@@ -434,7 +442,7 @@ export default function AdminTypeDetailPage() {
                 disabled={!typeDetail.isEditable || isPending}
                 className="px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Disabilita Tipo
+                {typeDetail.isActive ? 'Disabilita Tipo' : 'Riattiva Tipo'}
               </button>
             ) : (
               <span className="px-3 py-1.5 bg-slate-800 text-rose-400 text-xs font-medium rounded-lg">

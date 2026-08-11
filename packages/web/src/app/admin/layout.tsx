@@ -49,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     groupTitle: 'AUDIT & COMPLIANCE',
     items: [
       { label: 'Registro di Audit e Log', href: '/admin/audit', icon: '📜' },
+      { label: 'Cestino e Ripristino', href: '/admin/recycle-bin', icon: '♻️' },
     ],
   },
 ];

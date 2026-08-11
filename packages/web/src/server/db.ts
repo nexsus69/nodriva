@@ -58,6 +58,7 @@ import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
 import { LocalAttachmentStorage } from './LocalAttachmentStorage';
+import { DeletedResourcePurgeService } from './DeletedResourcePurgeService';
 import type { AttachmentScannerPort } from '@dashboard/core';
 import { AttachmentRateLimiter } from './AttachmentRateLimiter';
 import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
@@ -179,6 +180,13 @@ export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, sch
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
 export const attachmentStorage = new LocalAttachmentStorage();
+export const deletedResourcePurgeService = new DeletedResourcePurgeService(
+  pgExecutor,
+  transactionPort,
+  accessControlPort,
+  auditPort,
+  attachmentStorage,
+);
 export const attachmentRateLimiter = new AttachmentRateLimiter();
 export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicyResolver(
   pgExecutor,

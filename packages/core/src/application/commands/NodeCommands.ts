@@ -34,3 +34,21 @@ export const MoveNodeCommandSchema = z.object({
 });
 
 export type MoveNodeCommand = z.infer<typeof MoveNodeCommandSchema>;
+
+export const DeleteNodeCommandSchema = z.object({
+  actorUserId: z.string().uuid(),
+  actorSessionId: z.string().uuid(),
+  nodeId: z.string().uuid(),
+  expectedRowVersion: z.number().int().positive(),
+});
+
+export type DeleteNodeCommand = z.infer<typeof DeleteNodeCommandSchema>;
+
+export const RestoreNodeCommandSchema = z.object({
+  actorUserId: z.string().uuid(),
+  actorSessionId: z.string().uuid(),
+  nodeId: z.string().uuid(),
+  expectedRowVersion: z.number().int().positive(),
+});
+
+export type RestoreNodeCommand = z.infer<typeof RestoreNodeCommandSchema>;

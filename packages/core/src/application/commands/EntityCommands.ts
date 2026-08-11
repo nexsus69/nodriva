@@ -33,3 +33,12 @@ export const DeleteEntityCommandSchema = z.object({
 });
 
 export type DeleteEntityCommand = z.infer<typeof DeleteEntityCommandSchema>;
+
+export const RestoreEntityCommandSchema = z.object({
+  actorUserId: z.string().uuid(),
+  actorSessionId: z.string().uuid(),
+  entityId: z.string().uuid(),
+  expectedRowVersion: z.number().int().positive(),
+});
+
+export type RestoreEntityCommand = z.infer<typeof RestoreEntityCommandSchema>;

@@ -11,6 +11,7 @@ const adminModules: AdminModuleCardProps[] = [
   { icon: '🛡️', badge: 'Modulo Sicurezza IAM', title: '3. Sicurezza & Accessi (IAM)', description: 'Configurazione della matrice Ruoli-Permessi atomici e regole di isolamento gerarchico (Scope per nodo).', footer: 'Ruoli & Scope', href: '/admin/security/roles', action: 'Gestisci Sicurezza', accent: 'purple' },
   { icon: '⚙️', badge: 'Modulo Governance Sistema', title: '4. Governance di Sistema', description: 'Gestione stato delle Capacità Runtime (`hierarchical_structure`, `locking`), Impostazioni di Sistema e Policy di Posizionamento.', footer: 'Capacità & Policy', href: '/admin/system/config', action: 'Configura Sistema', accent: 'emerald' },
   { icon: '📜', badge: 'Modulo Registro Audit', title: '5. Audit & Registro Attività', description: 'Ispezione del registro immutabile delle operazioni amministrative e delle revisioni storiche di dominio.', footer: 'Registro Append-Only', href: '/admin/audit', action: 'Ispeziona Log', accent: 'amber' },
+  { icon: '♻️', badge: 'Modulo Lifecycle', title: '6. Cestino e Ripristino', description: 'Gestione scoped degli elementi eliminati, con ripristino controllato e tracciamento delle operazioni.', footer: 'Soft Delete & Recovery', href: '/admin/recycle-bin', action: 'Apri Cestino', accent: 'emerald' },
 ];
 
 export default function AdminOverviewPage() {

@@ -4,6 +4,7 @@ import * as seedActions from '../actions/seedAction';
 import * as securityActions from '../actions/securityActions';
 import * as systemActions from '../actions/systemActions';
 import * as typeActions from '../actions/typeActions';
+import * as recycleActions from '../actions/recycleActions';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 
@@ -56,6 +57,8 @@ export class AdminCacheClient {
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.updateTypeAction(...args));
   public disableType = (...args: Parameters<typeof typeActions.disableTypeAction>) =>
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.disableTypeAction(...args));
+  public enableType = (...args: Parameters<typeof typeActions.enableTypeAction>) =>
+    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.enableTypeAction(...args));
   public createField = (...args: Parameters<typeof typeActions.createFieldAction>) =>
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.createFieldAction(...args));
   public addEnumOption = (...args: Parameters<typeof typeActions.addEnumOptionAction>) =>
@@ -64,6 +67,18 @@ export class AdminCacheClient {
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.updateFieldAction(...args));
   public deleteField = (...args: Parameters<typeof typeActions.deleteFieldAction>) =>
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.deleteFieldAction(...args));
+  public listDeletedEntities = (input?: Parameters<typeof recycleActions.listDeletedEntitiesAction>[0]) =>
+    this.read(`deleted-entities:${input?.limit ?? 100}:${input?.offset ?? 0}`, () => recycleActions.listDeletedEntitiesAction(input));
+  public listDeletedNodes = (input?: Parameters<typeof recycleActions.listDeletedNodesAction>[0]) =>
+    this.read(`deleted-nodes:${input?.limit ?? 100}:${input?.offset ?? 0}`, () => recycleActions.listDeletedNodesAction(input));
+  public restoreDeletedEntity = (input: Parameters<typeof recycleActions.restoreDeletedEntityAction>[0]) =>
+    this.write(['deleted-entities'], () => recycleActions.restoreDeletedEntityAction(input));
+  public restoreDeletedNode = (input: Parameters<typeof recycleActions.restoreDeletedNodeAction>[0]) =>
+    this.write(['deleted-nodes'], () => recycleActions.restoreDeletedNodeAction(input));
+  public purgeDeletedNode = (input: Parameters<typeof recycleActions.purgeDeletedNodeAction>[0]) =>
+    this.write(['deleted-nodes'], () => recycleActions.purgeDeletedNodeAction(input));
+  public purgeDeletedEntity = (input: Parameters<typeof recycleActions.purgeDeletedEntityAction>[0]) =>
+    this.write(['deleted-entities'], () => recycleActions.purgeDeletedEntityAction(input));
   public reorderFields = (...args: Parameters<typeof typeActions.reorderFieldsAction>) =>
     this.write(['types', 'type-detail', 'type-definition'], () => typeActions.reorderFieldsAction(...args));
 

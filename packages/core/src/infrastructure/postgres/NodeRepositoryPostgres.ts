@@ -1,7 +1,8 @@
-import { NodeRepository } from '../../application/ports/NodeRepository.js';
+import { DeletedNodeSummary, NodeRepository } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import { PgExecutor } from './PgExecutor.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import { FieldEncryptionService } from './FieldEncryptionService.js';
 
@@ -41,6 +42,30 @@ export class NodeRepositoryPostgres implements NodeRepository {
     }
     const node = this.mapToDomain(row);
     return this.fieldEncryption ? this.mapToDomain(row, await this.fieldEncryption.restore('node', row.id, node.payload)) : node;
+  }
+
+  async findDeletedById(id: string): Promise<Node | null> {
+    const result = await this.executor.query<NodeRow>(`SELECT id, parent_id, path, path_label, depth, node_type_id, name, description, row_version, created_at, updated_at, deleted_at, created_by, updated_by, payload FROM nodes WHERE id = $1 AND deleted_at IS NOT NULL`, [id]);
+    const row = result.rows[0];
+    if (!row) return null;
+    const node = this.mapToDomain(row);
+    return this.fieldEncryption ? this.mapToDomain(row, await this.fieldEncryption.restore('node', row.id, node.payload)) : node;
+  }
+
+  async listDeletedByScope(actorUserId: string, limit = 100, offset = 0): Promise<DeletedNodeSummary[]> {
+    const result = await this.executor.query<DeletedNodeSummary>(`
+      SELECT n.id, n.node_type_id AS "nodeTypeId", nt.name AS "nodeTypeName",
+             n.parent_id AS "parentId", parent.name AS "parentName", n.name,
+             n.path::text AS path, n.row_version AS "rowVersion", n.deleted_at AS "deletedAt",
+             n.deletion_batch_id AS "deletionBatchId"
+      FROM nodes n
+      JOIN node_types nt ON nt.id = n.node_type_id
+      LEFT JOIN nodes parent ON parent.id = n.parent_id
+      WHERE n.deleted_at IS NOT NULL
+        AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.restore')}
+      ORDER BY n.deleted_at DESC
+      LIMIT $2 OFFSET $3`, [actorUserId, limit, offset]);
+    return result.rows;
   }
 
   async listChildren(parentId: string | null, limit?: number, offset?: number): Promise<Node[]> {
@@ -312,6 +337,76 @@ export class NodeRepositoryPostgres implements NodeRepository {
     `;
     const result = await this.executor.query(query, [nodeId, potentialAncestorId]);
     return result.rows.length > 0;
+  }
+
+  async getDeletionBatchId(nodeId: string): Promise<string | null> {
+    const result = await this.executor.query<{ deletion_batch_id: string | null }>('SELECT deletion_batch_id FROM nodes WHERE id = $1 AND deleted_at IS NOT NULL', [nodeId]);
+    return result.rows[0]?.deletion_batch_id ?? null;
+  }
+
+  async softDeleteSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]> {
+    const result = await this.executor.query<{ id: string }>(
+      `WITH root AS (
+         SELECT path FROM nodes WHERE id = $1 AND deleted_at IS NULL AND row_version = $2
+       ), updated_entities AS (
+         UPDATE entities SET deleted_at = now(), deletion_batch_id = $3, row_version = row_version + 1, updated_at = now(), updated_by = $4
+         WHERE parent_node_id IN (SELECT n.id FROM nodes n, root WHERE n.path <@ root.path AND n.deleted_at IS NULL) AND deleted_at IS NULL RETURNING id
+       )
+       UPDATE nodes SET deleted_at = now(), deletion_batch_id = $3, row_version = row_version + 1, updated_at = now(), updated_by = $4
+       WHERE path <@ (SELECT path FROM root) AND deleted_at IS NULL RETURNING id`,
+      [nodeId, expectedRowVersion, deletionBatchId, actorUserId],
+    );
+    if (result.rows.length === 0) {
+      const current = await this.executor.query<{ row_version: number; deleted_at: Date | null }>('SELECT row_version, deleted_at FROM nodes WHERE id = $1', [nodeId]);
+      const row = current.rows[0];
+      if (!row || row.deleted_at !== null) throw new NodeNotFoundError(nodeId);
+      throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
+    }
+    return result.rows.map((row) => row.id);
+  }
+
+  async assertSubtreeUnlocked(nodeId: string, actorUserId: string): Promise<void> {
+    const result = await this.executor.query<{ resource_type: string; resource_id: string }>(`
+      SELECT l.resource_type, l.resource_id
+      FROM locks l
+      JOIN nodes root ON root.id = $1
+      WHERE l.expires_at > now()
+        AND l.user_id::text <> $2
+        AND (
+          (l.resource_type = 'node' AND EXISTS (SELECT 1 FROM nodes n WHERE n.id::text = l.resource_id AND n.path <@ root.path))
+          OR
+          (l.resource_type = 'entity' AND EXISTS (
+            SELECT 1 FROM entities e JOIN nodes parent ON parent.id = e.parent_node_id
+            WHERE e.id::text = l.resource_id AND parent.path <@ root.path
+          ))
+        )
+      ORDER BY l.expires_at ASC
+      LIMIT 1`, [nodeId, actorUserId]);
+    const conflict = result.rows[0];
+    if (conflict) throw new LockConflictError(conflict.resource_type, conflict.resource_id);
+  }
+
+  async restoreSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]> {
+    const root = await this.executor.query<{ id: string }>(
+      'SELECT id FROM nodes WHERE id = $1 AND deleted_at IS NOT NULL AND deletion_batch_id = $3 AND row_version = $2',
+      [nodeId, expectedRowVersion, deletionBatchId],
+    );
+    if (root.rows.length === 0) throw new NodeNotFoundError(nodeId);
+
+    // The batch is the immutable membership set of the deleted subtree. No
+    // recursive traversal is needed during restore, and independently deleted
+    // resources are excluded because they carry a different/null batch id.
+    await this.executor.query(
+      `UPDATE entities SET deleted_at = NULL, deletion_batch_id = NULL, row_version = row_version + 1, updated_at = now(), updated_by = $2
+       WHERE deleted_at IS NOT NULL AND deletion_batch_id = $1`,
+      [deletionBatchId, actorUserId],
+    );
+    const result = await this.executor.query<{ id: string }>(
+      `UPDATE nodes SET deleted_at = NULL, deletion_batch_id = NULL, row_version = row_version + 1, updated_at = now(), updated_by = $2
+       WHERE deleted_at IS NOT NULL AND deletion_batch_id = $1 RETURNING id`,
+      [deletionBatchId, actorUserId],
+    );
+    return result.rows.map((row) => row.id);
   }
 
   private mapToDomain(row: NodeRow, payload = row.payload ?? {}): Node {

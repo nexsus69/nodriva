@@ -1,7 +1,22 @@
 import { Node } from '../../domain/models/Node.js';
 
+export interface DeletedNodeSummary {
+  id: string;
+  nodeTypeId: string;
+  nodeTypeName: string;
+  parentId: string | null;
+  parentName: string | null;
+  name: string;
+  path: string;
+  rowVersion: number;
+  deletedAt: Date;
+  deletionBatchId: string | null;
+}
+
 export interface NodeRepository {
   findById(id: string): Promise<Node | null>;
+  findDeletedById(id: string): Promise<Node | null>;
+  listDeletedByScope(actorUserId: string, limit?: number, offset?: number): Promise<DeletedNodeSummary[]>;
   listChildren(parentId: string | null, limit?: number, offset?: number): Promise<Node[]>;
   /** Optional optimized projection used by PostgreSQL adapters. */
   listReadableChildren?(parentId: string | null, actorUserId: string): Promise<Node[]>;
@@ -17,4 +32,8 @@ export interface NodeRepository {
   listAncestorIdsForNodes?(nodeIds: string[]): Promise<Map<string, string[]>>;
   /** Returns true if nodeId is a descendant of potentialAncestorId (strict: not self). */
   isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean>;
+  softDeleteSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]>;
+  assertSubtreeUnlocked(nodeId: string, actorUserId: string): Promise<void>;
+  getDeletionBatchId(nodeId: string): Promise<string | null>;
+  restoreSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]>;
 }

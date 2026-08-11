@@ -33,6 +33,9 @@ export const DisableTypeCommandSchema = z.object({
 });
 export type DisableTypeCommand = z.infer<typeof DisableTypeCommandSchema>;
 
+export const EnableTypeCommandSchema = DisableTypeCommandSchema;
+export type EnableTypeCommand = z.infer<typeof EnableTypeCommandSchema>;
+
 // --- Field Commands ---
 
 export const AddFieldCommandSchema = z.object({

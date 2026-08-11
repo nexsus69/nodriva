@@ -18,6 +18,8 @@ import {
   UpdateEntityCommandSchema,
   DeleteEntityCommand,
   DeleteEntityCommandSchema,
+  RestoreEntityCommand,
+  RestoreEntityCommandSchema,
 } from '../commands/EntityCommands.js';
 import { CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import {
@@ -352,6 +354,55 @@ export class EntityApplicationService {
     await this.accessControlPort.assertCanReadNode(actorUserId, entity.parentNodeId);
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
     return entity;
+  }
+
+  async listDeletedEntities(actorUserId: string, limit?: number, offset?: number) {
+    return await this.entityRepository.listDeletedByScope(actorUserId, limit, offset);
+  }
+
+  async restoreEntity(cmd: RestoreEntityCommand): Promise<void> {
+    const parseResult = RestoreEntityCommandSchema.safeParse(cmd);
+    if (!parseResult.success) {
+      throw new EntityCommandValidationError('Validation failed for restoring entity.', {
+        root: parseResult.error.issues.map((issue) => issue.message),
+      });
+    }
+    const validatedCmd = parseResult.data;
+
+    await this.transactionPort.runInTransaction(async () => {
+      const entity = await this.entityRepository.findDeletedById(validatedCmd.entityId);
+      if (!entity || !entity.deletedAt) throw new EntityNotFoundError(validatedCmd.entityId);
+      if (entity.rowVersion !== validatedCmd.expectedRowVersion) {
+        throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, entity.rowVersion);
+      }
+
+      await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'entity.restore', entity.parentNodeId);
+      const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
+      if (isLockingEnabled) {
+        await this.lockService.requireOwnedLock({ resourceType: 'entity', resourceId: entity.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
+      }
+      const parentNode = await this.nodeRepository.findById(entity.parentNodeId);
+      if (!parentNode) throw new NodeNotFoundError(entity.parentNodeId);
+      const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
+      if (!entityType) throw new EntityTypeNotFoundError(entity.entityTypeId, 'id');
+      if (!entityType.isActive) {
+        throw new EntityCommandValidationError('Cannot restore an entity whose type is disabled.', {
+          entityTypeId: [entity.entityTypeId],
+        });
+      }
+
+      await this.entityRepository.restore(entity.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion);
+      const restored = new Entity(
+        entity.id, entity.entityTypeId, entity.parentNodeId, entity.name, entity.description,
+        entity.rowVersion + 1, entity.createdAt, new Date(), null, entity.createdBy,
+        validatedCmd.actorUserId, entity.payload,
+      );
+      await this.revisionPort.recordEntityRevision(restored, 'restored', validatedCmd.actorUserId);
+      await this.auditPort.record(
+        validatedCmd.actorUserId, 'entity.restore', 'entity', entity.id, entity.parentNodeId,
+        { deletedAt: entity.deletedAt.toISOString() }, { deletedAt: null },
+      );
+    });
   }
 
   async listEntitiesByNode(
