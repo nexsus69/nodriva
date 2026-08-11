@@ -1,5 +1,10 @@
 # Database migrations
 
+La procedura verificata di backup e restore è documentata in
+`docs/BACKUP_RESTORE.md` e nello script `scripts/postgres-backup-verify.sh`.
+Il comando di verifica ripristina sempre in un database temporaneo e non
+sostituisce il database operativo.
+
 The canonical authentication table is `user_sessions`.
 
 Apply migrations in filename order against a database initialized from

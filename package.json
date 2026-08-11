@@ -5,6 +5,7 @@
     "test": "pnpm --filter @dashboard/core exec vitest run && pnpm --filter @dashboard/web test",
     "typecheck": "pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web typecheck",
     "lint": "pnpm --filter @dashboard/web lint",
+    "db:backup:verify": "./scripts/postgres-backup-verify.sh backup-verify",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build"
   }
 }
