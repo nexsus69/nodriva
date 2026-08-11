@@ -54,6 +54,31 @@ export class FieldEncryptionService {
     return result;
   }
 
+  async rotateBatch(limit: number): Promise<number> {
+    const active = this.keyring.active();
+    const rows = await this.executor.query<{ resource_type: ResourceType; resource_id: string; field_key: string; key_version: string; ciphertext: string }>(
+      `SELECT resource_type, resource_id, field_key, key_version, ciphertext
+       FROM resource_field_ciphertexts
+       WHERE key_version <> $1
+       ORDER BY updated_at, resource_id, field_key
+       LIMIT $2`,
+      [active.version, Math.max(1, Math.min(1000, limit))],
+    );
+    let rotated = 0;
+    for (const row of rows.rows) {
+      const value = this.decrypt(row.ciphertext, row.key_version);
+      const ciphertext = this.encrypt(value, active.value, active.version);
+      const result = await this.executor.query(
+        `UPDATE resource_field_ciphertexts
+         SET key_version = $1, ciphertext = $2, updated_at = NOW()
+         WHERE resource_type = $3 AND resource_id = $4 AND field_key = $5 AND key_version = $6`,
+        [active.version, ciphertext, row.resource_type, row.resource_id, row.field_key, row.key_version],
+      );
+      rotated += result.rowCount ?? 0;
+    }
+    return rotated;
+  }
+
   async redact(resourceType: ResourceType, typeId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     const modes = await this.modes(resourceType, typeId);
     const globalEnabled = await this.config.get<boolean>('data.fieldsEncryptionEnabled');

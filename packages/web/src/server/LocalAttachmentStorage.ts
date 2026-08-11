@@ -5,11 +5,13 @@ import type { AttachmentStoragePort, StoredAttachment } from '@dashboard/core';
 import { EncryptionKeyring } from '@dashboard/core';
 
 export class LocalAttachmentStorage implements AttachmentStoragePort {
+  private readonly rootDirectory: string;
   private readonly keyring: EncryptionKeyring;
   private readonly encryptionHeader = Buffer.from('DASHATT1');
   private readonly versionedEncryptionHeader = Buffer.from('DASHATT2');
 
-  constructor(private readonly rootDirectory: string = process.env.ATTACHMENTS_ROOT ?? path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex = process.env.ATTACHMENTS_ENCRYPTION_KEY, keyringSpec = process.env.ATTACHMENTS_ENCRYPTION_KEYS, activeVersion = process.env.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION ?? 'v1') {
+  constructor(rootDirectory: string = process.env.ATTACHMENTS_ROOT ?? path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex = process.env.ATTACHMENTS_ENCRYPTION_KEY, keyringSpec = process.env.ATTACHMENTS_ENCRYPTION_KEYS, activeVersion = process.env.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION ?? 'v1') {
+    this.rootDirectory = rootDirectory;
     this.keyring = new EncryptionKeyring(encryptionKeyHex, keyringSpec, activeVersion, 'ATTACHMENTS_ENCRYPTION_KEY');
     if (!this.keyring.hasKeys && process.env.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true') {
       throw new Error('Attachment encryption is required but ATTACHMENTS_ENCRYPTION_KEY is missing');
@@ -42,6 +44,21 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
+  }
+
+  async rotate(storageKey: string): Promise<boolean> {
+    if (!this.keyring.hasKeys) throw new Error('Attachment encryption key is missing');
+    const target = this.safePath(storageKey);
+    const source = new Uint8Array(await readFile(target));
+    const currentVersion = this.storedVersion(source);
+    const activeVersion = this.keyring.active().version;
+    if (currentVersion === activeVersion) return false;
+    const plaintext = this.decrypt(source);
+    const rotated = this.encrypt(plaintext, true);
+    const temporary = `${target}.rotation-${process.pid}-${Date.now()}`;
+    await writeFile(temporary, rotated, { mode: 0o600, flag: 'wx' });
+    await (await import('node:fs/promises')).rename(temporary, target);
+    return true;
   }
 
   private safePath(storageKey: string): string {
@@ -79,5 +96,15 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     const decipher = createDecipheriv('aes-256-gcm', this.keyring.get(version), payload.subarray(ivStart, ivStart + 12));
     decipher.setAuthTag(payload.subarray(ivStart + 12, ivStart + 28));
     return new Uint8Array(Buffer.concat([decipher.update(payload.subarray(ivStart + 28)), decipher.final()]));
+  }
+
+  private storedVersion(content: Uint8Array): string | null {
+    const payload = Buffer.from(content);
+    if (payload.subarray(0, this.encryptionHeader.length).equals(this.encryptionHeader)) return 'v1';
+    if (!payload.subarray(0, this.versionedEncryptionHeader.length).equals(this.versionedEncryptionHeader)) return null;
+    const versionLength = payload[8];
+    const versionStart = 9;
+    if (!versionLength || payload.length < versionStart + versionLength) throw new Error('Invalid encrypted attachment format');
+    return payload.subarray(versionStart, versionStart + versionLength).toString('utf8');
   }
 }

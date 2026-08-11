@@ -86,6 +86,10 @@ nodes and entities. Subtree restoration can therefore restore only records
 deleted by that cascade, without resurrecting records that had been deleted
 individually beforehand.
 
+Migration `029_encryption_rotation_jobs.sql` adds the durable status table used
+by `pnpm encryption:rotate`. The batch job and its verification procedure are
+documented in `docs/ENCRYPTION_ROTATION.md`.
+
 Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL
 track under `packages/core/src/infrastructure/schema` was removed so every
