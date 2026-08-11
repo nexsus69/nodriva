@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // Keep the production build deterministic until the compiler is validated
   // independently; it currently causes Turbopack to stall during compilation.
   reactCompiler: false,
+  output: 'standalone',
   allowedDevOrigins: ['192.168.3.247'],
 };
 

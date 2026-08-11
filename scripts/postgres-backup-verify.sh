@@ -9,6 +9,7 @@ CONTAINER_NAME="${POSTGRES_CONTAINER:-dashboard-db-pg17}"
 SOURCE_DATABASE="${POSTGRES_DATABASE:-dashboard}"
 POSTGRES_USER_NAME="${POSTGRES_USER:-postgres}"
 BACKUP_ROOT="${BACKUP_ROOT:-var/backups/postgres}"
+BACKUP_DIRECT="${BACKUP_DIRECT:-false}"
 
 usage() {
   printf '%s\n' \
@@ -37,7 +38,11 @@ validate_backup_file() {
 }
 
 database_exec() {
-  docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER_NAME" "$@"
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    psql -X -v ON_ERROR_STOP=1 "$@"
+  else
+    docker exec "$CONTAINER_NAME" psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER_NAME" "$@"
+  fi
 }
 
 database_scalar() {
@@ -56,10 +61,18 @@ create_backup() {
   mkdir -p "$(dirname "$output_path")"
   umask 077
 
-  docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 || fail "PostgreSQL container is not available: $CONTAINER_NAME"
-  docker exec "$CONTAINER_NAME" pg_dump -Fc --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$SOURCE_DATABASE" > "$output_path"
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    pg_dump -Fc --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$SOURCE_DATABASE" > "$output_path"
+  else
+    docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 || fail "PostgreSQL container is not available: $CONTAINER_NAME"
+    docker exec "$CONTAINER_NAME" pg_dump -Fc --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$SOURCE_DATABASE" > "$output_path"
+  fi
   chmod 600 "$output_path"
-  docker exec -i "$CONTAINER_NAME" pg_restore -l < "$output_path" >/dev/null
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    pg_restore -l "$output_path" >/dev/null
+  else
+    docker exec -i "$CONTAINER_NAME" pg_restore -l < "$output_path" >/dev/null
+  fi
   sha256sum "$output_path" | tee "${output_path}.sha256"
   chmod 600 "${output_path}.sha256"
   printf 'Backup created and structurally validated: %s\n' "$output_path"
@@ -68,7 +81,11 @@ create_backup() {
 verify_backup() {
   local backup_path="$1"
   validate_backup_file "$backup_path"
-  docker exec -i "$CONTAINER_NAME" pg_restore -l < "$backup_path" >/dev/null || fail "pg_restore cannot read backup archive"
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    pg_restore -l "$backup_path" >/dev/null || fail "pg_restore cannot read backup archive"
+  else
+    docker exec -i "$CONTAINER_NAME" pg_restore -l < "$backup_path" >/dev/null || fail "pg_restore cannot read backup archive"
+  fi
 
   local verify_database="${SOURCE_DATABASE}_restore_verify_$(date -u +%Y%m%d%H%M%S)_$$"
   validate_identifier "$verify_database"
@@ -81,7 +98,11 @@ verify_backup() {
   trap cleanup EXIT
 
   database_exec -d postgres -c "CREATE DATABASE \"$verify_database\";" >/dev/null
-  docker exec -i "$CONTAINER_NAME" pg_restore --exit-on-error --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$verify_database" < "$backup_path"
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    pg_restore --exit-on-error --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$verify_database" "$backup_path"
+  else
+    docker exec -i "$CONTAINER_NAME" pg_restore --exit-on-error --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$verify_database" < "$backup_path"
+  fi
 
   local required_tables=(users nodes entities node_types entity_types audit_logs runtime_capabilities realtime_event_outbox resource_attachments resource_field_ciphertexts)
   local table_name
@@ -107,7 +128,13 @@ verify_backup() {
 }
 
 main() {
-  require_command docker
+  if [[ "$BACKUP_DIRECT" == "true" ]]; then
+    require_command psql
+    require_command pg_dump
+    require_command pg_restore
+  else
+    require_command docker
+  fi
   require_command sha256sum
   [[ $# -ge 1 ]] || { usage; exit 2; }
   case "$1" in

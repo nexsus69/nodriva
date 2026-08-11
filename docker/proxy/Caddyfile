@@ -1,0 +1,7 @@
+:80 {
+  reverse_proxy web:3000
+}
+
+:6001 {
+  reverse_proxy soketi:6001
+}
