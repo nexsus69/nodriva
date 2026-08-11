@@ -133,8 +133,8 @@ export class AdminCacheClient {
   public getAuditLogById = (id: string) => this.read(`audit-detail:${id}`, () => auditActions.getAuditLogByIdAction(id));
   public listTypeSchemaHistory = (kind: 'node' | 'entity', typeId: string) =>
     this.read(`type-schema-history:${kind}:${typeId}`, () => auditActions.listTypeSchemaHistoryAction(kind, typeId));
-  public getTypeSchemaImpact = (kind: Parameters<typeof typeActions.getTypeSchemaImpactAction>[0], typeKey: string) =>
-    this.read(`type-schema-impact:${kind}:${typeKey}`, () => typeActions.getTypeSchemaImpactAction(kind, typeKey));
+  public getTypeSchemaImpact = (...args: Parameters<typeof typeActions.getTypeSchemaImpactAction>) =>
+    this.read(`type-schema-impact:${args.join(':')}`, () => typeActions.getTypeSchemaImpactAction(...args));
 
   public listChildren = (parentId: string | null) =>
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));

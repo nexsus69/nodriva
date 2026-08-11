@@ -108,11 +108,15 @@ export interface TypeDetailDto {
 }
 
 export interface TypeSchemaImpactDto {
+  operation: 'add_field' | 'update_field' | 'remove_field' | 'disable_type' | 'enable_type';
   currentSchemaVersion: number;
   nextSchemaVersion: number;
   instanceCount: number;
   fieldCount: number;
   isActive: boolean;
+  fieldKey: string | null;
+  fieldHasValues: boolean | null;
+  blockingReasons: string[];
   warnings: string[];
 }
 

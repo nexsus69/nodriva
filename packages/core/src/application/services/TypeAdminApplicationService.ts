@@ -39,7 +39,7 @@ import {
   RemoveConstraintCommand, RemoveConstraintCommandSchema,
 } from '../commands/TypeAdminCommands.js';
 
-import { TypeListItemDto, TypeDetailDto } from '../dto/AdminContractDtos.js';
+import { TypeListItemDto, TypeDetailDto, TypeSchemaImpactDto } from '../dto/AdminContractDtos.js';
 import type { ConfigService } from './ConfigService.js';
 
 export class TypeAdminApplicationService {
@@ -76,6 +76,45 @@ export class TypeAdminApplicationService {
       null
     );
     return await this.adminRepository.getTypeDetail(domain, typeKey);
+  }
+
+  async getSchemaChangeImpact(
+    actorUserId: string,
+    domain: TypeDomain,
+    typeKey: string,
+    operation: TypeSchemaImpactDto['operation'],
+    fieldId?: string,
+  ): Promise<TypeSchemaImpactDto | null> {
+    await this.accessControlPort.assertHasPermission(actorUserId, this.permission(domain, 'read'), null);
+    const detail = await this.adminRepository.getTypeDetail(domain, typeKey);
+    if (!detail) return null;
+
+    const field = fieldId ? await this.adminRepository.findFieldById(domain, fieldId) : null;
+    const fieldBelongsToType = field ? field.typeDefinitionId === detail.id : !fieldId;
+    const fieldHasValues = field && fieldBelongsToType
+      ? await this.adminRepository.hasValuesInField(domain, detail.id, field.fieldKey, field.columnName)
+      : null;
+    const blockingReasons: string[] = [];
+    const warnings: string[] = [];
+
+    if (fieldId && (!field || !fieldBelongsToType)) blockingReasons.push('Il campo selezionato non appartiene al tipo.');
+    if (operation === 'remove_field' && field?.isSystem) blockingReasons.push('I campi di sistema non possono essere rimossi.');
+    if (operation === 'remove_field' && fieldHasValues) blockingReasons.push('Il campo contiene valori o allegati e non può essere rimosso.');
+    if (detail.instanceCount > 0) warnings.push(`La modifica verrà applicata a ${detail.instanceCount} istanze attive.`);
+    if (!detail.isActive && operation !== 'enable_type') warnings.push('Il tipo è disabilitato.');
+
+    return {
+      operation,
+      currentSchemaVersion: detail.currentSchemaVersion,
+      nextSchemaVersion: operation === 'disable_type' || operation === 'enable_type' ? detail.currentSchemaVersion : detail.currentSchemaVersion + 1,
+      instanceCount: detail.instanceCount,
+      fieldCount: detail.fields.length,
+      isActive: detail.isActive,
+      fieldKey: field?.fieldKey ?? null,
+      fieldHasValues,
+      blockingReasons,
+      warnings,
+    };
   }
 
   // ─── Type Operations ───────────────────────────────────────────

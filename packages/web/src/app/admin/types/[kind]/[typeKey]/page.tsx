@@ -48,6 +48,7 @@ export default function AdminTypeDetailPage() {
   const [fieldFormError, setFieldFormError] = useState<ApiErrorResponse | null>(null);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<{ id: string; label: string } | null>(null);
+  const [confirmationImpact, setConfirmationImpact] = useState<string>('');
   const cacheRevision = useSyncExternalStore(AppCache.subscribe, AppCache.getRevision, () => 0);
 
   // Form Campo (Aggiunta / Edizione)
@@ -165,7 +166,7 @@ export default function AdminTypeDetailPage() {
     });
   };
 
-  const handleDisableType = () => {
+  const handleDisableType = async () => {
     if (!typeDetail) return;
     if (!typeDetail.isActive) {
       startTransition(async () => {
@@ -175,6 +176,16 @@ export default function AdminTypeDetailPage() {
       });
       return;
     }
+    const impact = await AppCache.admin.getTypeSchemaImpact(kind, typeKey, 'disable_type');
+    if (!impact.success || !impact.data) {
+      if (impact.error) setError(impact.error);
+      return;
+    }
+    if (impact.data.blockingReasons.length > 0) {
+      setError({ code: 'VALIDATION_ERROR', message: impact.data.blockingReasons.join(' ') });
+      return;
+    }
+    setConfirmationImpact(impact.data.warnings.join(' '));
     setShowDisableConfirm(true);
   };
 
@@ -320,8 +331,18 @@ export default function AdminTypeDetailPage() {
     });
   };
 
-  const handleDeleteField = (fieldId: string, fieldLabel: string) => {
+  const handleDeleteField = async (fieldId: string, fieldLabel: string) => {
     if (!typeDetail) return;
+    const impact = await AppCache.admin.getTypeSchemaImpact(kind, typeKey, 'remove_field', fieldId);
+    if (!impact.success || !impact.data) {
+      if (impact.error) setError(impact.error);
+      return;
+    }
+    if (impact.data.blockingReasons.length > 0) {
+      setError({ code: 'VALIDATION_ERROR', message: impact.data.blockingReasons.join(' ') });
+      return;
+    }
+    setConfirmationImpact(impact.data.warnings.join(' '));
     setFieldToDelete({ id: fieldId, label: fieldLabel });
   };
 
@@ -416,7 +437,7 @@ export default function AdminTypeDetailPage() {
       <ConfirmModal
         open={showDisableConfirm}
         title="Disabilita tipo"
-        message={`Sei sicuro di voler disabilitare il tipo '${typeDetail.name}'?`}
+        message={`Sei sicuro di voler disabilitare il tipo '${typeDetail.name}'? ${confirmationImpact}`}
         confirmLabel="Disabilita"
         onCancel={() => setShowDisableConfirm(false)}
         onConfirm={confirmDisableType}
@@ -425,7 +446,7 @@ export default function AdminTypeDetailPage() {
       <ConfirmModal
         open={fieldToDelete !== null}
         title="Rimuovi campo"
-        message={fieldToDelete ? `Rimuovere il campo '${fieldToDelete.label}'?` : ''}
+        message={fieldToDelete ? `Rimuovere il campo '${fieldToDelete.label}'? ${confirmationImpact}` : ''}
         confirmLabel="Rimuovi"
         onCancel={() => setFieldToDelete(null)}
         onConfirm={confirmDeleteField}
