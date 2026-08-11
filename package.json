@@ -6,6 +6,7 @@
     "typecheck": "pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web typecheck",
     "lint": "pnpm --filter @dashboard/web lint",
     "db:backup:verify": "./scripts/postgres-backup-verify.sh backup-verify",
+    "db:backup:maintenance": "./scripts/postgres-backup-maintenance.sh",
     "encryption:rotate": "node --experimental-strip-types scripts/encryption-rotation-job.ts",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build"
   }

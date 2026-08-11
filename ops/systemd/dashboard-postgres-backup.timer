@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule Dashboard PostgreSQL backup verification
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=dashboard-postgres-backup.service
+
+[Install]
+WantedBy=timers.target
