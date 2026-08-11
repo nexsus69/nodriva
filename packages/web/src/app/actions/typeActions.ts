@@ -179,12 +179,17 @@ export async function getTypeSchemaRollbackPlanAction(
     const expectedResourceKind = kind === 'node' ? 'node_type' : 'entity_type';
     const isTarget = audit.resourceKind === expectedResourceKind && audit.resourceId === detail.id;
     const before = audit.beforePayload;
-    const canApply = isTarget && audit.actionKey === 'type_admin.update_type'
-      && typeof before?.name === 'string' && typeof before.description === 'string';
+    const after = audit.afterPayload;
+    const payloadIsComplete = typeof before?.name === 'string' && typeof before.description === 'string'
+      && typeof after?.name === 'string' && typeof after.description === 'string';
+    const isCurrentState = payloadIsComplete
+      && detail.name === after.name && detail.description === after.description;
+    const canApply = isTarget && audit.actionKey === 'type_admin.update_type' && payloadIsComplete && isCurrentState;
     let reason = 'Rollback metadati disponibile.';
     if (!isTarget) reason = 'L’evento non appartiene al tipo selezionato.';
     else if (audit.actionKey !== 'type_admin.update_type') reason = 'Le modifiche strutturali richiedono una migrazione dedicata e non possono essere annullate automaticamente.';
-    else if (!canApply) reason = 'Il payload storico non contiene uno stato completo ripristinabile.';
+    else if (!payloadIsComplete) reason = 'Il payload storico non contiene uno stato completo ripristinabile.';
+    else if (!isCurrentState) reason = 'Il tipo è stato modificato dopo questo evento: il rollback è obsoleto e viene rifiutato.';
     return {
       success: true,
       data: {
