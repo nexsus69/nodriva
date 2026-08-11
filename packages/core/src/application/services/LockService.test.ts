@@ -33,6 +33,20 @@ function createService(lock: Lock | null) {
 }
 
 describe('LockService.requireOwnedLock', () => {
+  it('applies the same ownership rules to administrative resources', async () => {
+    const lock = new Lock(
+      'lock-id',
+      { resourceType: 'role', resourceId: RESOURCE_ID },
+      ACTOR_ID,
+      ACTOR_SESSION_ID,
+      new Date(),
+      new Date(Date.now() + 60_000)
+    );
+    await expect(createService(lock).service.requireOwnedLock(
+      { resourceType: 'role', resourceId: RESOURCE_ID }, ACTOR_ID, ACTOR_SESSION_ID
+    )).resolves.toBeUndefined();
+  });
+
   it('accepts an active lock owned by the actor', async () => {
     const lock = new Lock(
       'lock-id',
@@ -119,5 +133,16 @@ describe('LockService audit events', () => {
     await context.service.forceUnlock({ resourceType: 'node', resourceId: RESOURCE_ID }, { scopeNodeId: RESOURCE_ID });
 
     expect(context.auditPort.record).toHaveBeenCalledWith(null, 'lock.force_release', 'node', RESOURCE_ID, RESOURCE_ID, null, { reason: 'administrative_release' });
+  });
+
+  it('audits acquisition and release for administrative resources', async () => {
+    const context = createService(null);
+    const reference = { resourceType: 'role' as const, resourceId: RESOURCE_ID };
+    const lock = await context.service.lock(reference, ACTOR_ID, ACTOR_SESSION_ID);
+    vi.mocked(context.repository.getLock).mockResolvedValue(lock);
+    await context.service.unlock(reference, ACTOR_ID, ACTOR_SESSION_ID);
+
+    expect(context.auditPort.record).toHaveBeenCalledWith(ACTOR_ID, 'lock.acquire', 'role', RESOURCE_ID, null, null, expect.any(Object));
+    expect(context.auditPort.record).toHaveBeenCalledWith(ACTOR_ID, 'lock.release', 'role', RESOURCE_ID, null, { sessionId: ACTOR_SESSION_ID }, null);
   });
 });

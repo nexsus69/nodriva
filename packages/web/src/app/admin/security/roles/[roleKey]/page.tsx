@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import type { RoleDetailDto, ApiErrorResponse } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { RolePermissionsMatrix } from './_components/RolePermissionsMatrix';
+import { AdminResourceLock } from '../../../_components/AdminResourceLock';
 
 export default function RoleDetailPage() {
   const params = useParams();
@@ -99,6 +100,7 @@ export default function RoleDetailPage() {
 
   return (
     <div className="space-y-6">
+      <AdminResourceLock resourceType="role" resourceId={role.id} />
       {/* Header */}
       <div>
         <Link

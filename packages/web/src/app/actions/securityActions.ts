@@ -15,6 +15,8 @@ import {
   ScopeAssignmentDto,
   ApiErrorResponse,
 } from '@dashboard/core';
+import { publishAdministrativeChange } from '../../server/adminRealtime';
+import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
   return mapAppErrorToApiErrorResponse(err);
@@ -59,14 +61,15 @@ export async function createRoleAction(cmd: CreateRoleUiCommand): Promise<{
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const role = await securityAdminService.createRole({
+    const role = await withAdministrativeMutationLock({ resourceType: 'role', resourceId: cmd.roleKey, permission: 'role.create', work: async () => securityAdminService.createRole({
       roleKey: cmd.roleKey,
       name: cmd.name,
       description: cmd.description,
       permissionIds: cmd.permissionIds,
       actorUserId,
-    });
+    }) });
     const res = await securityAdminService.getRoleByKey(actorUserId, role.roleKey);
+    await publishAdministrativeChange({ resourceType: 'role', resourceId: role.id, changeType: 'created', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -80,13 +83,16 @@ export async function updateRolePermissionsAction(cmd: UpdateRolePermissionsUiCo
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await securityAdminService.updateRolePermissions({
+    const role = await securityAdminService.getRoleByKey(actorUserId, cmd.roleKey);
+    if (!role) return { success: false, error: { code: 'NOT_FOUND', message: 'Ruolo non trovato.' } };
+    await withAdministrativeMutationLock({ resourceType: 'role', resourceId: role.id, permission: 'role.update', work: async () => securityAdminService.updateRolePermissions({
       roleKey: cmd.roleKey,
       permissionIds: cmd.permissionIds,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     const res = await securityAdminService.getRoleByKey(actorUserId, cmd.roleKey);
+    await publishAdministrativeChange({ resourceType: 'role', resourceId: res?.id ?? cmd.roleKey, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -126,14 +132,16 @@ export async function createScopeAssignmentAction(cmd: CreateScopeAssignmentUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    await securityAdminService.createScopeAssignment({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: `${cmd.userId}:${cmd.nodeId}:${cmd.roleId}`, permission: 'scope.create', work: async () => securityAdminService.createScopeAssignment({
       userId: cmd.userId,
       nodeId: cmd.nodeId,
       roleId: cmd.roleId,
       assignmentEffect: cmd.assignmentEffect,
       propagation: cmd.propagation,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'scope', resourceId: `${cmd.userId}:${cmd.nodeId}:${cmd.roleId}`, changeType: 'created', actorUserId, data: cmd });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -145,10 +153,12 @@ export async function deleteScopeAssignmentAction(cmd: DeleteScopeAssignmentUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    await securityAdminService.deleteScopeAssignment({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: cmd.assignmentId, permission: 'scope.delete', work: async () => securityAdminService.deleteScopeAssignment({
       assignmentId: cmd.assignmentId,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'scope', resourceId: cmd.assignmentId, changeType: 'deleted', actorUserId });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -160,13 +170,15 @@ export async function updateScopeAssignmentAction(cmd: UpdateScopeAssignmentUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    await securityAdminService.updateScopeAssignment({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: cmd.assignmentId, permission: 'scope.update', work: async () => securityAdminService.updateScopeAssignment({
       assignmentId: cmd.assignmentId,
       roleId: cmd.roleId,
       assignmentEffect: cmd.assignmentEffect,
       propagation: cmd.propagation,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'scope', resourceId: cmd.assignmentId, changeType: 'updated', actorUserId, data: cmd });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };

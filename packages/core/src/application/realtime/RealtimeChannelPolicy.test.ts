@@ -90,4 +90,34 @@ describe('RealtimeChannelPolicy', () => {
       directScopeNodeIds: ['node-b'],
     })).toBe(true);
   });
+
+  it('routes administrative resources only through their matching global permission', () => {
+    const userAdmin = createRealtimeChannelPolicy([{
+      nodeId: null,
+      permissionKey: 'user.read',
+      assignmentEffect: 'allow',
+      propagation: 'global',
+    }]);
+
+    expect(policyAllowsResource(userAdmin, 'user', { scopeNodeIds: [] })).toBe(true);
+    expect(policyAllowsResource(userAdmin, 'role', { scopeNodeIds: [] })).toBe(false);
+    expect(policyAllowsResource(userAdmin, 'entity', { scopeNodeIds: ['node-a'] })).toBe(false);
+  });
+
+  it('routes metadata to type readers and honours global deny rules', () => {
+    const nodeTypeReader = createRealtimeChannelPolicy([{
+      nodeId: null,
+      permissionKey: 'node_type.read',
+      assignmentEffect: 'allow',
+      propagation: 'global',
+    }]);
+    const denied = createRealtimeChannelPolicy([
+      { nodeId: null, permissionKey: 'node_type.read', assignmentEffect: 'allow', propagation: 'global' },
+      { nodeId: null, permissionKey: 'node_type.read', assignmentEffect: 'deny', propagation: 'global' },
+    ]);
+
+    expect(policyAllowsResource(nodeTypeReader, 'node', { scopeNodeIds: [] }, 'node')).toBe(true);
+    expect(policyAllowsResource(nodeTypeReader, 'node', { scopeNodeIds: [] }, 'entity')).toBe(false);
+    expect(policyAllowsResource(denied, 'node', { scopeNodeIds: [] }, 'node')).toBe(false);
+  });
 });

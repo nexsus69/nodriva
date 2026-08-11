@@ -19,10 +19,20 @@ import { Alert } from '../../components/ui/feedback';
 import { NodeResourceMenu } from '../../components/ui/menu';
 import { AttachmentInput, AttachmentList, DynamicFieldsForm } from '../../components/ui/forms';
 import { uploadResourceAttachment } from '../../attachments/attachmentClient';
+import { checkNodeReadAccessAction } from '../../actions/nodeActions';
 
 export default function NodeDetailPage() {
   const params = useParams();
   const nodeId = params.nodeId as string;
+  const [nodeAccess, setNodeAccess] = useState<'checking' | 'allowed' | 'denied'>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkNodeReadAccessAction(nodeId).then((allowed) => {
+      if (!cancelled) setNodeAccess(allowed ? 'allowed' : 'denied');
+    });
+    return () => { cancelled = true; };
+  }, [nodeId]);
 
   const { nodes: childNodes, error: childrenError } = useSemanticNodeList(nodeId, {
     retentionClass: 'persistent',
@@ -51,7 +61,7 @@ export default function NodeDetailPage() {
   const readOnly = !isMyLock;
 
   // --- REACTIVE READS FROM APPCACHE ---
-  const { data: cachedCurrentNode, isLoading: isLoadingNode } = useCacheNode(nodeId);
+  const { data: cachedCurrentNode, error: nodeError, isLoading: isLoadingNode } = useCacheNode(nodeId);
   const currentNode = cachedCurrentNode;
 
   useEffect(() => {
@@ -146,6 +156,41 @@ export default function NodeDetailPage() {
       : entitiesError
         ? `Errore nel caricamento delle entità: ${entitiesError.message}`
         : null);
+
+  const nodeErrorCode = (nodeError as (Error & { code?: string }) | null)?.code;
+  const nodeAccessDenied = nodeErrorCode === 'ACCESS_FORBIDDEN'
+    || nodeError?.message.includes('Non disponi dei permessi necessari')
+    || nodeError?.message.includes('does not have permission');
+
+  if (nodeAccessDenied) {
+    return (
+      <PageShell>
+        <Panel className="mx-auto max-w-xl space-y-4 border-rose-200 bg-rose-50">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-xl font-semibold text-slate-900">Accesso al nodo negato</h1>
+          <p className="text-sm text-slate-600">Non disponi di uno scope di lettura per questa area.</p>
+          <Link href="/" className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500">Torna al workspace</Link>
+        </Panel>
+      </PageShell>
+    );
+  }
+
+  if (nodeAccess === 'checking') {
+    return <PageShell><Panel className="mx-auto max-w-xl"><p className="text-sm text-slate-500">Verifica autorizzazioni del nodo…</p></Panel></PageShell>;
+  }
+
+  if (nodeAccess === 'denied') {
+    return (
+      <PageShell>
+        <Panel className="mx-auto max-w-xl space-y-4 border-rose-200 bg-rose-50">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-xl font-semibold text-slate-900">Accesso al nodo negato</h1>
+          <p className="text-sm text-slate-600">Non disponi di uno scope di lettura per questa area.</p>
+          <Link href="/" className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500">Torna al workspace</Link>
+        </Panel>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

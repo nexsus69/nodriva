@@ -27,6 +27,7 @@ interface TypeMetaRow {
 interface FieldMetaRow {
   field_key: string;
   column_name: string;
+  data_type?: string;
 }
 
 export class EntityRepositoryPostgres implements EntityRepository {
@@ -48,19 +49,23 @@ export class EntityRepositoryPostgres implements EntityRepository {
     const storageTable = firstRow.storage_table;
 
     const fieldsResult = await this.executor.query<FieldMetaRow>(
-      'SELECT field_key, column_name FROM entity_type_fields WHERE entity_type_id = $1',
+      'SELECT field_key, column_name, data_type FROM entity_type_fields WHERE entity_type_id = $1',
       [entityTypeId]
     );
 
     const fieldMapping = new Map<string, string>();
     for (const row of fieldsResult.rows) {
+      // I campi file/immagine sono metadati per resource_attachments e non
+      // hanno una colonna nella tabella dinamica dell'entità.
+      if (['file', 'image'].includes((row.data_type ?? '').toLowerCase())) continue;
       fieldMapping.set(row.field_key, row.column_name);
     }
 
+    const physicalFields = fieldsResult.rows.filter((row) => !['file', 'image'].includes((row.data_type ?? '').toLowerCase()));
     return {
       storageTable,
       fieldMapping,
-      fields: fieldsResult.rows,
+      fields: physicalFields,
     };
   }
 

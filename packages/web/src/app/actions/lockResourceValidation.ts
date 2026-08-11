@@ -12,11 +12,18 @@ export function validateLockResource(
   resourceType: string,
   resourceId: string
 ): LockResourceType {
-  if (resourceType !== 'node' && resourceType !== 'entity') {
+  const uuidTypes = new Set<LockResourceType>([
+    'node', 'entity', 'node_type', 'entity_type', 'user', 'role', 'scope_assignment',
+  ]);
+  const keyTypes = new Set<LockResourceType>([
+    'system_setting', 'runtime_capability', 'placement_policy',
+  ]);
+  if (!uuidTypes.has(resourceType as LockResourceType) && !keyTypes.has(resourceType as LockResourceType)) {
     throw new Error('Unsupported lock resource type.');
   }
-  if (!POSTGRES_UUID_PATTERN.test(resourceId)) {
+  if ((uuidTypes.has(resourceType as LockResourceType) && !POSTGRES_UUID_PATTERN.test(resourceId))
+    || (keyTypes.has(resourceType as LockResourceType) && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(resourceId))) {
     throw new Error('Invalid lock resource identifier.');
   }
-  return resourceType;
+  return resourceType as LockResourceType;
 }

@@ -36,6 +36,7 @@ interface EntityFieldMetaRow {
   entity_type_id: string;
   field_key: string;
   column_name: string;
+  data_type?: string;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -69,7 +70,7 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     const storageByType = new Map(storageResult.rows.map((row) => [row.entity_type_id, row.storage_table]));
 
     const fieldsResult = await this.executor.query<EntityFieldMetaRow>(
-      `SELECT entity_type_id, field_key, column_name
+      `SELECT entity_type_id, field_key, column_name, data_type
        FROM entity_type_fields
        WHERE entity_type_id = ANY($1::uuid[])
        ORDER BY entity_type_id, position`,
@@ -77,6 +78,7 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     );
     const fieldsByType = new Map<string, EntityFieldMetaRow[]>();
     for (const field of fieldsResult.rows) {
+      if (['file', 'image'].includes((field.data_type ?? '').toLowerCase())) continue;
       const fields = fieldsByType.get(field.entity_type_id) ?? [];
       fields.push(field);
       fieldsByType.set(field.entity_type_id, fields);

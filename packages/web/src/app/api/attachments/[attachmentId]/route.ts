@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
 import { authenticatedUser, assertAttachmentAccess, assertAttachmentField } from '../attachmentAccess';
+import { publishAuditRealtimeChange } from '../../../../server/adminRealtime';
+import { publishRealtimeChange } from '../../../../server/realtime';
 
 type AttachmentRow = { id: string; resource_type: 'node' | 'entity'; resource_id: string; field_key: string; kind: 'file' | 'image'; file_name: string; mime_type: string; storage_key: string };
 const safeInlineTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
@@ -60,6 +62,16 @@ export const DELETE = auth(async (request, context: { params: Promise<{ attachme
     await attachmentStorage.delete(attachment.storage_key);
     await pgExecutor.query('DELETE FROM resource_attachments WHERE id = $1', [attachmentId]);
     await auditPort.record(actorUserId, 'attachment.delete', 'attachment', attachment.id, access.scopeNodeId, { resourceType: attachment.resource_type, resourceId: attachment.resource_id, fileName: attachment.file_name }, null);
+    void publishRealtimeChange({
+      resourceType: attachment.resource_type,
+      resourceId: attachment.resource_id,
+      changeType: 'updated',
+      actorUserId,
+      parentNodeId: attachment.resource_type === 'entity' ? access.scopeNodeId : null,
+      subresourceKind: 'attachment',
+    }).catch((error) => console.error('[Attachments] Realtime delete event failed', error));
+    void publishAuditRealtimeChange({ resourceType: attachment.resource_type, resourceId: attachment.id, changeType: 'deleted', actorUserId })
+      .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ deleted: true });
   } catch (error) {
     console.error('[Attachments] Delete failed', error);

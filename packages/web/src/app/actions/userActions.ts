@@ -14,6 +14,8 @@ import {
   ApiErrorResponse,
   CreateScopedUserCommand,
 } from '@dashboard/core';
+import { publishAdministrativeChange } from '../../server/adminRealtime';
+import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
@@ -66,6 +68,7 @@ export async function createUserAction(cmd: CreateUserUiCommand): Promise<{
       actorUserId,
     });
     const res = await userAdminService.getUserById(actorUserId, user.id);
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'created', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -82,6 +85,7 @@ export async function createScopedUserAction(cmd: Omit<CreateScopedUserCommand, 
     const actorUserId = await AuthResolver.resolveActorUserId();
     const { scopedUserProvisioningService } = await import('../../server/db');
     const user = await scopedUserProvisioningService.createScopedUser({ ...cmd, actorUserId });
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'created', actorUserId, data: { id: user.id, email: user.email } });
     return { success: true, data: { id: user.id, email: user.email } };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -95,13 +99,14 @@ export async function updateUserStatusAction(cmd: UpdateUserStatusUiCommand): Pr
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const user = await userAdminService.updateUserStatus({
+    const user = await withAdministrativeMutationLock({ resourceType: 'user', resourceId: cmd.userId, permission: 'user.update', work: async () => userAdminService.updateUserStatus({
       userId: cmd.userId,
       isActive: cmd.isActive,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     const res = await userAdminService.getUserById(actorUserId, user.id);
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -115,13 +120,14 @@ export async function assignUserRolesAction(cmd: AssignUserRolesUiCommand): Prom
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await userAdminService.assignUserRoles({
+    await withAdministrativeMutationLock({ resourceType: 'user', resourceId: cmd.userId, permission: 'user.assign_roles', work: async () => userAdminService.assignUserRoles({
       userId: cmd.userId,
       roleIds: cmd.roleIds,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     const res = await userAdminService.getUserById(actorUserId, cmd.userId);
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: cmd.userId, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -135,14 +141,15 @@ export async function updateUserAction(cmd: UpdateUserUiCommand): Promise<{
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const user = await userAdminService.updateUser({
+    const user = await withAdministrativeMutationLock({ resourceType: 'user', resourceId: cmd.userId, permission: 'user.update', work: async () => userAdminService.updateUser({
       userId: cmd.userId,
       email: cmd.email,
       isSuperAdmin: cmd.isSuperAdmin,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     const res = await userAdminService.getUserById(actorUserId, user.id);
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -156,13 +163,14 @@ export async function resetUserPasswordAction(cmd: ResetUserPasswordUiCommand): 
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const user = await userAdminService.resetUserPassword({
+    const user = await withAdministrativeMutationLock({ resourceType: 'user', resourceId: cmd.userId, permission: 'user.update', work: async () => userAdminService.resetUserPassword({
       userId: cmd.userId,
       newPassword: cmd.newPassword,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     const res = await userAdminService.getUserById(actorUserId, user.id);
+    await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };

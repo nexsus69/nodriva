@@ -28,6 +28,8 @@ import {
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import { publishRealtimeChange } from '../../server/realtime';
+import { publishAdministrativeChange, publishAuditRealtimeChange } from '../../server/adminRealtime';
+import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 
 /** Helper per mappare le eccezioni del Core alla forma ApiErrorResponse */
@@ -45,6 +47,7 @@ async function publishMetadataChanged(kind: TypeKind, typeKey: string, actorUser
     actorUserId,
     metadataKind: kind,
   });
+  await publishAuditRealtimeChange({ resourceType: kind, resourceId: typeKey, changeType: 'updated', actorUserId });
 }
 
 export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
@@ -66,8 +69,9 @@ export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, m
     if (mode === 'enabled' && !(await configService.get<boolean>('attachments.encryptionEnabled'))) {
       return { success: false, error: { code: 'VALIDATION_ERROR', message: 'La cifratura allegati globale è disabilitata.' } };
     }
-    await pgExecutor.query(`INSERT INTO node_type_attachment_policies (node_type_id, encryption_mode, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (node_type_id) DO UPDATE SET encryption_mode = EXCLUDED.encryption_mode, updated_at = NOW()`, [nodeTypeId, mode]);
+    await withAdministrativeMutationLock({ resourceType: 'node_type', resourceId: nodeTypeId, permission: 'node_type.update', work: async () => pgExecutor.query(`INSERT INTO node_type_attachment_policies (node_type_id, encryption_mode, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (node_type_id) DO UPDATE SET encryption_mode = EXCLUDED.encryption_mode, updated_at = NOW()`, [nodeTypeId, mode]) });
     await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
+    await publishAdministrativeChange({ resourceType: 'node_type', resourceId: nodeTypeId, changeType: 'updated', actorUserId, data: { encryptionMode: mode } });
     return { success: true, mode };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -232,6 +236,7 @@ export async function rollbackTypeMetadataAction(
       expectedRowVersion,
       sourceAuditId: auditId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
     return getTypeDetailAction(kind, typeKey);
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -246,7 +251,7 @@ export async function createTypeAction(cmd: CreateTypeUiCommand): Promise<{
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const created = await typeAdminService.createType({
+    const created = await withAdministrativeMutationLock({ resourceType: cmd.kind === 'node' ? 'node_type' : 'entity_type', resourceId: cmd.typeKey, permission: cmd.kind === 'node' ? 'node_type.create' : 'entity_type.create', work: async () => typeAdminService.createType({
       domain: cmd.kind,
       typeKey: cmd.typeKey,
       name: cmd.name,
@@ -254,7 +259,7 @@ export async function createTypeAction(cmd: CreateTypeUiCommand): Promise<{
       storageTable: cmd.storageTable,
       placementPolicyId: cmd.placementPolicyId,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(cmd.kind, created.typeKey, actorUserId);
 
     const res = await getTypeDetailAction(cmd.kind, created.typeKey);
@@ -281,14 +286,14 @@ export async function updateTypeAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.updateType({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.updateType({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       name: cmd.name,
       description: cmd.description,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
@@ -315,12 +320,12 @@ export async function disableTypeAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.disableType({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.disableType({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       expectedRowVersion: cmd.expectedRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
@@ -339,7 +344,7 @@ export async function enableTypeAction(
     const current = await getTypeDetailAction(kind, typeKey);
     if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.enableType({ domain: kind, typeId: current.data.id, expectedRowVersion: cmd.expectedRowVersion, actorUserId });
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.enableType({ domain: kind, typeId: current.data!.id, expectedRowVersion: cmd.expectedRowVersion, actorUserId }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
     return await getTypeDetailAction(kind, typeKey);
   } catch (err) {
@@ -364,9 +369,9 @@ export async function createFieldAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.addField({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.addField({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       fieldKey: cmd.fieldKey,
       label: cmd.label,
       columnName: cmd.columnName,
@@ -379,10 +384,10 @@ export async function createFieldAction(
       relationTargetTypeKey: cmd.relationTargetTypeKey ?? null,
       enumMode: cmd.enumMode ?? null,
       encryptionMode: cmd.encryptionMode ?? 'plaintext',
-      position: cmd.position ?? current.data.fields.length,
+      position: cmd.position ?? current.data!.fields.length,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
@@ -403,16 +408,16 @@ export async function addEnumOptionAction(
     const current = await getTypeDetailAction(kind, typeKey);
     if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     const actorUserId = await AuthResolver.resolveActorUserId();
-    const option = await typeAdminService.addEnumOption({
+    const option = await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.addEnumOption({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       fieldId,
       value,
       label,
-      position: current.data.fields.find((field) => field.id === fieldId)?.enumOptions?.length ?? 0,
-      expectedTypeRowVersion: current.data.rowVersion,
+      position: current.data!.fields.find((field) => field.id === fieldId)?.enumOptions?.length ?? 0,
+      expectedTypeRowVersion: current.data!.rowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
     return { success: true, data: { id: option.id, value: option.value, label: option.label, position: option.position, isActive: option.isActive } };
   } catch (err) {
@@ -437,9 +442,9 @@ export async function updateFieldAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.updateField({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.updateField({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       fieldId: cmd.fieldId,
       label: cmd.label,
       isRequired: cmd.isRequired,
@@ -450,7 +455,7 @@ export async function updateFieldAction(
       position: cmd.position,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
@@ -477,13 +482,13 @@ export async function deleteFieldAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.removeField({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.removeField({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       fieldId: cmd.fieldId,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
@@ -510,13 +515,13 @@ export async function reorderFieldsAction(
     }
 
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await typeAdminService.reorderFields({
+    await withAdministrativeMutationLock({ resourceType: kind === 'node' ? 'node_type' : 'entity_type', resourceId: current.data!.id, permission: kind === 'node' ? 'node_type.update' : 'entity_type.update', work: async () => typeAdminService.reorderFields({
       domain: kind,
-      typeId: current.data.id,
+      typeId: current.data!.id,
       orderedFieldIds: cmd.orderedFieldIds,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
       actorUserId,
-    });
+    }) });
     await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);

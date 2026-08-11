@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
@@ -14,7 +14,7 @@ import { PageShell, Panel } from '../../../../components/ui/layout';
 import { Alert } from '../../../../components/ui/feedback';
 import { DynamicFieldsForm, EnumOptionModal, type DynamicField } from '../../../../components/ui/forms';
 import { AttachmentInput } from '../../../../components/ui/forms';
-import { uploadResourceAttachment } from '../../../../attachments/attachmentClient';
+import { uploadResourceAttachment, validateResourceAttachmentFile } from '../../../../attachments/attachmentClient';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -42,6 +42,8 @@ export default function CreateEntityPage() {
   const [relationName, setRelationName] = useState('');
   const [relationDescription, setRelationDescription] = useState('');
   const [isCreatingRelation, setIsCreatingRelation] = useState(false);
+  const [createdEntityId, setCreatedEntityId] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
     resourceId: parentNodeId,
@@ -87,6 +89,8 @@ export default function CreateEntityPage() {
 
   const handleCreateEntity = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setErrorMsg(null);
 
     startTransition(async () => {
@@ -110,17 +114,27 @@ export default function CreateEntityPage() {
           }
         }
 
-        // Canonical Mutation
-        const created = await AppCache.createEntity({
+        const attachmentFields = fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()));
+        for (const field of attachmentFields) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            const validationError = await validateResourceAttachmentFile(file, field.dataType.toLowerCase() as 'file' | 'image');
+            if (validationError) throw new Error(validationError);
+          }
+        }
+
+        // Se un upload fallisce dopo la creazione, il retry della pagina riprende
+        // la stessa risorsa invece di crearne una seconda.
+        const resourceId = createdEntityId ?? (await AppCache.createEntity({
           parentNodeId,
           entityTypeKey: selectedEntityTypeKey,
           name: entityName,
           description: entityDesc,
           payload: processedPayload,
-        });
-        for (const field of fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+        })).id;
+        if (!createdEntityId) setCreatedEntityId(resourceId);
+        for (const field of attachmentFields) {
           for (const file of attachmentsByField[field.fieldKey] ?? []) {
-            await uploadResourceAttachment({ resourceType: 'entity', resourceId: created.id, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+            await uploadResourceAttachment({ resourceType: 'entity', resourceId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
           }
         }
 
@@ -130,6 +144,7 @@ export default function CreateEntityPage() {
 
         router.push(`/nodes/${parentNodeId}`);
       } catch (err: unknown) {
+        submissionInFlight.current = false;
         setErrorMsg(err instanceof Error ? err.message : 'Errore nella creazione dell\'entità.');
       }
     });

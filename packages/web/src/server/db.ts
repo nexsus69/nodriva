@@ -113,9 +113,11 @@ export const pusherEventBus = new PusherEventBus({
   key: process.env.NEXT_PUBLIC_PUSHER_KEY || '',
   secret: process.env.PUSHER_SECRET || '',
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || '',
-  useTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
-  host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
-  port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
+  // Il backend gira nella rete Docker: l'endpoint pubblico usato dal browser
+  // non coincide necessariamente con quello raggiungibile dal server.
+  useTLS: (process.env.REALTIME_INTERNAL_SCHEME ?? process.env.NEXT_PUBLIC_PUSHER_SCHEME) === 'https',
+  host: process.env.REALTIME_INTERNAL_HOST || process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
+  port: process.env.REALTIME_INTERNAL_PORT || process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
   isEnabled: isRealtimeCapabilityEnabled,
   resolveDataChannelNames: async (event) => {
@@ -127,11 +129,13 @@ export const pusherEventBus = new PusherEventBus({
   },
   resolveLockChannelNames: async (resourceType, resourceId, scopeNodeId) => {
     const startedAt = Date.now();
-    const parentNodeId = scopeNodeId ?? (resourceType === 'node'
-      ? resourceId
-      : (await entityRepository.findById(resourceId))?.parentNodeId);
-    if (!parentNodeId) return [];
-    const scopeNodeIds = await realtimeScopeResolver.resolveScopes({
+    const isNodeScoped = resourceType === 'node' || resourceType === 'entity';
+    const parentNodeId = isNodeScoped
+      ? (scopeNodeId ?? (resourceType === 'node'
+        ? resourceId
+        : (await entityRepository.findById(resourceId))?.parentNodeId))
+      : undefined;
+    const scopeNodeIds = parentNodeId ? await realtimeScopeResolver.resolveScopes({
       eventId: `lock-scope-${resourceType}-${resourceId}`,
       occurredAt: new Date().toISOString(),
       resourceType: resourceType as 'node' | 'entity',
@@ -139,13 +143,13 @@ export const pusherEventBus = new PusherEventBus({
       changeType: 'updated',
       actorUserId: '',
       parentNodeId: resourceType === 'entity' ? parentNodeId : null,
-    });
+    }) : [];
     const policies = await getRealtimeChannelPolicies();
     const channels = new RealtimeChannelRouter(policies).lockChannels(
-      resourceType as 'node' | 'entity',
+      resourceType as import('@dashboard/core').ResourceKind,
       {
         scopeNodeIds,
-        directScopeNodeIds: [parentNodeId],
+        directScopeNodeIds: parentNodeId ? [parentNodeId] : [],
       },
     );
     realtimeMetrics.recordRouting('lock', Date.now() - startedAt, channels.length);

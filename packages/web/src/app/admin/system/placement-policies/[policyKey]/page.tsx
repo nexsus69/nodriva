@@ -16,6 +16,7 @@ import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 import { AdminModalShell } from '../../../_components/AdminModalShell';
 import { PolicyRulesTable } from './_components/PolicyRulesTable';
 import { PlacementRuleModal } from './_components/PlacementRuleModal';
+import { AdminResourceLock } from '../../../_components/AdminResourceLock';
 
 export default function PlacementPolicyDetailPage() {
   const params = useParams();
@@ -207,6 +208,7 @@ export default function PlacementPolicyDetailPage() {
 
   return (
     <div className="space-y-6">
+      <AdminResourceLock resourceType="placement_policy" resourceId={policy.policyKey} />
       <ConfirmModal
         open={showDeleteConfirm}
         title="Elimina placement policy"

@@ -448,6 +448,38 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       rulesByUser.set(row.userId, current);
     }
 
+    // Administrative events are global resources. They are granted only by
+    // direct user roles, never by a node-scoped assignment.
+    const adminPermissions = await this.executor.query<{
+      userId: string;
+      isSuperAdmin: boolean;
+      permissionKey: RealtimeChannelRule['permissionKey'];
+    }>(`
+      SELECT u.id AS "userId", u.is_super_admin AS "isSuperAdmin",
+             p.permission_key AS "permissionKey"
+      FROM users u
+      INNER JOIN user_roles ur ON ur.user_id = u.id
+      INNER JOIN role_permissions rp ON rp.role_id = ur.role_id
+      INNER JOIN permissions p ON p.id = rp.permission_id
+      WHERE u.is_active = true
+        ${userId ? 'AND u.id = $1' : ''}
+        AND p.permission_key IN (
+          'node_type.read', 'entity_type.read', 'user.read', 'role.read',
+          'scope.read', 'audit.access', 'system.config.read'
+        )
+    `, userId ? [userId] : []);
+    for (const row of adminPermissions.rows) {
+      const current = rulesByUser.get(row.userId) ?? { isGlobal: Boolean(row.isSuperAdmin), rules: [] };
+      current.isGlobal ||= Boolean(row.isSuperAdmin);
+      current.rules.push({
+        nodeId: null,
+        assignmentEffect: 'allow',
+        propagation: 'global',
+        permissionKey: row.permissionKey,
+      });
+      rulesByUser.set(row.userId, current);
+    }
+
     const uniquePolicies = new Map<string, RealtimeChannelPolicy>();
     for (const entry of rulesByUser.values()) {
       if (!entry.isGlobal && entry.rules.length === 0) continue;

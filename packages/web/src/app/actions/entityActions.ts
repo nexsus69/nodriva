@@ -2,6 +2,7 @@
 
 import { AuthResolver } from './auth/AuthResolver';
 import { runWithRealtimeOutbox } from '../../server/realtime';
+import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 import { withSafeActionErrors } from './errorMapping';
 interface CreateEntityActionInput {
   parentNodeId: string;
@@ -64,6 +65,7 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
+  await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: e.id, changeType: 'created', actorUserId: cmd.actorUserId });
   return result;
   });
 }
@@ -104,6 +106,7 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     updatedAt: e.updatedAt instanceof Date ? e.updatedAt.toISOString() : String(e.updatedAt),
     payload: e.payload || {},
   };
+  await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: e.id, changeType: 'updated', actorUserId: cmd.actorUserId });
   return result;
   });
 }
@@ -128,6 +131,7 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
     () => entityService.deleteEntity(cmd),
     () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
   );
+  await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId });
 
   if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
     try {

@@ -46,4 +46,79 @@ describe('RealtimeChannelRouter', () => {
     expect(router.dataChannels({ ...event, scopeNodeIds: ['node-b', 'node-a'], directScopeNodeIds: ['node-b'] }))
       .toEqual([getRealtimeDataChannelName(broad), getRealtimeDataChannelName(excluded)]);
   });
+
+  it('routes user administration events only to users with user.read', () => {
+    const userPolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'user.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const rolePolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'role.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const router = new RealtimeChannelRouter([userPolicy, rolePolicy]);
+
+    expect(router.dataChannels({
+      ...event,
+      resourceType: 'user',
+      resourceId: 'user-2',
+      scopeNodeIds: [],
+      directScopeNodeIds: [],
+    })).toEqual([getRealtimeDataChannelName(userPolicy)]);
+  });
+
+  it('routes administrative lock events through the matching global permission', () => {
+    const userPolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'user.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const rolePolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'role.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const router = new RealtimeChannelRouter([userPolicy, rolePolicy]);
+
+    expect(router.lockChannels('role', { scopeNodeIds: [], directScopeNodeIds: [] }))
+      .toEqual([getRealtimeLockChannelName(rolePolicy)]);
+  });
+
+  it('routes node-type metadata to node_type.read administrators, not entity readers', () => {
+    const nodeTypePolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'node_type.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const entityTypePolicy = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'entity_type.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const router = new RealtimeChannelRouter([nodeTypePolicy, entityTypePolicy]);
+
+    expect(router.dataChannels({
+      ...event,
+      resourceType: 'node',
+      resourceId: 'project',
+      scopeNodeIds: [],
+      directScopeNodeIds: [],
+      metadataKind: 'node',
+    })).toEqual([getRealtimeDataChannelName(nodeTypePolicy)]);
+  });
+
+  it.each([
+    ['user', 'user.read'],
+    ['role', 'role.read'],
+    ['scope', 'scope.read'],
+    ['audit', 'audit.access'],
+    ['system', 'system.config.read'],
+    ['placement_policy', 'system.config.read'],
+  ] as const)('maps %s events to %s', (resourceType, permissionKey) => {
+    const matching = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: permissionKey as never, assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const unrelated = createRealtimeChannelPolicy([{
+      nodeId: null, permissionKey: 'user.read', assignmentEffect: 'allow', propagation: 'global',
+    }]);
+    const router = new RealtimeChannelRouter([matching, unrelated]);
+
+    expect(router.dataChannels({
+      ...event,
+      resourceType,
+      resourceId: 'admin-resource',
+      scopeNodeIds: [],
+      directScopeNodeIds: [],
+    })).toEqual([getRealtimeDataChannelName(matching)]);
+  });
 });

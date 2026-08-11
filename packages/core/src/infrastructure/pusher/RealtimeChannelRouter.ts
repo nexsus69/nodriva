@@ -3,10 +3,12 @@ import {
   getRealtimeDataChannelName,
   getRealtimeLockChannelName,
   policyAllowsResource,
+  permissionForResource,
   type RealtimeChannelPolicy,
   type RealtimeResourceScope,
 } from '../../application/realtime/RealtimeChannelPolicy.js';
 import type { RealtimeDataChangedEvent, RealtimeResourceType } from '../../application/ports/RealtimeEventBus.js';
+import type { ResourceKind } from '../../domain/models/ResourceReference.js';
 
 export class RealtimeChannelRouter {
   private readonly policiesByChannelId = new Map<string, RealtimeChannelPolicy>();
@@ -18,7 +20,7 @@ export class RealtimeChannelRouter {
       this.policiesByChannelId.set(policy.channelId, policy);
       if (policy.isGlobal) this.globalPolicyIds.add(policy.channelId);
       for (const rule of policy.rules) {
-        const key = `${rule.permissionKey}:${rule.nodeId}`;
+        const key = `${rule.permissionKey}:${rule.nodeId ?? '*'}`;
         const entries = this.policiesByRule.get(key) ?? new Set<string>();
         entries.add(policy.channelId);
         this.policiesByRule.set(key, entries);
@@ -27,24 +29,22 @@ export class RealtimeChannelRouter {
   }
 
   dataChannels(event: RealtimeDataChangedEvent): string[] {
-    if (event.metadataKind) {
-      return [...this.globalPolicyIds]
-        .map((policyId) => this.policiesByChannelId.get(policyId))
-        .filter((policy): policy is RealtimeChannelPolicy => Boolean(policy))
-        .map(getRealtimeDataChannelName);
-    }
     const scope = getEventScope(event);
-    return this.matchingPolicies(event.resourceType, scope)
+    return this.matchingPolicies(event.resourceType, scope, event.metadataKind)
       .map(getRealtimeDataChannelName);
   }
 
-  lockChannels(resourceType: RealtimeResourceType, scope: RealtimeResourceScope): string[] {
+  lockChannels(resourceType: ResourceKind, scope: RealtimeResourceScope): string[] {
     return this.matchingPolicies(resourceType, scope)
       .map(getRealtimeLockChannelName);
   }
 
-  private matchingPolicies(resourceType: RealtimeResourceType, scope: RealtimeResourceScope): RealtimeChannelPolicy[] {
-    const permissionKey = resourceType === 'node' ? 'node.read' : 'entity.read';
+  private matchingPolicies(
+    resourceType: RealtimeResourceType | ResourceKind,
+    scope: RealtimeResourceScope,
+    metadataKind?: 'node' | 'entity',
+  ): RealtimeChannelPolicy[] {
+    const permissionKey = permissionForResource(resourceType, metadataKind);
     const candidateIds = new Set(this.globalPolicyIds);
     for (const nodeId of scope.scopeNodeIds) {
       this.policiesByRule.get(`${permissionKey}:${nodeId}`)?.forEach((policyId) => candidateIds.add(policyId));
@@ -52,10 +52,11 @@ export class RealtimeChannelRouter {
     for (const nodeId of scope.directScopeNodeIds ?? []) {
       this.policiesByRule.get(`${permissionKey}:${nodeId}`)?.forEach((policyId) => candidateIds.add(policyId));
     }
+    this.policiesByRule.get(`${permissionKey}:*`)?.forEach((policyId) => candidateIds.add(policyId));
 
     return [...candidateIds]
       .map((policyId) => this.policiesByChannelId.get(policyId))
       .filter((policy): policy is RealtimeChannelPolicy => Boolean(policy))
-      .filter((policy) => policyAllowsResource(policy, resourceType, scope));
+      .filter((policy) => policyAllowsResource(policy, resourceType, scope, metadataKind));
   }
 }

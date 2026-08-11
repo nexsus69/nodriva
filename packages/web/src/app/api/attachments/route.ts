@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
 import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, parseAttachmentTarget } from './attachmentAccess';
+import { publishAuditRealtimeChange } from '../../../server/adminRealtime';
+import { publishRealtimeChange } from '../../../server/realtime';
 
 export const GET = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
@@ -91,6 +93,16 @@ export const POST = auth(async (request) => {
       resourceType: target.resourceType, resourceId: target.resourceId, fileName: safeName,
       mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, checksum: stored.checksum,
     });
+    void publishRealtimeChange({
+      resourceType: target.resourceType,
+      resourceId: target.resourceId,
+      changeType: 'updated',
+      actorUserId,
+      parentNodeId: target.resourceType === 'entity' ? access.scopeNodeId : null,
+      subresourceKind: 'attachment',
+    }).catch((error) => console.error('[Attachments] Realtime upload event failed', error));
+    void publishAuditRealtimeChange({ resourceType: target.resourceType, resourceId: attachmentId, changeType: 'created', actorUserId })
+      .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ id: attachmentId, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes });
   } catch (error) {
     console.error('[Attachments] Upload failed', error);

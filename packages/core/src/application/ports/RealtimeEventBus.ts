@@ -1,10 +1,22 @@
-import type { ResourceKind } from '../../domain/models/ResourceReference.js';
 import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 
-export type RealtimeResourceType = ResourceKind;
+/** Resources that can produce a data event. Lockable resources remain limited
+ * to node/entity and continue to use ResourceKind. */
+export type RealtimeResourceType =
+  | 'node'
+  | 'entity'
+  | 'node_type'
+  | 'entity_type'
+  | 'user'
+  | 'role'
+  | 'scope'
+  | 'audit'
+  | 'system'
+  | 'placement_policy';
 export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved' | 'restored';
 
-export interface RealtimeDataChangedEvent extends ResourceReference {
+export interface RealtimeDataChangedEvent extends Omit<ResourceReference, 'resourceType'> {
+  resourceType: RealtimeResourceType;
   eventId: string;
   occurredAt: string;
   changeType: RealtimeChangeType;
@@ -25,6 +37,8 @@ export interface RealtimeDataChangedEvent extends ResourceReference {
   metadataSequence?: number;
   /** Row version of a concrete resource when the event carries a snapshot. */
   resourceVersion?: number;
+  /** A resource-owned projection changed without changing the resource row. */
+  subresourceKind?: 'attachment';
 }
 
 export interface RealtimeEventBus {

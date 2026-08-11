@@ -11,6 +11,7 @@ import { AppCache } from '../../../cache/GlobalCacheClient';
 import { AdminModalShell } from '../../_components/AdminModalShell';
 import { SystemSettingsTable } from './_components/SystemSettingsTable';
 import { RuntimeCapabilitiesGrid } from './_components/RuntimeCapabilitiesGrid';
+import { AdminResourceLock } from '../../_components/AdminResourceLock';
 
 export default function SystemConfigPage() {
   const [capabilities, setCapabilities] = useState<RuntimeCapabilityDto[]>([]);
@@ -129,6 +130,7 @@ export default function SystemConfigPage() {
       {/* Modale Modifica System Setting */}
       {editingSetting && (
         <AdminModalShell>
+            <AdminResourceLock resourceType="system_setting" resourceId={editingSetting.settingKey} />
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <span>✏️</span> Modifica Valore Setting

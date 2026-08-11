@@ -2,7 +2,7 @@ import { LockRepository } from '../../application/ports/LockRepository.js';
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockNotFoundError, LockForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { PgExecutor } from './PgExecutor.js';
-import type { ResourceReference } from '../../domain/models/ResourceReference.js';
+import type { ResourceKind, ResourceReference } from '../../domain/models/ResourceReference.js';
 
 interface LockRow {
   id: string;
@@ -126,7 +126,7 @@ export class LockRepositoryPostgres implements LockRepository {
   private toLock(row: LockRow): Lock {
     return new Lock(
       row.id,
-      { resourceType: row.resource_type as 'node' | 'entity', resourceId: row.resource_id },
+      { resourceType: row.resource_type as ResourceKind, resourceId: row.resource_id },
       row.user_id,
       row.session_id,
       row.acquired_at,

@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { LogoutButton } from '../components/ui/LogoutButton';
+import { checkAdminAccessAction } from '../actions/adminAccessActions';
 
 interface NavItem {
   label: string;
@@ -62,6 +63,32 @@ export default function AdminLayout({
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [adminAccess, setAdminAccess] = useState<'checking' | 'allowed' | 'denied'>('checking');
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkAdminAccessAction().then((allowed) => {
+      if (!cancelled) setAdminAccess(allowed ? 'allowed' : 'denied');
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (adminAccess === 'checking') {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-400">Verifica autorizzazioni…</div>;
+  }
+
+  if (adminAccess === 'denied') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-xl">
+          <div className="text-4xl">🔒</div>
+          <h1 className="text-xl font-semibold">Accesso amministrativo negato</h1>
+          <p className="text-sm text-slate-400">Il tuo account non dispone di una capacità amministrativa globale.</p>
+          <Link href="/" className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Torna al workspace</Link>
+        </div>
+      </div>
+    );
+  }
 
   const userEmail = session?.user?.email || 'utente@ignoto.com';
   const userInitials = userEmail.substring(0, 2).toUpperCase();

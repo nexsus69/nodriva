@@ -12,6 +12,7 @@ import type {
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { AdminModalShell } from '../../_components/AdminModalShell';
 import { ScopeAssignmentsTable } from './_components/ScopeAssignmentsTable';
+import { AdminResourceLock } from '../../_components/AdminResourceLock';
 
 export default function SecurityScopesPage() {
   const [scopes, setScopes] = useState<ScopeAssignmentDto[]>([]);
@@ -172,6 +173,7 @@ export default function SecurityScopesPage() {
       {/* Modal Creazione / Modifica Scope */}
       {showCreateModal && (
         <AdminModalShell>
+          {editingScope && <AdminResourceLock resourceType="scope_assignment" resourceId={editingScope.id} />}
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-4">
               <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
                 <span>🔒</span> {editingScope ? 'Modifica Scope' : 'Nuova Assegnazione Scope'}

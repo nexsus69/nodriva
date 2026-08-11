@@ -9,6 +9,18 @@ export interface AttachmentItem {
   sizeBytes: number;
 }
 
+/** Valida il contenuto nel browser prima di creare o modificare la risorsa. */
+export async function validateResourceAttachmentFile(
+  file: File,
+  kind: 'file' | 'image',
+): Promise<string | null> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (!detectAttachmentType(file.name, file.type, bytes, kind, defaultAttachmentSecurityPolicy)) {
+    return `Il file "${file.name}" non è un allegato ${kind} valido.`;
+  }
+  return null;
+}
+
 async function readResponse(response: Response): Promise<unknown> {
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(typeof body === 'object' && body && 'error' in body ? String(body.error) : 'Operazione allegato fallita.');
@@ -39,3 +51,4 @@ export async function listResourceAttachments(resourceType: 'node' | 'entity', r
 export async function deleteResourceAttachment(id: string): Promise<void> {
   await readResponse(await fetch(`/api/attachments/${id}`, { method: 'DELETE' }));
 }
+import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';

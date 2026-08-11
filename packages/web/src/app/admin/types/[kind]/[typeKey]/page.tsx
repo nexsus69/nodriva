@@ -25,6 +25,7 @@ import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
 import { TypeFieldsTable } from '../../_components/TypeFieldsTable';
 import { TypeFieldEditorModal } from '../../_components/TypeFieldEditorModal';
 import { NodeTypeEncryptionPolicy } from '../../_components/NodeTypeEncryptionPolicy';
+import { AdminResourceLock } from '../../../_components/AdminResourceLock';
 
 export default function AdminTypeDetailPage() {
   const params = useParams();
@@ -476,6 +477,7 @@ export default function AdminTypeDetailPage() {
 
   return (
     <div className="min-h-screen p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+      <AdminResourceLock resourceType={kind === 'node' ? 'node_type' : 'entity_type'} resourceId={typeDetail.id} />
       <ConfirmModal
         open={showDisableConfirm}
         title="Disabilita tipo"

@@ -16,6 +16,7 @@ export function useCacheEntry<T extends { id: string }>(
 ) {
   const [data, setData] = useState<T | null>(id ? cacheClient.get(id) : null);
   const [error, setError] = useState<Error | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(
     id ? cacheClient.needsFetch(id, requireComplete) : false
   );
@@ -32,6 +33,7 @@ export function useCacheEntry<T extends { id: string }>(
     const unsubscribe = cacheClient.subscribe(id, (newData, newError) => {
       setData(newData);
       setError(newError);
+      setErrorId(newError ? id : null);
       
       // If we required complete data, we stop loading when the data is no longer partial
       if (newData && requireComplete) {
@@ -49,8 +51,12 @@ export function useCacheEntry<T extends { id: string }>(
     if (cacheClient.needsFetch(id, requireComplete)) {
       cacheClient
         .fetchIfMissing(id, requireComplete)
-        .catch(() => {
-          // Error is already handled and broadcasted to subscribers by the client
+        .catch((error: unknown) => {
+          if (isMounted) {
+            setData(null);
+            setError(error instanceof Error ? error : new Error(String(error)));
+            setErrorId(id);
+          }
         })
         .finally(() => {
           if (isMounted) {
@@ -68,8 +74,8 @@ export function useCacheEntry<T extends { id: string }>(
   }, [cacheClient, id, requireComplete]);
 
   return {
-    data: id ? cacheClient.get(id) ?? data : null,
-    error: id ? error : null,
+    data: id ? cacheClient.get(id) ?? (data?.id === id ? data : null) : null,
+    error: id && errorId === id ? error : null,
     isLoading: id ? cacheClient.needsFetch(id, requireComplete) || isLoading : false,
   };
 }

@@ -12,6 +12,7 @@ import { AdminModalShell } from '../../_components/AdminModalShell';
 import { issueAccountActionAction } from '../../../actions/accountRecoveryActions';
 import { UserAccountDetailsPanel, UserRoleAssignmentPanel } from '../_components/UserDetailPanels';
 import { PasswordInput } from '../../../components/ui/forms';
+import { AdminResourceLock } from '../../_components/AdminResourceLock';
 
 export default function UserDetailPage() {
   const params = useParams();
@@ -197,6 +198,7 @@ export default function UserDetailPage() {
 
   return (
     <div className="space-y-6">
+      <AdminResourceLock resourceType="user" resourceId={user.id} />
       {/* Header & Torna Indietro */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

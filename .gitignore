@@ -17,9 +17,10 @@ dist/
 coverage/
 .turbo/
 .cache/
+test-results/
+playwright-report/
 
 # OS/editor files
 .DS_Store
 .idea/
 .vscode/
-

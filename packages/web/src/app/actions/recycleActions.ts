@@ -6,6 +6,7 @@ import type { ApiErrorResponse } from '@dashboard/core';
 
 type RecycleActionResult<T> = { success: true; data: T } | { success: false; error: ApiErrorResponse };
 import { runWithRealtimeOutbox } from '../../server/realtime';
+import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 
 export interface DeletedEntityListItem {
   id: string;
@@ -53,6 +54,7 @@ export async function restoreDeletedNodeAction(input: { nodeId: string; expected
       () => nodeService.restoreNode({ actorUserId: identity.userId, actorSessionId: identity.sessionId, nodeId: input.nodeId, expectedRowVersion: input.expectedRowVersion }),
       () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId }),
     );
+    await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId });
     return { success: true, data: { restored: true } } as const;
   } catch (error) {
     return { success: false, error: mapAppErrorToApiErrorResponse(error) } as const;
@@ -100,10 +102,19 @@ export async function restoreDeletedEntityAction(input: { entityId: string; expe
   try {
     const { entityService } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
+    const existing = await entityService.getDeletedEntityById(input.entityId, identity.userId);
     await runWithRealtimeOutbox(
       () => entityService.restoreEntity({ actorUserId: identity.userId, actorSessionId: identity.sessionId, entityId: input.entityId, expectedRowVersion: input.expectedRowVersion }),
-      () => null,
+      () => existing ? {
+        resourceType: 'entity',
+        resourceId: input.entityId,
+        changeType: 'restored',
+        actorUserId: identity.userId,
+        parentNodeId: existing.parentNodeId,
+        entityTypeId: existing.entityTypeId,
+      } : null,
     );
+    if (existing) await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: input.entityId, changeType: 'restored', actorUserId: identity.userId });
     return { success: true, data: { restored: true } };
   } catch (error) {
     return { success: false, error: mapAppErrorToApiErrorResponse(error) };

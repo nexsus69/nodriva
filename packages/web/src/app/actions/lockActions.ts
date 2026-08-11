@@ -20,11 +20,20 @@ async function resolveAuthorizedActor(
   if (validatedType === 'node') {
     await accessControlPort.assertHasPermission(actorUserId, 'node.edit', resourceId);
     return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: resourceId };
-  } else {
+  } else if (validatedType === 'entity') {
     const entity = await entityRepository.findById(resourceId);
     if (!entity || entity.deletedAt) throw new Error('Entità non trovata.');
     await accessControlPort.assertHasPermission(actorUserId, 'entity.edit', entity.parentNodeId);
     return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: entity.parentNodeId };
+  } else {
+    const permission = validatedType === 'user' ? 'user.update'
+      : validatedType === 'role' ? 'role.update'
+      : validatedType === 'scope_assignment' ? 'scope.update'
+      : validatedType === 'node_type' ? 'node_type.update'
+      : validatedType === 'entity_type' ? 'entity_type.update'
+      : 'system.config';
+    await accessControlPort.assertHasPermission(actorUserId, permission, null);
+    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: '' };
   }
 }
 
@@ -90,12 +99,20 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
 
     if (validatedType === 'node') {
       await accessControlPort.assertCanReadNode(actorUserId, resourceId);
-    } else {
+    } else if (validatedType === 'entity') {
       const entity = await entityRepository.findById(resourceId);
       if (!entity || entity.deletedAt) {
         return { locked: false as const };
       }
       await accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
+    } else {
+      const permission = validatedType === 'user' ? 'user.read'
+        : validatedType === 'role' ? 'role.read'
+        : validatedType === 'scope_assignment' ? 'scope.read'
+        : validatedType === 'node_type' ? 'node_type.read'
+        : validatedType === 'entity_type' ? 'entity_type.read'
+        : 'system.config.read';
+      await accessControlPort.assertHasPermission(actorUserId, permission, null);
     }
 
     return await lockService.isLocked(resourceReference(validatedType, resourceId));

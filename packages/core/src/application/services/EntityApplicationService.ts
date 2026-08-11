@@ -360,6 +360,13 @@ export class EntityApplicationService {
     return await this.entityRepository.listDeletedByScope(actorUserId, limit, offset);
   }
 
+  async getDeletedEntityById(entityId: string, actorUserId: string): Promise<Entity> {
+    const entity = await this.entityRepository.findDeletedById(entityId);
+    if (!entity || !entity.deletedAt) throw new EntityNotFoundError(entityId);
+    await this.accessControlPort.assertHasPermission(actorUserId, 'entity.restore', entity.parentNodeId);
+    return entity;
+  }
+
   async restoreEntity(cmd: RestoreEntityCommand): Promise<void> {
     const parseResult = RestoreEntityCommandSchema.safeParse(cmd);
     if (!parseResult.success) {

@@ -35,9 +35,23 @@ describe('lock resource validation', () => {
   it('rejects unsupported resource types', () => {
     expect(() =>
       validateLockResource(
-        'user',
+        'unknown',
         '00000000-0000-0000-0000-000000000022'
       )
     ).toThrow('Unsupported lock resource type.');
+  });
+
+  it.each(['node_type', 'entity_type', 'user', 'role', 'scope_assignment'])
+    ('accepts administrative UUID resource %s', (resourceType) => {
+      expect(validateLockResource(resourceType, '00000000-0000-0000-0000-000000000022')).toBe(resourceType);
+    });
+
+  it.each(['system_setting', 'runtime_capability', 'placement_policy'])
+    ('accepts administrative key resource %s', (resourceType) => {
+      expect(validateLockResource(resourceType, 'attachments.encryptionEnabled')).toBe(resourceType);
+    });
+
+  it('rejects unsafe administrative keys', () => {
+    expect(() => validateLockResource('system_setting', '../secret')).toThrow('Invalid lock resource identifier.');
   });
 });

@@ -7,7 +7,7 @@ import { GlobalViewStore } from './ViewStore';
 import { ViewKeyBuilder } from './SemanticViewKey';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
-import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
+import type { RealtimeDataChangedEvent, ResourceKind } from '@dashboard/core';
 import type {
   LockChannelEvent,
   RealtimeDebugEvent,
@@ -169,7 +169,7 @@ export class GlobalCacheClient {
     this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
   };
 
-  public getLockState(resourceType: RealtimeResourceType, resourceId: string): CachedLockState {
+  public getLockState(resourceType: ResourceKind, resourceId: string): CachedLockState {
     const state = this.lockStates.get(this.lockKey(resourceType, resourceId));
     if (state?.locked && state.expiresAt && Date.parse(state.expiresAt) <= Date.now()) {
       return EMPTY_LOCK_STATE;
@@ -177,7 +177,7 @@ export class GlobalCacheClient {
     return state ?? EMPTY_LOCK_STATE;
   }
 
-  public hydrateLockState = (resourceType: RealtimeResourceType, resourceId: string): Promise<void> => {
+  public hydrateLockState = (resourceType: ResourceKind, resourceId: string): Promise<void> => {
     const key = this.lockKey(resourceType, resourceId);
     if (this.hydratedLockKeys.has(key)) return Promise.resolve();
 
@@ -203,7 +203,7 @@ export class GlobalCacheClient {
   };
 
   public subscribeLock(
-    resourceType: RealtimeResourceType,
+    resourceType: ResourceKind,
     resourceId: string,
     subscriber: (state: CachedLockState) => void
   ): () => void {
@@ -220,7 +220,7 @@ export class GlobalCacheClient {
   }
 
   public setLockState(
-    resourceType: RealtimeResourceType,
+    resourceType: ResourceKind,
     resourceId: string,
     state: CachedLockState
   ): void {
@@ -236,7 +236,7 @@ export class GlobalCacheClient {
     this.notifyCacheSubscribers();
   }
 
-  private lockKey(resourceType: RealtimeResourceType, resourceId: string): string {
+  private lockKey(resourceType: ResourceKind, resourceId: string): string {
     return `${resourceType}:${resourceId}`;
   }
 
@@ -266,6 +266,42 @@ export class GlobalCacheClient {
   private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
     if (event.metadataKind) {
       this.invalidateMetadata(event.metadataKind);
+      return;
+    }
+    if (event.subresourceKind === 'attachment') {
+      if (event.resourceType === 'node') this.nodes.invalidate(event.resourceId);
+      else this.invalidateEntityViews();
+      this.notifyCacheSubscribers();
+      return;
+    }
+    if (event.resourceType !== 'node' && event.resourceType !== 'entity') {
+      switch (event.resourceType) {
+        case 'user':
+          this.users.purge();
+          break;
+        case 'role':
+          this.admin.invalidate(['roles', 'role']);
+          break;
+        case 'scope':
+          this.admin.invalidate(['scope-assignments']);
+          break;
+        case 'audit':
+          this.admin.invalidate(['audit']);
+          break;
+        case 'system':
+          this.admin.invalidate(['capabilities', 'settings']);
+          break;
+        case 'placement_policy':
+          this.admin.invalidate(['placement-policies', 'placement-policy']);
+          break;
+        case 'node_type':
+          this.invalidateMetadata('node');
+          break;
+        case 'entity_type':
+          this.invalidateMetadata('entity');
+          break;
+      }
+      this.notifyCacheSubscribers();
       return;
     }
     if (event.resourceType === 'entity') {

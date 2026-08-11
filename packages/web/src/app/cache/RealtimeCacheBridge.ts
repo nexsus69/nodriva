@@ -1,7 +1,7 @@
 'use client';
 
 import Pusher, { Channel } from 'pusher-js';
-import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
+import type { RealtimeDataChangedEvent, ResourceKind } from '@dashboard/core';
 
 type RealtimeListener = (event: RealtimeDataChangedEvent) => void;
 
@@ -21,7 +21,7 @@ export type RealtimeEventGapListener = (details: { stream: 'metadata' | 'resourc
 let debugEventSequence = 0;
 
 export interface LockChannelEvent {
-  resourceType: RealtimeResourceType;
+  resourceType: ResourceKind;
   resourceId: string;
   userId?: string;
   sessionId?: string;

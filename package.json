@@ -8,6 +8,11 @@
     "db:backup:verify": "./scripts/postgres-backup-verify.sh backup-verify",
     "db:backup:maintenance": "./scripts/postgres-backup-maintenance.sh",
     "encryption:rotate": "node --experimental-strip-types scripts/encryption-rotation-job.ts",
+    "e2e": "playwright test",
+    "ops:health": "./scripts/stack-healthcheck.sh",
     "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
   }
 }

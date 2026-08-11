@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
@@ -13,7 +13,7 @@ import { PageShell, Panel } from '../../../components/ui/layout';
 import { Alert } from '../../../components/ui/feedback';
 import { DynamicFieldsForm, EnumOptionModal, type DynamicField } from '../../../components/ui/forms';
 import { AttachmentInput } from '../../../components/ui/forms';
-import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
+import { uploadResourceAttachment, validateResourceAttachmentFile } from '../../../attachments/attachmentClient';
 
 export default function CreateChildNodePage() {
   const params = useParams();
@@ -32,6 +32,8 @@ export default function CreateChildNodePage() {
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
+  const [createdNodeId, setCreatedNodeId] = useState<string | null>(null);
+  const submissionInFlight = useRef(false);
   const { lockedByOther, isMyLock, acquireLock, releaseLock, error: lockError } = useLock({
     resourceType: 'node',
     resourceId: parentNodeId,
@@ -62,6 +64,8 @@ export default function CreateChildNodePage() {
 
   const handleCreateNode = (e: React.FormEvent) => {
     e.preventDefault();
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setErrorMsg(null);
 
     startTransition(async () => {
@@ -73,16 +77,24 @@ export default function CreateChildNodePage() {
             if (!Number.isNaN(numberValue)) processedPayload[field.fieldKey] = numberValue;
           }
         }
-        const created = await AppCache.createNode({
+        const attachmentFields = fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()));
+        for (const field of attachmentFields) {
+          for (const file of attachmentsByField[field.fieldKey] ?? []) {
+            const validationError = await validateResourceAttachmentFile(file, field.dataType.toLowerCase() as 'file' | 'image');
+            if (validationError) throw new Error(validationError);
+          }
+        }
+        const resourceId = createdNodeId ?? (await AppCache.createNode({
           parentNodeId,
           nodeTypeKey,
           name: nodeName,
           description: nodeDesc,
           payload: processedPayload,
-        });
-        for (const field of fieldsDef.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
+        })).id;
+        if (!createdNodeId) setCreatedNodeId(resourceId);
+        for (const field of attachmentFields) {
           for (const file of attachmentsByField[field.fieldKey] ?? []) {
-            await uploadResourceAttachment({ resourceType: 'node', resourceId: created.id, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+            await uploadResourceAttachment({ resourceType: 'node', resourceId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
           }
         }
 
@@ -91,6 +103,7 @@ export default function CreateChildNodePage() {
 
         router.push(`/nodes/${parentNodeId}`);
       } catch (err: unknown) {
+        submissionInFlight.current = false;
         setErrorMsg(err instanceof Error ? err.message : 'Errore nella creazione del nodo.');
       }
     });

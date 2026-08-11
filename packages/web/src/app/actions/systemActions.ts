@@ -17,6 +17,8 @@ import {
   DeletePlacementRuleUiCommand,
   ApiErrorResponse,
 } from '@dashboard/core';
+import { publishAdministrativeChange } from '../../server/adminRealtime';
+import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
@@ -42,11 +44,13 @@ export async function updateCapabilityStatusAction(cmd: UpdateCapabilityStatusUi
   error?: ApiErrorResponse;
 }> {
   try {
-    await systemAdminService.updateCapabilityStatus({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'runtime_capability', resourceId: cmd.capabilityKey, permission: 'system.config', work: async () => systemAdminService.updateCapabilityStatus({
       capabilityKey: cmd.capabilityKey,
       status: cmd.status,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'system', resourceId: cmd.capabilityKey, changeType: 'updated', actorUserId, data: { capabilityKey: cmd.capabilityKey, status: cmd.status } });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -72,13 +76,15 @@ export async function updateSettingAction(cmd: UpdateSystemSettingUiCommand): Pr
   error?: ApiErrorResponse;
 }> {
   try {
-    await systemAdminService.updateSetting({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'system_setting', resourceId: cmd.settingKey, permission: 'system.config', work: async () => systemAdminService.updateSetting({
       settingKey: cmd.settingKey,
       settingValueText: cmd.settingValueText,
       expectedRowVersion: cmd.expectedRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
     configService.invalidate(cmd.settingKey);
+    await publishAdministrativeChange({ resourceType: 'system', resourceId: cmd.settingKey, changeType: 'updated', actorUserId, data: { settingKey: cmd.settingKey } });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -122,13 +128,15 @@ export async function createPlacementPolicyAction(cmd: CreatePlacementPolicyUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    const data = await systemAdminService.createPlacementPolicy({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const data = await withAdministrativeMutationLock({ resourceType: 'placement_policy', resourceId: cmd.policyKey, permission: 'system.config', work: async () => systemAdminService.createPlacementPolicy({
       policyKey: cmd.policyKey,
       name: cmd.name,
       description: cmd.description,
       policyMode: cmd.policyMode,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'placement_policy', resourceId: cmd.policyKey, changeType: 'created', actorUserId, data });
     return { success: true, data };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -141,14 +149,16 @@ export async function updatePlacementPolicyAction(cmd: UpdatePlacementPolicyUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    const data = await systemAdminService.updatePlacementPolicy({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const data = await withAdministrativeMutationLock({ resourceType: 'placement_policy', resourceId: cmd.policyKey, permission: 'system.config', work: async () => systemAdminService.updatePlacementPolicy({
       policyKey: cmd.policyKey,
       name: cmd.name,
       description: cmd.description,
       policyMode: cmd.policyMode,
       expectedRowVersion: cmd.expectedRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'placement_policy', resourceId: cmd.policyKey, changeType: 'updated', actorUserId, data });
     return { success: true, data };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -160,11 +170,13 @@ export async function deletePlacementPolicyAction(cmd: DeletePlacementPolicyUiCo
   error?: ApiErrorResponse;
 }> {
   try {
-    await systemAdminService.deletePlacementPolicy({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'placement_policy', resourceId: cmd.policyKey, permission: 'system.config', work: async () => systemAdminService.deletePlacementPolicy({
       policyKey: cmd.policyKey,
       expectedRowVersion: cmd.expectedRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'placement_policy', resourceId: cmd.policyKey, changeType: 'deleted', actorUserId });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -176,15 +188,17 @@ export async function createPlacementRuleAction(cmd: CreatePlacementRuleUiComman
   error?: ApiErrorResponse;
 }> {
   try {
-    await systemAdminService.createPlacementRule({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'placement_policy', resourceId: cmd.policyKey, permission: 'system.config', work: async () => systemAdminService.createPlacementRule({
       policyKey: cmd.policyKey,
       ruleType: cmd.ruleType,
       targetNodeId: cmd.targetNodeId,
       targetNodeTypeId: cmd.targetNodeTypeId,
       comparator: cmd.comparator,
       valueText: cmd.valueText,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'placement_policy', resourceId: cmd.policyKey, changeType: 'updated', actorUserId, data: { ruleType: cmd.ruleType, targetNodeId: cmd.targetNodeId, targetNodeTypeId: cmd.targetNodeTypeId } });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -196,10 +210,12 @@ export async function deletePlacementRuleAction(cmd: DeletePlacementRuleUiComman
   error?: ApiErrorResponse;
 }> {
   try {
-    await systemAdminService.deletePlacementRule({
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'placement_policy', resourceId: cmd.ruleId, permission: 'system.config', work: async () => systemAdminService.deletePlacementRule({
       ruleId: cmd.ruleId,
-      actorUserId: await AuthResolver.resolveActorUserId(),
-    });
+      actorUserId,
+    }) });
+    await publishAdministrativeChange({ resourceType: 'placement_policy', resourceId: cmd.ruleId, changeType: 'updated', actorUserId });
     return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
