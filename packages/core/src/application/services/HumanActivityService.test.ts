@@ -24,7 +24,7 @@ function createContext() {
   };
   const lockRepository: LockRepository = {
     acquire: vi.fn(),
-    refresh: vi.fn().mockImplementation(async (_type, _id, _user, _session, expiresAt: Date) => {
+    refresh: vi.fn().mockImplementation(async (_resource, _user, _session, expiresAt: Date) => {
       lockExpiry = expiresAt;
     }),
     release: vi.fn(),
@@ -84,7 +84,7 @@ describe('HumanActivityService', () => {
     const expectedLockExpiry = new Date(NOW.getTime() + 100_000);
 
     expect(sessions.touchSession).toHaveBeenCalledWith(SESSION_ID, USER_ID, expectedSessionExpiry);
-    expect(lockRepository.refresh).toHaveBeenCalledWith('node', RESOURCE_ID, USER_ID, SESSION_ID, expectedLockExpiry);
+    expect(lockRepository.refresh).toHaveBeenCalledWith({ resourceType: 'node', resourceId: RESOURCE_ID }, USER_ID, SESSION_ID, expectedLockExpiry);
     expect(result.sessionExpiresAt).toEqual(expectedSessionExpiry);
     expect(result.renewedLocks[0]?.expiresAt).toEqual(expectedLockExpiry);
   });

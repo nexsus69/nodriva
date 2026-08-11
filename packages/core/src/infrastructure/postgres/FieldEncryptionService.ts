@@ -1,19 +1,17 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { ConfigService } from '../../application/services/ConfigService.js';
 import type { PgExecutor } from './PgExecutor.js';
+import { EncryptionKeyring } from '../crypto/EncryptionKeyring.js';
 
 type ResourceType = 'node' | 'entity';
 type Mode = 'plaintext' | 'encrypted';
 const HEADER = 'DASHFIELD1';
 
 export class FieldEncryptionService {
-  private readonly key?: Buffer;
+  private readonly keyring: EncryptionKeyring;
 
-  constructor(private readonly executor: PgExecutor, private readonly config: ConfigService, keyHex = process.env.FIELD_ENCRYPTION_KEY ?? process.env.ATTACHMENTS_ENCRYPTION_KEY) {
-    if (keyHex) {
-      if (!/^[0-9a-f]{64}$/i.test(keyHex)) throw new Error('FIELD_ENCRYPTION_KEY must be a 32-byte hex key');
-      this.key = Buffer.from(keyHex, 'hex');
-    }
+  constructor(private readonly executor: PgExecutor, private readonly config: ConfigService, keyHex = process.env.FIELD_ENCRYPTION_KEY ?? process.env.ATTACHMENTS_ENCRYPTION_KEY, keyringSpec = process.env.FIELD_ENCRYPTION_KEYS, activeVersion = process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1') {
+    this.keyring = new EncryptionKeyring(keyHex, keyringSpec, activeVersion, 'FIELD_ENCRYPTION_KEY');
   }
 
   async protect(resourceType: ResourceType, typeId: string, resourceId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -32,12 +30,12 @@ export class FieldEncryptionService {
       const value = payload[fieldKey];
       const isEmpty = value === null || value === '';
       if (enabled && !isEmpty) {
-        if (!this.key) throw new Error('Field encryption requested but FIELD_ENCRYPTION_KEY is missing');
+        const activeKey = this.keyring.active();
         await this.executor.query(
           `INSERT INTO resource_field_ciphertexts (resource_type, resource_id, field_key, key_version, ciphertext)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (resource_type, resource_id, field_key) DO UPDATE SET key_version = EXCLUDED.key_version, ciphertext = EXCLUDED.ciphertext, updated_at = NOW()`,
-          [resourceType, resourceId, fieldKey, 'v1', this.encrypt(value)],
+          [resourceType, resourceId, fieldKey, activeKey.version, this.encrypt(value, activeKey.value, activeKey.version)],
         );
         result[fieldKey] = null;
       } else {
@@ -49,10 +47,9 @@ export class FieldEncryptionService {
 
   async restore(resourceType: ResourceType, resourceId: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
     const result = { ...payload };
-    const rows = await this.executor.query<{ field_key: string; ciphertext: string }>('SELECT field_key, ciphertext FROM resource_field_ciphertexts WHERE resource_type = $1 AND resource_id = $2', [resourceType, resourceId]);
+    const rows = await this.executor.query<{ field_key: string; key_version: string; ciphertext: string }>('SELECT field_key, key_version, ciphertext FROM resource_field_ciphertexts WHERE resource_type = $1 AND resource_id = $2', [resourceType, resourceId]);
     for (const row of rows.rows) {
-      if (!this.key) throw new Error('Encrypted field cannot be decrypted because FIELD_ENCRYPTION_KEY is missing');
-      result[row.field_key] = this.decrypt(row.ciphertext);
+      result[row.field_key] = this.decrypt(row.ciphertext, row.key_version);
     }
     return result;
   }
@@ -74,17 +71,22 @@ export class FieldEncryptionService {
     return new Map(result.rows.map((row) => [row.field_key, row.encryption_mode]));
   }
 
-  private encrypt(value: unknown): string {
+  private encrypt(value: unknown, key: Buffer, version: string): string {
     const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.key!, iv);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
     const ciphertext = Buffer.concat([cipher.update(JSON.stringify(value) ?? 'null', 'utf8'), cipher.final()]);
-    return [HEADER, iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join(':');
+    return [HEADER, version, iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), ciphertext.toString('base64url')].join(':');
   }
 
-  private decrypt(value: string): unknown {
-    const [header, ivText, tagText, ciphertextText] = value.split(':');
-    if (header !== HEADER || !ivText || !tagText || !ciphertextText) throw new Error('Invalid encrypted field format');
-    const decipher = createDecipheriv('aes-256-gcm', this.key!, Buffer.from(ivText, 'base64url'));
+  private decrypt(value: string, storedVersion: string): unknown {
+    const parts = value.split(':');
+    const [header, versionOrIv, ivOrTag, tagOrCiphertext, ciphertextMaybe] = parts;
+    const version = ciphertextMaybe ? versionOrIv : storedVersion;
+    const ivText = ciphertextMaybe ? ivOrTag : versionOrIv;
+    const tagText = ciphertextMaybe ? tagOrCiphertext : ivOrTag;
+    const ciphertextText = ciphertextMaybe ?? tagOrCiphertext;
+    if (header !== HEADER || !version || !ivText || !tagText || !ciphertextText) throw new Error('Invalid encrypted field format');
+    const decipher = createDecipheriv('aes-256-gcm', this.keyring.get(version), Buffer.from(ivText, 'base64url'));
     decipher.setAuthTag(Buffer.from(tagText, 'base64url'));
     const plaintext = Buffer.concat([decipher.update(Buffer.from(ciphertextText, 'base64url')), decipher.final()]).toString('utf8');
     return JSON.parse(plaintext) as unknown;

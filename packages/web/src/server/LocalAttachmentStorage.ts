@@ -2,16 +2,16 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { mkdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import type { AttachmentStoragePort, StoredAttachment } from '@dashboard/core';
+import { EncryptionKeyring } from '@dashboard/core';
 
 export class LocalAttachmentStorage implements AttachmentStoragePort {
-  private readonly encryptionKey?: Buffer;
+  private readonly keyring: EncryptionKeyring;
   private readonly encryptionHeader = Buffer.from('DASHATT1');
+  private readonly versionedEncryptionHeader = Buffer.from('DASHATT2');
 
-  constructor(private readonly rootDirectory: string = process.env.ATTACHMENTS_ROOT ?? path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex = process.env.ATTACHMENTS_ENCRYPTION_KEY) {
-    if (encryptionKeyHex) {
-      if (!/^[0-9a-f]{64}$/i.test(encryptionKeyHex)) throw new Error('ATTACHMENTS_ENCRYPTION_KEY must be a 32-byte hex key');
-      this.encryptionKey = Buffer.from(encryptionKeyHex, 'hex');
-    } else if (process.env.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true') {
+  constructor(private readonly rootDirectory: string = process.env.ATTACHMENTS_ROOT ?? path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex = process.env.ATTACHMENTS_ENCRYPTION_KEY, keyringSpec = process.env.ATTACHMENTS_ENCRYPTION_KEYS, activeVersion = process.env.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION ?? 'v1') {
+    this.keyring = new EncryptionKeyring(encryptionKeyHex, keyringSpec, activeVersion, 'ATTACHMENTS_ENCRYPTION_KEY');
+    if (!this.keyring.hasKeys && process.env.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true') {
       throw new Error('Attachment encryption is required but ATTACHMENTS_ENCRYPTION_KEY is missing');
     }
   }
@@ -20,8 +20,8 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     const target = this.safePath(storageKey);
     await mkdir(path.dirname(target), { recursive: true });
     await mkdir(this.rootDirectory, { recursive: true, mode: 0o700 });
-    const shouldEncrypt = options?.encrypt ?? Boolean(this.encryptionKey);
-    if (shouldEncrypt && !this.encryptionKey) throw new Error('Attachment encryption requested but key is missing');
+    const shouldEncrypt = options?.encrypt ?? this.keyring.hasKeys;
+    if (shouldEncrypt && !this.keyring.hasKeys) throw new Error('Attachment encryption requested but key is missing');
     const payload = this.encrypt(content, shouldEncrypt);
     await writeFile(target, payload, { mode: 0o600, flag: 'wx' });
     return { storageKey, checksum: createHash('sha256').update(content).digest('hex'), sizeBytes: content.byteLength };
@@ -52,19 +52,32 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
   }
 
   private encrypt(content: Uint8Array, enabled: boolean): Buffer {
-    if (!enabled || !this.encryptionKey) return Buffer.from(content);
+    if (!enabled || !this.keyring.hasKeys) return Buffer.from(content);
     const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', this.encryptionKey, iv);
+    const activeKey = this.keyring.active();
+    const versionBytes = Buffer.from(activeKey.version, 'utf8');
+    if (versionBytes.length > 255) throw new Error('Attachment encryption key version is too long');
+    const cipher = createCipheriv('aes-256-gcm', activeKey.value, iv);
     const encrypted = Buffer.concat([cipher.update(content), cipher.final()]);
-    return Buffer.concat([this.encryptionHeader, iv, cipher.getAuthTag(), encrypted]);
+    return Buffer.concat([this.versionedEncryptionHeader, Buffer.from([versionBytes.length]), versionBytes, iv, cipher.getAuthTag(), encrypted]);
   }
 
   private decrypt(content: Uint8Array): Uint8Array {
     const payload = Buffer.from(content);
-    if (!payload.subarray(0, this.encryptionHeader.length).equals(this.encryptionHeader)) return content;
-    if (!this.encryptionKey || payload.length < 36) throw new Error('Encrypted attachment cannot be decrypted');
-    const decipher = createDecipheriv('aes-256-gcm', this.encryptionKey, payload.subarray(8, 20));
-    decipher.setAuthTag(payload.subarray(20, 36));
-    return new Uint8Array(Buffer.concat([decipher.update(payload.subarray(36)), decipher.final()]));
+    if (payload.subarray(0, this.encryptionHeader.length).equals(this.encryptionHeader)) {
+      if (!this.keyring.hasKeys || payload.length < 36) throw new Error('Encrypted attachment cannot be decrypted');
+      const decipher = createDecipheriv('aes-256-gcm', this.keyring.get('v1'), payload.subarray(8, 20));
+      decipher.setAuthTag(payload.subarray(20, 36));
+      return new Uint8Array(Buffer.concat([decipher.update(payload.subarray(36)), decipher.final()]));
+    }
+    if (!payload.subarray(0, this.versionedEncryptionHeader.length).equals(this.versionedEncryptionHeader)) return content;
+    const versionLength = payload[8];
+    const versionStart = 9;
+    const ivStart = versionStart + versionLength;
+    if (!versionLength || payload.length < ivStart + 28) throw new Error('Invalid encrypted attachment format');
+    const version = payload.subarray(versionStart, ivStart).toString('utf8');
+    const decipher = createDecipheriv('aes-256-gcm', this.keyring.get(version), payload.subarray(ivStart, ivStart + 12));
+    decipher.setAuthTag(payload.subarray(ivStart + 12, ivStart + 28));
+    return new Uint8Array(Buffer.concat([decipher.update(payload.subarray(ivStart + 28)), decipher.final()]));
   }
 }

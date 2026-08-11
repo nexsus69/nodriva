@@ -73,13 +73,32 @@ integration suite must cover allow/deny subtree ACL parity, concurrent claims,
 rollback, and invalid dynamic identifiers before it can be wired in the
 composition root.
 
-## Encryption key management — future work
+## Encryption key management
 
-- [ ] Move `FIELD_ENCRYPTION_KEY` and `ATTACHMENTS_ENCRYPTION_KEY` from local
-  environment files to the deployment secret manager or KMS.
-- [ ] Add key identifiers/versioning to encrypted field and attachment formats.
-- [ ] Implement dual-key decrypt / single-key encrypt rotation.
-- [ ] Add an authorised re-encryption job with progress, audit records,
-  rollback strategy and backup verification.
-- [ ] Define emergency revocation, restore and disaster-recovery procedures
-  for lost or compromised keys.
+`FIELD_ENCRYPTION_KEY` and `ATTACHMENTS_ENCRYPTION_KEY` remain deployment
+secrets and must be supplied by a secret manager or KMS integration; they must
+never be committed in `.env` files or logs. The services accept a keyring in
+the form `v1=<64 hex chars>,v2=<64 hex chars>` through respectively
+`FIELD_ENCRYPTION_KEYS` and `ATTACHMENTS_ENCRYPTION_KEYS`. The active version
+is selected by `FIELD_ENCRYPTION_ACTIVE_VERSION` or
+`ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION`.
+
+New values are encrypted with the active key. Existing values retain their
+stored key version and remain decryptable while the old key is present. Field
+ciphertexts include the version in the database metadata and attachment files
+written by the new format include it in the authenticated storage envelope;
+legacy `v1` values remain readable for compatibility.
+
+Rotation procedure:
+
+1. create a new random 32-byte key in the secret manager;
+2. deploy the old and new keys together, with the new version active;
+3. execute and monitor an authorised re-encryption job when one is available;
+4. take and verify a backup before removing the old key;
+5. remove the old key only after all ciphertexts and attachments have been
+   re-encrypted and a restore test with the new key succeeds.
+
+The application currently provides dual-key decryption and single-key
+encryption. Bulk re-encryption remains an explicitly separate maintenance
+operation because it must be resumable, audited and protected by backup
+verification.

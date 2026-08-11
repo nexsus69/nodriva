@@ -3,9 +3,10 @@ import { FieldEncryptionService } from './FieldEncryptionService.js';
 
 describe('FieldEncryptionService', () => {
   it('stores encrypted fields outside the plaintext payload and restores them', async () => {
-    const rows: Array<{ field_key: string; ciphertext: string }> = [];
+    const rows: Array<{ field_key: string; key_version?: string; ciphertext: string }> = [];
     const executor = {
       query: vi.fn().mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.startsWith('SELECT field_key, key_version')) return { rows };
         if (sql.startsWith('SELECT field_key, ciphertext')) return { rows };
         if (sql.startsWith('SELECT field_key')) return { rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] };
         if (sql.startsWith('INSERT INTO resource_field_ciphertexts')) {
@@ -58,5 +59,25 @@ describe('FieldEncryptionService', () => {
     const executor = { query: vi.fn().mockResolvedValue({ rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] }) };
     const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, undefined);
     await expect(service.protect('node', 'type-1', 'node-1', { secret: 'value' })).rejects.toThrow('FIELD_ENCRYPTION_KEY');
+  });
+
+  it('writes with the active key version and reads an older key during rotation', async () => {
+    const rows: Array<{ field_key: string; key_version: string; ciphertext: string }> = [];
+    const executor = {
+      query: vi.fn().mockImplementation(async (sql: string, params: unknown[]) => {
+        if (sql.startsWith('SELECT field_key, key_version')) return { rows };
+        if (sql.startsWith('SELECT field_key')) return { rows: [{ field_key: 'secret', encryption_mode: 'encrypted' }] };
+        if (sql.startsWith('INSERT INTO resource_field_ciphertexts')) {
+          rows.splice(0, rows.length, { field_key: String(params[2]), key_version: String(params[3]), ciphertext: String(params[4]) });
+        }
+        return { rows: [] };
+      }),
+    };
+    const oldKey = '22'.repeat(32);
+    const newKey = '33'.repeat(32);
+    const service = new FieldEncryptionService(executor as never, { get: vi.fn().mockResolvedValue(true) } as never, oldKey, `v1=${oldKey},v2=${newKey}`, 'v2');
+    await service.protect('entity', 'type-1', 'entity-1', { secret: 'rotated' });
+    expect(rows[0]?.key_version).toBe('v2');
+    await expect(service.restore('entity', 'entity-1', { secret: null })).resolves.toEqual({ secret: 'rotated' });
   });
 });

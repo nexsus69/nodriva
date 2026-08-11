@@ -78,7 +78,9 @@ salva il valore nel ciphertext store `resource_field_ciphertexts` solo quando
 `data.fieldsEncryptionEnabled` è `true`, e presenta al repository
 solo il valore decifrato. La chiave server-side è `FIELD_ENCRYPTION_KEY` (con
 fallback compatibile a `ATTACHMENTS_ENCRYPTION_KEY`) e non viene mai inviata al
-client. I campi cifrati non sono ricercabili, filtrabili o indicizzabili; il
+client. Per la rotazione sono disponibili `FIELD_ENCRYPTION_KEYS` e
+`FIELD_ENCRYPTION_ACTIVE_VERSION`: le nuove cifrature usano la versione attiva,
+mentre le versioni precedenti restano leggibili durante la transizione. I campi cifrati non sono ricercabili, filtrabili o indicizzabili; il
 frontend li tratta come normali controlli solo dopo la lettura autorizzata.
 
 I download sono autorizzati nuovamente a ogni richiesta; solo immagini raster
