@@ -135,6 +135,10 @@ export class AdminCacheClient {
     this.read(`type-schema-history:${kind}:${typeId}`, () => auditActions.listTypeSchemaHistoryAction(kind, typeId));
   public getTypeSchemaImpact = (...args: Parameters<typeof typeActions.getTypeSchemaImpactAction>) =>
     this.read(`type-schema-impact:${args.join(':')}`, () => typeActions.getTypeSchemaImpactAction(...args));
+  public getTypeSchemaRollbackPlan = (...args: Parameters<typeof typeActions.getTypeSchemaRollbackPlanAction>) =>
+    this.read(`type-schema-rollback-plan:${args.join(':')}`, () => typeActions.getTypeSchemaRollbackPlanAction(...args));
+  public rollbackTypeMetadata = (...args: Parameters<typeof typeActions.rollbackTypeMetadataAction>) =>
+    this.write(['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-rollback-plan'], () => typeActions.rollbackTypeMetadataAction(...args));
 
   public listChildren = (parentId: string | null) =>
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));

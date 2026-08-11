@@ -2,6 +2,7 @@
 
 import {
   typeAdminService,
+  auditAdminService,
   typeReader,
   accessControlPort,
   pgExecutor,
@@ -23,6 +24,7 @@ import {
   EnumOptionDto,
   TypeKind,
   TypeSchemaImpactDto,
+  TypeSchemaRollbackPlanDto,
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import { publishRealtimeChange } from '../../server/realtime';
@@ -159,6 +161,73 @@ export async function getTypeSchemaImpactAction(
     const data = await typeAdminService.getSchemaChangeImpact(actorUserId, kind, typeKey, operation, fieldId);
     if (!data) return { success: false, error: { code: 'NOT_FOUND', message: `Tipo '${typeKey}' non trovato.` } };
     return { success: true, data };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+export async function getTypeSchemaRollbackPlanAction(
+  kind: TypeKind,
+  typeKey: string,
+  auditId: string,
+): Promise<{ success: boolean; data?: TypeSchemaRollbackPlanDto; error?: ApiErrorResponse }> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const detail = await typeAdminService.getTypeDetail(actorUserId, kind, typeKey);
+    const audit = await auditAdminService.getAuditLogById(actorUserId, auditId);
+    if (!detail || !audit) return { success: false, error: { code: 'NOT_FOUND', message: 'Tipo o evento di audit non trovato.' } };
+    const expectedResourceKind = kind === 'node' ? 'node_type' : 'entity_type';
+    const isTarget = audit.resourceKind === expectedResourceKind && audit.resourceId === detail.id;
+    const before = audit.beforePayload;
+    const canApply = isTarget && audit.actionKey === 'type_admin.update_type'
+      && typeof before?.name === 'string' && typeof before.description === 'string';
+    let reason = 'Rollback metadati disponibile.';
+    if (!isTarget) reason = 'L’evento non appartiene al tipo selezionato.';
+    else if (audit.actionKey !== 'type_admin.update_type') reason = 'Le modifiche strutturali richiedono una migrazione dedicata e non possono essere annullate automaticamente.';
+    else if (!canApply) reason = 'Il payload storico non contiene uno stato completo ripristinabile.';
+    return {
+      success: true,
+      data: {
+        auditId,
+        sourceActionKey: audit.actionKey,
+        canApply,
+        reason,
+        currentSchemaVersion: detail.currentSchemaVersion,
+        targetSchemaVersion: detail.currentSchemaVersion,
+        targetName: canApply ? before.name as string : null,
+        targetDescription: canApply ? before.description as string : null,
+      },
+    };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+export async function rollbackTypeMetadataAction(
+  kind: TypeKind,
+  typeKey: string,
+  auditId: string,
+  expectedRowVersion: number,
+): Promise<{ success: boolean; data?: TypeDetailDto; error?: ApiErrorResponse }> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const plan = await getTypeSchemaRollbackPlanAction(kind, typeKey, auditId);
+    if (!plan.success || !plan.data) return { success: false, error: plan.error };
+    if (!plan.data.canApply || plan.data.targetName === null || plan.data.targetDescription === null) {
+      return { success: false, error: { code: 'ROLLBACK_NOT_SUPPORTED', message: plan.data.reason } };
+    }
+    const current = await typeAdminService.getTypeDetail(actorUserId, kind, typeKey);
+    if (!current) return { success: false, error: { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
+    await typeAdminService.rollbackTypeMetadata({
+      actorUserId,
+      domain: kind,
+      typeId: current.id,
+      name: plan.data.targetName,
+      description: plan.data.targetDescription,
+      expectedRowVersion,
+      sourceAuditId: auditId,
+    });
+    return getTypeDetailAction(kind, typeKey);
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

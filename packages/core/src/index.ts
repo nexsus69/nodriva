@@ -134,6 +134,7 @@ export {
   ApiErrorDetail,
   ApiErrorResponse,
   TypeSchemaImpactDto,
+  TypeSchemaRollbackPlanDto,
 } from './application/dto/AdminContractDtos.js';
 export {
   CreateNodeCommand,

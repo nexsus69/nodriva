@@ -120,6 +120,37 @@ export class TypeAdminApplicationService {
     };
   }
 
+  async rollbackTypeMetadata(cmd: {
+    actorUserId: string;
+    domain: TypeDomain;
+    typeId: string;
+    name: string;
+    description: string;
+    expectedRowVersion: number;
+    sourceAuditId: string;
+  }): Promise<void> {
+    await this.accessControlPort.assertHasPermission(cmd.actorUserId, this.permission(cmd.domain, 'update'), null);
+    await this.transactionPort.runInTransaction(async () => {
+      const type = await this.loadAndGuardType(cmd.domain, cmd.typeId, cmd.expectedRowVersion);
+      const now = new Date();
+      const restored = new ManagedTypeDefinition(
+        type.id, type.typeKey, cmd.name, cmd.description, type.storageTable, type.placementPolicyId,
+        type.currentSchemaVersion, type.isActive, type.isSystem, type.rowVersion + 1,
+        type.createdAt, now, type.deletedAt,
+      );
+      await this.adminRepository.updateType(cmd.domain, restored);
+      await this.auditPort.record(
+        cmd.actorUserId,
+        'type_admin.rollback_metadata',
+        cmd.domain === 'entity' ? 'entity_type' : 'node_type',
+        type.id,
+        null,
+        { name: type.name, description: type.description, sourceAuditId: cmd.sourceAuditId },
+        { name: restored.name, description: restored.description, sourceAuditId: cmd.sourceAuditId },
+      );
+    });
+  }
+
   // ─── Type Operations ───────────────────────────────────────────
 
   async createType(cmd: CreateTypeCommand): Promise<ManagedTypeDefinition> {

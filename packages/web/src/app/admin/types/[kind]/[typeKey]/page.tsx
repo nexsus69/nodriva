@@ -18,6 +18,7 @@ import type {
   ApiErrorResponse,
   AuditLogListItemDto,
   PaginatedResultDto,
+  TypeSchemaRollbackPlanDto,
 } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
@@ -49,6 +50,7 @@ export default function AdminTypeDetailPage() {
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<{ id: string; label: string } | null>(null);
   const [confirmationImpact, setConfirmationImpact] = useState<string>('');
+  const [rollbackPlan, setRollbackPlan] = useState<TypeSchemaRollbackPlanDto | null>(null);
   const cacheRevision = useSyncExternalStore(AppCache.subscribe, AppCache.getRevision, () => 0);
 
   // Form Campo (Aggiunta / Edizione)
@@ -388,6 +390,31 @@ export default function AdminTypeDetailPage() {
     });
   };
 
+  const prepareRollback = async (auditId: string) => {
+    const result = await AppCache.admin.getTypeSchemaRollbackPlan(kind, typeKey, auditId);
+    if (result.success && result.data) {
+      if (result.data.canApply) setRollbackPlan(result.data);
+      else setError({ code: 'ROLLBACK_NOT_SUPPORTED', message: result.data.reason });
+    } else if (result.error) {
+      setError(result.error);
+    }
+  };
+
+  const confirmRollback = () => {
+    if (!typeDetail || !rollbackPlan) return;
+    startTransition(async () => {
+      const result = await AppCache.admin.rollbackTypeMetadata(kind, typeKey, rollbackPlan.auditId, typeDetail.rowVersion);
+      if (result.success && result.data) {
+        setTypeDetail(result.data);
+        setRollbackPlan(null);
+        setSuccessMsg('Metadati ripristinati. È stato registrato un nuovo evento di audit.');
+      } else if (result.error) {
+        setRollbackPlan(null);
+        setError(result.error);
+      }
+    });
+  };
+
   // Reordering campi
   const handleMoveField = (index: number, direction: 'up' | 'down') => {
     if (!typeDetail) return;
@@ -456,6 +483,15 @@ export default function AdminTypeDetailPage() {
         confirmLabel="Disabilita"
         onCancel={() => setShowDisableConfirm(false)}
         onConfirm={confirmDisableType}
+        busy={isPending}
+      />
+      <ConfirmModal
+        open={rollbackPlan !== null}
+        title="Ripristina metadati del tipo"
+        message={rollbackPlan ? `${rollbackPlan.reason} Ripristinare il nome '${rollbackPlan.targetName}' e la descrizione dello stato storico?` : ''}
+        confirmLabel="Ripristina"
+        onCancel={() => setRollbackPlan(null)}
+        onConfirm={confirmRollback}
         busy={isPending}
       />
       <ConfirmModal
@@ -665,10 +701,10 @@ export default function AdminTypeDetailPage() {
           {!schemaHistory?.items.length ? <p className="text-xs text-slate-500">Nessuna modifica registrata.</p> : (
             <div className="max-h-64 overflow-auto space-y-2">
               {schemaHistory.items.map((entry) => (
-                <Link key={entry.id} href={`/admin/audit/${entry.id}`} className="block rounded-lg border border-slate-800 bg-slate-950/50 p-3 hover:border-indigo-500/50 transition-colors">
-                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-indigo-300">{entry.actionKey}</span><span className="text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleString()}</span></div>
-                  <div className="text-[11px] text-slate-400 mt-1">{entry.actorEmail ?? entry.actorUserId ?? 'Sistema'} · versione collegata al tipo</div>
-                </Link>
+                <div key={entry.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3 hover:border-indigo-500/50 transition-colors">
+                  <div className="flex items-center justify-between gap-3"><Link href={`/admin/audit/${entry.id}`} className="text-xs font-semibold text-indigo-300 hover:underline">{entry.actionKey}</Link><span className="text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleString()}</span></div>
+                  <div className="flex items-center justify-between gap-3 mt-1"><span className="text-[11px] text-slate-400">{entry.actorEmail ?? entry.actorUserId ?? 'Sistema'} · versione collegata al tipo</span>{entry.actionKey === 'type_admin.update_type' && <button type="button" onClick={() => prepareRollback(entry.id)} className="text-[11px] text-amber-300 hover:text-amber-200">Valuta ripristino</button>}</div>
+                </div>
               ))}
             </div>
           )}

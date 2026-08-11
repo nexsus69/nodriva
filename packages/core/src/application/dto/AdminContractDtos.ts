@@ -121,6 +121,17 @@ export interface TypeSchemaImpactDto {
   warnings: string[];
 }
 
+export interface TypeSchemaRollbackPlanDto {
+  auditId: string;
+  sourceActionKey: string;
+  canApply: boolean;
+  reason: string;
+  currentSchemaVersion: number;
+  targetSchemaVersion: number;
+  targetName: string | null;
+  targetDescription: string | null;
+}
+
 // ─── Write Commands & Zod Schemas ───────────────────────────────────────────
 
 export const CreateTypeCommandSchema = z.object({
@@ -239,6 +250,7 @@ export interface ApiErrorResponse {
     | 'LOCK_REQUIRED'
     | 'CAPABILITY_DISABLED'
     | 'VALIDATION_ERROR'
+    | 'ROLLBACK_NOT_SUPPORTED'
     | 'ACCESS_FORBIDDEN'
     | 'AUTH_UNAUTHORIZED'
     | 'NOT_FOUND'
