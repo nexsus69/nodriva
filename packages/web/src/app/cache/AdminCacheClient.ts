@@ -65,19 +65,19 @@ export class AdminCacheClient {
   public createType = (cmd: Parameters<typeof typeActions.createTypeAction>[0]) =>
     this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
   public updateType = (...args: Parameters<typeof typeActions.updateTypeAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.updateTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.updateTypeAction(...args));
   public disableType = (...args: Parameters<typeof typeActions.disableTypeAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.disableTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.disableTypeAction(...args));
   public enableType = (...args: Parameters<typeof typeActions.enableTypeAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.enableTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.enableTypeAction(...args));
   public createField = (...args: Parameters<typeof typeActions.createFieldAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.createFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.createFieldAction(...args));
   public addEnumOption = (...args: Parameters<typeof typeActions.addEnumOptionAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.addEnumOptionAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.addEnumOptionAction(...args));
   public updateField = (...args: Parameters<typeof typeActions.updateFieldAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.updateFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.updateFieldAction(...args));
   public deleteField = (...args: Parameters<typeof typeActions.deleteFieldAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.deleteFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.deleteFieldAction(...args));
   public listDeletedEntities = (input?: Parameters<typeof recycleActions.listDeletedEntitiesAction>[0]) =>
     this.read(`deleted-entities:${input?.limit ?? 100}:${input?.offset ?? 0}`, () => recycleActions.listDeletedEntitiesAction(input));
   public listDeletedNodes = (input?: Parameters<typeof recycleActions.listDeletedNodesAction>[0]) =>
@@ -91,7 +91,7 @@ export class AdminCacheClient {
   public purgeDeletedEntity = (input: Parameters<typeof recycleActions.purgeDeletedEntityAction>[0]) =>
     this.write(['deleted-entities'], () => recycleActions.purgeDeletedEntityAction(input));
   public reorderFields = (...args: Parameters<typeof typeActions.reorderFieldsAction>) =>
-    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.reorderFieldsAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.reorderFieldsAction(...args));
 
   public listCapabilities = () => this.read('capabilities', systemActions.listCapabilitiesAction);
   public updateCapabilityStatus = (cmd: Parameters<typeof systemActions.updateCapabilityStatusAction>[0]) =>
@@ -131,6 +131,10 @@ export class AdminCacheClient {
   public listAuditLogs = (filters: Parameters<typeof auditActions.listAuditLogsAction>[0]) =>
     this.read(`audit:${JSON.stringify(filters)}`, () => auditActions.listAuditLogsAction(filters));
   public getAuditLogById = (id: string) => this.read(`audit-detail:${id}`, () => auditActions.getAuditLogByIdAction(id));
+  public listTypeSchemaHistory = (kind: 'node' | 'entity', typeId: string) =>
+    this.read(`type-schema-history:${kind}:${typeId}`, () => auditActions.listTypeSchemaHistoryAction(kind, typeId));
+  public getTypeSchemaImpact = (kind: Parameters<typeof typeActions.getTypeSchemaImpactAction>[0], typeKey: string) =>
+    this.read(`type-schema-impact:${kind}:${typeKey}`, () => typeActions.getTypeSchemaImpactAction(kind, typeKey));
 
   public listChildren = (parentId: string | null) =>
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));

@@ -17,6 +17,7 @@ export interface AuditLogDetailDto extends AuditLogListItemDto {
 export interface AuditLogFilterDto {
   actorUserId?: string;
   actionKey?: string;
+  actionKeyPrefix?: string;
   resourceKind?: string;
   resourceId?: string;
   nodeId?: string;

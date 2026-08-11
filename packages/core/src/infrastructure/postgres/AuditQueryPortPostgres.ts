@@ -45,6 +45,11 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       conditions.push(`a.action_key = $${params.length}`);
     }
 
+    if (filters.actionKeyPrefix) {
+      params.push(`${filters.actionKeyPrefix}%`);
+      conditions.push(`a.action_key LIKE $${params.length}`);
+    }
+
     if (filters.resourceKind) {
       params.push(filters.resourceKind);
       conditions.push(`a.resource_kind = $${params.length}::resource_kind_enum`);

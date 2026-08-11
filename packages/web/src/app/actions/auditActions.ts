@@ -38,3 +38,23 @@ export async function getAuditLogByIdAction(id: string): Promise<{
     return { success: false, error: mapAppErrorToApiErrorResponse(err) };
   }
 }
+
+export async function listTypeSchemaHistoryAction(kind: 'node' | 'entity', typeId: string): Promise<{
+  success: boolean;
+  data?: PaginatedResultDto<AuditLogListItemDto>;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const data = await auditAdminService.getAuditLogs(actorUserId, {
+      resourceKind: kind === 'node' ? 'node_type' : 'entity_type',
+      resourceId: typeId,
+      actionKeyPrefix: 'type_admin.',
+      page: 1,
+      pageSize: 50,
+    });
+    return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(err) };
+  }
+}

@@ -133,6 +133,7 @@ export {
   ReorderFieldsUiCommand,
   ApiErrorDetail,
   ApiErrorResponse,
+  TypeSchemaImpactDto,
 } from './application/dto/AdminContractDtos.js';
 export {
   CreateNodeCommand,

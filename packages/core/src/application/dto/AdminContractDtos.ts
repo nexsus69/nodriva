@@ -107,6 +107,15 @@ export interface TypeDetailDto {
   instanceCount: number;
 }
 
+export interface TypeSchemaImpactDto {
+  currentSchemaVersion: number;
+  nextSchemaVersion: number;
+  instanceCount: number;
+  fieldCount: number;
+  isActive: boolean;
+  warnings: string[];
+}
+
 // ─── Write Commands & Zod Schemas ───────────────────────────────────────────
 
 export const CreateTypeCommandSchema = z.object({

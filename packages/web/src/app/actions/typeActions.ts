@@ -22,6 +22,7 @@ import {
   ReorderFieldsUiCommand,
   EnumOptionDto,
   TypeKind,
+  TypeSchemaImpactDto,
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import { publishRealtimeChange } from '../../server/realtime';
@@ -138,6 +139,34 @@ export async function getTypeDetailAction(kind: TypeKind, typeKey: string): Prom
       };
     }
     return { success: true, data };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+export async function getTypeSchemaImpactAction(kind: TypeKind, typeKey: string): Promise<{
+  success: boolean;
+  data?: TypeSchemaImpactDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const detail = await typeAdminService.getTypeDetail(actorUserId, kind, typeKey);
+    if (!detail) return { success: false, error: { code: 'NOT_FOUND', message: `Tipo '${typeKey}' non trovato.` } };
+    const warnings: string[] = [];
+    if (!detail.isActive) warnings.push('Il tipo è disabilitato: le nuove istanze non sono disponibili.');
+    if (detail.instanceCount > 0) warnings.push(`Le modifiche strutturali interessano ${detail.instanceCount} istanze attive.`);
+    return {
+      success: true,
+      data: {
+        currentSchemaVersion: detail.currentSchemaVersion,
+        nextSchemaVersion: detail.currentSchemaVersion + 1,
+        instanceCount: detail.instanceCount,
+        fieldCount: detail.fields.length,
+        isActive: detail.isActive,
+        warnings,
+      },
+    };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

@@ -16,6 +16,8 @@ import type {
   DeleteFieldUiCommand,
   ReorderFieldsUiCommand,
   ApiErrorResponse,
+  AuditLogListItemDto,
+  PaginatedResultDto,
 } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { ConfirmModal } from '../../../../components/ui/ConfirmModal';
@@ -63,6 +65,8 @@ export default function AdminTypeDetailPage() {
   const [relationTargetTypeKey, setRelationTargetTypeKey] = useState('');
   const [relationTargetTypes, setRelationTargetTypes] = useState<TypeListItemDto[]>([]);
   const [relationTargetTypesLoading, setRelationTargetTypesLoading] = useState(false);
+  const [schemaHistory, setSchemaHistory] = useState<PaginatedResultDto<AuditLogListItemDto> | null>(null);
+  const [schemaImpact, setSchemaImpact] = useState<Awaited<ReturnType<typeof AppCache.admin.getTypeSchemaImpact>>['data']>(undefined);
 
   const loadData = async () => {
     setLoading(true);
@@ -116,6 +120,20 @@ export default function AdminTypeDetailPage() {
       window.clearTimeout(timer);
     };
   }, [dataType, editingField, relationTargetDomain]);
+
+  useEffect(() => {
+    if (!typeDetail) return;
+    let active = true;
+    Promise.all([
+      AppCache.admin.listTypeSchemaHistory(kind, typeDetail.id),
+      AppCache.admin.getTypeSchemaImpact(kind, typeDetail.typeKey),
+    ]).then(([history, impact]) => {
+      if (!active) return;
+      if (history.success && history.data) setSchemaHistory(history.data);
+      if (impact.success) setSchemaImpact(impact.data);
+    });
+    return () => { active = false; };
+  }, [kind, typeDetail, cacheRevision]);
 
   const handleUpdateType = (e: React.FormEvent) => {
     e.preventDefault();
@@ -584,6 +602,42 @@ export default function AdminTypeDetailPage() {
       </div>
 
       {kind === 'node' && <NodeTypeEncryptionPolicy nodeTypeId={typeDetail.id} />}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h2 className="text-lg font-bold text-white">Impatto schema</h2>
+              <p className="text-xs text-slate-400 mt-1">Anteprima informativa prima delle modifiche strutturali.</p>
+            </div>
+            <span className="font-mono text-xs text-indigo-300">v{schemaImpact?.currentSchemaVersion ?? typeDetail.currentSchemaVersion} → v{schemaImpact?.nextSchemaVersion ?? typeDetail.currentSchemaVersion + 1}</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="rounded-lg bg-slate-950/70 p-3"><span className="text-slate-400 block">Campi attuali</span><span className="text-white font-semibold">{schemaImpact?.fieldCount ?? typeDetail.fields.length}</span></div>
+            <div className="rounded-lg bg-slate-950/70 p-3"><span className="text-slate-400 block">Istanze attive</span><span className="text-white font-semibold">{schemaImpact?.instanceCount ?? typeDetail.instanceCount}</span></div>
+          </div>
+          {schemaImpact?.warnings.length ? (
+            <div className="space-y-2 text-xs text-amber-200">{schemaImpact.warnings.map((warning) => <p key={warning} className="rounded-lg border border-amber-500/30 bg-amber-950/30 p-3">⚠ {warning}</p>)}</div>
+          ) : <p className="text-xs text-emerald-300">Nessuna avvertenza rilevata per il tipo corrente.</p>}
+        </section>
+
+        <section className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+          <div className="border-b border-slate-800 pb-3">
+            <h2 className="text-lg font-bold text-white">Storico schema</h2>
+            <p className="text-xs text-slate-400 mt-1">Le modifiche sono recuperate dall’audit trail immutabile.</p>
+          </div>
+          {!schemaHistory?.items.length ? <p className="text-xs text-slate-500">Nessuna modifica registrata.</p> : (
+            <div className="max-h-64 overflow-auto space-y-2">
+              {schemaHistory.items.map((entry) => (
+                <Link key={entry.id} href={`/admin/audit/${entry.id}`} className="block rounded-lg border border-slate-800 bg-slate-950/50 p-3 hover:border-indigo-500/50 transition-colors">
+                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-indigo-300">{entry.actionKey}</span><span className="text-[11px] text-slate-500">{new Date(entry.createdAt).toLocaleString()}</span></div>
+                  <div className="text-[11px] text-slate-400 mt-1">{entry.actorEmail ?? entry.actorUserId ?? 'Sistema'} · versione collegata al tipo</div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* Section: Gestione dei Campi (Fields Management & Reordering) */}
       <div className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-5">
