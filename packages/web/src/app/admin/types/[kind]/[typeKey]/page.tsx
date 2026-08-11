@@ -251,7 +251,7 @@ export default function AdminTypeDetailPage() {
     setShowAddFieldModal(true);
   };
 
-  const handleSaveField = (e: React.FormEvent) => {
+  const handleSaveField = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!typeDetail) return;
 
@@ -269,6 +269,21 @@ export default function AdminTypeDetailPage() {
 
     setFieldFormError(null);
     setConflictError(null);
+
+    const impact = await AppCache.admin.getTypeSchemaImpact(
+      kind,
+      typeKey,
+      editingField ? 'update_field' : 'add_field',
+      editingField?.id,
+    );
+    if (!impact.success || !impact.data) {
+      if (impact.error) setFieldFormError(impact.error);
+      return;
+    }
+    if (impact.data.blockingReasons.length > 0) {
+      setFieldFormError({ code: 'VALIDATION_ERROR', message: impact.data.blockingReasons.join(' ') });
+      return;
+    }
 
     startTransition(async () => {
       if (editingField) {

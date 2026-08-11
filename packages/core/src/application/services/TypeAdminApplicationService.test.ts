@@ -92,7 +92,8 @@ describe('TypeAdminApplicationService', () => {
     updateConstraint: ReturnType<typeof vi.fn>;
     deleteConstraint: ReturnType<typeof vi.fn>;
     hasInstancesOfType: ReturnType<typeof vi.fn>;
-      hasValuesInField: ReturnType<typeof vi.fn>;
+    hasValuesInField: ReturnType<typeof vi.fn>;
+    countIncomingRelations: ReturnType<typeof vi.fn>;
   };
   let mockInvalidation: { invalidate: ReturnType<typeof vi.fn> };
   let mockAudit: { record: ReturnType<typeof vi.fn> };
@@ -148,6 +149,7 @@ describe('TypeAdminApplicationService', () => {
       deleteConstraint: vi.fn().mockResolvedValue(undefined),
       hasInstancesOfType: vi.fn().mockResolvedValue(false),
       hasValuesInField: vi.fn().mockResolvedValue(false),
+      countIncomingRelations: vi.fn().mockResolvedValue(0),
     };
 
     mockInvalidation = {

@@ -116,6 +116,7 @@ export interface TypeSchemaImpactDto {
   isActive: boolean;
   fieldKey: string | null;
   fieldHasValues: boolean | null;
+  incomingRelationCount: number;
   blockingReasons: string[];
   warnings: string[];
 }

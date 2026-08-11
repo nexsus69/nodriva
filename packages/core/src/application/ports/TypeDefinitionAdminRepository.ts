@@ -35,6 +35,7 @@ export interface TypeDefinitionAdminRepository {
   // --- Integrity ---
   hasInstancesOfType(domain: TypeDomain, typeId: string): Promise<boolean>;
   hasValuesInField(domain: TypeDomain, typeId: string, fieldKey: string, columnName: string): Promise<boolean>;
+  countIncomingRelations(domain: TypeDomain, typeKey: string): Promise<number>;
   existsEnumOption(domain: TypeDomain, fieldId: string, value: string): Promise<boolean>;
   createEnumOption(domain: TypeDomain, option: ManagedEnumOption): Promise<void>;
 }

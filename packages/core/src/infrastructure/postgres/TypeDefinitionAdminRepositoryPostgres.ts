@@ -581,6 +581,20 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     return result.rows.length > 0;
   }
 
+  async countIncomingRelations(domain: TypeDomain, typeKey: string): Promise<number> {
+    const result = await this.executor.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM (
+         SELECT id FROM node_type_fields
+         WHERE data_type = 'relation' AND relation_target_domain = $1 AND relation_target_type_key = $2
+         UNION ALL
+         SELECT id FROM entity_type_fields
+         WHERE data_type = 'relation' AND relation_target_domain = $1 AND relation_target_type_key = $2
+       ) incoming_relations`,
+      [domain, typeKey],
+    );
+    return Number(result.rows[0]?.count ?? 0);
+  }
+
   // ─── Mapping ─────────────────────────────────────────────────
 
   private typeSelectColumns(domain: TypeDomain): string {

@@ -94,6 +94,7 @@ export class TypeAdminApplicationService {
     const fieldHasValues = field && fieldBelongsToType
       ? await this.adminRepository.hasValuesInField(domain, detail.id, field.fieldKey, field.columnName)
       : null;
+    const incomingRelationCount = await this.adminRepository.countIncomingRelations(domain, detail.typeKey);
     const blockingReasons: string[] = [];
     const warnings: string[] = [];
 
@@ -101,6 +102,7 @@ export class TypeAdminApplicationService {
     if (operation === 'remove_field' && field?.isSystem) blockingReasons.push('I campi di sistema non possono essere rimossi.');
     if (operation === 'remove_field' && fieldHasValues) blockingReasons.push('Il campo contiene valori o allegati e non può essere rimosso.');
     if (detail.instanceCount > 0) warnings.push(`La modifica verrà applicata a ${detail.instanceCount} istanze attive.`);
+    if (incomingRelationCount > 0) warnings.push(`Esistono ${incomingRelationCount} campi di relazione che puntano a questo tipo.`);
     if (!detail.isActive && operation !== 'enable_type') warnings.push('Il tipo è disabilitato.');
 
     return {
@@ -112,6 +114,7 @@ export class TypeAdminApplicationService {
       isActive: detail.isActive,
       fieldKey: field?.fieldKey ?? null,
       fieldHasValues,
+      incomingRelationCount,
       blockingReasons,
       warnings,
     };
