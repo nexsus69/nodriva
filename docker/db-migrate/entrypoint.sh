@@ -13,14 +13,16 @@ for migration in /schema/migrations/*.sql; do
 done
 
 psql -h "$POSTGRES_HOST" -U postgres -d dashboard -v ON_ERROR_STOP=1 -v app_password="$DASHBOARD_WEB_PASSWORD" <<'SQL'
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dashboard_web') THEN
-    EXECUTE format('CREATE ROLE dashboard_web LOGIN PASSWORD %L IN ROLE dashboard_app', :'app_password');
-  ELSE
-    EXECUTE format('ALTER ROLE dashboard_web PASSWORD %L', :'app_password');
-  END IF;
-END
-$$;
+SELECT format(
+  'CREATE ROLE dashboard_web LOGIN PASSWORD %L IN ROLE dashboard_app',
+  :'app_password'
+)
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dashboard_web')\gexec
+
+SELECT format(
+  'ALTER ROLE dashboard_web PASSWORD %L',
+  :'app_password'
+)
+WHERE EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dashboard_web')\gexec
 SQL
 printf 'Database schema, migrations and restricted application role are ready.\n'

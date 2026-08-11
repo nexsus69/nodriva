@@ -12,6 +12,7 @@ RUN pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 COPY --from=build /app/packages/web/.next/standalone ./
 COPY --from=build /app/packages/web/.next/static ./packages/web/.next/static
 COPY --from=build /app/packages/web/public ./packages/web/public
