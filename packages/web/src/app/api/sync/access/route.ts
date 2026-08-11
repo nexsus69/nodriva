@@ -11,9 +11,10 @@ export const GET = auth(async (request) => {
   if (!userId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
 
   try {
-    const { securityRepository } = await import('../../../../server/db');
+    const { securityRepository, isRealtimeCapabilityEnabled } = await import('../../../../server/db');
+    const realtimeEnabled = await isRealtimeCapabilityEnabled();
     const [policies, virtualRootNodeIds] = await Promise.all([
-      process.env.NEXT_PUBLIC_REALTIME_ENABLED === 'false'
+      !realtimeEnabled
         ? Promise.resolve([])
         : securityRepository.listRealtimeChannelPoliciesForUser(userId),
       securityRepository.listRealtimeVirtualRootNodeIds(userId),
@@ -22,6 +23,7 @@ export const GET = auth(async (request) => {
       dataChannels: policies.map(getRealtimeDataChannelName),
       lockChannels: policies.map(getRealtimeLockChannelName),
       virtualRootNodeIds,
+      realtimeEnabled,
     }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     if (error instanceof AppError) {

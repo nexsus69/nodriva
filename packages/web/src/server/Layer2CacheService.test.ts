@@ -31,7 +31,6 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
 
   beforeEach(() => {
     AppCache.purgeAll();
-    AppCache.nodes['entries'].clear();
     AppCache['entityCaches'].clear();
   });
 

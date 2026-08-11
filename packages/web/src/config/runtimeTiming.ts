@@ -33,6 +33,7 @@ export const runtimeTiming = Object.freeze({
   lockTtlSeconds,
   activityHeartbeatThrottleMs: sessionUpdateAgeSeconds * 1000,
   syncPollingIntervalMs: sessionUpdateAgeSeconds * 1000,
+  metadataReconciliationIntervalMs: sessionUpdateAgeSeconds * 1000,
   sessionExpirySafetyBufferMs,
   debugPanelRefreshIntervalMs: sessionExpirySafetyBufferMs,
   cacheSweepIntervalMs: Math.max(

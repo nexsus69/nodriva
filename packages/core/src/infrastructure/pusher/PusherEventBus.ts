@@ -12,6 +12,7 @@ export interface PusherConfig extends PusherTransportConfig {
   resolveDataChannelNames?: (event: RealtimeDataChangedEvent) => Promise<string[]>;
   resolveLockChannelNames?: (resourceType: string, resourceId: string, scopeNodeId?: string) => Promise<string[]>;
   onPublishMetric?: (metric: { eventName: string; durationMs: number; channelCount: number; success: boolean }) => void;
+  isEnabled?: () => Promise<boolean>;
 }
 
 export class PusherEventBus implements LockEventBus, RealtimeEventBus {
@@ -19,6 +20,7 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   private readonly resolveDataChannelNames?: PusherConfig['resolveDataChannelNames'];
   private readonly resolveLockChannelNames?: PusherConfig['resolveLockChannelNames'];
   private readonly onPublishMetric?: PusherConfig['onPublishMetric'];
+  private readonly isEnabled?: PusherConfig['isEnabled'];
 
   constructor(
     config: PusherConfig,
@@ -28,10 +30,11 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
     this.resolveDataChannelNames = config.resolveDataChannelNames;
     this.resolveLockChannelNames = config.resolveLockChannelNames;
     this.onPublishMetric = config.onPublishMetric;
+    this.isEnabled = config.isEnabled;
   }
 
   async publishDataChanged(event: RealtimeDataChangedEvent): Promise<void> {
-    if (!this.transport.enabled || !this.resolveDataChannelNames) return;
+    if (!(await this.enabled()) || !this.resolveDataChannelNames) return;
     await this.publish('data:changed', event, () => this.resolveDataChannelNames!(event));
   }
 
@@ -39,12 +42,12 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
    * against the current ACL. It intentionally remains a no-op when realtime
    * is disabled or the provider does not expose user termination. */
   async revokeUserConnections(userId: string): Promise<void> {
-    if (!this.transport.enabled || !this.transport.terminateUserConnections) return;
+    if (!(await this.enabled()) || !this.transport.terminateUserConnections) return;
     await this.transport.terminateUserConnections(userId);
   }
 
   async publishLockAcquired(lock: Lock, scope?: LockEventScope): Promise<void> {
-    if (!this.transport.enabled || !this.resolveLockChannelNames) return;
+    if (!(await this.enabled()) || !this.resolveLockChannelNames) return;
     await this.publish('lock:acquired', {
         resourceType: lock.resourceType,
         resourceId: lock.resourceId,
@@ -55,7 +58,7 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   }
 
   async publishLockReleased(resource: ResourceReference, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
-    if (!this.transport.enabled || !this.resolveLockChannelNames) return;
+    if (!(await this.enabled()) || !this.resolveLockChannelNames) return;
     await this.publish('lock:released', {
         resourceType: resource.resourceType,
         resourceId: resource.resourceId,
@@ -65,12 +68,17 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   }
 
   async publishLockForceReleased(resource: ResourceReference, scope?: LockEventScope): Promise<void> {
-    if (!this.transport.enabled || !this.resolveLockChannelNames) return;
+    if (!(await this.enabled()) || !this.resolveLockChannelNames) return;
     await this.publish('lock:force-released', {
         resourceType: resource.resourceType,
         resourceId: resource.resourceId,
         byAdmin: true
       }, () => this.resolveLockChannelNames!(resource.resourceType, resource.resourceId, scope?.scopeNodeId));
+  }
+
+  private async enabled(): Promise<boolean> {
+    if (!this.transport.enabled) return false;
+    return this.isEnabled ? this.isEnabled() : true;
   }
 
   private async publish(eventName: string, payload: unknown, resolveChannels: () => Promise<string[]>): Promise<void> {

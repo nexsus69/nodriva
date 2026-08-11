@@ -4,6 +4,7 @@ export class NodeType {
     public readonly typeKey: string,
     public readonly name: string,
     public readonly description: string,
-    public readonly currentSchemaVersion: number = 1
+    public readonly currentSchemaVersion: number = 1,
+    public readonly isActive: boolean = true
   ) {}
 }

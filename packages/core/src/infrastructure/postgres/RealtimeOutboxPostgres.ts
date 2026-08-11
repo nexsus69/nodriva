@@ -12,8 +12,18 @@ export class RealtimeOutboxPostgres implements RealtimeOutboxPort {
 
   async enqueue(event: RealtimeDataChangedEvent): Promise<void> {
     await this.executor.query(
-      `INSERT INTO realtime_event_outbox (event_id, event_payload)
-       VALUES ($1, $2::jsonb) ON CONFLICT (event_id) DO NOTHING`,
+      `WITH assigned AS (
+         SELECT CASE WHEN $2::jsonb ? 'metadataKind'
+           THEN nextval('realtime_metadata_event_sequence')
+           ELSE NULL END AS metadata_sequence
+       )
+       INSERT INTO realtime_event_outbox (event_id, event_payload)
+       SELECT $1,
+         CASE WHEN assigned.metadata_sequence IS NULL THEN $2::jsonb
+           ELSE jsonb_set($2::jsonb, '{metadataSequence}', to_jsonb(assigned.metadata_sequence), true)
+         END
+       FROM assigned
+       ON CONFLICT (event_id) DO NOTHING`,
       [event.eventId, JSON.stringify(event)]
     );
   }

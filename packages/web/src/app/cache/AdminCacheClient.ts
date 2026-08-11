@@ -7,6 +7,8 @@ import * as typeActions from '../actions/typeActions';
 import * as recycleActions from '../actions/recycleActions';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
+type MetadataKind = 'node' | 'entity';
+type MetadataInvalidator = (kind: MetadataKind, typeKey?: string) => void;
 
 /**
  * Coordinator for administrative read models.
@@ -14,6 +16,8 @@ type ActionResult = { success: boolean; data?: unknown; error?: unknown };
  */
 export class AdminCacheClient {
   private readonly reads = new Map<string, Promise<unknown>>();
+
+  public constructor(private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
     const cached = this.reads.get(key);
@@ -29,6 +33,13 @@ export class AdminCacheClient {
   private write<T extends ActionResult>(keys: string[], action: () => Promise<T>): Promise<T> {
     return action().then((result) => {
       if (result.success) this.invalidate(keys);
+      return result;
+    });
+  }
+
+  private writeMetadata<T extends ActionResult>(kind: MetadataKind, typeKey: string | undefined, keys: string[], action: () => Promise<T>): Promise<T> {
+    return this.write(keys, action).then((result) => {
+      if (result.success) this.onMetadataInvalidated(kind, typeKey);
       return result;
     });
   }
@@ -52,21 +63,21 @@ export class AdminCacheClient {
   public getTypeDetail = (kind: Parameters<typeof typeActions.getTypeDetailAction>[0], typeKey: string) =>
     this.read(`type-detail:${kind}:${typeKey}`, () => typeActions.getTypeDetailAction(kind, typeKey));
   public createType = (cmd: Parameters<typeof typeActions.createTypeAction>[0]) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
+    this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
   public updateType = (...args: Parameters<typeof typeActions.updateTypeAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.updateTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.updateTypeAction(...args));
   public disableType = (...args: Parameters<typeof typeActions.disableTypeAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.disableTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.disableTypeAction(...args));
   public enableType = (...args: Parameters<typeof typeActions.enableTypeAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.enableTypeAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.enableTypeAction(...args));
   public createField = (...args: Parameters<typeof typeActions.createFieldAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.createFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.createFieldAction(...args));
   public addEnumOption = (...args: Parameters<typeof typeActions.addEnumOptionAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.addEnumOptionAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.addEnumOptionAction(...args));
   public updateField = (...args: Parameters<typeof typeActions.updateFieldAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.updateFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.updateFieldAction(...args));
   public deleteField = (...args: Parameters<typeof typeActions.deleteFieldAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.deleteFieldAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.deleteFieldAction(...args));
   public listDeletedEntities = (input?: Parameters<typeof recycleActions.listDeletedEntitiesAction>[0]) =>
     this.read(`deleted-entities:${input?.limit ?? 100}:${input?.offset ?? 0}`, () => recycleActions.listDeletedEntitiesAction(input));
   public listDeletedNodes = (input?: Parameters<typeof recycleActions.listDeletedNodesAction>[0]) =>
@@ -80,7 +91,7 @@ export class AdminCacheClient {
   public purgeDeletedEntity = (input: Parameters<typeof recycleActions.purgeDeletedEntityAction>[0]) =>
     this.write(['deleted-entities'], () => recycleActions.purgeDeletedEntityAction(input));
   public reorderFields = (...args: Parameters<typeof typeActions.reorderFieldsAction>) =>
-    this.write(['types', 'type-detail', 'type-definition'], () => typeActions.reorderFieldsAction(...args));
+    this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition'], () => typeActions.reorderFieldsAction(...args));
 
   public listCapabilities = () => this.read('capabilities', systemActions.listCapabilitiesAction);
   public updateCapabilityStatus = (cmd: Parameters<typeof systemActions.updateCapabilityStatusAction>[0]) =>

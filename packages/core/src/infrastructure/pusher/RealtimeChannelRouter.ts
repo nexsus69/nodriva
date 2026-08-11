@@ -27,6 +27,12 @@ export class RealtimeChannelRouter {
   }
 
   dataChannels(event: RealtimeDataChangedEvent): string[] {
+    if (event.metadataKind) {
+      return [...this.globalPolicyIds]
+        .map((policyId) => this.policiesByChannelId.get(policyId))
+        .filter((policy): policy is RealtimeChannelPolicy => Boolean(policy))
+        .map(getRealtimeDataChannelName);
+    }
     const scope = getEventScope(event);
     return this.matchingPolicies(event.resourceType, scope)
       .map(getRealtimeDataChannelName);

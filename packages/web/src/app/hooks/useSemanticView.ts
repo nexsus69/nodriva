@@ -30,10 +30,20 @@ export function useSemanticView(
   }, [params]);
 
   useEffect(() => {
+    const hadViewBeforeSubscribe = GlobalViewStore.get(viewKey) !== null;
     const unsubscribe = GlobalViewStore.subscribe(viewKey, (newState) => {
       setViewState(newState);
       if (newState?.status === 'success') {
         setLastFailedAction(null);
+      }
+      if (newState === null && hadViewBeforeSubscribe) {
+        void ViewResolver.resolve({
+          type: 'resolve',
+          params: paramsRef.current,
+          requireComplete,
+        }).catch(() => {
+          setLastFailedAction('initial');
+        });
       }
     });
 

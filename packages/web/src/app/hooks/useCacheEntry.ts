@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
-import { DomainCacheClient } from '../cache/DomainCacheClient';
+
+interface CacheEntryClient<T extends { id: string }> {
+  get(id: string): T | null;
+  retain(id: string): void;
+  release(id: string): void;
+  needsFetch(id: string, requireComplete: boolean): boolean;
+  subscribe(id: string, callback: (data: T | null, error: Error | null) => void): () => void;
+  fetchIfMissing(id: string, requireComplete: boolean): Promise<T | null>;
+}
 
 export function useCacheEntry<T extends { id: string }>(
-  cacheClient: DomainCacheClient<T>,
+  cacheClient: CacheEntryClient<T>,
   id: string | null,
   requireComplete: boolean = false
 ) {

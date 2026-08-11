@@ -14,6 +14,9 @@ export interface RealtimeDebugEvent {
 }
 
 export type RealtimeDebugListener = (event: RealtimeDebugEvent) => void;
+export type RealtimeConnectionState = 'initialized' | 'connecting' | 'connected' | 'unavailable' | 'disconnected' | 'failed';
+export type RealtimeConnectionStateListener = (state: RealtimeConnectionState) => void;
+export type RealtimeEventGapListener = (details: { stream: 'metadata' | 'resource'; key: string; expected: number; received: number }) => void;
 
 let debugEventSequence = 0;
 
@@ -45,12 +48,16 @@ export class RealtimeCacheBridge {
   private readonly channels = new Map<string, ChannelState>();
   private readonly lockChannels = new Map<string, LockChannelState>();
   private readonly handledEventIds = new Set<string>();
+  private lastMetadataSequence: number | null = null;
+  private readonly lastResourceVersions = new Map<string, number>();
   private scopeRelease: (() => void) | null = null;
 
   constructor(
     private readonly onEvent: RealtimeListener,
     private readonly onLockEvent?: LockListener,
-    private readonly onDebugEvent?: RealtimeDebugListener
+    private readonly onDebugEvent?: RealtimeDebugListener,
+    private readonly onConnectionStateChange?: RealtimeConnectionStateListener,
+    private readonly onEventGap?: RealtimeEventGapListener,
   ) {}
 
   private emitDebugEvent(channelName: string, eventName: string, payload: unknown): void {
@@ -82,6 +89,24 @@ export class RealtimeCacheBridge {
         if (this.handledEventIds.size > 1000) {
           const oldestEventId = this.handledEventIds.values().next().value;
           if (oldestEventId) this.handledEventIds.delete(oldestEventId);
+        }
+
+        if (event.metadataKind && typeof event.metadataSequence === 'number') {
+          const expected = this.lastMetadataSequence === null ? event.metadataSequence : this.lastMetadataSequence + 1;
+          if (this.lastMetadataSequence !== null && event.metadataSequence > expected) {
+            this.emitDebugEvent('__pusher_connection__', 'realtime:event_gap', { expected, received: event.metadataSequence });
+            this.onEventGap?.({ stream: 'metadata', key: event.metadataKind, expected, received: event.metadataSequence });
+          }
+          this.lastMetadataSequence = Math.max(this.lastMetadataSequence ?? event.metadataSequence, event.metadataSequence);
+        }
+        if (!event.metadataKind && typeof event.resourceVersion === 'number') {
+          const key = `${event.resourceType}:${event.resourceId}`;
+          const previous = this.lastResourceVersions.get(key);
+          if (previous !== undefined && event.resourceVersion > previous + 1) {
+            this.emitDebugEvent('__pusher_connection__', 'realtime:event_gap', { key, expected: previous + 1, received: event.resourceVersion });
+            this.onEventGap?.({ stream: 'resource', key, expected: previous + 1, received: event.resourceVersion });
+          }
+          this.lastResourceVersions.set(key, Math.max(previous ?? event.resourceVersion, event.resourceVersion));
         }
 
         try {
@@ -228,6 +253,11 @@ export class RealtimeCacheBridge {
     this.pusher.connection.bind('error', (error: unknown) => {
       this.emitDebugEvent('__pusher_connection__', 'pusher:connection_error', error);
       console.error('[RealtimeCacheBridge] Pusher connection error:', error);
+    });
+    this.pusher.connection.bind('state_change', (change: { current?: RealtimeConnectionState }) => {
+      const state = change.current ?? 'initialized';
+      this.emitDebugEvent('__pusher_connection__', 'pusher:state_change', change);
+      this.onConnectionStateChange?.(state);
     });
 
     return this.pusher;

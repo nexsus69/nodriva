@@ -1,18 +1,24 @@
 import { DomainCacheClient } from './DomainCacheClient';
 import { ClientNode, ClientEntity, NodeTypeMeta, EntityTypeMeta } from '../types/models';
-import { getNodeByIdAction, createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
-import { getEntityByIdAction, createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
+import { createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
+import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
 import { GlobalViewStore } from './ViewStore';
+import { ViewKeyBuilder } from './SemanticViewKey';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
 import type { RealtimeDataChangedEvent, RealtimeResourceType } from '@dashboard/core';
 import type {
   LockChannelEvent,
   RealtimeDebugEvent,
+  RealtimeConnectionState,
 } from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
+import { CacheKernel } from './CacheKernel';
+import { MetadataCacheClient } from './MetadataCacheClient';
+import { KernelNodeCacheClient } from './KernelNodeCacheClient';
+import { KernelEntityCacheClient } from './KernelEntityCacheClient';
 
 export interface CachedLockState {
   locked: boolean;
@@ -72,11 +78,21 @@ export class GlobalCacheClient {
   private readonly pendingLockHydrations = new Map<string, Promise<void>>();
   private realtimeDebugEvents: RealtimeDebugEvent[] = [];
   private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
+  private realtimeConnectionState: RealtimeConnectionState = 'initialized';
+  private realtimeCapabilityEnabled = true;
+  private readonly realtimeStateSubscribers = new Set<() => void>();
   private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
     (event) => this.applyRealtimeEvent(event),
     (eventName, event) => this.applyLockEvent(eventName, event),
-    (event) => this.recordRealtimeDebugEvent(event)
+    (event) => this.recordRealtimeDebugEvent(event),
+    (state: RealtimeConnectionState) => {
+      if (state === 'connected') void this.reconcileMetadata();
+    },
+    (gap) => {
+      if (gap.stream === 'metadata') void this.reconcileMetadata();
+      else this.reconcileResources();
+    },
   );
 
   private recordRealtimeDebugEvent(event: RealtimeDebugEvent): void {
@@ -116,6 +132,22 @@ export class GlobalCacheClient {
 
   public retainRealtimeChannels = (dataChannels: string[], lockChannels: string[]): (() => void) =>
     this.realtimeBridge.retainPolicyChannels(dataChannels, lockChannels);
+
+  public getRealtimeConnectionState = (): RealtimeConnectionState => this.realtimeConnectionState;
+
+  public getRealtimeCapabilityEnabled = (): boolean => this.realtimeCapabilityEnabled;
+
+  public subscribeRealtimeState = (subscriber: () => void): (() => void) => {
+    this.realtimeStateSubscribers.add(subscriber);
+    return () => this.realtimeStateSubscribers.delete(subscriber);
+  };
+
+  public setRealtimeEnabled = (enabled: boolean): void => {
+    if (this.realtimeCapabilityEnabled === enabled) return;
+    this.realtimeCapabilityEnabled = enabled;
+    if (!enabled) this.realtimeConnectionState = 'unavailable';
+    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+  };
 
   public setVirtualRootNodeIds = (nodeIds: string[]): void => {
     this.virtualRootNodeIds = new Set(nodeIds);
@@ -232,6 +264,10 @@ export class GlobalCacheClient {
   }
 
   private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
+    if (event.metadataKind) {
+      this.invalidateMetadata(event.metadataKind);
+      return;
+    }
     if (event.resourceType === 'entity') {
       const entityTypeId = event.entityTypeId;
       if (entityTypeId && event.changeType !== 'deleted' && event.data) {
@@ -251,26 +287,24 @@ export class GlobalCacheClient {
       ) {
         this.invalidateEntityViews();
       }
-    } else if (event.data && event.changeType !== 'deleted') {
+    } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
-      this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
+      if (event.changeType === 'deleted') {
+        this.nodes.remove(event.resourceId);
+      } else if (event.data) {
+        this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
+      }
       for (const id of ids) {
         if (id !== event.resourceId) this.nodes.invalidate(id);
       }
+      this.nodes.invalidateChildren();
       if (ids.length > 1) this.invalidateEntityViews();
     }
   }
 
-  public nodes = new DomainCacheClient<ClientNode>('nodes', async (id) => {
-    try {
-      const node = await getNodeByIdAction(id);
-      if (!node) throw new Error(`Node ${id} not found`);
-      return node as unknown as ClientNode;
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }, this.notifyCacheSubscribers);
+  private readonly kernel = new CacheKernel();
+
+  public nodes = new KernelNodeCacheClient(this.kernel, this.notifyCacheSubscribers);
 
   public lists = new DomainCacheClient<{ id: string; items: string[] }>('lists', async () => {
     throw new Error('Dynamic full list fetch is currently orchestrated by individual hooks');
@@ -284,33 +318,48 @@ export class GlobalCacheClient {
     throw new Error('Entity types must be fetched via METADATA_LIST semantic view');
   }, this.notifyCacheSubscribers);
 
+  public readonly metadata = new MetadataCacheClient(this.kernel);
   public readonly users = new UserCacheClient(this.notifyCacheSubscribers);
-  public readonly admin = new AdminCacheClient();
+  public readonly admin = new AdminCacheClient((kind, typeKey) => this.invalidateMetadata(kind, typeKey));
 
-  private entityCaches = new Map<string, DomainCacheClient<ClientEntity>>();
+  /**
+   * Invalidates every client-side projection affected by a type mutation.
+   * Metadata views are persistent, so invalidating only AdminCacheClient would
+   * leave forms reading the previous type list indefinitely.
+   */
+  public invalidateMetadata(kind: 'node' | 'entity', typeKey?: string): void {
+    this.metadata.invalidate(kind);
+    const viewKey = ViewKeyBuilder.build({ viewType: 'METADATA_LIST', metadataType: kind });
+    GlobalViewStore.delete(viewKey);
+    if (kind === 'node') this.nodeTypes.purge();
+    else this.entityTypes.purge();
+    this.admin.invalidate([
+      'types',
+      ...(typeKey ? [`type-detail:${kind}:${typeKey}`, `type-definition:${kind}:${typeKey}`] : ['type-detail', 'type-definition']),
+    ]);
+    this.notifyCacheSubscribers();
+  }
+
+  public async reconcileMetadata(): Promise<void> {
+    await this.metadata.reconcileAll();
+    this.notifyCacheSubscribers();
+  }
+
+  public reconcileResources(): void {
+    this.nodes.purge();
+    this.entityCaches.forEach((cache) => cache.purge());
+    this.invalidateEntityViews();
+    this.notifyCacheSubscribers();
+  }
+
+  private entityCaches = new Map<string, KernelEntityCacheClient>();
 
   /**
    * Retrieves or creates an isolated cache for a specific entity type.
    */
-  public getEntityCache(entityTypeKey: string): DomainCacheClient<ClientEntity> {
+  public getEntityCache(entityTypeKey: string): KernelEntityCacheClient {
     if (!this.entityCaches.has(entityTypeKey)) {
-      this.entityCaches.set(
-        entityTypeKey,
-        new DomainCacheClient<ClientEntity>(
-          `entities_${entityTypeKey}`,
-          async (id) => {
-            try {
-              const entity = await getEntityByIdAction(id);
-              if (!entity) throw new Error(`Entity ${id} not found`);
-              return entity as unknown as ClientEntity;
-            } catch (err: unknown) {
-              this.handleFetchError(err);
-              throw err;
-            }
-          },
-          this.notifyCacheSubscribers
-        )
-      );
+      this.entityCaches.set(entityTypeKey, new KernelEntityCacheClient(this.kernel, entityTypeKey, this.notifyCacheSubscribers));
     }
     return this.entityCaches.get(entityTypeKey)!;
   }
@@ -366,6 +415,7 @@ export class GlobalCacheClient {
       const created = await createNodeAction(input);
       const clientNode: ClientNode = created as unknown as ClientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
+      this.nodes.invalidateChildren();
       return clientNode;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -378,6 +428,7 @@ export class GlobalCacheClient {
       const updated = await updateNodeAction(input);
       const clientNode: ClientNode = updated as unknown as ClientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
+      this.nodes.invalidateChildren();
       return clientNode;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -391,6 +442,7 @@ export class GlobalCacheClient {
       if (moved) {
         const clientNode: ClientNode = moved as unknown as ClientNode;
         this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
+        this.nodes.invalidateChildren();
         return clientNode;
       }
       return null;
@@ -407,6 +459,7 @@ export class GlobalCacheClient {
    * (o dati confidenziali) leakino all'utente successivo nella stessa sessione browser.
    */
   public purgeAll(): void {
+    this.kernel.purge();
     this.nodes?.purge();
     this.lists?.purge();
     this.nodeTypes?.purge();

@@ -117,6 +117,7 @@ export const pusherEventBus = new PusherEventBus({
   host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
   port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
+  isEnabled: isRealtimeCapabilityEnabled,
   resolveDataChannelNames: async (event) => {
     const startedAt = Date.now();
     const policies = await getRealtimeChannelPolicies();
@@ -159,6 +160,11 @@ export const pusherEventBus = new PusherEventBus({
 });
 export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
 export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
+
+export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
+  if (process.env.REALTIME_ENABLED === 'false') return false;
+  return runtimeConfigPort.isCapabilityEnabled('realtime');
+}
 export const configurationRepository = new ConfigurationRepositoryPostgres(pgExecutor);
 export const configService = new ConfigService(
   configurationRepository,

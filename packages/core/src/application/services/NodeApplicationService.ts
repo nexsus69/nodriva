@@ -427,7 +427,7 @@ export class NodeApplicationService {
   }
 
   async listNodeTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; currentSchemaVersion: number }[]> {
-    const types = await this.nodeTypeRepository.listAll();
+    const types = (await this.nodeTypeRepository.listAll()).filter((type) => type.isActive);
     return types.map((t) => ({
       id: t.id,
       typeKey: t.typeKey,

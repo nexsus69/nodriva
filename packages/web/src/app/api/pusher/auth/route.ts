@@ -17,7 +17,8 @@ const pusher = new PusherServer({
 });
 
 export const POST = auth(async (req) => {
-  if (process.env.REALTIME_ENABLED === 'false') {
+  const { isRealtimeCapabilityEnabled } = await import('../../../../server/db');
+  if (!(await isRealtimeCapabilityEnabled())) {
     return new NextResponse('Realtime disabled', { status: 503 });
   }
 

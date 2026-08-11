@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { RealtimeDebugEvent } from '../../cache/RealtimeCacheBridge';
+import type { RealtimeConnectionState, RealtimeDebugEvent } from '../../cache/RealtimeCacheBridge';
 
 function formatPayload(payload: unknown): string {
   try {
@@ -14,9 +14,13 @@ function formatPayload(payload: unknown): string {
 
 export function RealtimeDebugOverlay({
   events,
+  connectionState,
+  capabilityEnabled,
   onClear,
 }: {
   events: RealtimeDebugEvent[];
+  connectionState: RealtimeConnectionState;
+  capabilityEnabled: boolean;
   onClear: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -27,6 +31,7 @@ export function RealtimeDebugOverlay({
         <div className="flex items-center gap-2">
           <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-violet-500" />
           <span className="font-bold uppercase tracking-wider text-[11px]">Pusher realtime</span>
+          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">{capabilityEnabled ? connectionState : 'disabled'}</span>
           <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">{events.length}</span>
         </div>
         <div className="flex gap-1">

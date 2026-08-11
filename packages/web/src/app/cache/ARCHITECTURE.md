@@ -21,6 +21,34 @@ Ogni nuova implementazione, refactoring o estensione deve rispettare questi vinc
 4. **UI Agnostica dal Fetch**
    I componenti React non conoscono endpoint, server actions, URL o protocolli. Dichiarano un intento semantico (`SemanticViewKey`) e consumano i risultati tramite hook adapter. L'orchestrazione del caricamento è responsabilità esclusiva del Service Layer.
 
+## 1.1 CacheKernel — nuova implementazione isolata
+
+`CacheKernel` è la nuova implementazione normalizzata sviluppata prima della
+sostituzione completa dell'engine attuale. È ora usata dal percorso dei metadati
+dei tipi (`useSemanticMetadata`); nodi, entità e viste paginated restano ancora
+sul percorso precedente durante la migrazione controllata.
+
+Le sue regole sono:
+
+- ogni record viene memorizzato una sola volta tramite `namespace + id`;
+- una query conserva solo gli ID ordinati, il namespace dei record e le proprie
+  dipendenze, mai una seconda copia dei payload;
+- le mutazioni passano da `mutate()`, che applica il risultato canonico e le
+  invalidazioni dichiarate solo dopo il successo del backend;
+- le dipendenze sono invalidate tramite token, così tutte le query interessate
+  diventano stale insieme;
+- se un token o una query vengono invalidati durante un caricamento, la risposta
+  in corso viene scartata e il caricamento viene ripetuto;
+- le versioni obsolete dei record vengono ignorate;
+- `purge()` elimina record, query e richieste pendenti per il cambio sessione o
+  il logout.
+
+La sostituzione completa dell'engine attuale è consentita solo dopo il
+completamento dei test di compatibilità per viste, paginazione, realtime, ACL,
+lock e lifecycle di sessione. Fino ad allora `GlobalCacheClient` e
+`GlobalViewStore` restano il percorso di produzione per le risorse non ancora
+migrate.
+
 ---
 
 ## 2. SemanticViewKey

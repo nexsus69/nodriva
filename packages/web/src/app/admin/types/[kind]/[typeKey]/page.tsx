@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import type {
@@ -46,6 +46,7 @@ export default function AdminTypeDetailPage() {
   const [fieldFormError, setFieldFormError] = useState<ApiErrorResponse | null>(null);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<{ id: string; label: string } | null>(null);
+  const cacheRevision = useSyncExternalStore(AppCache.subscribe, AppCache.getRevision, () => 0);
 
   // Form Campo (Aggiunta / Edizione)
   const [fieldKey, setFieldKey] = useState('');
@@ -93,7 +94,7 @@ export default function AdminTypeDetailPage() {
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [kind, typeKey]);
+  }, [kind, typeKey, cacheRevision]);
 
   useEffect(() => {
     if (dataType !== 'relation' || editingField) return;
@@ -435,16 +436,17 @@ export default function AdminTypeDetailPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {typeDetail.isActive ? (
-              <button
-                type="button"
-                onClick={handleDisableType}
-                disabled={!typeDetail.isEditable || isPending}
-                className="px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {typeDetail.isActive ? 'Disabilita Tipo' : 'Riattiva Tipo'}
-              </button>
-            ) : (
+            <button
+              type="button"
+              onClick={handleDisableType}
+              disabled={!typeDetail.isEditable || isPending}
+              className={typeDetail.isActive
+                ? 'px-3.5 py-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/50 text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed'
+                : 'px-3.5 py-2 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/50 text-xs font-semibold rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed'}
+            >
+              {typeDetail.isActive ? 'Disabilita Tipo' : 'Riattiva Tipo'}
+            </button>
+            {!typeDetail.isActive && (
               <span className="px-3 py-1.5 bg-slate-800 text-rose-400 text-xs font-medium rounded-lg">
                 Stato: Disabilitato
               </span>

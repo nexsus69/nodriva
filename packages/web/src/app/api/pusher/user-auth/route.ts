@@ -14,7 +14,8 @@ const pusher = new PusherServer({
 
 /** Enables forced disconnects after an ACL or account-state revocation. */
 export const POST = auth(async (req) => {
-  if (process.env.REALTIME_ENABLED === 'false') {
+  const { isRealtimeCapabilityEnabled } = await import('../../../../server/db');
+  if (!(await isRealtimeCapabilityEnabled())) {
     return new NextResponse('Realtime disabled', { status: 503 });
   }
   const userId = req.auth?.userId;

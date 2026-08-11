@@ -34,13 +34,12 @@ export async function listVirtualRootNodeIdsAction() {
 }
 
 export async function listRealtimeChannelsAction() {
-  if (process.env.NEXT_PUBLIC_REALTIME_ENABLED === 'false') {
-    return { success: true as const, data: { dataChannels: [], lockChannels: [] } };
-  }
-
   try {
     const userId = await AuthResolver.resolveActorUserId();
-    const { securityRepository } = await import('../../server/db');
+    const { securityRepository, isRealtimeCapabilityEnabled } = await import('../../server/db');
+    if (!(await isRealtimeCapabilityEnabled())) {
+      return { success: true as const, data: { dataChannels: [], lockChannels: [] } };
+    }
     const policies = await securityRepository.listRealtimeChannelPoliciesForUser(userId);
     return {
       success: true as const,

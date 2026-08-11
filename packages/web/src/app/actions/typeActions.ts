@@ -24,6 +24,7 @@ import {
   TypeKind,
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
+import { publishRealtimeChange } from '../../server/realtime';
 
 
 /** Helper per mappare le eccezioni del Core alla forma ApiErrorResponse */
@@ -32,6 +33,16 @@ function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
 }
 
 export type AttachmentEncryptionMode = 'enabled' | 'disabled';
+
+async function publishMetadataChanged(kind: TypeKind, typeKey: string, actorUserId: string): Promise<void> {
+  await publishRealtimeChange({
+    resourceType: kind,
+    resourceId: typeKey,
+    changeType: 'updated',
+    actorUserId,
+    metadataKind: kind,
+  });
+}
 
 export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
   try {
@@ -139,6 +150,7 @@ export async function createTypeAction(cmd: CreateTypeUiCommand): Promise<{
   error?: ApiErrorResponse;
 }> {
   try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
     const created = await typeAdminService.createType({
       domain: cmd.kind,
       typeKey: cmd.typeKey,
@@ -146,8 +158,9 @@ export async function createTypeAction(cmd: CreateTypeUiCommand): Promise<{
       description: cmd.description,
       storageTable: cmd.storageTable,
       placementPolicyId: cmd.placementPolicyId,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(cmd.kind, created.typeKey, actorUserId);
 
     const res = await getTypeDetailAction(cmd.kind, created.typeKey);
     return res;
@@ -172,14 +185,16 @@ export async function updateTypeAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.updateType({
       domain: kind,
       typeId: current.data.id,
       name: cmd.name,
       description: cmd.description,
       expectedRowVersion: cmd.expectedRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
@@ -204,12 +219,14 @@ export async function disableTypeAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.disableType({
       domain: kind,
       typeId: current.data.id,
       expectedRowVersion: cmd.expectedRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
@@ -226,7 +243,9 @@ export async function enableTypeAction(
   try {
     const current = await getTypeDetailAction(kind, typeKey);
     if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
-    await typeAdminService.enableType({ domain: kind, typeId: current.data.id, expectedRowVersion: cmd.expectedRowVersion, actorUserId: await AuthResolver.resolveActorUserId() });
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await typeAdminService.enableType({ domain: kind, typeId: current.data.id, expectedRowVersion: cmd.expectedRowVersion, actorUserId });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
     return await getTypeDetailAction(kind, typeKey);
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -249,6 +268,7 @@ export async function createFieldAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.addField({
       domain: kind,
       typeId: current.data.id,
@@ -266,8 +286,9 @@ export async function createFieldAction(
       encryptionMode: cmd.encryptionMode ?? 'plaintext',
       position: cmd.position ?? current.data.fields.length,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
@@ -286,6 +307,7 @@ export async function addEnumOptionAction(
   try {
     const current = await getTypeDetailAction(kind, typeKey);
     if (!current.success || !current.data) return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
+    const actorUserId = await AuthResolver.resolveActorUserId();
     const option = await typeAdminService.addEnumOption({
       domain: kind,
       typeId: current.data.id,
@@ -294,8 +316,9 @@ export async function addEnumOptionAction(
       label,
       position: current.data.fields.find((field) => field.id === fieldId)?.enumOptions?.length ?? 0,
       expectedTypeRowVersion: current.data.rowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
     return { success: true, data: { id: option.id, value: option.value, label: option.label, position: option.position, isActive: option.isActive } };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
@@ -318,6 +341,7 @@ export async function updateFieldAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.updateField({
       domain: kind,
       typeId: current.data.id,
@@ -330,8 +354,9 @@ export async function updateFieldAction(
       encryptionMode: cmd.encryptionMode,
       position: cmd.position,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
@@ -356,13 +381,15 @@ export async function deleteFieldAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.removeField({
       domain: kind,
       typeId: current.data.id,
       fieldId: cmd.fieldId,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;
@@ -387,13 +414,15 @@ export async function reorderFieldsAction(
       return { success: false, error: current.error ?? { code: 'NOT_FOUND', message: 'Tipo non trovato.' } };
     }
 
+    const actorUserId = await AuthResolver.resolveActorUserId();
     await typeAdminService.reorderFields({
       domain: kind,
       typeId: current.data.id,
       orderedFieldIds: cmd.orderedFieldIds,
       expectedTypeRowVersion: cmd.expectedTypeRowVersion,
-      actorUserId: await AuthResolver.resolveActorUserId(),
+      actorUserId,
     });
+    await publishMetadataChanged(kind, typeKey, actorUserId);
 
     const updated = await getTypeDetailAction(kind, typeKey);
     return updated;

@@ -83,4 +83,16 @@ describe('RealtimeCacheBridge debug events', () => {
 
     expect(debugEvents).toEqual(['pusher:subscription_error']);
   });
+
+  it('reports gaps in the metadata event sequence', () => {
+    const gaps: { stream: string; key: string; expected: number; received: number }[] = [];
+    const bridge = new RealtimeCacheBridge(vi.fn(), undefined, undefined, undefined, (gap) => gaps.push(gap));
+
+    bridge.retainPolicyChannels(['channel-data'], []);
+    const channel = MockPusher.instance.channels.get('channel-data');
+    channel?.emit('data:changed', { eventId: 'evt-1', metadataKind: 'node', metadataSequence: 4 });
+    channel?.emit('data:changed', { eventId: 'evt-2', metadataKind: 'node', metadataSequence: 6 });
+
+    expect(gaps).toEqual([{ stream: 'metadata', key: 'node', expected: 5, received: 6 }]);
+  });
 });

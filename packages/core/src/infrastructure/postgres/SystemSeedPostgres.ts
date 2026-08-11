@@ -567,7 +567,8 @@ export class SystemSeedPostgres implements SystemSeedPort {
       VALUES 
         ('hierarchical_structure', 'Hierarchical Tree', 'enabled'::capability_status_enum, 'Node tree structure'),
         ('entities_structure', 'Entity Storage', 'enabled'::capability_status_enum, 'Dynamic entities structure'),
-        ('locking', 'Concurrency Locking', 'enabled'::capability_status_enum, 'Locking controls')
+        ('locking', 'Concurrency Locking', 'enabled'::capability_status_enum, 'Locking controls'),
+        ('realtime', 'Realtime Synchronization', 'enabled'::capability_status_enum, 'Realtime cache synchronization')
     `);
   }
 }

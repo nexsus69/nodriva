@@ -1,37 +1,35 @@
-import { useMemo } from 'react';
-import { useSemanticView } from './useSemanticView';
+import { useEffect, useMemo, useState } from 'react';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { NodeTypeMeta, EntityTypeMeta } from '../types/models';
 
 export function useSemanticMetadata() {
-  const { viewState: nodeTypesView } = useSemanticView(
-    { viewType: 'METADATA_LIST', metadataType: 'node' },
-    true,
-    'persistent'
-  );
+  const [nodeTypesList, setNodeTypesList] = useState<readonly NodeTypeMeta[]>([]);
+  const [entityTypesList, setEntityTypesList] = useState<readonly EntityTypeMeta[]>([]);
+  const [nodeError, setNodeError] = useState<Error | null>(null);
+  const [entityError, setEntityError] = useState<Error | null>(null);
+  const [isNodeLoading, setIsNodeLoading] = useState(true);
+  const [isEntityLoading, setIsEntityLoading] = useState(true);
 
-  const { viewState: entityTypesView } = useSemanticView(
-    { viewType: 'METADATA_LIST', metadataType: 'entity' },
-    true,
-    'persistent'
-  );
-  
-  const isNodeLoading = !nodeTypesView || nodeTypesView.status === 'loading';
-  const isEntityLoading = !entityTypesView || entityTypesView.status === 'loading';
-
-  const nodeTypesList = useMemo(() => {
-    if (!nodeTypesView || !nodeTypesView.pages || nodeTypesView.pages.length === 0) return [];
-    const page = nodeTypesView.pages[0];
-    const ids = page.items.filter(item => item.type === 'row').map(item => item.id);
-    return ids.map(id => AppCache.nodeTypes.get(id)).filter(Boolean) as NodeTypeMeta[];
-  }, [nodeTypesView]);
-
-  const entityTypesList = useMemo(() => {
-    if (!entityTypesView || !entityTypesView.pages || entityTypesView.pages.length === 0) return [];
-    const page = entityTypesView.pages[0];
-    const ids = page.items.filter(item => item.type === 'row').map(item => item.id);
-    return ids.map(id => AppCache.entityTypes.get(id)).filter(Boolean) as EntityTypeMeta[];
-  }, [entityTypesView]);
+  useEffect(() => {
+    let active = true;
+    const unsubscribeNode = AppCache.metadata.subscribe('node', (records, error) => {
+      if (!active) return;
+      setNodeTypesList(records as readonly NodeTypeMeta[]);
+      setNodeError(error ?? null);
+      setIsNodeLoading(false);
+    });
+    const unsubscribeEntity = AppCache.metadata.subscribe('entity', (records, error) => {
+      if (!active) return;
+      setEntityTypesList(records as readonly EntityTypeMeta[]);
+      setEntityError(error ?? null);
+      setIsEntityLoading(false);
+    });
+    return () => {
+      active = false;
+      unsubscribeNode();
+      unsubscribeEntity();
+    };
+  }, []);
 
   const nodeTypes = useMemo(() => {
     const map: Record<string, NodeTypeMeta> = {};
@@ -57,6 +55,6 @@ export function useSemanticMetadata() {
     nodeTypes,
     entityTypes,
     isLoading: isNodeLoading || isEntityLoading,
-    error: nodeTypesView?.error || entityTypesView?.error || null,
+    error: nodeError || entityError,
   };
 }

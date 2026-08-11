@@ -12,6 +12,7 @@ interface PassiveSyncResponse {
   dataChannels: string[];
   lockChannels: string[];
   virtualRootNodeIds: string[];
+  realtimeEnabled: boolean;
 }
 
 function isLoginRedirect(response: Response): boolean {
@@ -59,11 +60,17 @@ export function CacheInitializer() {
           return;
         }
         const result = await response.json() as PassiveSyncResponse;
+        AppCache.setRealtimeEnabled(result.realtimeEnabled);
+        if (!result.realtimeEnabled) {
+          releaseChannels?.();
+          releaseChannels = undefined;
+          retainedChannelKey = '';
+        }
         const channelKey = JSON.stringify([
           [...result.dataChannels].sort(),
           [...result.lockChannels].sort(),
         ]);
-        if (channelKey !== retainedChannelKey) {
+        if (result.realtimeEnabled && channelKey !== retainedChannelKey) {
           releaseChannels?.();
           releaseChannels = AppCache.retainRealtimeChannels(
             result.dataChannels,
@@ -84,26 +91,35 @@ export function CacheInitializer() {
       });
     };
     synchronizeAccess();
+    void AppCache.reconcileMetadata();
     // Il realtime è il canale primario; il polling è una riconciliazione
     // passiva e non rinnova più la sessione. Al ritorno dal background viene
     // eseguito anche un riallineamento immediato.
     const synchronizeWhenVisible = () => {
-      if (document.visibilityState === 'visible') synchronizeAccess();
+      if (document.visibilityState === 'visible') {
+        synchronizeAccess();
+        void AppCache.reconcileMetadata();
+      }
     };
     document.addEventListener('visibilitychange', synchronizeWhenVisible);
     const accessRefresh = window.setInterval(
       synchronizeAccess,
       timing.syncPollingIntervalMs,
     );
+    const metadataRefresh = window.setInterval(
+      () => void AppCache.reconcileMetadata(),
+      timing.metadataReconciliationIntervalMs,
+    );
 
     return () => {
       disposed = true;
       document.removeEventListener('visibilitychange', synchronizeWhenVisible);
       window.clearInterval(accessRefresh);
+      window.clearInterval(metadataRefresh);
       CacheGarbageCollector.stop();
       releaseChannels?.();
     };
-  }, [isSessionExpired, timing.syncPollingIntervalMs, userId]);
+  }, [isSessionExpired, timing.metadataReconciliationIntervalMs, timing.syncPollingIntervalMs, userId]);
 
   return null;
 }

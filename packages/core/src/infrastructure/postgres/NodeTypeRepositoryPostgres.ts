@@ -8,6 +8,7 @@ interface NodeTypeRow {
   name: string;
   description: string;
   current_schema_version: number;
+  is_active: boolean;
 }
 
 export class NodeTypeRepositoryPostgres implements NodeTypeRepository {
@@ -15,9 +16,9 @@ export class NodeTypeRepositoryPostgres implements NodeTypeRepository {
 
   async findByKey(typeKey: string): Promise<NodeType | null> {
     const query = `
-      SELECT id, type_key, name, description, current_schema_version
+      SELECT id, type_key, name, description, current_schema_version, is_active
       FROM node_types
-      WHERE type_key = $1 AND deleted_at IS NULL
+      WHERE type_key = $1 AND deleted_at IS NULL AND is_active = TRUE
     `;
     const result = await this.executor.query<NodeTypeRow>(query, [typeKey]);
     const row = result.rows[0];
@@ -29,9 +30,9 @@ export class NodeTypeRepositoryPostgres implements NodeTypeRepository {
 
   async findById(id: string): Promise<NodeType | null> {
     const query = `
-      SELECT id, type_key, name, description, current_schema_version
+      SELECT id, type_key, name, description, current_schema_version, is_active
       FROM node_types
-      WHERE id = $1 AND deleted_at IS NULL
+      WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE
     `;
     const result = await this.executor.query<NodeTypeRow>(query, [id]);
     const row = result.rows[0];
@@ -43,9 +44,9 @@ export class NodeTypeRepositoryPostgres implements NodeTypeRepository {
 
   async listAll(): Promise<NodeType[]> {
     const query = `
-      SELECT id, type_key, name, description, current_schema_version
+      SELECT id, type_key, name, description, current_schema_version, is_active
       FROM node_types
-      WHERE deleted_at IS NULL
+      WHERE deleted_at IS NULL AND is_active = TRUE
       ORDER BY name ASC
     `;
     const result = await this.executor.query<NodeTypeRow>(query);
@@ -58,7 +59,8 @@ export class NodeTypeRepositoryPostgres implements NodeTypeRepository {
       row.type_key,
       row.name,
       row.description,
-      Number(row.current_schema_version ?? 1)
+      Number(row.current_schema_version ?? 1),
+      Boolean(row.is_active)
     );
   }
 }

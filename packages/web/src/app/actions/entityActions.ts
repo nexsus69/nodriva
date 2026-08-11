@@ -172,7 +172,7 @@ export async function listEntityTypesAction() {
   await AuthResolver.resolveActorUserId();
   const { entityTypeRepository } = await import('../../server/db');
   const types = await entityTypeRepository.listAll();
-  return types.map((t) => ({
+  return types.filter((t) => t.isActive).map((t) => ({
     id: t.id,
     typeKey: t.typeKey,
     name: t.name,

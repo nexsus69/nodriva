@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useTransition } from 'react';
+import React, { useEffect, useState, useSyncExternalStore, useTransition } from 'react';
 import type {
   TypeKind,
   TypeListItemDto,
@@ -25,6 +25,7 @@ export default function AdminTypesListPage() {
   const [newDescription, setNewDescription] = useState('');
   const [newStorageTable, setNewStorageTable] = useState('');
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
+  const cacheRevision = useSyncExternalStore(AppCache.subscribe, AppCache.getRevision, () => 0);
 
   const loadTypes = async (selectedKind: TypeKind) => {
     setLoading(true);
@@ -41,7 +42,7 @@ export default function AdminTypesListPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => loadTypes(kind), 0);
     return () => window.clearTimeout(timer);
-  }, [kind]);
+  }, [kind, cacheRevision]);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();

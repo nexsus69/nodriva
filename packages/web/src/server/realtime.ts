@@ -4,20 +4,42 @@ import type { RealtimeDataChangedEvent } from '@dashboard/core';
 export type RealtimeChangeInput = Omit<RealtimeDataChangedEvent, 'eventId' | 'occurredAt'>;
 const workerId = `${process.env.HOSTNAME ?? 'web'}:${process.pid}:${randomUUID()}`;
 
-async function buildEvent(input: RealtimeChangeInput): Promise<RealtimeDataChangedEvent> {
-  const { realtimeScopeResolver } = await import('./db');
+export async function buildRealtimeEvent(
+  input: RealtimeChangeInput,
+  resolveScopes?: (event: RealtimeDataChangedEvent) => Promise<string[]>,
+): Promise<RealtimeDataChangedEvent> {
   const event: RealtimeDataChangedEvent = {
     ...input,
     eventId: randomUUID(),
     occurredAt: new Date().toISOString(),
-    directScopeNodeIds: [
+    directScopeNodeIds: input.metadataKind ? [] : [
       ...(input.resourceType === 'node' ? [input.resourceId] : []),
       ...(input.parentNodeId ? [input.parentNodeId] : []),
       ...(input.previousParentNodeId ? [input.previousParentNodeId] : []),
     ],
   };
+  const payloadVersion = typeof input.data === 'object' && input.data !== null && 'rowVersion' in input.data
+    ? (input.data as { rowVersion?: unknown }).rowVersion
+    : undefined;
+  if (typeof payloadVersion === 'number') event.resourceVersion = payloadVersion;
+
+  // Metadata events identify a type by its stable typeKey, not by the UUID of
+  // a node/entity instance. They are routed only to global policy channels,
+  // so resolving resource scopes here would both be unnecessary and unsafe:
+  // the scope resolver expects resource UUIDs and would abort the outbox
+  // transaction before the channel router can handle metadataKind.
+  if (input.metadataKind) {
+    event.scopeNodeIds = [];
+    return event;
+  }
+
+  const scopeResolver = resolveScopes ?? (async (scopedEvent: RealtimeDataChangedEvent) => {
+    const { realtimeScopeResolver } = await import('./db');
+    return realtimeScopeResolver.resolveScopes(scopedEvent);
+  });
+
   try {
-    event.scopeNodeIds = await realtimeScopeResolver.resolveScopes(event);
+    event.scopeNodeIds = await scopeResolver(event);
   } catch (error) {
     // Under-publishing is safer than broadening a scope. The durable outbox
     // retains the direct scope event for observability and a later replay.
@@ -31,8 +53,8 @@ async function buildEvent(input: RealtimeChangeInput): Promise<RealtimeDataChang
 /** Drains a bounded batch. It is safe to call concurrently from requests and
  * from the protected worker endpoint because rows are leased in PostgreSQL. */
 export async function drainRealtimeOutbox(limit = 25): Promise<number> {
-  if (process.env.REALTIME_ENABLED === 'false') return 0;
-  const { realtimeOutbox, pusherEventBus } = await import('./db');
+  const { realtimeOutbox, pusherEventBus, isRealtimeCapabilityEnabled } = await import('./db');
+  if (!(await isRealtimeCapabilityEnabled())) return 0;
   const pending = await realtimeOutbox.claimPending(workerId, limit);
   for (const event of pending) {
     try {
@@ -53,12 +75,12 @@ export async function runWithRealtimeOutbox<T>(
   work: () => Promise<T>,
   toEvent: (result: T) => RealtimeChangeInput | null,
 ): Promise<T> {
-  if (process.env.REALTIME_ENABLED === 'false') return work();
-  const { transactionPort, realtimeOutbox } = await import('./db');
+  const { transactionPort, realtimeOutbox, isRealtimeCapabilityEnabled } = await import('./db');
+  if (!(await isRealtimeCapabilityEnabled())) return work();
   const result = await transactionPort.runInTransaction(async () => {
     const value = await work();
     const input = toEvent(value);
-    if (input) await realtimeOutbox.enqueue(await buildEvent(input));
+    if (input) await realtimeOutbox.enqueue(await buildRealtimeEvent(input));
     return value;
   });
   // Best effort only; the durable outbox will be drained by the next request

@@ -19,6 +19,12 @@ export interface RealtimeDataChangedEvent extends ResourceReference {
   data?: unknown;
   /** All resources changed by an aggregate mutation, including the root resourceId. */
   affectedResourceIds?: string[];
+  /** Metadata invalidation event; the payload is intentionally empty. */
+  metadataKind?: 'node' | 'entity';
+  /** Monotonic sequence shared by metadata events for gap detection. */
+  metadataSequence?: number;
+  /** Row version of a concrete resource when the event carries a snapshot. */
+  resourceVersion?: number;
 }
 
 export interface RealtimeEventBus {
