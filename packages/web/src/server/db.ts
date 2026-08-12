@@ -242,12 +242,14 @@ export const attachmentScanner: AttachmentScannerPort | undefined = typeof antiv
   : undefined;
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
-export const accountActionDelivery = process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL
-  && process.env.ACCOUNT_ACTION_PUBLIC_BASE_URL
+const mailDeployment = deploymentConfigurationSource.getSync('mail');
+const mailValues: Readonly<Record<string, unknown>> = mailDeployment?.providerKey === 'webhook' ? mailDeployment.values : {};
+export const accountActionDelivery = typeof mailValues.endpoint === 'string'
+  && typeof mailValues.publicBaseUrl === 'string'
   ? new WebhookAccountActionDelivery(
-      process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL,
-      process.env.ACCOUNT_ACTION_PUBLIC_BASE_URL,
-      process.env.ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET,
+      mailValues.endpoint,
+      mailValues.publicBaseUrl,
+      typeof mailValues.token === 'string' ? deploymentSecretResolver.resolveSync(mailValues.token) ?? undefined : undefined,
     )
   : undefined;
 export const mfaTotpPort = new MfaTotpPortPostgres(pgExecutor);

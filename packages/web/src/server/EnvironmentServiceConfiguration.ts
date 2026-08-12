@@ -96,7 +96,14 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
 
   private mail() {
     return this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL
-      ? { providerKey: 'webhook', values: { endpoint: this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL } }
+      ? {
+        providerKey: 'webhook',
+        values: {
+          endpoint: this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL,
+          ...(this.environment.ACCOUNT_ACTION_PUBLIC_BASE_URL ? { publicBaseUrl: this.environment.ACCOUNT_ACTION_PUBLIC_BASE_URL } : {}),
+          ...(this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET ? { token: 'secret://env/ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET' } : {}),
+        },
+      }
       : null;
   }
 

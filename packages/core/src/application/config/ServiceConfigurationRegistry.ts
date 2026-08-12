@@ -203,7 +203,11 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
     providers: [{
       key: 'webhook',
       displayName: 'Webhook',
-      fields: [deploymentString('endpoint', 'Endpoint per la consegna delle email.'), secretReference('token', 'Riferimento al token del webhook.')],
+      fields: [
+        deploymentString('endpoint', 'Endpoint per la consegna delle email.'),
+        deploymentString('publicBaseUrl', 'URL pubblico per i link di completamento.'),
+        secretReference('token', 'Riferimento al token del webhook.'),
+      ],
     }],
   },
   {
