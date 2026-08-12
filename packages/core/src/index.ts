@@ -432,3 +432,4 @@ export { LockRepositorySqlite } from './infrastructure/sqlite/LockRepositorySqli
 export { NodeTypeRepositorySqlite } from './infrastructure/sqlite/NodeTypeRepositorySqlite.js';
 export { EntityTypeRepositorySqlite } from './infrastructure/sqlite/EntityTypeRepositorySqlite.js';
 export { EntityRepositorySqlite } from './infrastructure/sqlite/EntityRepositorySqlite.js';
+export { AccessControlPortSqlite } from './infrastructure/sqlite/AccessControlPortSqlite.js';

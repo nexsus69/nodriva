@@ -79,5 +79,23 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       UNIQUE(resource_type, resource_id)
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_locks_expiry ON locks(expires_at);
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      is_super_admin INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS roles (id TEXT PRIMARY KEY, role_key TEXT NOT NULL UNIQUE);
+    CREATE TABLE IF NOT EXISTS permissions (id TEXT PRIMARY KEY, permission_key TEXT NOT NULL UNIQUE, name TEXT);
+    CREATE TABLE IF NOT EXISTS user_roles (user_id TEXT NOT NULL REFERENCES users(id), role_id TEXT NOT NULL REFERENCES roles(id), PRIMARY KEY(user_id, role_id));
+    CREATE TABLE IF NOT EXISTS role_permissions (role_id TEXT NOT NULL REFERENCES roles(id), permission_id TEXT NOT NULL REFERENCES permissions(id), PRIMARY KEY(role_id, permission_id));
+    CREATE TABLE IF NOT EXISTS node_scope_assignments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      role_id TEXT NOT NULL REFERENCES roles(id),
+      node_id TEXT NOT NULL REFERENCES nodes(id),
+      assignment_effect TEXT NOT NULL CHECK (assignment_effect IN ('allow','deny')),
+      propagation TEXT NOT NULL CHECK (propagation IN ('self','subtree'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_scope_assignments_user ON node_scope_assignments(user_id, node_id);
   `);
 }
