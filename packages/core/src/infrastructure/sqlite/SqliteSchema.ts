@@ -97,5 +97,17 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       propagation TEXT NOT NULL CHECK (propagation IN ('self','subtree'))
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_scope_assignments_user ON node_scope_assignments(user_id, node_id);
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      actor_user_id TEXT,
+      action_key TEXT NOT NULL,
+      resource_kind TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      node_id TEXT,
+      before_payload TEXT,
+      after_payload TEXT,
+      occurred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_audit_occurred_at ON audit_logs(occurred_at DESC);
   `);
 }

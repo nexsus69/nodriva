@@ -433,3 +433,4 @@ export { NodeTypeRepositorySqlite } from './infrastructure/sqlite/NodeTypeReposi
 export { EntityTypeRepositorySqlite } from './infrastructure/sqlite/EntityTypeRepositorySqlite.js';
 export { EntityRepositorySqlite } from './infrastructure/sqlite/EntityRepositorySqlite.js';
 export { AccessControlPortSqlite } from './infrastructure/sqlite/AccessControlPortSqlite.js';
+export { AuditPortSqlite } from './infrastructure/sqlite/AuditPortSqlite.js';
