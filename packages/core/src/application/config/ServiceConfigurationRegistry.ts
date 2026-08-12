@@ -5,7 +5,8 @@ export type ServiceConfigurationKey =
   | 'antivirus'
   | 'mail'
   | 'backup'
-  | 'observability';
+  | 'observability'
+  | 'security-keys';
 
 export type ServiceConfigurationValueType =
   | 'boolean'
@@ -226,6 +227,23 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
       key: 'prometheus',
       displayName: 'Prometheus',
       fields: [deploymentString('endpoint', 'Endpoint di raccolta metriche.')],
+    }],
+  },
+  {
+    key: 'security-keys',
+    displayName: 'Security keys',
+    providers: [{
+      key: 'environment',
+      displayName: 'Deployment secret environment',
+      fields: [
+        secretReference('fieldEncryptionKey', 'Chiave attiva per la cifratura dei campi.'),
+        secretReference('fieldEncryptionKeys', 'Keyring per la cifratura dei campi.'),
+        deploymentString('fieldEncryptionActiveVersion', 'Versione attiva del keyring dei campi.'),
+        secretReference('attachmentEncryptionKey', 'Chiave attiva per la cifratura degli allegati.'),
+        secretReference('attachmentEncryptionKeys', 'Keyring per la cifratura degli allegati.'),
+        deploymentString('attachmentEncryptionActiveVersion', 'Versione attiva del keyring degli allegati.'),
+        secretReference('mfaEncryptionKey', 'Chiave per la cifratura dei secret MFA.'),
+      ],
     }],
   },
 ]);

@@ -38,6 +38,7 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
       case 'mail': return this.mail();
       case 'backup': return this.backup();
       case 'observability': return this.observability();
+      case 'security-keys': return this.securityKeys();
     }
   }
 
@@ -118,6 +119,49 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
       ? { providerKey: 'prometheus', values: { endpoint: this.environment.PROMETHEUS_ENDPOINT } }
       : null;
   }
+
+  private securityKeys() {
+    const values = {
+      ...(this.environment.FIELD_ENCRYPTION_KEY ? { fieldEncryptionKey: 'secret://env/FIELD_ENCRYPTION_KEY' } : {}),
+      ...(this.environment.FIELD_ENCRYPTION_KEYS ? { fieldEncryptionKeys: 'secret://env/FIELD_ENCRYPTION_KEYS' } : {}),
+      ...(this.environment.FIELD_ENCRYPTION_ACTIVE_VERSION ? { fieldEncryptionActiveVersion: this.environment.FIELD_ENCRYPTION_ACTIVE_VERSION } : {}),
+      ...(this.environment.ATTACHMENTS_ENCRYPTION_KEY ? { attachmentEncryptionKey: 'secret://env/ATTACHMENTS_ENCRYPTION_KEY' } : {}),
+      ...(this.environment.ATTACHMENTS_ENCRYPTION_KEYS ? { attachmentEncryptionKeys: 'secret://env/ATTACHMENTS_ENCRYPTION_KEYS' } : {}),
+      ...(this.environment.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION ? { attachmentEncryptionActiveVersion: this.environment.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION } : {}),
+      ...(this.environment.MFA_ENCRYPTION_KEY ? { mfaEncryptionKey: 'secret://env/MFA_ENCRYPTION_KEY' } : {}),
+    };
+    return Object.keys(values).length > 0 ? { providerKey: 'environment', values } : null;
+  }
+}
+
+export interface SecurityKeyConfiguration {
+  fieldEncryptionKey?: string;
+  fieldEncryptionKeys?: string;
+  fieldEncryptionActiveVersion?: string;
+  attachmentEncryptionKey?: string;
+  attachmentEncryptionKeys?: string;
+  attachmentEncryptionActiveVersion?: string;
+  mfaEncryptionKey?: string;
+}
+
+/** Resolves deployment-only encryption secrets for server-side adapter construction. */
+export function getSecurityKeyConfiguration(environment: Environment = process.env): SecurityKeyConfiguration {
+  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('security-keys');
+  const values: Readonly<Record<string, unknown>> = source?.providerKey === 'environment' ? source.values : {};
+  const resolver = new EnvironmentSecretReferenceResolver(environment);
+  const resolve = (key: string) => {
+    const reference = values[key];
+    return typeof reference === 'string' ? resolver.resolveSync(reference) ?? undefined : undefined;
+  };
+  return {
+    fieldEncryptionKey: resolve('fieldEncryptionKey'),
+    fieldEncryptionKeys: resolve('fieldEncryptionKeys'),
+    fieldEncryptionActiveVersion: typeof values.fieldEncryptionActiveVersion === 'string' ? values.fieldEncryptionActiveVersion : undefined,
+    attachmentEncryptionKey: resolve('attachmentEncryptionKey'),
+    attachmentEncryptionKeys: resolve('attachmentEncryptionKeys'),
+    attachmentEncryptionActiveVersion: typeof values.attachmentEncryptionActiveVersion === 'string' ? values.attachmentEncryptionActiveVersion : undefined,
+    mfaEncryptionKey: resolve('mfaEncryptionKey'),
+  };
 }
 
 /** Resolves only explicit secret references and never exposes the environment map. */

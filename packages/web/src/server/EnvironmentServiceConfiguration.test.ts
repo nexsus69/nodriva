@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EnvironmentSecretReferenceResolver,
   EnvironmentServiceDeploymentConfigurationSource,
+  getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
 
 describe('Environment service configuration', () => {
@@ -40,5 +41,24 @@ describe('Environment service configuration', () => {
     await expect(resolver.resolve('secret://file/PUSHER_SECRET')).resolves.toBeNull();
     await expect(resolver.resolve('secret://env/MISSING')).resolves.toBeNull();
     await expect(resolver.resolve('secret://env/DATABASE_URL_PASSWORD')).resolves.toBe('database-password');
+  });
+
+  it('resolves security keys only for server-side adapter construction', () => {
+    const configuration = getSecurityKeyConfiguration({
+      FIELD_ENCRYPTION_KEY: '11'.repeat(32),
+      FIELD_ENCRYPTION_ACTIVE_VERSION: 'v2',
+      ATTACHMENTS_ENCRYPTION_KEYS: 'v1=' + '22'.repeat(32),
+      MFA_ENCRYPTION_KEY: '33'.repeat(32),
+    });
+
+    expect(configuration).toEqual({
+      fieldEncryptionKey: '11'.repeat(32),
+      fieldEncryptionKeys: undefined,
+      fieldEncryptionActiveVersion: 'v2',
+      attachmentEncryptionKey: undefined,
+      attachmentEncryptionKeys: 'v1=' + '22'.repeat(32),
+      attachmentEncryptionActiveVersion: undefined,
+      mfaEncryptionKey: '33'.repeat(32),
+    });
   });
 });

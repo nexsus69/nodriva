@@ -10,7 +10,7 @@ const HEADER = 'DASHFIELD1';
 export class FieldEncryptionService {
   private readonly keyring: EncryptionKeyring;
 
-  constructor(private readonly executor: PgExecutor, private readonly config: ConfigService, keyHex = process.env.FIELD_ENCRYPTION_KEY ?? process.env.ATTACHMENTS_ENCRYPTION_KEY, keyringSpec = process.env.FIELD_ENCRYPTION_KEYS, activeVersion = process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1') {
+  constructor(private readonly executor: PgExecutor, private readonly config: ConfigService, keyHex?: string, keyringSpec?: string, activeVersion = 'v1') {
     this.keyring = new EncryptionKeyring(keyHex, keyringSpec, activeVersion, 'FIELD_ENCRYPTION_KEY');
   }
 

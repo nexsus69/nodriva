@@ -72,6 +72,7 @@ import {
   EnvironmentSecretReferenceResolver,
   getRealtimePusherConfiguration,
   EnvironmentServiceDeploymentConfigurationSource,
+  getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
 
@@ -95,6 +96,7 @@ const pool = new pg.Pool({
 export const pgExecutor = new PgExecutor(pool);
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
+const securityKeys = getSecurityKeyConfiguration();
 const realtimePusherConfiguration = getRealtimePusherConfiguration(process.env, 'internal');
 
 const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
@@ -197,7 +199,13 @@ export const configService = new ConfigService(
   defaultConfigurationRegistry,
 );
 export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
-export const fieldEncryptionService = new FieldEncryptionService(pgExecutor, configService);
+export const fieldEncryptionService = new FieldEncryptionService(
+  pgExecutor,
+  configService,
+  securityKeys.fieldEncryptionKey,
+  securityKeys.fieldEncryptionKeys,
+  securityKeys.fieldEncryptionActiveVersion ?? 'v1',
+);
 export const revisionPort = new RevisionPortPostgres(pgExecutor, fieldEncryptionService);
 
 // Repository PostgreSQL
@@ -217,6 +225,9 @@ const attachmentStorageValues: Readonly<Record<string, unknown>> = attachmentSto
   : {};
 export const attachmentStorage = new LocalAttachmentStorage(
   typeof attachmentStorageValues.path === 'string' ? attachmentStorageValues.path : undefined,
+  securityKeys.attachmentEncryptionKey,
+  securityKeys.attachmentEncryptionKeys,
+  securityKeys.attachmentEncryptionActiveVersion ?? 'v1',
 );
 export const deletedResourcePurgeService = new DeletedResourcePurgeService(
   pgExecutor,
@@ -253,8 +264,8 @@ export const accountActionDelivery = typeof mailValues.endpoint === 'string'
     )
   : undefined;
 export const mfaTotpPort = new MfaTotpPortPostgres(pgExecutor);
-export const mfaTotpService = process.env.MFA_ENCRYPTION_KEY
-  ? new MfaTotpApplicationService(mfaTotpPort, auditPort, process.env.MFA_ENCRYPTION_KEY)
+export const mfaTotpService = securityKeys.mfaEncryptionKey
+  ? new MfaTotpApplicationService(mfaTotpPort, auditPort, securityKeys.mfaEncryptionKey)
   : undefined;
 
 // Registry degli schemi ed invalidazione

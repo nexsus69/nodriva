@@ -32,11 +32,13 @@ Attualmente:
 - esistono il registry descrittivo, il resolver applicativo, il repository
   PostgreSQL versionato per i valori runtime e la sorgente environment collegata
   al composition root Web;
-- i provider applicativi esistenti leggono ancora direttamente alcune variabili
-  environment: il registry non è quindi ancora l'unico punto di risoluzione;
-- gli healthcheck reali e i provider sostituibili non sono ancora collegati al
-  registry operativo;
-- il registry applicativo ha checker concreti per PostgreSQL, Soketi e ClamAV;
+- il composition root Web risolve ora anche le chiavi di cifratura dei campi,
+  degli allegati e dell'MFA tramite il servizio `security-keys`; i valori restano
+  secret di deployment e non vengono persistiti nella configurazione runtime;
+- alcuni valori di bootstrap restano necessariamente letti prima del container
+  applicativo, in particolare `DATABASE_URL` e la policy del ruolo PostgreSQL;
+- il registry applicativo ha checker concreti per PostgreSQL, Soketi e ClamAV,
+  collegati al servizio di healthcheck;
   gli altri provider restano `not-configured` finché non viene aggiunto il
   relativo adapter;
 - non è ancora disponibile un profilo standalone affidabile con il solo Node.
