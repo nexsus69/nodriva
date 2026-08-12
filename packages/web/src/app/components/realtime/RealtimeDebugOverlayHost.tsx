@@ -6,7 +6,8 @@ import type { RealtimeDebugEvent } from '../../cache/RealtimeCacheBridge';
 import { RealtimeDebugOverlay } from './RealtimeDebugOverlay';
 
 export function RealtimeDebugOverlayHost() {
-  const enabled = process.env.NEXT_PUBLIC_REALTIME_DEBUG === 'true';
+  const enabled = process.env.NEXT_PUBLIC_DEBUG_OVERLAYS === 'true'
+    && process.env.NEXT_PUBLIC_REALTIME_DEBUG === 'true';
   const [events, setEvents] = useState<RealtimeDebugEvent[]>(() => AppCache.getRealtimeDebugEvents());
   const [connectionState, setConnectionState] = useState(() => AppCache.getRealtimeConnectionState());
 

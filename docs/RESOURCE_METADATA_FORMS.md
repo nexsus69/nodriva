@@ -21,7 +21,7 @@ label, obbligatorietà, valori e submit.
 | `json` | textarea | Payload JSON multilinea |
 | `array` | textarea | Rappresentazione serializzata dell’array |
 | `enum` | select | Opzioni fornite dai metadati |
-| `relation` | select | Target e opzioni forniti dal coordinator |
+| `relation` | ricerca + select | Target dichiarato dal metadata; risultati filtrati dal resolver e dagli scope |
 | `file` | selettore allegati | Documenti collegati al campo; storage separato |
 | `image` | selettore immagini | Immagini collegate al campo; storage separato |
 
@@ -34,6 +34,20 @@ richiesto (`file`/`image`) non corrisponde al metadata.
 
 `timestamp` è accettato come alias compatibile per `datetime` nei dati già
 presenti nel sistema.
+
+## Relazioni tra risorse
+
+Un campo `relation` dichiara esplicitamente il dominio (`node` oppure
+`entity`) e il `typeKey` del tipo target. Il frontend usa il resolver comune
+per cercare risorse in tutti i nodi leggibili, mostrando anche il percorso del
+nodo; non limita più la scelta ai fratelli della risorsa corrente. Il backend
+verifica nuovamente che il target esista, appartenga al tipo dichiarato e sia
+leggibile dall’utente, sia in creazione sia in modifica. Un riferimento non
+autorizzato viene quindi rifiutato anche se inviato direttamente all’API.
+
+La relazione conserva solo l’identificativo della risorsa. Il valore mostrato
+nel dettaglio viene risolto con lo stesso controllo ACL e può collegare alla
+pagina dell’entità target anche quando questa appartiene a un altro nodo.
 
 ## Allegati
 

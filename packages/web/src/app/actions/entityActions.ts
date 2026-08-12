@@ -4,6 +4,7 @@ import { AuthResolver } from './auth/AuthResolver';
 import { runWithRealtimeOutbox } from '../../server/realtime';
 import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 import { withSafeActionErrors } from './errorMapping';
+import { validateRelationPayload } from './relationActions';
 interface CreateEntityActionInput {
   parentNodeId: string;
   entityTypeKey?: string;
@@ -40,6 +41,7 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     throw new Error('entityTypeKey is required');
   }
   const identity = await AuthResolver.resolveActorIdentity();
+  await validateRelationPayload(identity.userId, entityTypeKey, input.payload || input.payloadDelta || {});
   const cmd = {
     actorUserId: identity.userId,
     actorSessionId: identity.sessionId,
@@ -82,6 +84,11 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
     throw new Error('expectedRowVersion is required');
   }
   const identity = await AuthResolver.resolveActorIdentity();
+  const current = await entityService.getEntityById(entityId, identity.userId);
+  const currentType = await (await import('../../server/db')).entityTypeRepository.findById(current.entityTypeId);
+  if (currentType) {
+    await validateRelationPayload(identity.userId, currentType.typeKey, { ...current.payload, ...(input.payloadDelta || input.payload || {}) });
+  }
   const cmd = {
     actorUserId: identity.userId,
     actorSessionId: identity.sessionId,

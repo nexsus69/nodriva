@@ -1,5 +1,7 @@
 export { DynamicFieldsForm } from './DynamicFieldsForm';
 export type { DynamicField, DynamicFieldsFormProps } from './DynamicFieldsForm';
+export { RelationPicker } from './RelationPicker';
+export { RelationValue } from './RelationValue';
 export { EnumOptionModal } from './EnumOptionModal';
 export type { EnumOptionModalProps, ManagedEnumOption } from './EnumOptionModal';
 export { FormRenderer } from './FormRenderer';

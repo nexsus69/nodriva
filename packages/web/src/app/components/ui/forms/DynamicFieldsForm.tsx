@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { ClientEntity, EntityTypeMeta } from '../../../types/models';
-import type { ResourceTypeReference } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
+import { RelationPicker } from './RelationPicker';
 
 export type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 type EnumOption = { value: string; label: string; isActive: boolean };
@@ -32,7 +32,6 @@ export function DynamicFieldsForm({
   payload,
   setPayload,
   entityTypes,
-  siblingEntities,
   onCreateRelation,
   onAddEnumOption,
   title = 'Campi dinamici',
@@ -49,13 +48,7 @@ export function DynamicFieldsForm({
       {fields.map((field) => {
         const dataType = field.dataType.toLowerCase();
         if (dataType === 'file' || dataType === 'image') return null;
-        const relationTarget: ResourceTypeReference | null = field.relationTargetDomain && field.relationTargetTypeKey
-          ? { resourceType: field.relationTargetDomain, typeKey: field.relationTargetTypeKey }
-          : null;
-        const targetType = entityTypes?.find((type) => type.typeKey === relationTarget?.typeKey || type.id === relationTarget?.typeKey);
-        const relationOptions = targetType && siblingEntities
-          ? siblingEntities.filter((entity) => entity.entityTypeId === targetType.id || entity.entityTypeId === targetType.typeKey)
-          : [];
+        const targetType = entityTypes?.find((type) => type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey);
 
         if (dataType === 'boolean') {
           return (
@@ -77,14 +70,10 @@ export function DynamicFieldsForm({
                 </select>
                 {field.enumMode === 'managed' && onAddEnumOption && <button type="button" onClick={() => onAddEnumOption(field)} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">+ Aggiungi opzione</button>}
               </>
-            ) : dataType === 'relation' && entityTypes && siblingEntities ? (
+            ) : dataType === 'relation' && field.relationTargetDomain && field.relationTargetTypeKey ? (
               <>
-                <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100">
-                  <option value="">Seleziona un valore</option>
-                  {relationOptions.map((entity) => <option key={entity.id} value={entity.id}>{entity.name}</option>)}
-                </select>
+                <RelationPicker fieldKey={field.fieldKey} label={field.label ?? field.fieldKey} value={payload[field.fieldKey]} required={field.isRequired} resourceType={field.relationTargetDomain} typeKey={field.relationTargetTypeKey} onChange={(value) => updateValue(field.fieldKey, value)} />
                 {field.relationTargetDomain === 'entity' && targetType && onCreateRelation && <button type="button" onClick={() => onCreateRelation(field)} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">+ Crea nuova istanza di {targetType.name}</button>}
-                {field.relationTargetDomain === 'node' && <p className="mt-1 text-xs text-slate-500">Selezione nodi non ancora disponibile in questo form.</p>}
               </>
             ) : (
               <input required={field.isRequired} type={NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text'} step={dataType !== 'integer' ? 'any' : undefined} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100" />

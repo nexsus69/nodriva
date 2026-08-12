@@ -17,7 +17,7 @@ import { useSemanticEntityCollection } from '../../../../hooks/useSemanticEntity
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { LoadingState } from '../../../../components/ui/feedback';
 import { EntityResourceMenu } from '../../../../components/ui/menu';
-import { AttachmentInput, AttachmentList, DynamicFieldsForm, type DynamicField } from '../../../../components/ui/forms';
+import { AttachmentInput, AttachmentList, DynamicFieldsForm, RelationValue, type DynamicField } from '../../../../components/ui/forms';
 import { uploadResourceAttachment } from '../../../../attachments/attachmentClient';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
@@ -50,15 +50,6 @@ export default function EntityDetailPage() {
   } = useLock({ resourceType: 'entity', resourceId: entityId });
 
   const entityType = entity ? entityTypes[entity.entityTypeId] : undefined;
-
-  const relationCandidates = (field: DynamicField) => {
-    if (field.relationTargetDomain !== 'entity' || !field.relationTargetTypeKey) return [];
-    const targetType = entityTypes[field.relationTargetTypeKey];
-    return siblingEntities.filter((candidate) => (
-      candidate.entityTypeId === field.relationTargetTypeKey
-      || candidate.entityTypeId === targetType?.id
-    ));
-  };
 
   useEffect(() => {
     if (!entity || !entityType?.typeKey) return;
@@ -232,6 +223,7 @@ export default function EntityDetailPage() {
               <dt className="mb-2 text-slate-500">Campi</dt>
               <dd className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {(fields.length > 0 ? fields : Object.keys(entity.payload ?? {}).map((fieldKey) => ({ fieldKey, label: fieldKey, dataType: 'string' }))).filter((field) => !['file', 'image'].includes(field.dataType.toLowerCase())).map((field) => {
+                  const dynamicField = field as DynamicField;
                   const value = entity.payload?.[field.fieldKey];
                   const enumLabel = field.dataType === 'enum'
                     ? (field as DynamicField).enumOptions?.find((option) => option.value === String(value))?.label
@@ -240,12 +232,7 @@ export default function EntityDetailPage() {
                     <div key={field.fieldKey} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                       <div className="text-[10px] uppercase tracking-wider text-slate-500">{field.label ?? field.fieldKey}</div>
                       <div className={`mt-1 break-words text-slate-200 ${field.dataType === 'relation' ? 'font-mono text-[11px]' : ''}`}>
-                        {field.dataType === 'relation' && typeof value === 'string' ? (() => {
-                          const related = relationCandidates(field as DynamicField).find((candidate) => candidate.id === value);
-                          return related
-                            ? <Link href={`/nodes/${related.parentNodeId}/entities/${related.id}`} className="text-indigo-300 hover:text-indigo-200">{related.name} →</Link>
-                            : value;
-                        })() : value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : enumLabel ?? String(value)}
+                        {field.dataType === 'relation' && typeof value === 'string' && dynamicField.relationTargetDomain && dynamicField.relationTargetTypeKey ? <RelationValue value={value} resourceType={dynamicField.relationTargetDomain} typeKey={dynamicField.relationTargetTypeKey} /> : value === null || value === undefined || value === '' ? '—' : typeof value === 'boolean' ? (value ? 'Sì' : 'No') : enumLabel ?? String(value)}
                       </div>
                     </div>
                   );
