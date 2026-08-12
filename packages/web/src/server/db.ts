@@ -70,6 +70,7 @@ import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
 import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecurityPolicyResolver';
 import {
   EnvironmentSecretReferenceResolver,
+  getRealtimePusherConfiguration,
   EnvironmentServiceDeploymentConfigurationSource,
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
@@ -94,9 +95,7 @@ const pool = new pg.Pool({
 export const pgExecutor = new PgExecutor(pool);
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
-const realtimeDeploymentValues: Readonly<Record<string, unknown>> = deploymentConfigurationSource.getSync('realtime')?.providerKey === 'soketi'
-  ? deploymentConfigurationSource.getSync('realtime')!.values
-  : {};
+const realtimePusherConfiguration = getRealtimePusherConfiguration(process.env, 'internal');
 
 const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
 export const realtimeMetrics = new RealtimeMetrics();
@@ -124,16 +123,9 @@ export const transactionPort = new TransactionPortPostgres(pool);
 export const auditPort = new AuditPortPostgres(pgExecutor);
 export const lockRepository = new LockRepositoryPostgres(pgExecutor);
 export const pusherEventBus = new PusherEventBus({
-  appId: String(realtimeDeploymentValues.appId ?? ''),
-  key: String(realtimeDeploymentValues.appKey ?? ''),
-  secret: deploymentSecretResolver.resolveSync(String(realtimeDeploymentValues.appSecret ?? '')) ?? '',
-  cluster: String(realtimeDeploymentValues.cluster ?? ''),
+  ...realtimePusherConfiguration,
   // Il backend gira nella rete Docker: l'endpoint pubblico usato dal browser
   // non coincide necessariamente con quello raggiungibile dal server.
-  useTLS: realtimeDeploymentValues.internalScheme === 'https',
-  host: typeof realtimeDeploymentValues.internalHost === 'string' ? String(realtimeDeploymentValues.internalHost) : undefined,
-  port: typeof realtimeDeploymentValues.internalPort === 'number' ? String(realtimeDeploymentValues.internalPort) : undefined,
-  enabled: process.env.REALTIME_ENABLED !== 'false',
   isEnabled: isRealtimeCapabilityEnabled,
   resolveDataChannelNames: async (event) => {
     const startedAt = Date.now();

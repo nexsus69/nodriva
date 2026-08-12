@@ -131,3 +131,21 @@ export class EnvironmentSecretReferenceResolver implements SecretReferenceResolv
     return this.environment[match[1]!] ?? null;
   }
 }
+
+export function getRealtimePusherConfiguration(environment: Environment = process.env, perspective: 'public' | 'internal' = 'public') {
+  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('realtime');
+  const values: Readonly<Record<string, unknown>> = source?.providerKey === 'soketi' ? source.values : {};
+  const secrets = new EnvironmentSecretReferenceResolver(environment);
+  const host = perspective === 'internal' ? values.internalHost : values.publicHost;
+  const port = perspective === 'internal' ? values.internalPort : values.publicPort;
+  return {
+    appId: String(values.appId ?? ''),
+    key: String(values.appKey ?? ''),
+    secret: secrets.resolveSync(String(values.appSecret ?? '')) ?? '',
+    cluster: String(values.cluster ?? ''),
+    useTLS: perspective === 'internal' ? values.internalScheme === 'https' : values.scheme === 'https',
+    host: typeof host === 'string' && host.length > 0 ? host : undefined,
+    port: typeof port === 'number' ? String(port) : undefined,
+    enabled: environment.REALTIME_ENABLED !== 'false',
+  };
+}

@@ -2,19 +2,12 @@ import { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
 import PusherServer from 'pusher';
 import { AppError, getRealtimeDataChannelName, getRealtimeLockChannelName } from '@dashboard/core';
+import { getRealtimePusherConfiguration } from '../../../../server/EnvironmentServiceConfiguration';
 
 const POLICY_CHANNEL_PATTERN =
   /^private-realtime-policy-([0-9a-f]{32})-(data|locks)$/i;
 
-const pusher = new PusherServer({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || '',
-  useTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
-  host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
-  port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
-});
+const pusher = new PusherServer(getRealtimePusherConfiguration(process.env, 'public'));
 
 export const POST = auth(async (req) => {
   const { isRealtimeCapabilityEnabled } = await import('../../../../server/db');

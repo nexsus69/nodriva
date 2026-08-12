@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
 import PusherServer from 'pusher';
 import { auth } from '../../../../auth';
+import { getRealtimePusherConfiguration } from '../../../../server/EnvironmentServiceConfiguration';
 
-const pusher = new PusherServer({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || '',
-  useTLS: process.env.NEXT_PUBLIC_PUSHER_SCHEME === 'https',
-  host: process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
-  port: process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
-});
+const pusher = new PusherServer(getRealtimePusherConfiguration(process.env, 'public'));
 
 /** Enables forced disconnects after an ACL or account-state revocation. */
 export const POST = auth(async (req) => {
