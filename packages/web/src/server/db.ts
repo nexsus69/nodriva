@@ -211,7 +211,13 @@ export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRea
 export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
 export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
 export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
-export const attachmentStorage = new LocalAttachmentStorage();
+const attachmentStorageDeployment = deploymentConfigurationSource.getSync('attachment-storage');
+const attachmentStorageValues: Readonly<Record<string, unknown>> = attachmentStorageDeployment?.providerKey === 'filesystem'
+  ? attachmentStorageDeployment.values
+  : {};
+export const attachmentStorage = new LocalAttachmentStorage(
+  typeof attachmentStorageValues.path === 'string' ? attachmentStorageValues.path : undefined,
+);
 export const deletedResourcePurgeService = new DeletedResourcePurgeService(
   pgExecutor,
   transactionPort,
@@ -226,8 +232,13 @@ export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicy
   nodeRepository,
   entityRepository,
 );
-export const attachmentScanner: AttachmentScannerPort | undefined = process.env.CLAMAV_HOST
-  ? new ClamAvAttachmentScanner()
+const antivirusDeployment = deploymentConfigurationSource.getSync('antivirus');
+const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.providerKey === 'clamav'
+  ? antivirusDeployment.values
+  : {};
+export const attachmentScanner: AttachmentScannerPort | undefined = typeof antivirusValues.host === 'string'
+  && typeof antivirusValues.port === 'number'
+  ? new ClamAvAttachmentScanner(String(antivirusValues.host), antivirusValues.port)
   : undefined;
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
