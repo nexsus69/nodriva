@@ -69,6 +69,8 @@ describe('ServiceConfigurationService', () => {
     expect(repository.setRuntimeValues).toHaveBeenCalledWith('realtime', 'soketi', { enabled: false }, 1);
     await expect(service.setRuntimeValues('realtime', 'soketi', { internalHost: 'other' }, 1))
       .rejects.toThrow('not runtime-editable');
+    await expect(service.setRuntimeValues('realtime', 'pusher', { enabled: false }, 1))
+      .rejects.toThrow('not registered');
   });
 
   it('rejects unresolved secret references and invalid providers', async () => {

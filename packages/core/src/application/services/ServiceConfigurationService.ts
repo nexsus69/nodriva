@@ -55,6 +55,10 @@ export class ServiceConfigurationService {
   ): Promise<ServiceRuntimeConfigurationRecord> {
     const definition = this.registry.get(serviceKey);
     const provider = this.provider(definition, providerKey);
+    const deployment = await this.deployment.get(serviceKey);
+    if (deployment && deployment.providerKey !== providerKey) {
+      throw new ServiceConfigurationValidationError(`Provider '${providerKey}' is deployment-managed for service '${serviceKey}'.`);
+    }
     const allowedRuntimeFields = provider.fields.filter((field) => field.source === 'runtime');
     const allowedKeys = new Set(allowedRuntimeFields.map((field) => field.key));
     for (const key of Object.keys(values)) {
