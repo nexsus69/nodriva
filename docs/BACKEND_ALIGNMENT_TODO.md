@@ -140,6 +140,9 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   with long emails, UUIDs, labels, action buttons, dynamic fields and
   validation errors; add visual regression coverage for shared primitives.
 
+The responsive navigation and breadcrumb behavior is documented in
+[`RESPONSIVE_UI.md`](./RESPONSIVE_UI.md).
+
 ## P1 — Server Action error UX
 
 - [ ] Replace the generic production message shown when a Server Action
