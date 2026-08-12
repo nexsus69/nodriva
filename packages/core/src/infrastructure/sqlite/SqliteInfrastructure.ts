@@ -16,6 +16,7 @@ import { LoginRateLimitPortSqlite } from './LoginRateLimitPortSqlite.js';
 import { AccountActionTokenPortSqlite } from './AccountActionTokenPortSqlite.js';
 import { UserRepositorySqlite } from './UserRepositorySqlite.js';
 import { TransactionPortSqlite } from './TransactionPortSqlite.js';
+import { StorageTableManagementSqlite } from './StorageTableManagementSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -36,6 +37,7 @@ export class SqliteInfrastructure {
   readonly loginRateLimitPort: LoginRateLimitPortSqlite;
   readonly accountActionTokenPort: AccountActionTokenPortSqlite;
   readonly userRepository: UserRepositorySqlite;
+  readonly storageTableManagement: StorageTableManagementSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -56,6 +58,7 @@ export class SqliteInfrastructure {
     this.loginRateLimitPort = new LoginRateLimitPortSqlite(this.database);
     this.accountActionTokenPort = new AccountActionTokenPortSqlite(this.database);
     this.userRepository = new UserRepositorySqlite(this.database);
+    this.storageTableManagement = new StorageTableManagementSqlite(this.database);
   }
 
   close(): void { this.database.close(); }

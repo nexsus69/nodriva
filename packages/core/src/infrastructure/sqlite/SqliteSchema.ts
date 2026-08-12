@@ -175,5 +175,16 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       event_id TEXT PRIMARY KEY, event_payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       published_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT, locked_by TEXT, last_error TEXT
     );
+    CREATE TABLE IF NOT EXISTS entity_type_fields (
+      entity_type_id TEXT NOT NULL REFERENCES entity_types(id) ON DELETE CASCADE,
+      field_key TEXT NOT NULL,
+      column_name TEXT NOT NULL,
+      data_type TEXT NOT NULL,
+      is_required INTEGER NOT NULL DEFAULT 0,
+      is_unique INTEGER NOT NULL DEFAULT 0,
+      default_value TEXT,
+      PRIMARY KEY(entity_type_id, field_key),
+      UNIQUE(entity_type_id, column_name)
+    );
   `);
 }

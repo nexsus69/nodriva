@@ -443,3 +443,4 @@ export { UserRepositorySqlite } from './infrastructure/sqlite/UserRepositorySqli
 export { RevisionPortSqlite } from './infrastructure/sqlite/RevisionPortSqlite.js';
 export { RealtimeOutboxSqlite } from './infrastructure/sqlite/RealtimeOutboxSqlite.js';
 export { SqliteInfrastructure } from './infrastructure/sqlite/SqliteInfrastructure.js';
+export { StorageTableManagementSqlite } from './infrastructure/sqlite/StorageTableManagementSqlite.js';
