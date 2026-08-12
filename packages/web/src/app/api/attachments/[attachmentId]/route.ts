@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
-import { authenticatedUser, assertAttachmentAccess, assertAttachmentField } from '../attachmentAccess';
+import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, isAttachmentAccessDenied } from '../attachmentAccess';
 import { publishAuditRealtimeChange } from '../../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../../server/realtime';
 
@@ -40,6 +40,7 @@ export const GET = auth(async (request, context: { params: Promise<{ attachmentI
       'Cache-Control': 'private, no-store',
     } });
   } catch (error) {
+    if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     console.error('[Attachments] Download failed', error);
     return NextResponse.json({ error: 'ATTACHMENT_DOWNLOAD_FAILED' }, { status: 500 });
   }
@@ -71,6 +72,7 @@ export const DELETE = auth(async (request, context: { params: Promise<{ attachme
       .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ deleted: true });
   } catch (error) {
+    if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     console.error('[Attachments] Delete failed', error);
     return NextResponse.json({ error: 'ATTACHMENT_DELETE_FAILED' }, { status: 500 });
   }

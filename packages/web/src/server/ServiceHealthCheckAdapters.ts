@@ -25,7 +25,8 @@ function result(
 export class PostgresHealthCheck implements ServiceHealthCheckPort {
   constructor(private readonly executor: PgExecutor) {}
 
-  async check(serviceKey: ServiceHealthCheckResult['serviceKey'], providerKey: string, _values: Readonly<Record<string, unknown>>): Promise<ServiceHealthCheckResult> {
+  async check(serviceKey: ServiceHealthCheckResult['serviceKey'], providerKey: string, values: Readonly<Record<string, unknown>>): Promise<ServiceHealthCheckResult> {
+    void values;
     const startedAt = Date.now();
     try {
       await this.executor.query('SELECT 1');
@@ -39,7 +40,8 @@ export class PostgresHealthCheck implements ServiceHealthCheckPort {
 export class SqliteHealthCheck implements ServiceHealthCheckPort {
   constructor(private readonly database: SqliteDatabase) {}
 
-  async check(serviceKey: ServiceHealthCheckResult['serviceKey'], providerKey: string, _values: Readonly<Record<string, unknown>>): Promise<ServiceHealthCheckResult> {
+  async check(serviceKey: ServiceHealthCheckResult['serviceKey'], providerKey: string, values: Readonly<Record<string, unknown>>): Promise<ServiceHealthCheckResult> {
+    void values;
     const startedAt = Date.now();
     try {
       this.database.get('SELECT 1');

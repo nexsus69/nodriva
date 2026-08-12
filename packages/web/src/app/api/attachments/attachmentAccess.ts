@@ -1,4 +1,5 @@
 import type { TypeDomain } from '@dashboard/core';
+import { AppError } from '@dashboard/core';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,4 +52,14 @@ export function authenticatedUser(request: { auth?: { userId?: string } | null }
 
 export function attachmentPermission(resourceType: TypeDomain, access: 'read' | 'write'): string {
   return `${resourceType}.${access === 'write' ? 'edit' : 'read'}`;
+}
+
+/**
+ * Attachment endpoints deliberately hide the existence of resources from
+ * callers without the corresponding scope.  Repositories return `null` for
+ * missing resources, while ACL checks raise ACCESS_FORBIDDEN; both cases must
+ * have the same HTTP response.
+ */
+export function isAttachmentAccessDenied(error: unknown): boolean {
+  return error instanceof AppError && error.code === 'ACCESS_FORBIDDEN';
 }

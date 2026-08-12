@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { attachmentPermission, parseAttachmentTarget } from './attachmentAccess';
+import { AppError } from '@dashboard/core';
+import { attachmentPermission, isAttachmentAccessDenied, parseAttachmentTarget } from './attachmentAccess';
 
 describe('attachment permissions', () => {
   it('separates read access from write access', () => {
@@ -27,5 +28,13 @@ describe('parseAttachmentTarget', () => {
       fieldKey: 'attachments',
       kind: 'file',
     })).toBeNull();
+  });
+});
+
+describe('attachment access error mapping', () => {
+  it('maps forbidden access to the resource-not-found policy', () => {
+    expect(isAttachmentAccessDenied(new AppError('ACCESS_FORBIDDEN', 'denied'))).toBe(true);
+    expect(isAttachmentAccessDenied(new AppError('RESOURCE_NOT_FOUND', 'missing'))).toBe(false);
+    expect(isAttachmentAccessDenied(new Error('unexpected'))).toBe(false);
   });
 });

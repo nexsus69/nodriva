@@ -23,8 +23,14 @@ export const POST = auth(async (request) => {
     return NextResponse.json({ error: 'INVALID_RESOURCE' }, { status: 400 });
   }
 
+  let validatedType: ReturnType<typeof validateLockResource>;
   try {
-    const validatedType = validateLockResource(resourceType, resourceId);
+    validatedType = validateLockResource(resourceType, resourceId);
+  } catch {
+    return NextResponse.json({ error: 'INVALID_RESOURCE' }, { status: 400 });
+  }
+
+  try {
     const { lockService } = await import('../../../../server/db');
     await lockService.unlock(resourceReference(validatedType, resourceId), userId, sessionId);
     return NextResponse.json({ success: true });

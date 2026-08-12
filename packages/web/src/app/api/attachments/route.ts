@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
-import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, parseAttachmentTarget } from './attachmentAccess';
+import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, isAttachmentAccessDenied, parseAttachmentTarget } from './attachmentAccess';
 import { publishAuditRealtimeChange } from '../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../server/realtime';
 
@@ -24,6 +24,7 @@ export const GET = auth(async (request) => {
     const { attachmentRepository } = await import('../../../server/db');
     return NextResponse.json(await attachmentRepository.list(target.resourceType, target.resourceId, url.searchParams.get('fieldKey') ?? undefined));
   } catch (error) {
+    if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     console.error('[Attachments] List failed', error);
     return NextResponse.json({ error: 'ATTACHMENT_LIST_FAILED' }, { status: 500 });
   }
@@ -92,6 +93,7 @@ export const POST = auth(async (request) => {
       .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ id: attachmentId, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes });
   } catch (error) {
+    if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     console.error('[Attachments] Upload failed', error);
     return NextResponse.json({ error: 'ATTACHMENT_UPLOAD_FAILED' }, { status: 500 });
   }
