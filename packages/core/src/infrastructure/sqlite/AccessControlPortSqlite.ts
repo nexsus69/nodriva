@@ -34,7 +34,7 @@ export class AccessControlPortSqlite implements AccessControlPort {
     if (!node) return false;
     const deny = this.database.get(`SELECT 1 FROM node_scope_assignments a JOIN role_permissions rp ON rp.role_id=a.role_id WHERE a.user_id=? AND rp.permission_id=? AND a.assignment_effect='deny' AND ((a.node_id=? AND a.propagation='self') OR (a.propagation='subtree' AND EXISTS (SELECT 1 FROM node_hierarchy h WHERE h.ancestor_id=a.node_id AND h.descendant_id=?)))`, [user, permissionRow.id, node, node]);
     if (deny) return false;
-    const allow = this.database.get(`SELECT 1 FROM node_scope_assignments a JOIN role_permissions rp ON rp.role_id=a.role_id WHERE a.user_id=? AND rp.permission_id=? AND a.assignment_effect='allow' AND (? IS NULL OR (a.node_id=? AND (a.propagation='self' OR ?='subtree')) OR (a.propagation='subtree' AND EXISTS (SELECT 1 FROM node_hierarchy h WHERE h.ancestor_id=a.node_id AND h.descendant_id=?)))`, [user, permissionRow.id, requiredPropagation ?? null, node, requiredPropagation ?? null, node]);
+    const allow = this.database.get(`SELECT 1 FROM node_scope_assignments a JOIN role_permissions rp ON rp.role_id=a.role_id WHERE a.user_id=? AND rp.permission_id=? AND a.assignment_effect='allow' AND ((a.node_id=? AND (? IS NULL OR ?='self' OR a.propagation='subtree')) OR (a.propagation='subtree' AND EXISTS (SELECT 1 FROM node_hierarchy h WHERE h.ancestor_id=a.node_id AND h.descendant_id=?) AND (? IS NULL OR ?='subtree')))`, [user, permissionRow.id, node, requiredPropagation ?? null, requiredPropagation ?? null, node, requiredPropagation ?? null, requiredPropagation ?? null]);
     return !!allow;
   }
 }
