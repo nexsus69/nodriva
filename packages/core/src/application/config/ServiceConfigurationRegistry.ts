@@ -194,6 +194,7 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
         field('enabled', 'boolean', 'runtime', { required: false, secret: false, clientVisible: true, restartRequired: false }, 'Abilita la scansione antivirus.'),
         deploymentString('host', 'Hostname del servizio antivirus.'),
         field('port', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Porta del servizio antivirus.'),
+        field('timeoutMs', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Timeout della scansione antivirus.'),
         field('failClosed', 'boolean', 'runtime', { required: false, secret: false, clientVisible: true, restartRequired: false }, 'Rifiuta upload quando lo scanner non è disponibile.'),
       ],
     }],

@@ -252,7 +252,11 @@ const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.
   : {};
 export const attachmentScanner: AttachmentScannerPort | undefined = typeof antivirusValues.host === 'string'
   && typeof antivirusValues.port === 'number'
-  ? new ClamAvAttachmentScanner(String(antivirusValues.host), antivirusValues.port)
+  ? new ClamAvAttachmentScanner(
+      String(antivirusValues.host),
+      antivirusValues.port,
+      typeof antivirusValues.timeoutMs === 'number' ? antivirusValues.timeoutMs : undefined,
+    )
   : undefined;
 export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
 export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);

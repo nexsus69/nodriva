@@ -90,6 +90,7 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
         values: {
           host: this.environment.CLAMAV_HOST,
           ...(optionalPort(this.environment.CLAMAV_PORT) ? { port: optionalPort(this.environment.CLAMAV_PORT) } : {}),
+          ...(optionalPort(this.environment.CLAMAV_TIMEOUT_MS) ? { timeoutMs: optionalPort(this.environment.CLAMAV_TIMEOUT_MS) } : {}),
         },
       }
       : null;

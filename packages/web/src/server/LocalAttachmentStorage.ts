@@ -10,7 +10,7 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
   private readonly encryptionHeader = Buffer.from('DASHATT1');
   private readonly versionedEncryptionHeader = Buffer.from('DASHATT2');
 
-  constructor(rootDirectory: string = process.env.ATTACHMENTS_ROOT ?? path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex?: string, keyringSpec?: string, activeVersion = 'v1') {
+  constructor(rootDirectory: string = path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex?: string, keyringSpec?: string, activeVersion = 'v1') {
     this.rootDirectory = rootDirectory;
     this.keyring = new EncryptionKeyring(encryptionKeyHex, keyringSpec, activeVersion, 'ATTACHMENTS_ENCRYPTION_KEY');
     if (!this.keyring.hasKeys && process.env.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true') {

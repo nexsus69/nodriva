@@ -3,9 +3,9 @@ import type { AttachmentScannerPort, AttachmentScanResult } from '@dashboard/cor
 
 export class ClamAvAttachmentScanner implements AttachmentScannerPort {
   constructor(
-    private readonly host = process.env.CLAMAV_HOST ?? '127.0.0.1',
-    private readonly port = Number(process.env.CLAMAV_PORT ?? 3310),
-    private readonly timeoutMs = Number(process.env.CLAMAV_TIMEOUT_MS ?? 30_000),
+    private readonly host: string,
+    private readonly port: number,
+    private readonly timeoutMs = 30_000,
   ) {}
 
   async scan(content: Uint8Array): Promise<AttachmentScanResult> {
