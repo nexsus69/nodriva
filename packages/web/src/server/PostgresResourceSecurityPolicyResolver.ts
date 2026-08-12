@@ -6,6 +6,7 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     private readonly configService: ConfigService,
     private readonly nodeRepository: NodeRepository,
     private readonly entityRepository: EntityRepository,
+    private readonly requireScan = false,
   ) {}
 
   async resolve(resourceType: 'node' | 'entity', resourceId: string): Promise<ResourceSecurityPolicy> {
@@ -20,7 +21,7 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     const mode = nodePolicy.rows[0]?.encryption_mode ?? 'disabled';
     return {
       encryptionEnabled: encryptionGlobal && mode === 'enabled',
-      antivirusEnabled: antivirusGlobal || process.env.ATTACHMENTS_REQUIRE_SCAN === 'true',
+      antivirusEnabled: antivirusGlobal || this.requireScan,
     };
   }
 

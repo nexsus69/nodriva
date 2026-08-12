@@ -231,7 +231,12 @@ export const attachmentStorage = new LocalAttachmentStorage(
   securityKeys.attachmentEncryptionKey,
   securityKeys.attachmentEncryptionKeys,
   securityKeys.attachmentEncryptionActiveVersion ?? 'v1',
+  attachmentStorageValues.encryptionRequired === true,
 );
+const antivirusDeployment = deploymentConfigurationSource.getSync('antivirus');
+const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.providerKey === 'clamav'
+  ? antivirusDeployment.values
+  : {};
 export const deletedResourcePurgeService = new DeletedResourcePurgeService(
   pgExecutor,
   transactionPort,
@@ -245,11 +250,8 @@ export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicy
   configService,
   nodeRepository,
   entityRepository,
+  antivirusValues.requireScan === true,
 );
-const antivirusDeployment = deploymentConfigurationSource.getSync('antivirus');
-const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.providerKey === 'clamav'
-  ? antivirusDeployment.values
-  : {};
 export const attachmentScanner: AttachmentScannerPort | undefined = typeof antivirusValues.host === 'string'
   && typeof antivirusValues.port === 'number'
   ? new ClamAvAttachmentScanner(

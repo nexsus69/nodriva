@@ -171,7 +171,10 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
     providers: [{
       key: 'filesystem',
       displayName: 'Filesystem locale',
-      fields: [deploymentString('path', 'Percorso dello storage degli allegati.')],
+      fields: [
+        deploymentString('path', 'Percorso dello storage degli allegati.'),
+        field('encryptionRequired', 'boolean', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Rifiuta storage in chiaro quando manca una chiave.'),
+      ],
     }, {
       key: 's3-compatible',
       displayName: 'S3 compatible',
@@ -195,6 +198,7 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
         deploymentString('host', 'Hostname del servizio antivirus.'),
         field('port', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Porta del servizio antivirus.'),
         field('timeoutMs', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Timeout della scansione antivirus.'),
+        field('requireScan', 'boolean', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Richiede lo scanner per ogni allegato.'),
         field('failClosed', 'boolean', 'runtime', { required: false, secret: false, clientVisible: true, restartRequired: false }, 'Rifiuta upload quando lo scanner non è disponibile.'),
       ],
     }],

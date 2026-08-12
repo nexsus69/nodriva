@@ -79,7 +79,13 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
 
   private attachmentStorage() {
     return this.environment.ATTACHMENTS_ROOT
-      ? { providerKey: 'filesystem', values: { path: this.environment.ATTACHMENTS_ROOT } }
+      ? {
+        providerKey: 'filesystem',
+        values: {
+          path: this.environment.ATTACHMENTS_ROOT,
+          ...(this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION ? { encryptionRequired: this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true' } : {}),
+        },
+      }
       : null;
   }
 
@@ -91,6 +97,7 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
           host: this.environment.CLAMAV_HOST,
           ...(optionalPort(this.environment.CLAMAV_PORT) ? { port: optionalPort(this.environment.CLAMAV_PORT) } : {}),
           ...(optionalPort(this.environment.CLAMAV_TIMEOUT_MS) ? { timeoutMs: optionalPort(this.environment.CLAMAV_TIMEOUT_MS) } : {}),
+          ...(this.environment.ATTACHMENTS_REQUIRE_SCAN ? { requireScan: this.environment.ATTACHMENTS_REQUIRE_SCAN === 'true' } : {}),
         },
       }
       : null;
