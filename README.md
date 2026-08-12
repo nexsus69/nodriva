@@ -1,5 +1,7 @@
 # Dashboard Ultimate
 
+[![CI](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml)
+
 Dashboard Ultimate è una piattaforma open source per definire e gestire
 strutture di dati collegate tra loro senza imporre un dominio applicativo
 specifico. Il sistema fornisce primitive generiche — nodi, tipi, entità,
@@ -68,8 +70,15 @@ E2E_RUN=true E2E_EMAIL='utente@example.com' E2E_PASSWORD='password' E2E_USER_ID=
 Il test amministrativo apre due contesti Chromium distinti e verifica lock e
 propagazione realtime.
 
+La pipeline GitHub Actions esegue automaticamente installazione riproducibile,
+typecheck, lint, suite core/web e build production. I test E2E autenticati e le
+integrazioni PostgreSQL distruttive restano verifiche operative da eseguire con
+un database e credenziali dedicati, mai con secret del repository.
+
 Per la checklist di rilascio consultare
 [`docs/OPERATIONS_READINESS.md`](docs/OPERATIONS_READINESS.md).
+La checklist completa di release è in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## Documentazione
 
