@@ -431,3 +431,4 @@ export { NodeRepositorySqlite } from './infrastructure/sqlite/NodeRepositorySqli
 export { LockRepositorySqlite } from './infrastructure/sqlite/LockRepositorySqlite.js';
 export { NodeTypeRepositorySqlite } from './infrastructure/sqlite/NodeTypeRepositorySqlite.js';
 export { EntityTypeRepositorySqlite } from './infrastructure/sqlite/EntityTypeRepositorySqlite.js';
+export { EntityRepositorySqlite } from './infrastructure/sqlite/EntityRepositorySqlite.js';

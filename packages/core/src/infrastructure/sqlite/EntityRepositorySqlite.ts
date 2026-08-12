@@ -1,0 +1,54 @@
+import { Entity } from '../../domain/models/Entity.js';
+import { EntityNotFoundError } from '../../domain/errors/EntityErrors.js';
+import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import type { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
+import { SqliteDatabase } from './SqliteDatabase.js';
+
+interface EntityRow { id: string; entity_type_id: string; parent_node_id: string; name: string; description: string; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; created_by: string | null; updated_by: string | null; payload: string; deletion_batch_id: string | null; }
+
+/** SQLite entity repository. Dynamic fields are stored as JSON, preserving the domain contract. */
+export class EntityRepositorySqlite implements EntityRepository {
+  constructor(private readonly database: SqliteDatabase) {}
+
+  async findById(id: string): Promise<Entity | null> { return this.find(id, false); }
+  async findDeletedById(id: string): Promise<Entity | null> { return this.find(id, true); }
+
+  async listByNode(parentNodeId: string, limit?: number, offset?: number): Promise<Entity[]> {
+    const params: unknown[] = [parentNodeId]; let sql = 'SELECT * FROM entities WHERE parent_node_id=? AND deleted_at IS NULL ORDER BY name';
+    if (limit !== undefined) { sql += ' LIMIT ?'; params.push(limit); }
+    if (offset !== undefined) { sql += ' OFFSET ?'; params.push(offset); }
+    return this.database.all<EntityRow>(sql, params).map((row) => this.map(row));
+  }
+
+  async create(entity: Entity): Promise<void> {
+    this.database.run('INSERT INTO entities (id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [entity.id, entity.entityTypeId, entity.parentNodeId, entity.name, entity.description, entity.rowVersion, entity.createdAt.toISOString(), entity.updatedAt.toISOString(), entity.deletedAt?.toISOString() ?? null, entity.createdBy, entity.updatedBy, JSON.stringify(entity.payload)]);
+  }
+
+  async update(entity: Entity): Promise<void> {
+    const result = this.database.run('UPDATE entities SET name=?,description=?,payload=?,row_version=?,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NULL', [entity.name, entity.description, JSON.stringify(entity.payload), entity.rowVersion, entity.updatedAt.toISOString(), entity.updatedBy, entity.id, entity.rowVersion - 1]);
+    if (result.changes > 0) return;
+    const row = this.database.get<{ row_version: number; deleted_at: string | null }>('SELECT row_version,deleted_at FROM entities WHERE id=?', [entity.id]);
+    if (!row || row.deleted_at !== null) throw new EntityNotFoundError(entity.id);
+    throw new RowVersionMismatchError(entity.rowVersion - 1, row.row_version);
+  }
+
+  async softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
+    const result = this.database.run('UPDATE entities SET deleted_at=?,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NULL', [new Date().toISOString(), new Date().toISOString(), actorUserId, id, expectedRowVersion]);
+    if (result.changes === 0) throw new EntityNotFoundError(id);
+  }
+
+  async restore(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
+    const result = this.database.run('UPDATE entities SET deleted_at=NULL,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NOT NULL', [new Date().toISOString(), actorUserId, id, expectedRowVersion]);
+    if (result.changes === 0) throw new EntityNotFoundError(id);
+  }
+
+  async listDeletedByScope(_actorUserId: string, limit = 100, offset = 0): Promise<DeletedEntitySummary[]> {
+    return this.database.all<DeletedEntitySummary>(`SELECT e.id,e.entity_type_id AS entityTypeId,et.name AS entityTypeName,et.is_active AS entityTypeActive,e.parent_node_id AS parentNodeId,n.name AS parentNodeName,e.name,e.description,e.row_version AS rowVersion,e.deleted_at AS deletedAt,e.updated_by AS updatedBy FROM entities e JOIN entity_types et ON et.id=e.entity_type_id JOIN nodes n ON n.id=e.parent_node_id WHERE e.deleted_at IS NOT NULL ORDER BY e.deleted_at DESC LIMIT ? OFFSET ?`, [limit, offset]);
+  }
+
+  private find(id: string, deleted: boolean): Entity | null {
+    const row = this.database.get<EntityRow>('SELECT * FROM entities WHERE id=? AND deleted_at IS ' + (deleted ? 'NOT NULL' : 'NULL'), [id]);
+    return row ? this.map(row) : null;
+  }
+  private map(row: EntityRow): Entity { return new Entity(row.id, row.entity_type_id, row.parent_node_id, row.name, row.description, row.row_version, new Date(row.created_at), new Date(row.updated_at), row.deleted_at ? new Date(row.deleted_at) : null, row.created_by, row.updated_by, JSON.parse(row.payload) as Record<string, unknown>); }
+}

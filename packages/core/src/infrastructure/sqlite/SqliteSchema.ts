@@ -45,12 +45,18 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       ON node_hierarchy(descendant_id, depth);
     CREATE TABLE IF NOT EXISTS entities (
       id TEXT PRIMARY KEY,
+      entity_type_id TEXT NOT NULL REFERENCES entity_types(id),
       parent_node_id TEXT NOT NULL REFERENCES nodes(id),
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
       deleted_at TEXT,
       deletion_batch_id TEXT,
       row_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      updated_by TEXT
+      created_by TEXT,
+      updated_by TEXT,
+      payload TEXT NOT NULL DEFAULT '{}'
     );
     CREATE TABLE IF NOT EXISTS entity_types (
       id TEXT PRIMARY KEY,
