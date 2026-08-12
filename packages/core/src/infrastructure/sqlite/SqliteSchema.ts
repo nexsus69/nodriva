@@ -159,5 +159,21 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       consumed_at TEXT,
       created_by TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS node_revisions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_id TEXT NOT NULL, revision_number INTEGER NOT NULL,
+      event_type TEXT NOT NULL, node_row_version INTEGER NOT NULL, schema_version INTEGER NOT NULL,
+      snapshot_payload TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE(node_id, revision_number)
+    );
+    CREATE TABLE IF NOT EXISTS entity_revisions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), entity_id TEXT NOT NULL, revision_number INTEGER NOT NULL,
+      event_type TEXT NOT NULL, entity_row_version INTEGER NOT NULL, schema_version INTEGER NOT NULL,
+      snapshot_payload TEXT NOT NULL, created_by TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE(entity_id, revision_number)
+    );
+    CREATE TABLE IF NOT EXISTS realtime_event_outbox (
+      event_id TEXT PRIMARY KEY, event_payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      published_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT, locked_by TEXT, last_error TEXT
+    );
   `);
 }

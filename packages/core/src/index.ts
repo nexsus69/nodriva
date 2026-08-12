@@ -440,3 +440,5 @@ export { SessionRepositorySqlite } from './infrastructure/sqlite/SessionReposito
 export { LoginRateLimitPortSqlite } from './infrastructure/sqlite/LoginRateLimitPortSqlite.js';
 export { AccountActionTokenPortSqlite } from './infrastructure/sqlite/AccountActionTokenPortSqlite.js';
 export { UserRepositorySqlite } from './infrastructure/sqlite/UserRepositorySqlite.js';
+export { RevisionPortSqlite } from './infrastructure/sqlite/RevisionPortSqlite.js';
+export { RealtimeOutboxSqlite } from './infrastructure/sqlite/RealtimeOutboxSqlite.js';
