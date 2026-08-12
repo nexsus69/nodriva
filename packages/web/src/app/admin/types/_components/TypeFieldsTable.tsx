@@ -16,7 +16,7 @@ export function TypeFieldsTable({ fields, isEditable, isPending, onMove, onEdit,
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-left border-collapse text-sm">
+      <table className="admin-mobile-cards w-full text-left border-collapse text-sm">
         <thead>
           <tr className="border-b border-slate-800 text-slate-400 font-medium text-xs uppercase tracking-wider">
             <th className="py-3 px-3 w-16 text-center">Posizione</th>
@@ -30,7 +30,7 @@ export function TypeFieldsTable({ fields, isEditable, isPending, onMove, onEdit,
         <tbody className="divide-y divide-slate-800/60">
           {fields.map((field, index) => (
             <tr key={field.id} className="hover:bg-slate-800/20 transition-colors">
-              <td className="py-3 px-3 text-center">
+              <td data-label="Posizione" className="py-3 px-3 text-center">
                 <div className="flex items-center justify-center gap-1">
                   {isEditable && (
                     <>
@@ -41,22 +41,22 @@ export function TypeFieldsTable({ fields, isEditable, isPending, onMove, onEdit,
                   <span className="font-mono text-xs text-slate-400 ml-1">#{field.position + 1}</span>
                 </div>
               </td>
-              <td className="py-3 px-4">
+              <td data-label="Label e key" className="py-3 px-4">
                 <div className="font-semibold text-slate-200 flex items-center gap-2">
                   {field.label}
                   {field.isSystem && <span className="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/10 text-amber-400 rounded">SYSTEM</span>}
                 </div>
                 <span className="font-mono text-xs text-indigo-300 block">{field.fieldKey}</span>
               </td>
-              <td className="py-3 px-4 font-mono text-xs text-slate-300">{field.columnName}</td>
-              <td className="py-3 px-4 font-mono text-xs text-emerald-300">{field.dataType}</td>
-              <td className="py-3 px-4 text-xs space-x-1.5">
+              <td data-label="Colonna fisica" className="py-3 px-4 font-mono text-xs text-slate-300">{field.columnName}</td>
+              <td data-label="Tipo dato" className="py-3 px-4 font-mono text-xs text-emerald-300">{field.dataType}</td>
+              <td data-label="Proprietà" className="py-3 px-4 text-xs space-x-1.5">
                 {field.isRequired && <span className="px-2 py-0.5 bg-red-950/50 text-red-300 border border-red-800/40 rounded text-[10px]">Required</span>}
                 {field.isUnique && <span className="px-2 py-0.5 bg-purple-950/50 text-purple-300 border border-purple-800/40 rounded text-[10px]">Unique</span>}
                 {field.isIndexed && <span className="px-2 py-0.5 bg-blue-950/50 text-blue-300 border border-blue-800/40 rounded text-[10px]">Indexed</span>}
                 {field.defaultValueText && <span className="px-2 py-0.5 bg-slate-800 text-slate-400 rounded text-[10px]">Default: {field.defaultValueText}</span>}
               </td>
-              <td className="py-3 px-4 text-right space-x-2">
+              <td data-label="" className="py-3 px-4 text-right space-x-2">
                 {isEditable && !field.isSystem ? (
                   <>
                     <button type="button" onClick={() => onEdit(field)} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded transition-colors">Modifica</button>

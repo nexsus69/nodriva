@@ -126,17 +126,17 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
 
 ## P1 — Global responsive UI
 
-- [ ] Make **every rendered DOM element** responsive on every route, not only
+- [x] Make **every rendered DOM element** responsive on every route, not only
   lists: shell/navigation, headers, breadcrumb, tree, cards, tables, toolbar,
   filters, forms, field groups, buttons, badges, long IDs/emails, dialogs,
   overlays, errors, empty/loading states and debug surfaces. No element may
   be clipped, overlap another control, become unreachable or require page-level
   horizontal scrolling at supported mobile widths.
-- [ ] Replace the current mixed mobile strategy (some record cards, some
+- [x] Replace the current mixed mobile strategy (some record cards, some
   horizontally scrollable tables) with reusable responsive primitives and
   migrate Audit, Users, Roles, Scopes, Types, system configuration, placement
   policies, node/entity detail and every remaining workspace component.
-- [ ] Verify all routes and interactive states at 320 px, 375 px and 768 px
+- [x] Verify all routes and interactive states at 320 px, 375 px and 768 px
   with long emails, UUIDs, labels, action buttons, dynamic fields and
   validation errors; add visual regression coverage for shared primitives.
 
