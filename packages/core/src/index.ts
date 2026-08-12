@@ -49,6 +49,8 @@ export { SystemConfigRepositorySqlite } from './infrastructure/sqlite/SystemConf
 export { TypeDefinitionAdminRepositorySqlite } from './infrastructure/sqlite/TypeDefinitionAdminRepositorySqlite.js';
 export { EntitySubtreeQueryPortSqlite } from './infrastructure/sqlite/EntitySubtreeQueryPortSqlite.js';
 export { RealtimeScopeResolverSqlite } from './infrastructure/sqlite/RealtimeScopeResolverSqlite.js';
+export { FieldEncryptionServiceSqlite } from './infrastructure/sqlite/FieldEncryptionServiceSqlite.js';
+export { SystemSeedSqlite } from './infrastructure/sqlite/SystemSeedSqlite.js';
 export type {
   ConfigurationRecord,
   ConfigurationRepository,

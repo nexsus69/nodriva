@@ -29,6 +29,8 @@ import { SystemConfigRepositorySqlite } from './SystemConfigRepositorySqlite.js'
 import { SecurityRepositorySqlite } from './SecurityRepositorySqlite.js';
 import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js';
 import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
+import { FieldEncryptionServiceSqlite } from './FieldEncryptionServiceSqlite.js';
+import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -62,6 +64,7 @@ export class SqliteInfrastructure {
   readonly securityRepository: SecurityRepositorySqlite;
   readonly entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
+  readonly systemSeedService: SystemSeedSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -95,6 +98,7 @@ export class SqliteInfrastructure {
     this.securityRepository = new SecurityRepositorySqlite(this.database);
     this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort);
     this.realtimeScopeResolver = new RealtimeScopeResolverSqlite(this.nodeRepository);
+    this.systemSeedService = new SystemSeedSqlite(this.database, process.env.SEED_ADMIN_PASSWORD);
   }
 
   close(): void { this.database.close(); }
