@@ -22,6 +22,13 @@ import { AttachmentPolicyRepositorySqlite } from './AttachmentPolicyRepositorySq
 import { ResourcePurgeRepositorySqlite } from './ResourcePurgeRepositorySqlite.js';
 import { TypeDefinitionReaderSqlite } from './TypeDefinitionReaderSqlite.js';
 import { MfaTotpPortSqlite } from './MfaTotpPortSqlite.js';
+import { AuditQueryPortSqlite } from './AuditQueryPortSqlite.js';
+import { ServiceConfigurationRepositorySqlite } from './ServiceConfigurationRepositorySqlite.js';
+import { TypeDefinitionAdminRepositorySqlite } from './TypeDefinitionAdminRepositorySqlite.js';
+import { SystemConfigRepositorySqlite } from './SystemConfigRepositorySqlite.js';
+import { SecurityRepositorySqlite } from './SecurityRepositorySqlite.js';
+import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js';
+import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -48,6 +55,13 @@ export class SqliteInfrastructure {
   readonly resourcePurgeRepository: ResourcePurgeRepositorySqlite;
   readonly typeDefinitionReader: TypeDefinitionReaderSqlite;
   readonly mfaTotpPort: MfaTotpPortSqlite;
+  readonly auditQueryPort: AuditQueryPortSqlite;
+  readonly serviceConfigurationRepository: ServiceConfigurationRepositorySqlite;
+  readonly typeAdminRepository: TypeDefinitionAdminRepositorySqlite;
+  readonly systemConfigRepository: SystemConfigRepositorySqlite;
+  readonly securityRepository: SecurityRepositorySqlite;
+  readonly entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
+  readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -74,6 +88,13 @@ export class SqliteInfrastructure {
     this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
     this.typeDefinitionReader = new TypeDefinitionReaderSqlite(this.database);
     this.mfaTotpPort = new MfaTotpPortSqlite(this.database);
+    this.auditQueryPort = new AuditQueryPortSqlite(this.database);
+    this.serviceConfigurationRepository = new ServiceConfigurationRepositorySqlite(this.database);
+    this.typeAdminRepository = new TypeDefinitionAdminRepositorySqlite(this.database);
+    this.systemConfigRepository = new SystemConfigRepositorySqlite(this.database);
+    this.securityRepository = new SecurityRepositorySqlite(this.database);
+    this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort);
+    this.realtimeScopeResolver = new RealtimeScopeResolverSqlite(this.nodeRepository);
   }
 
   close(): void { this.database.close(); }

@@ -90,8 +90,16 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       deleted_at TEXT
     );
-    CREATE TABLE IF NOT EXISTS roles (id TEXT PRIMARY KEY, role_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '', deleted_at TEXT);
-    CREATE TABLE IF NOT EXISTS permissions (id TEXT PRIMARY KEY, permission_key TEXT NOT NULL UNIQUE, name TEXT);
+    CREATE TABLE IF NOT EXISTS roles (
+      id TEXT PRIMARY KEY, role_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
+      is_system INTEGER NOT NULL DEFAULT 0, row_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), deleted_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS permissions (
+      id TEXT PRIMARY KEY, permission_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '', resource_kind TEXT NOT NULL DEFAULT 'system'
+    );
     CREATE TABLE IF NOT EXISTS user_roles (user_id TEXT NOT NULL REFERENCES users(id), role_id TEXT NOT NULL REFERENCES roles(id), PRIMARY KEY(user_id, role_id));
     CREATE TABLE IF NOT EXISTS role_permissions (role_id TEXT NOT NULL REFERENCES roles(id), permission_id TEXT NOT NULL REFERENCES permissions(id), PRIMARY KEY(role_id, permission_id));
     CREATE TABLE IF NOT EXISTS node_scope_assignments (
@@ -101,6 +109,8 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       node_id TEXT NOT NULL REFERENCES nodes(id),
       assignment_effect TEXT NOT NULL CHECK (assignment_effect IN ('allow','deny')),
       propagation TEXT NOT NULL CHECK (propagation IN ('self','subtree'))
+      ,assigned_by TEXT, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      ,UNIQUE(user_id, node_id, role_id, propagation)
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_scope_assignments_user ON node_scope_assignments(user_id, node_id);
     CREATE TABLE IF NOT EXISTS audit_logs (
@@ -125,13 +135,15 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS runtime_capabilities (
-      capability_key TEXT PRIMARY KEY,
-      default_status TEXT NOT NULL CHECK (default_status IN ('enabled','disabled'))
+      capability_key TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
+      default_status TEXT NOT NULL CHECK (default_status IN ('enabled','disabled','optional')),
+      is_system INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE TABLE IF NOT EXISTS runtime_capability_overrides (
       capability_key TEXT NOT NULL REFERENCES runtime_capabilities(capability_key),
       scope_key TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('enabled','disabled')),
+      status TEXT NOT NULL CHECK (status IN ('enabled','disabled','optional')),
       PRIMARY KEY(capability_key, scope_key)
     );
     CREATE TABLE IF NOT EXISTS user_sessions (
@@ -183,7 +195,7 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       published_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT, locked_by TEXT, last_error TEXT
     );
     CREATE TABLE IF NOT EXISTS entity_type_fields (
-      id TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))),
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       entity_type_id TEXT NOT NULL REFERENCES entity_types(id) ON DELETE CASCADE,
       field_key TEXT NOT NULL,
       column_name TEXT NOT NULL,
@@ -191,19 +203,43 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       label TEXT NOT NULL DEFAULT '',
       is_required INTEGER NOT NULL DEFAULT 0,
       is_unique INTEGER NOT NULL DEFAULT 0,
+      is_indexed INTEGER NOT NULL DEFAULT 0,
       encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      position INTEGER NOT NULL DEFAULT 0,
+      is_system INTEGER NOT NULL DEFAULT 0,
       relation_target_domain TEXT,
       relation_target_type_key TEXT,
-      default_value TEXT,
-      PRIMARY KEY(entity_type_id, field_key),
+      default_value_text TEXT,
+      UNIQUE(entity_type_id, field_key),
       UNIQUE(entity_type_id, column_name)
     );
     CREATE TABLE IF NOT EXISTS node_type_fields (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_type_id TEXT NOT NULL REFERENCES node_types(id) ON DELETE CASCADE,
       field_key TEXT NOT NULL, column_name TEXT NOT NULL, data_type TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
-      is_required INTEGER NOT NULL DEFAULT 0, is_unique INTEGER NOT NULL DEFAULT 0, encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      is_required INTEGER NOT NULL DEFAULT 0, is_unique INTEGER NOT NULL DEFAULT 0, is_indexed INTEGER NOT NULL DEFAULT 0, encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      position INTEGER NOT NULL DEFAULT 0, is_system INTEGER NOT NULL DEFAULT 0, default_value_text TEXT,
       relation_target_domain TEXT, relation_target_type_key TEXT, default_value TEXT,
       UNIQUE(node_type_id, field_key), UNIQUE(node_type_id, column_name)
+    );
+    CREATE TABLE IF NOT EXISTS node_type_field_constraints (
+      id TEXT PRIMARY KEY, field_id TEXT NOT NULL REFERENCES node_type_fields(id) ON DELETE CASCADE,
+      constraint_type TEXT NOT NULL, constraint_value_text TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS entity_type_field_constraints (
+      id TEXT PRIMARY KEY, field_id TEXT NOT NULL REFERENCES entity_type_fields(id) ON DELETE CASCADE,
+      constraint_type TEXT NOT NULL, constraint_value_text TEXT NOT NULL, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS node_type_field_enum_options (
+      id TEXT PRIMARY KEY, field_id TEXT NOT NULL REFERENCES node_type_fields(id) ON DELETE CASCADE,
+      value TEXT NOT NULL, label TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(field_id, value)
+    );
+    CREATE TABLE IF NOT EXISTS entity_type_field_enum_options (
+      id TEXT PRIMARY KEY, field_id TEXT NOT NULL REFERENCES entity_type_fields(id) ON DELETE CASCADE,
+      value TEXT NOT NULL, label TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+      UNIQUE(field_id, value)
     );
     CREATE TABLE IF NOT EXISTS resource_attachments (
       id TEXT PRIMARY KEY, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, field_key TEXT NOT NULL,
@@ -217,6 +253,24 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       node_type_id TEXT PRIMARY KEY REFERENCES node_types(id) ON DELETE CASCADE,
       encryption_mode TEXT NOT NULL CHECK (encryption_mode IN ('enabled','disabled')),
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS service_configurations (
+      service_key TEXT PRIMARY KEY,
+      provider_key TEXT NOT NULL,
+      runtime_values TEXT NOT NULL DEFAULT '{}',
+      row_version INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE TABLE IF NOT EXISTS placement_policies (
+      id TEXT PRIMARY KEY, policy_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '', policy_mode TEXT NOT NULL,
+      row_version INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), deleted_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS placement_policy_rules (
+      id TEXT PRIMARY KEY, placement_policy_id TEXT NOT NULL REFERENCES placement_policies(id) ON DELETE CASCADE,
+      rule_type TEXT NOT NULL, target_node_id TEXT, target_node_type_id TEXT, comparator TEXT, value_text TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
 }

@@ -42,6 +42,13 @@ export { DefaultServiceHealthCheckRegistry } from './application/ports/ServiceHe
 export type { ServiceHealthCheckPort, ServiceHealthCheckRegistry, ServiceHealthCheckResult } from './application/ports/ServiceHealthCheckPort.js';
 export { ServiceHealthCheckService } from './application/services/ServiceHealthCheckService.js';
 export { ServiceConfigurationRepositoryPostgres } from './infrastructure/postgres/ServiceConfigurationRepositoryPostgres.js';
+export { ServiceConfigurationRepositorySqlite } from './infrastructure/sqlite/ServiceConfigurationRepositorySqlite.js';
+export { AuditQueryPortSqlite } from './infrastructure/sqlite/AuditQueryPortSqlite.js';
+export { SecurityRepositorySqlite } from './infrastructure/sqlite/SecurityRepositorySqlite.js';
+export { SystemConfigRepositorySqlite } from './infrastructure/sqlite/SystemConfigRepositorySqlite.js';
+export { TypeDefinitionAdminRepositorySqlite } from './infrastructure/sqlite/TypeDefinitionAdminRepositorySqlite.js';
+export { EntitySubtreeQueryPortSqlite } from './infrastructure/sqlite/EntitySubtreeQueryPortSqlite.js';
+export { RealtimeScopeResolverSqlite } from './infrastructure/sqlite/RealtimeScopeResolverSqlite.js';
 export type {
   ConfigurationRecord,
   ConfigurationRepository,
