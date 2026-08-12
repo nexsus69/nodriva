@@ -139,3 +139,12 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
 - [ ] Verify all routes and interactive states at 320 px, 375 px and 768 px
   with long emails, UUIDs, labels, action buttons, dynamic fields and
   validation errors; add visual regression coverage for shared primitives.
+
+## P1 — Server Action error UX
+
+- [ ] Replace the generic production message shown when a Server Action
+  rejects a validation or authorization error (for example an invalid
+  relation target) with a localized, actionable application message. Preserve
+  the fail-safe boundary: never expose stack traces, SQL details or internal
+  digests to the client, and add E2E coverage for validation, authorization
+  and unexpected-error paths.
