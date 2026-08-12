@@ -439,3 +439,4 @@ export { RuntimeConfigurationPortSqlite } from './infrastructure/sqlite/RuntimeC
 export { SessionRepositorySqlite } from './infrastructure/sqlite/SessionRepositorySqlite.js';
 export { LoginRateLimitPortSqlite } from './infrastructure/sqlite/LoginRateLimitPortSqlite.js';
 export { AccountActionTokenPortSqlite } from './infrastructure/sqlite/AccountActionTokenPortSqlite.js';
+export { UserRepositorySqlite } from './infrastructure/sqlite/UserRepositorySqlite.js';

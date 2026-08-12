@@ -81,10 +81,16 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_sqlite_locks_expiry ON locks(expires_at);
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
+      email TEXT NOT NULL DEFAULT '' UNIQUE,
+      password_hash TEXT NOT NULL DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
-      is_super_admin INTEGER NOT NULL DEFAULT 0
+      is_super_admin INTEGER NOT NULL DEFAULT 0,
+      row_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      deleted_at TEXT
     );
-    CREATE TABLE IF NOT EXISTS roles (id TEXT PRIMARY KEY, role_key TEXT NOT NULL UNIQUE);
+    CREATE TABLE IF NOT EXISTS roles (id TEXT PRIMARY KEY, role_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL DEFAULT '', deleted_at TEXT);
     CREATE TABLE IF NOT EXISTS permissions (id TEXT PRIMARY KEY, permission_key TEXT NOT NULL UNIQUE, name TEXT);
     CREATE TABLE IF NOT EXISTS user_roles (user_id TEXT NOT NULL REFERENCES users(id), role_id TEXT NOT NULL REFERENCES roles(id), PRIMARY KEY(user_id, role_id));
     CREATE TABLE IF NOT EXISTS role_permissions (role_id TEXT NOT NULL REFERENCES roles(id), permission_id TEXT NOT NULL REFERENCES permissions(id), PRIMARY KEY(role_id, permission_id));
