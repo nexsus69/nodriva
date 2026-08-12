@@ -84,13 +84,22 @@ Per la checklist di rilascio consultare
 - [Governance della documentazione](docs/DOCUMENTATION_GOVERNANCE.md)
 - [Configurazione dei servizi e dei deployment](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
 
+## Sviluppo assistito da IA
+
+Lo sviluppo di questo progetto è stato realizzato con l'ausilio di sistemi di
+intelligenza artificiale, utilizzati come supporto per analisi, progettazione,
+scrittura e revisione del codice, dei test e della documentazione.
+
+Le decisioni architetturali, la verifica dei risultati, l'integrazione delle
+modifiche e la responsabilità del progetto restano in capo al maintainer.
+
 ## Licenza
 
 Il codice del progetto è distribuito con [Apache License 2.0](LICENSE).
-Le dipendenze di terze parti mantengono le rispettive licenze. Il nome e il
-logo del progetto non sono automaticamente concessi per fork o distribuzioni
-derivate: per l'uso dei marchi fare riferimento alla relativa policy quando
-verrà pubblicata.
+Le dipendenze di terze parti mantengono le rispettive licenze. Attualmente il
+nome e il logo del progetto non sono marchi registrati; il loro uso è descritto
+nella [policy sul nome e sul logo](docs/TRADEMARK_POLICY.md). La licenza non
+impone branding, telemetria o diciture “Powered by”.
 
 ## Stato del progetto
 
