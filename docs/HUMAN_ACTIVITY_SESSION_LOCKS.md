@@ -16,14 +16,14 @@ autorevole e modificabile a runtime, distribuita al client senza rebuild. Il
 lavoro ancora aperto è tracciato nella sezione **Runtime session policy** di
 [`BACKEND_ALIGNMENT_TODO.md`](./BACKEND_ALIGNMENT_TODO.md).
 
-Con il valore di test attuale di 300 secondi:
+Con il valore predefinito attuale di 1800 secondi:
 
 | Concetto | Derivazione | Valore attuale |
 | --- | --- | ---: |
-| Inattività massima sessione | configurazione | 300 s |
-| Throttle heartbeat | sessione / 6 | 50 s |
-| Polling di riconciliazione | sessione / 6 | 50 s |
-| TTL lock | 2 × heartbeat | 100 s |
+| Inattività massima sessione | configurazione | 1800 s (30 min) |
+| Throttle heartbeat | sessione / 6 | 300 s (5 min) |
+| Polling di riconciliazione | sessione / 6 | 300 s (5 min) |
+| TTL lock | 2 × heartbeat | 600 s (10 min) |
 
 Il TTL del lock è quindi più corto della sessione. Nel normale flusso di
 inattività, quando la sessione scade non può esserci un suo lock ancora attivo:

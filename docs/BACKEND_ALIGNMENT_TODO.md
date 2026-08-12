@@ -99,8 +99,8 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   before adding further settings to the administrative UI.
 - [ ] Replace the temporary build/deployment value
   `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS` with an authoritative backend
-  system setting for the session inactivity timeout. The current 300-second
-  value is for testing and is not the production default.
+  system setting for the session inactivity timeout. The current 1800-second
+  value is a user-friendly default and is still not runtime-configurable.
 - [ ] Expose the effective timing policy to authenticated clients through a
   backend bootstrap/configuration contract; do not require a frontend rebuild
   when an administrator changes it.
