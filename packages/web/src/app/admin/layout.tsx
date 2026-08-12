@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { LogoutButton } from '../components/ui/LogoutButton';
 import { checkAdminAccessAction } from '../actions/adminAccessActions';
+import { HomeBreadcrumbIcon, ResponsiveBreadcrumb } from '../components/navigation/Breadcrumb';
 
 interface NavItem {
   label: string;
@@ -124,7 +125,7 @@ export default function AdminLayout({
     return crumbs;
   };
 
-  const breadcrumbs = getBreadcrumbs();
+  const breadcrumbs = getBreadcrumbs().map((crumb, index) => index === 0 ? { ...crumb, icon: <HomeBreadcrumbIcon /> } : crumb);
 
   return (
     <div className="admin-page flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900 font-sans">
@@ -227,20 +228,7 @@ export default function AdminLayout({
             </button>
 
           {/* Breadcrumb Navigation */}
-          <nav className="flex min-w-0 items-center gap-2 overflow-hidden text-xs font-medium text-slate-400">
-            {breadcrumbs.map((crumb, idx) => (
-              <React.Fragment key={`${crumb.label}-${idx}`}>
-                {idx > 0 && <span className="text-slate-400">/</span>}
-                {idx === breadcrumbs.length - 1 || !crumb.href ? (
-                  <span className="truncate text-slate-900 font-semibold">{crumb.label}</span>
-                ) : (
-                  <Link href={crumb.href} className="hover:text-slate-900 transition-colors">
-                    <span className="truncate">{crumb.label}</span>
-                  </Link>
-                )}
-              </React.Fragment>
-            ))}
-          </nav>
+          <ResponsiveBreadcrumb items={breadcrumbs} ariaLabel="Breadcrumb amministrazione" />
           </div>
 
           {/* Badge Utente Attivo & Status */}

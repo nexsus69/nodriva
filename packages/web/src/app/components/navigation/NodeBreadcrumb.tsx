@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { AppCache } from '../../cache/GlobalCacheClient';
 import { useAppCacheRevision } from '../../hooks/useAppCacheRevision';
 import { buildCachedBreadcrumbPath } from './nodeBreadcrumbPath';
 import { LockIndicator } from '../LockIndicator';
+import { HomeBreadcrumbIcon, ResponsiveBreadcrumb, type BreadcrumbItem } from './Breadcrumb';
 
 export interface NodeBreadcrumbProps {
   nodeId: string;
@@ -22,65 +22,15 @@ export function NodeBreadcrumb({ nodeId, currentNodeLinkable = false }: NodeBrea
     AppCache.isVirtualRootNode
   );
 
-  return (
-    <nav aria-label="Breadcrumb nodi" className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-1 text-xs font-mono text-slate-400">
-        <li className="shrink-0">
-          <Link href="/" className="transition-colors hover:text-slate-200">
-            🌐 Workspace
-          </Link>
-        </li>
-
-        {!isComplete && (
-          <>
-            <li aria-hidden="true" className="text-slate-600">/</li>
-            <li className="text-slate-500" title="Catena degli antenati in caricamento">
-              …
-            </li>
-          </>
-        )}
-
-        {nodes.map((node, index) => {
-          const isCurrent = index === nodes.length - 1 && node.id === nodeId;
-          return (
-            <li key={node.id} className="contents">
-              <span aria-hidden="true" className="text-slate-600">/</span>
-              {isCurrent && !currentNodeLinkable ? (
-                <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
-                  <span
-                    aria-current="page"
-                    className="truncate font-semibold text-slate-100"
-                    title={node.name}
-                  >
-                    {node.name}
-                  </span>
-                  <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />
-                </span>
-              ) : (
-                <span className="inline-flex min-w-0 items-center gap-1.5 leading-none">
-                  <Link
-                    href={`/nodes/${node.id}`}
-                    className="max-w-48 truncate leading-none transition-colors hover:text-indigo-300"
-                    title={node.name}
-                  >
-                    {node.name}
-                  </Link>
-                  <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />
-                </span>
-              )}
-            </li>
-          );
-        })}
-
-        {nodes.length === 0 && (
-          <>
-            <li aria-hidden="true" className="text-slate-600">/</li>
-            <li className="truncate font-semibold text-slate-300" aria-current="page">
-              {nodeId}
-            </li>
-          </>
-        )}
-      </ol>
-    </nav>
-  );
+  const items: BreadcrumbItem[] = [
+    { label: 'Workspace', href: '/', icon: <HomeBreadcrumbIcon /> },
+    ...nodes.map((node, index) => ({
+      label: node.name,
+      href: index === nodes.length - 1 && !currentNodeLinkable ? null : `/nodes/${node.id}`,
+      suffix: <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />,
+    })),
+  ];
+  if (!isComplete) items.splice(1, 0, { label: 'Catena in caricamento', href: null });
+  if (nodes.length === 0) items.push({ label: nodeId, href: null });
+  return <ResponsiveBreadcrumb items={items} ariaLabel="Breadcrumb nodi" />;
 }
