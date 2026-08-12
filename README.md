@@ -35,11 +35,11 @@ Il monorepo contiene:
 - `e2e`: verifiche end-to-end browser;
 - `docs`: documentazione architetturale e operativa.
 
-PostgreSQL è oggi l'unica persistenza completa. Il realtime comunica mutazioni
-e invalidazioni, ma non sostituisce la persistenza né la verifica ACL lato
-server. Le mutation amministrative applicano lock e controllo `rowVersion`.
-L'architettura obiettivo prevede adapter sostituibili e servizi locali o remoti
-configurabili; il Compose completo è solo uno dei profili di deployment.
+PostgreSQL e SQLite sono i due profili di persistenza selezionabili dal
+composition root Web. Il realtime comunica mutazioni e invalidazioni, ma non
+sostituisce la persistenza né la verifica ACL lato server. Le mutation
+amministrative applicano lock e controllo `rowVersion`. Il Compose completo è
+solo uno dei profili di deployment.
 
 ## Avvio rapido
 
@@ -62,8 +62,11 @@ pnpm ops:health
 Test browser autenticati, quando sono disponibili le variabili necessarie:
 
 ```bash
-E2E_RUN=true pnpm e2e
+E2E_RUN=true E2E_EMAIL='utente@example.com' E2E_PASSWORD='password' E2E_USER_ID='user-id' E2E_BASE_URL='http://127.0.0.1:3001' pnpm e2e
 ```
+
+Il test amministrativo apre due contesti Chromium distinti e verifica lock e
+propagazione realtime.
 
 Per la checklist di rilascio consultare
 [`docs/OPERATIONS_READINESS.md`](docs/OPERATIONS_READINESS.md).
@@ -83,9 +86,19 @@ Per la checklist di rilascio consultare
 
 ## Stato del progetto
 
-Il progetto è in sviluppo attivo. Oggi il profilo completo usa PostgreSQL e
-servizi Docker configurati tramite deployment. Restano da completare il
-registry backend dei servizi, i profili Compose opzionali e un adapter di
-persistenza standalone per esecuzioni con il solo Node. Prima dell’uso in
-produzione devono inoltre essere definiti secret manager, HTTPS, retention,
-replica, monitoraggio e disaster recovery.
+Il progetto è in sviluppo attivo. Sono disponibili i profili PostgreSQL e
+SQLite; il primo è il profilo principale per Compose, il secondo consente
+l'esecuzione standalone con il solo Node.js e un file locale. Restano attività
+di maturazione su registry centralizzato dei provider, profili Compose
+opzionali, secret manager, HTTPS, retention, replica, monitoraggio e disaster
+recovery.
+
+### Persistenza selezionabile
+
+```bash
+DATABASE_ADAPTER=sqlite SQLITE_DATABASE_PATH=./data/dashboard.sqlite SEED_ADMIN_PASSWORD='change-me' pnpm --filter @dashboard/web build
+```
+
+Il valore predefinito resta PostgreSQL. SQLite usa `parent_id` e closure table
+al posto di `ltree`, mantenendo i port applicativi per transazioni, ACL, lock,
+audit, revisioni, tipi, sessioni, cifratura e outbox.

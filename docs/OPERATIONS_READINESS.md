@@ -34,7 +34,10 @@ RPO concordata.
 - `./scripts/stack-healthcheck.sh` completato;
 - backup e restore verificato completati;
 - `pnpm check` completato;
-- `E2E_RUN=true ... pnpm e2e` completato con due contesti autenticati;
+- `E2E_RUN=true E2E_EMAIL=... E2E_PASSWORD=... E2E_USER_ID=... pnpm e2e`
+  completato con due contesti Chromium autenticati;
+- per lo standalone: `DATABASE_ADAPTER=sqlite` e
+  `SQLITE_DATABASE_PATH` valorizzati, build Web e smoke HTTP completati;
 - chiavi e password fornite da secret manager, mai da file versionati;
 - proxy HTTPS configurato per ambienti non locali;
 - log, metriche Prometheus e alerting verificati;

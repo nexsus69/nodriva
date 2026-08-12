@@ -12,9 +12,9 @@ Prometheus o un proxy siano sempre presenti.
 | Distribuito | Node.js più servizi locali o remoti configurabili | produzione con servizi separati |
 | Compose completo | tutti i container del repository | sviluppo e staging replicabile |
 
-Il profilo standalone richiede ancora un adapter di persistenza compatibile,
-per esempio SQLite. Non è sufficiente disabilitare il realtime o l'antivirus:
-PostgreSQL è oggi l'unico adapter completo disponibile.
+Il profilo standalone usa l'adapter SQLite integrato. Non è sufficiente
+disabilitare realtime o antivirus: il composition root seleziona comunque un
+profilo di persistenza completo.
 
 ## Stato attuale
 
@@ -38,16 +38,21 @@ Attualmente:
 - alcuni valori di bootstrap restano necessariamente forniti prima del container
   applicativo: `DATABASE_URL` alimenta il provider PostgreSQL e la policy del
   ruolo PostgreSQL resta una guardia di avvio;
-- il registry applicativo ha checker concreti per PostgreSQL, Soketi e ClamAV,
+- il registry applicativo ha checker concreti per PostgreSQL, SQLite, Soketi e ClamAV,
   collegati al servizio di healthcheck;
   gli altri provider restano `not-configured` finché non viene aggiunto il
   relativo adapter;
-- il profilo SQLite ora dispone di schema, transaction root, closure table,
+- il profilo SQLite dispone di schema, transaction root, closure table,
   nodi, entità JSON, tipi, ACL, lock, audit, revisioni, outbox, utenti,
   sessioni, rate limiting, token account, configurazione runtime e metadata
   degli schemi dinamici; il Web composition root usa ancora PostgreSQL e il
-  test end-to-end standalone deve ancora collegare tutte queste porte ai
-  servizi applicativi.
+  e il composition root Web collega queste porte ai servizi applicativi.
+
+La selezione avviene con `DATABASE_ADAPTER=sqlite` e
+`SQLITE_DATABASE_PATH=...`; senza il primo valore il profilo PostgreSQL resta
+quello predefinito. Build Web, avvio HTTP standalone e suite automatiche sono
+stati verificati. Il test browser autenticato del lock amministrativo è stato
+eseguito con due contesti Chromium e ha avuto esito positivo.
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione
 `db/migrations/030_service_configurations.sql`; deployment e secret restano
@@ -86,10 +91,11 @@ non password, chiavi private o token.
 
 ## Adapter di persistenza
 
-Un futuro adapter SQLite dovrà conservare gli stessi contratti applicativi di
+L'adapter SQLite implementa gli stessi contratti applicativi principali di
 quello PostgreSQL: ACL, gerarchia, transazioni, lock, `rowVersion`, audit,
-soft delete, paginazione e outbox. La gerarchia potrà usare una closure table
-(`ancestor_id`, `descendant_id`, `depth`) invece di PostgreSQL `ltree`.
+soft delete, paginazione, cifratura dei campi e outbox. La gerarchia usa una
+closure table (`ancestor_id`, `descendant_id`, `depth`) invece di PostgreSQL
+`ltree`.
 
 La sostituzione del database sarà completa solo dopo test di contratto
 condivisi tra gli adapter, inclusi concorrenza, rollback, scope `self`/`subtree`,

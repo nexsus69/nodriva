@@ -18,6 +18,14 @@ pnpm --filter @dashboard/web dev
 
 Per l’esecuzione replicabile con tutti i servizi usare `docker-compose.full.yml`.
 
+Per il profilo standalone SQLite:
+
+```bash
+DATABASE_ADAPTER=sqlite SQLITE_DATABASE_PATH=./data/dashboard.sqlite SEED_ADMIN_PASSWORD='change-me' pnpm --filter @dashboard/web build
+```
+
+Il profilo PostgreSQL resta il default quando `DATABASE_ADAPTER` non è impostato.
+
 ## Verifiche
 
 ```bash
@@ -28,4 +36,5 @@ pnpm --filter @dashboard/web build
 ```
 
 Le verifiche end-to-end sono gestite dalla configurazione Playwright nella
-root e richiedono un ambiente autenticato quando non sono in modalità skip.
+root e richiedono un ambiente autenticato. Il test amministrativo usa due
+contesti Chromium e verifica lock, rilascio e propagazione realtime.

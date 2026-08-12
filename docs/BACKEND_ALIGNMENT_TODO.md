@@ -9,8 +9,8 @@
 
 ### Attuale
 
-- il core usa porte e adapter, ma PostgreSQL è l'unico adapter di persistenza
-  completo;
+- il core usa porte e adapter; PostgreSQL e SQLite sono i due adapter di
+  persistenza selezionabili;
 - `docker-compose.full.yml` fornisce uno stack completo per sviluppo/staging;
 - realtime, antivirus, backup, storage e osservabilità sono configurabili
   soprattutto tramite environment/Compose;
@@ -19,7 +19,8 @@
 - alcuni provider applicativi leggono ancora direttamente environment e secret,
   mentre healthcheck e selezione effettiva dei provider non sono ancora gestiti
   dal registry;
-- non è ancora disponibile un profilo standalone affidabile con il solo Node.
+- il profilo standalone SQLite è disponibile con il solo Node.js e un file
+  locale; build, suite automatiche e smoke HTTP sono verificati.
 
 ### Obiettivo
 
@@ -90,8 +91,8 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   al client né trattare la configurazione Compose come configurazione runtime.
 - [ ] Rendere il Compose modulare e documentare profili coerenti per i servizi
   opzionali, mantenendo un profilo completo per sviluppo/staging.
-- [ ] Introdurre un adapter di persistenza standalone, preferibilmente SQLite,
-  con gerarchia portabile e test di contratto equivalenti a PostgreSQL.
+- [x] Introdurre un adapter di persistenza standalone SQLite, collegarlo al
+  composition root Web e verificarne build, suite e smoke test.
 
 - [ ] Approve the complete runtime/deployment/secret configuration catalog in
   [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md)

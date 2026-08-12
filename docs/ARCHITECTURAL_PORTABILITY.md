@@ -15,15 +15,15 @@ assembling concrete adapters and injecting them into application services.
 
 ## Current boundary
 
-| Responsibility | Application contract | PostgreSQL adapter |
+| Responsibility | Application contract | PostgreSQL adapter | SQLite adapter |
 |---|---|---|
-| Users and authentication lookup | `UserRepository` | `UserRepositoryPostgres` |
-| Sessions | `SessionRepositoryPort` | `SessionRepositoryPostgres` |
-| Node hierarchy | `NodeRepository` | `NodeRepositoryPostgres` |
-| Realtime node scopes | `RealtimeScopeResolver` | `RealtimeScopeResolverPostgres` |
+| Users and authentication lookup | `UserRepository` | `UserRepositoryPostgres` | `UserRepositorySqlite` |
+| Sessions | `SessionRepositoryPort` | `SessionRepositoryPostgres` | `SessionRepositorySqlite` |
+| Node hierarchy | `NodeRepository` | `NodeRepositoryPostgres` | `NodeRepositorySqlite` |
+| Realtime node scopes | `RealtimeScopeResolver` | `RealtimeScopeResolverPostgres` | `RealtimeScopeResolverSqlite` |
 | Data event delivery | `RealtimeEventBus` | `PusherEventBus` |
-| Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` |
-| Transactions | `TransactionPort` | `TransactionPortPostgres` |
+| Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` | `RealtimeOutboxSqlite` |
+| Transactions | `TransactionPort` | `TransactionPortPostgres` | `TransactionPortSqlite` |
 
 The PostgreSQL implementation additionally materializes the assigned hierarchy
 path in `node_scope_assignments.node_path`. This is an adapter-level projection
@@ -32,6 +32,10 @@ maintained by database triggers; it is not part of the application contract.
 `listAncestorIds()` is a semantic repository operation. Its PostgreSQL
 implementation uses `ltree`, but another database adapter must implement the
 same contract with its own hierarchy mechanism.
+
+The Web composition root selects the complete persistence profile through
+`DATABASE_ADAPTER=postgres|sqlite`. SQLite is not exposed to browser code: the
+frontend depends only on Server Actions and application contracts.
 
 ## Forbidden dependencies
 
