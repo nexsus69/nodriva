@@ -11,7 +11,7 @@ import {
 async function resolveAuthorizedActor(
   resourceType: string,
   resourceId: string
-): Promise<{ actorUserId: string; actorSessionId: string; resourceType: LockResourceType; scopeNodeId: string }> {
+): Promise<{ actorUserId: string; actorSessionId: string; resourceType: LockResourceType; scopeNodeId?: string }> {
   const validatedType = validateLockResource(resourceType, resourceId);
   const identity = await AuthResolver.resolveActorIdentity();
   const actorUserId = identity.userId;
@@ -33,7 +33,9 @@ async function resolveAuthorizedActor(
       : validatedType === 'entity_type' ? 'entity_type.update'
       : 'system.config';
     await accessControlPort.assertHasPermission(actorUserId, permission, null);
-    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: '' };
+    // Administrative resources are global and have no node scope. Do not use
+    // an empty string: PostgreSQL audit columns represent node scope as UUID.
+    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType };
   }
 }
 
