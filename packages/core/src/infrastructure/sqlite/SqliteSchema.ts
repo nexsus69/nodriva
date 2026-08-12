@@ -186,5 +186,17 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       PRIMARY KEY(entity_type_id, field_key),
       UNIQUE(entity_type_id, column_name)
     );
+    CREATE TABLE IF NOT EXISTS resource_attachments (
+      id TEXT PRIMARY KEY, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, field_key TEXT NOT NULL,
+      kind TEXT NOT NULL, file_name TEXT NOT NULL, mime_type TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+      storage_key TEXT NOT NULL UNIQUE, checksum TEXT NOT NULL, created_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_attachments_resource ON resource_attachments(resource_type, resource_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS node_type_attachment_policies (
+      node_type_id TEXT PRIMARY KEY REFERENCES node_types(id) ON DELETE CASCADE,
+      encryption_mode TEXT NOT NULL CHECK (encryption_mode IN ('enabled','disabled')),
+      updated_at TEXT NOT NULL
+    );
   `);
 }

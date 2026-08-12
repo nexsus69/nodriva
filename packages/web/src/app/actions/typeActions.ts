@@ -5,7 +5,7 @@ import {
   auditAdminService,
   typeReader,
   accessControlPort,
-  pgExecutor,
+  attachmentPolicyRepository,
   auditPort,
   configService,
 } from '../../server/db';
@@ -54,8 +54,7 @@ export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Pro
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
     await accessControlPort.assertHasPermission(actorUserId, 'node_type.read', null);
-    const result = await pgExecutor.query<{ encryption_mode: AttachmentEncryptionMode }>('SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id = $1', [nodeTypeId]);
-    return { success: true, mode: result.rows[0]?.encryption_mode ?? 'disabled' };
+    return { success: true, mode: await attachmentPolicyRepository.getEncryptionMode(nodeTypeId) };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }
@@ -69,7 +68,7 @@ export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, m
     if (mode === 'enabled' && !(await configService.get<boolean>('attachments.encryptionEnabled'))) {
       return { success: false, error: { code: 'VALIDATION_ERROR', message: 'La cifratura allegati globale è disabilitata.' } };
     }
-    await withAdministrativeMutationLock({ resourceType: 'node_type', resourceId: nodeTypeId, permission: 'node_type.update', work: async () => pgExecutor.query(`INSERT INTO node_type_attachment_policies (node_type_id, encryption_mode, updated_at) VALUES ($1, $2, NOW()) ON CONFLICT (node_type_id) DO UPDATE SET encryption_mode = EXCLUDED.encryption_mode, updated_at = NOW()`, [nodeTypeId, mode]) });
+    await withAdministrativeMutationLock({ resourceType: 'node_type', resourceId: nodeTypeId, permission: 'node_type.update', work: async () => attachmentPolicyRepository.setEncryptionMode(nodeTypeId, mode) });
     await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
     await publishAdministrativeChange({ resourceType: 'node_type', resourceId: nodeTypeId, changeType: 'updated', actorUserId, data: { encryptionMode: mode } });
     return { success: true, mode };

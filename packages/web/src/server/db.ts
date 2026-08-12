@@ -52,6 +52,8 @@ import {
   ConfigurationRepositoryPostgres,
   ServiceConfigurationRepositoryPostgres,
   ServiceConfigurationService,
+  AttachmentRepositoryPostgres,
+  AttachmentPolicyRepositoryPostgres,
   ServiceHealthCheckService,
   DefaultServiceHealthCheckRegistry,
   defaultServiceConfigurationRegistry,
@@ -97,6 +99,8 @@ const pool = new pg.Pool({
 });
 
 export const pgExecutor = new PgExecutor(pool);
+export const attachmentRepository = new AttachmentRepositoryPostgres(pgExecutor);
+export const attachmentPolicyRepository = new AttachmentPolicyRepositoryPostgres(pgExecutor);
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
 const securityKeys = getSecurityKeyConfiguration();
@@ -246,7 +250,7 @@ export const deletedResourcePurgeService = new DeletedResourcePurgeService(
 );
 export const attachmentRateLimiter = new AttachmentRateLimiter();
 export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicyResolver(
-  pgExecutor,
+  attachmentPolicyRepository,
   configService,
   nodeRepository,
   entityRepository,

@@ -21,13 +21,8 @@ export const GET = auth(async (request) => {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId, 'read');
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { pgExecutor } = await import('../../../server/db');
-    const result = await pgExecutor.query(
-      `SELECT id, resource_type AS "resourceType", resource_id AS "resourceId", field_key AS "fieldKey", kind, file_name AS "fileName", mime_type AS "mimeType", size_bytes AS "sizeBytes"
-       FROM resource_attachments WHERE resource_type = $1 AND resource_id = $2 AND ($3 = '' OR field_key = $3) ORDER BY created_at DESC`,
-      [target.resourceType, target.resourceId, url.searchParams.get('fieldKey') ?? ''],
-    );
-    return NextResponse.json(result.rows);
+    const { attachmentRepository } = await import('../../../server/db');
+    return NextResponse.json(await attachmentRepository.list(target.resourceType, target.resourceId, url.searchParams.get('fieldKey') ?? undefined));
   } catch (error) {
     console.error('[Attachments] List failed', error);
     return NextResponse.json({ error: 'ATTACHMENT_LIST_FAILED' }, { status: 500 });
@@ -53,7 +48,7 @@ export const POST = auth(async (request) => {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, pgExecutor, resourceSecurityPolicyResolver } = await import('../../../server/db');
+    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, attachmentRepository, resourceSecurityPolicyResolver } = await import('../../../server/db');
     if (!attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour)) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });
     }
@@ -67,11 +62,8 @@ export const POST = auth(async (request) => {
     if (securityPolicy.antivirusEnabled && attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
       return NextResponse.json({ error: 'ATTACHMENT_INFECTED' }, { status: 422 });
     }
-    const quota = await pgExecutor.query<{ total: string }>(
-      'SELECT COALESCE(SUM(size_bytes), 0)::text AS total FROM resource_attachments WHERE resource_type = $1 AND resource_id = $2',
-      [target.resourceType, target.resourceId],
-    );
-    if (Number(quota.rows[0]?.total ?? 0) + content.byteLength > defaultAttachmentSecurityPolicy.maxResourceBytes) {
+    const quota = await attachmentRepository.getResourceQuota(target.resourceType, target.resourceId);
+    if (quota + content.byteLength > defaultAttachmentSecurityPolicy.maxResourceBytes) {
       return NextResponse.json({ error: 'ATTACHMENT_QUOTA_EXCEEDED' }, { status: 413 });
     }
     const attachmentId = randomUUID();
@@ -79,12 +71,7 @@ export const POST = auth(async (request) => {
     const storageKey = `${target.resourceType}/${target.resourceId}/${attachmentId}-${safeName}`;
     const stored = await attachmentStorage.put(storageKey, content, { encrypt: securityPolicy.encryptionEnabled });
     try {
-      await pgExecutor.query(
-      `INSERT INTO resource_attachments
-       (id, resource_type, resource_id, field_key, kind, file_name, mime_type, size_bytes, storage_key, checksum, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [attachmentId, target.resourceType, target.resourceId, target.fieldKey, target.kind, safeName, detected.mimeType, stored.sizeBytes, stored.storageKey, stored.checksum, actorUserId],
-      );
+      await attachmentRepository.create({ id: attachmentId, resourceType: target.resourceType, resourceId: target.resourceId, fieldKey: target.fieldKey, kind: target.kind, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, storageKey: stored.storageKey, checksum: stored.checksum, createdBy: actorUserId });
     } catch (error) {
       await attachmentStorage.delete(storageKey).catch((cleanupError) => console.error('[Attachments] Orphan cleanup failed', cleanupError));
       throw error;

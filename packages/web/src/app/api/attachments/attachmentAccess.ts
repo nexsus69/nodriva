@@ -38,14 +38,11 @@ export async function assertAttachmentAccess(actorUserId: string, resourceType: 
 }
 
 export async function assertAttachmentField(resourceType: TypeDomain, typeId: string, fieldKey: string, kind: 'file' | 'image'): Promise<boolean> {
-  const { pgExecutor } = await import('../../../server/db');
-  const table = resourceType === 'node' ? 'node_type_fields' : 'entity_type_fields';
-  const typeColumn = resourceType === 'node' ? 'node_type_id' : 'entity_type_id';
-  const result = await pgExecutor.query(
-    `SELECT 1 FROM ${table} WHERE ${typeColumn} = $1 AND field_key = $2 AND data_type = $3`,
-    [typeId, fieldKey, kind],
-  );
-  return result.rows.length > 0;
+  const { typeReader, nodeTypeRepository, entityTypeRepository } = await import('../../../server/db');
+  const type = resourceType === 'node' ? await nodeTypeRepository.findById(typeId) : await entityTypeRepository.findById(typeId);
+  if (!type) return false;
+  const definition = await typeReader.readDefinition(resourceType, type.typeKey);
+  return definition?.fields.some((field) => field.fieldKey === fieldKey && field.dataType === kind) ?? false;
 }
 
 export function authenticatedUser(request: { auth?: { userId?: string } | null }): string | null {

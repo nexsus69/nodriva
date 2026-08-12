@@ -1,8 +1,8 @@
-import type { ConfigService, EntityRepository, NodeRepository, PgExecutor, ResourceSecurityPolicy, ResourceSecurityPolicyResolver } from '@dashboard/core';
+import type { AttachmentPolicyRepository, ConfigService, EntityRepository, NodeRepository, ResourceSecurityPolicy, ResourceSecurityPolicyResolver } from '@dashboard/core';
 
 export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityPolicyResolver {
   constructor(
-    private readonly executor: PgExecutor,
+    private readonly attachmentPolicyRepository: AttachmentPolicyRepository,
     private readonly configService: ConfigService,
     private readonly nodeRepository: NodeRepository,
     private readonly entityRepository: EntityRepository,
@@ -14,11 +14,9 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     const [encryptionGlobal, antivirusGlobal, nodePolicy] = await Promise.all([
       this.configService.get<boolean>('attachments.encryptionEnabled'),
       this.configService.get<boolean>('attachments.antivirusEnabled'),
-      this.executor.query<{ encryption_mode: 'enabled' | 'disabled' }>(
-        'SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id = $1', [nodeTypeId],
-      ),
+      this.attachmentPolicyRepository.getEncryptionMode(nodeTypeId),
     ]);
-    const mode = nodePolicy.rows[0]?.encryption_mode ?? 'disabled';
+    const mode = nodePolicy;
     return {
       encryptionEnabled: encryptionGlobal && mode === 'enabled',
       antivirusEnabled: antivirusGlobal || this.requireScan,

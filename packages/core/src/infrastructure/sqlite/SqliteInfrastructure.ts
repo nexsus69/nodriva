@@ -17,6 +17,8 @@ import { AccountActionTokenPortSqlite } from './AccountActionTokenPortSqlite.js'
 import { UserRepositorySqlite } from './UserRepositorySqlite.js';
 import { TransactionPortSqlite } from './TransactionPortSqlite.js';
 import { StorageTableManagementSqlite } from './StorageTableManagementSqlite.js';
+import { AttachmentRepositorySqlite } from './AttachmentRepositorySqlite.js';
+import { AttachmentPolicyRepositorySqlite } from './AttachmentPolicyRepositorySqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -38,6 +40,8 @@ export class SqliteInfrastructure {
   readonly accountActionTokenPort: AccountActionTokenPortSqlite;
   readonly userRepository: UserRepositorySqlite;
   readonly storageTableManagement: StorageTableManagementSqlite;
+  readonly attachmentRepository: AttachmentRepositorySqlite;
+  readonly attachmentPolicyRepository: AttachmentPolicyRepositorySqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -59,6 +63,8 @@ export class SqliteInfrastructure {
     this.accountActionTokenPort = new AccountActionTokenPortSqlite(this.database);
     this.userRepository = new UserRepositorySqlite(this.database);
     this.storageTableManagement = new StorageTableManagementSqlite(this.database);
+    this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
+    this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
   }
 
   close(): void { this.database.close(); }

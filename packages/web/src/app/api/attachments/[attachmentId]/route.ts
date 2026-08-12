@@ -4,16 +4,13 @@ import { authenticatedUser, assertAttachmentAccess, assertAttachmentField } from
 import { publishAuditRealtimeChange } from '../../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../../server/realtime';
 
-type AttachmentRow = { id: string; resource_type: 'node' | 'entity'; resource_id: string; field_key: string; kind: 'file' | 'image'; file_name: string; mime_type: string; storage_key: string };
+type AttachmentRow = { id: string; resourceType: 'node' | 'entity'; resourceId: string; fieldKey: string; kind: 'file' | 'image'; fileName: string; mimeType: string; storageKey: string };
 const safeInlineTypes = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
 async function findAttachment(id: string): Promise<AttachmentRow | null> {
-  const { pgExecutor } = await import('../../../../server/db');
-  const result = await pgExecutor.query<AttachmentRow>(
-    'SELECT id, resource_type, resource_id, field_key, kind, file_name, mime_type, storage_key FROM resource_attachments WHERE id = $1',
-    [id],
-  );
-  return result.rows[0] ?? null;
+  const { attachmentRepository } = await import('../../../../server/db');
+  const attachment = await attachmentRepository.getById(id);
+  return attachment ? { id: attachment.id, resourceType: attachment.resourceType, resourceId: attachment.resourceId, fieldKey: attachment.fieldKey, kind: attachment.kind, fileName: attachment.fileName, mimeType: attachment.mimeType, storageKey: attachment.storageKey } : null;
 }
 
 export const GET = auth(async (request, context: { params: Promise<{ attachmentId: string }> }) => {
@@ -23,20 +20,20 @@ export const GET = auth(async (request, context: { params: Promise<{ attachmentI
   const attachment = await findAttachment(attachmentId);
   if (!attachment) return NextResponse.json({ error: 'ATTACHMENT_NOT_FOUND' }, { status: 404 });
   try {
-    const access = await assertAttachmentAccess(actorUserId, attachment.resource_type, attachment.resource_id, 'read');
+    const access = await assertAttachmentAccess(actorUserId, attachment.resourceType, attachment.resourceId, 'read');
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
-    if (!(await assertAttachmentField(attachment.resource_type, access.resourceTypeId, attachment.field_key, attachment.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
+    if (!(await assertAttachmentField(attachment.resourceType, access.resourceTypeId, attachment.fieldKey, attachment.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
     const { attachmentStorage, auditPort } = await import('../../../../server/db');
-    const content = await attachmentStorage.get(attachment.storage_key);
+    const content = await attachmentStorage.get(attachment.storageKey);
     if (!content) return NextResponse.json({ error: 'ATTACHMENT_CONTENT_NOT_FOUND' }, { status: 404 });
-    const inline = safeInlineTypes.has(attachment.mime_type);
-    const contentType = inline ? attachment.mime_type : 'application/octet-stream';
+    const inline = safeInlineTypes.has(attachment.mimeType);
+    const contentType = inline ? attachment.mimeType : 'application/octet-stream';
     const disposition = inline ? 'inline' : 'attachment';
-    await auditPort.record(actorUserId, 'attachment.download', 'attachment', attachment.id, access.scopeNodeId, null, { resourceType: attachment.resource_type, resourceId: attachment.resource_id, fileName: attachment.file_name });
+    await auditPort.record(actorUserId, 'attachment.download', 'attachment', attachment.id, access.scopeNodeId, null, { resourceType: attachment.resourceType, resourceId: attachment.resourceId, fileName: attachment.fileName });
     return new Response(Buffer.from(content), { headers: {
       'Content-Type': contentType,
       'Content-Length': String(content.byteLength),
-      'Content-Disposition': `${disposition}; filename="${attachment.file_name.replace(/[\r\n"\\]/g, '_')}"`,
+      'Content-Disposition': `${disposition}; filename="${attachment.fileName.replace(/[\r\n"\\]/g, '_')}"`,
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': inline ? "default-src 'none'; img-src 'self'" : "default-src 'none'; sandbox",
       'Cross-Origin-Resource-Policy': 'same-origin',
@@ -55,22 +52,22 @@ export const DELETE = auth(async (request, context: { params: Promise<{ attachme
   const attachment = await findAttachment(attachmentId);
   if (!attachment) return NextResponse.json({ error: 'ATTACHMENT_NOT_FOUND' }, { status: 404 });
   try {
-    const access = await assertAttachmentAccess(actorUserId, attachment.resource_type, attachment.resource_id);
+    const access = await assertAttachmentAccess(actorUserId, attachment.resourceType, attachment.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
-    if (!(await assertAttachmentField(attachment.resource_type, access.resourceTypeId, attachment.field_key, attachment.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { attachmentStorage, auditPort, pgExecutor } = await import('../../../../server/db');
-    await attachmentStorage.delete(attachment.storage_key);
-    await pgExecutor.query('DELETE FROM resource_attachments WHERE id = $1', [attachmentId]);
-    await auditPort.record(actorUserId, 'attachment.delete', 'attachment', attachment.id, access.scopeNodeId, { resourceType: attachment.resource_type, resourceId: attachment.resource_id, fileName: attachment.file_name }, null);
+    if (!(await assertAttachmentField(attachment.resourceType, access.resourceTypeId, attachment.fieldKey, attachment.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
+    const { attachmentStorage, auditPort, attachmentRepository } = await import('../../../../server/db');
+    await attachmentStorage.delete(attachment.storageKey);
+    await attachmentRepository.delete(attachmentId);
+    await auditPort.record(actorUserId, 'attachment.delete', 'attachment', attachment.id, access.scopeNodeId, { resourceType: attachment.resourceType, resourceId: attachment.resourceId, fileName: attachment.fileName }, null);
     void publishRealtimeChange({
-      resourceType: attachment.resource_type,
-      resourceId: attachment.resource_id,
+      resourceType: attachment.resourceType,
+      resourceId: attachment.resourceId,
       changeType: 'updated',
       actorUserId,
-      parentNodeId: attachment.resource_type === 'entity' ? access.scopeNodeId : null,
+      parentNodeId: attachment.resourceType === 'entity' ? access.scopeNodeId : null,
       subresourceKind: 'attachment',
     }).catch((error) => console.error('[Attachments] Realtime delete event failed', error));
-    void publishAuditRealtimeChange({ resourceType: attachment.resource_type, resourceId: attachment.id, changeType: 'deleted', actorUserId })
+    void publishAuditRealtimeChange({ resourceType: attachment.resourceType, resourceId: attachment.id, changeType: 'deleted', actorUserId })
       .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ deleted: true });
   } catch (error) {

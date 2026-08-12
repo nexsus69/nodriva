@@ -444,3 +444,9 @@ export { RevisionPortSqlite } from './infrastructure/sqlite/RevisionPortSqlite.j
 export { RealtimeOutboxSqlite } from './infrastructure/sqlite/RealtimeOutboxSqlite.js';
 export { SqliteInfrastructure } from './infrastructure/sqlite/SqliteInfrastructure.js';
 export { StorageTableManagementSqlite } from './infrastructure/sqlite/StorageTableManagementSqlite.js';
+export type { AttachmentRecord, AttachmentRepository } from './application/ports/AttachmentRepository.js';
+export { AttachmentRepositoryPostgres } from './infrastructure/postgres/AttachmentRepositoryPostgres.js';
+export { AttachmentRepositorySqlite } from './infrastructure/sqlite/AttachmentRepositorySqlite.js';
+export type { AttachmentEncryptionMode, AttachmentPolicyRepository } from './application/ports/AttachmentPolicyRepository.js';
+export { AttachmentPolicyRepositoryPostgres } from './infrastructure/postgres/AttachmentPolicyRepositoryPostgres.js';
+export { AttachmentPolicyRepositorySqlite } from './infrastructure/sqlite/AttachmentPolicyRepositorySqlite.js';
