@@ -193,6 +193,7 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_attachments_resource ON resource_attachments(resource_type, resource_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS resource_field_ciphertexts (resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, field_key TEXT NOT NULL, key_version TEXT NOT NULL, ciphertext TEXT NOT NULL, PRIMARY KEY(resource_type, resource_id, field_key));
     CREATE TABLE IF NOT EXISTS node_type_attachment_policies (
       node_type_id TEXT PRIMARY KEY REFERENCES node_types(id) ON DELETE CASCADE,
       encryption_mode TEXT NOT NULL CHECK (encryption_mode IN ('enabled','disabled')),

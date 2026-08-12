@@ -450,3 +450,6 @@ export { AttachmentRepositorySqlite } from './infrastructure/sqlite/AttachmentRe
 export type { AttachmentEncryptionMode, AttachmentPolicyRepository } from './application/ports/AttachmentPolicyRepository.js';
 export { AttachmentPolicyRepositoryPostgres } from './infrastructure/postgres/AttachmentPolicyRepositoryPostgres.js';
 export { AttachmentPolicyRepositorySqlite } from './infrastructure/sqlite/AttachmentPolicyRepositorySqlite.js';
+export type { PurgeTargetResult, ResourcePurgeRepository } from './application/ports/ResourcePurgeRepository.js';
+export { ResourcePurgeRepositoryPostgres } from './infrastructure/postgres/ResourcePurgeRepositoryPostgres.js';
+export { ResourcePurgeRepositorySqlite } from './infrastructure/sqlite/ResourcePurgeRepositorySqlite.js';

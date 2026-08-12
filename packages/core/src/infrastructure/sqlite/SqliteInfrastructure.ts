@@ -19,6 +19,7 @@ import { TransactionPortSqlite } from './TransactionPortSqlite.js';
 import { StorageTableManagementSqlite } from './StorageTableManagementSqlite.js';
 import { AttachmentRepositorySqlite } from './AttachmentRepositorySqlite.js';
 import { AttachmentPolicyRepositorySqlite } from './AttachmentPolicyRepositorySqlite.js';
+import { ResourcePurgeRepositorySqlite } from './ResourcePurgeRepositorySqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -42,6 +43,7 @@ export class SqliteInfrastructure {
   readonly storageTableManagement: StorageTableManagementSqlite;
   readonly attachmentRepository: AttachmentRepositorySqlite;
   readonly attachmentPolicyRepository: AttachmentPolicyRepositorySqlite;
+  readonly resourcePurgeRepository: ResourcePurgeRepositorySqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -65,6 +67,7 @@ export class SqliteInfrastructure {
     this.storageTableManagement = new StorageTableManagementSqlite(this.database);
     this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
     this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
+    this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
   }
 
   close(): void { this.database.close(); }

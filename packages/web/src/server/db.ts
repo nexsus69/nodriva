@@ -54,6 +54,7 @@ import {
   ServiceConfigurationService,
   AttachmentRepositoryPostgres,
   AttachmentPolicyRepositoryPostgres,
+  ResourcePurgeRepositoryPostgres,
   ServiceHealthCheckService,
   DefaultServiceHealthCheckRegistry,
   defaultServiceConfigurationRegistry,
@@ -101,6 +102,7 @@ const pool = new pg.Pool({
 export const pgExecutor = new PgExecutor(pool);
 export const attachmentRepository = new AttachmentRepositoryPostgres(pgExecutor);
 export const attachmentPolicyRepository = new AttachmentPolicyRepositoryPostgres(pgExecutor);
+export const resourcePurgeRepository = new ResourcePurgeRepositoryPostgres(pgExecutor);
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
 const securityKeys = getSecurityKeyConfiguration();
@@ -242,7 +244,7 @@ const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.
   ? antivirusDeployment.values
   : {};
 export const deletedResourcePurgeService = new DeletedResourcePurgeService(
-  pgExecutor,
+  resourcePurgeRepository,
   transactionPort,
   accessControlPort,
   auditPort,
