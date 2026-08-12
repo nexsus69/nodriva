@@ -5,6 +5,34 @@
 > operations match the architecture contract. Every completed item needs code,
 > automated tests and any affected documentation updated in the same change.
 
+## Stato architetturale: attuale e obiettivo
+
+### Attuale
+
+- il core usa porte e adapter, ma PostgreSQL è l'unico adapter di persistenza
+  completo;
+- `docker-compose.full.yml` fornisce uno stack completo per sviluppo/staging;
+- realtime, antivirus, backup, storage e osservabilità sono configurabili
+  soprattutto tramite environment/Compose;
+- esistono registry, resolver e repository PostgreSQL per le configurazioni
+  runtime, ma non sono ancora collegati al composition root, alle sorgenti
+  deployment/secret, agli healthcheck e ai provider effettivamente attivi;
+- non è ancora disponibile un profilo standalone affidabile con il solo Node.
+
+### Obiettivo
+
+L'applicazione dovrà supportare deployment standalone, distribuiti e Compose
+completo senza modificare il dominio applicativo. Ogni servizio dovrà avere un
+provider/adapter sostituibile e una configurazione separata per capability,
+provider, endpoint, secret, timeout, retry, healthcheck e requisito di riavvio.
+Il Compose completo sarà un profilo di deployment, non il requisito minimo
+dell'applicazione. Per la persistenza standalone dovrà essere introdotto e
+verificato un adapter SQLite o equivalente.
+
+Il piano dettagliato è in
+[`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md)
+e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
+
 ## P0 — Delegated administration without privilege escalation
 
 - [x] Add an atomic `createScopedUser` use case: create identity, initial local
@@ -49,6 +77,18 @@
   eventual outbox replay.
 
 ## P1 — Runtime session policy
+
+- [ ] Collegare il `ServiceConfigurationRegistry` al composition root e alle
+  sorgenti deployment/secret per database, realtime, storage allegati,
+  antivirus, mail, backup e osservabilità, completando timeout, retry,
+  healthcheck, dipendenze, origine del valore e requisito di riavvio.
+- [ ] Separare nella configurazione la capability (`enabled`), il provider,
+  gli endpoint pubblici/interni e i riferimenti ai secret; non esporre secret
+  al client né trattare la configurazione Compose come configurazione runtime.
+- [ ] Rendere il Compose modulare e documentare profili coerenti per i servizi
+  opzionali, mantenendo un profilo completo per sviluppo/staging.
+- [ ] Introdurre un adapter di persistenza standalone, preferibilmente SQLite,
+  con gerarchia portabile e test di contratto equivalenti a PostgreSQL.
 
 - [ ] Approve the complete runtime/deployment/secret configuration catalog in
   [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md)

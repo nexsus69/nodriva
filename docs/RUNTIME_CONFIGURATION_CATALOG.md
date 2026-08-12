@@ -1,8 +1,16 @@
 # Catalogo configurazioni runtime e deployment
 
-Questo catalogo precede l'implementazione della configurazione backend. Ogni
-nuova impostazione deve essere classificata prima di essere aggiunta a
-`system_settings` o a un file di deployment.
+Questo catalogo descrive il modello obiettivo della configurazione backend.
+L'implementazione attuale è parziale: alcune capability sono già in
+`system_settings` o nell'environment; il core possiede registry, resolver e
+repository PostgreSQL per i valori runtime, ma non sono ancora collegati al
+composition root, alle sorgenti deployment/secret e agli healthcheck reali.
+Ogni nuova impostazione deve
+essere classificata prima di essere aggiunta a `system_settings`, a un file di
+deployment o a un secret manager.
+
+Per la distinzione tra stato attuale e obiettivo consultare
+[`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md).
 
 ## Regole di classificazione
 
@@ -66,6 +74,9 @@ Un indirizzo come `127.0.0.1` è una proprietà del contesto di rete del process
 non un valore da far modificare a un amministratore dal browser. Devono essere
 distinti endpoint interno server-side ed endpoint pubblico client-side.
 
+Il modello obiettivo aggiunge provider, endpoint interno/pubblico, porta,
+schema, timeout, retry, healthcheck, dipendenze e requisito di riavvio.
+
 ### Database e infrastruttura — deployment/segreti
 
 - `DATABASE_URL` e pool PostgreSQL;
@@ -74,7 +85,9 @@ distinti endpoint interno server-side ed endpoint pubblico client-side.
 - URL pubblici dell'applicazione;
 - secret database e credenziali di servizio.
 
-Questi valori restano fuori da `system_settings`.
+Questi valori restano fuori da `system_settings`. Nel modello obiettivo il
+provider di persistenza sarà selezionabile (`postgres`, `sqlite` o altro), con
+adapter e migrazioni/test di contratto dedicati.
 
 ### Integrazioni esterne — deployment/segreti
 
@@ -100,6 +113,21 @@ Deployment:
 - target Prometheus;
 - credenziali e secret di scraping;
 - tracing/exporter e relativi endpoint.
+
+## Contratto comune dei servizi — obiettivo
+
+Ogni servizio deve descrivere almeno:
+
+| Aspetto | Esempi |
+| --- | --- |
+| Capability | abilitato, disabilitato, obbligatorio |
+| Provider | PostgreSQL, SQLite, Soketi, Pusher, ClamAV, filesystem, S3 |
+| Endpoint | host, porta, schema, database, bucket, percorso |
+| Secret | riferimento esterno, mai valore nel client |
+| Affidabilità | timeout, retry, backoff, pool, limiti |
+| Salute | healthcheck, stato, ultima verifica |
+| Lifecycle | hot reload, riavvio, redeploy |
+| Dipendenze | servizi richiesti e fallback consentiti |
 
 ## Contratto minimo di ogni setting
 

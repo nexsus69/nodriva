@@ -103,11 +103,11 @@ job autenticato deve richiamare `POST /api/internal/realtime/drain` con
 `Authorization: Bearer $REALTIME_WORKER_SECRET` per svuotare l'outbox anche in
 assenza di nuove mutazioni.
 
-Nel deployment Docker fornito dal repository, `realtime-worker` effettua tale
-chiamata ogni cinque secondi. Impostare lo stesso `REALTIME_WORKER_SECRET` nel
-processo Web e nel Compose. Il worker appartiene al profilo opzionale
-`realtime`, quindi avviarlo con `docker compose --profile realtime up -d --build
-realtime-worker` solo dopo che il processo Web è raggiungibile. Per sviluppo con Web sull'host, l'URL predefinito usa
+Nel deployment Docker completo fornito dal repository, `realtime-worker`
+effettua tale chiamata ogni cinque secondi. Impostare lo stesso
+`REALTIME_WORKER_SECRET` nel processo Web e nel Compose. Nello stato attuale il
+worker è incluso nello stack completo; la sua separazione in un profilo Compose
+opzionale è ancora da implementare. Per sviluppo con Web sull'host, l'URL predefinito usa
 `host.docker.internal:3000`; in un deployment con Web containerizzato impostare
 `REALTIME_DRAIN_URL` al nome DNS interno del servizio Web.
 
@@ -123,8 +123,8 @@ ampio.
 stesso segreto del worker. Le metriche sono locali al processo: in un deployment
 multiistanza devono essere raccolte da ogni replica.
 
-Prometheus è opzionale ed è nel profilo Compose `monitoring`: avviarlo con
-`docker compose --profile monitoring up -d prometheus`. Valuta alert su età
+Nel Compose completo Prometheus è incluso nello stack. La sua separazione in un
+profilo Compose `monitoring` è ancora da implementare. Valuta alert su età
 del backlog, retry, tentativi ripetuti e fallimenti di publish. Per ciascuna
 replica Web aggiungere un target al job `dashboard-web-realtime` (oppure
 eseguire una replica Prometheus per rete/host); l'endpoint resta protetto da

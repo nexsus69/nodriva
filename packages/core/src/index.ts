@@ -18,6 +18,28 @@ export type {
   ConfigurationSource,
   ConfigurationValueType,
 } from './application/config/ConfigurationRegistry.js';
+export {
+  ServiceConfigurationRegistry,
+  defaultServiceConfigurationRegistry,
+} from './application/config/ServiceConfigurationRegistry.js';
+export type {
+  ServiceConfigurationDefinition,
+  ServiceConfigurationFieldDefinition,
+  ServiceConfigurationKey,
+  ServiceConfigurationSource,
+  ServiceConfigurationValueType,
+  ServiceProviderDefinition,
+} from './application/config/ServiceConfigurationRegistry.js';
+export { ServiceConfigurationService, ServiceConfigurationValidationError } from './application/services/ServiceConfigurationService.js';
+export type { EffectiveServiceConfiguration, PublicServiceConfiguration } from './application/services/ServiceConfigurationService.js';
+export type {
+  SecretReferenceResolver,
+  ServiceConfigurationRepository,
+  ServiceDeploymentConfigurationSource,
+  ServiceRuntimeConfigurationRecord,
+} from './application/ports/ServiceConfigurationRepository.js';
+export type { ServiceHealthCheckPort, ServiceHealthCheckResult } from './application/ports/ServiceHealthCheckPort.js';
+export { ServiceConfigurationRepositoryPostgres } from './infrastructure/postgres/ServiceConfigurationRepositoryPostgres.js';
 export type {
   ConfigurationRecord,
   ConfigurationRepository,

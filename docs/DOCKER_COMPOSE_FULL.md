@@ -1,7 +1,10 @@
 # Stack Docker completo
 
-`docker-compose.full.yml` descrive l’installazione replicabile con tutte le
-funzionalità del progetto:
+`docker-compose.full.yml` descrive il profilo completo di sviluppo e staging
+replicabile con tutte le funzionalità del progetto. Non definisce il requisito
+minimo dell'applicazione e non impedisce di distribuire i servizi su macchine
+dedicate. Il modello generale è descritto in
+[`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md).
 
 - `web`: Next.js production;
 - `postgres`: PostgreSQL 17;
@@ -12,6 +15,12 @@ funzionalità del progetto:
 - `prometheus`: metriche;
 - `backup`: backup e restore verificato giornaliero;
 - `proxy`: Caddy per Web e WebSocket Soketi.
+
+Nello stato attuale questi servizi sono avviati dal file completo. La
+separazione in profili Compose realmente opzionali è un'attività ancora aperta
+nella TODO list; i riferimenti a profili `realtime`, `monitoring` o `antivirus`
+in documenti precedenti rappresentano l'obiettivo e non il comportamento
+attuale di questo file.
 
 ## Porte
 

@@ -35,9 +35,11 @@ Il monorepo contiene:
 - `e2e`: verifiche end-to-end browser;
 - `docs`: documentazione architetturale e operativa.
 
-PostgreSQL è la fonte persistente dei dati. Il realtime comunica mutazioni e
-invalidazioni, ma non sostituisce la persistenza né la verifica ACL lato
+PostgreSQL è oggi l'unica persistenza completa. Il realtime comunica mutazioni
+e invalidazioni, ma non sostituisce la persistenza né la verifica ACL lato
 server. Le mutation amministrative applicano lock e controllo `rowVersion`.
+L'architettura obiettivo prevede adapter sostituibili e servizi locali o remoti
+configurabili; il Compose completo è solo uno dei profili di deployment.
 
 ## Avvio rapido
 
@@ -77,9 +79,13 @@ Per la checklist di rilascio consultare
 - [Rotazione della cifratura](docs/ENCRYPTION_ROTATION.md)
 - [Sicurezza operativa](docs/SECURITY_OPERATIONS.md)
 - [Governance della documentazione](docs/DOCUMENTATION_GOVERNANCE.md)
+- [Configurazione dei servizi e dei deployment](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
 
 ## Stato del progetto
 
-Il progetto è in sviluppo attivo. La compose completa copre sviluppo e
-staging replicabile; prima dell’uso in produzione devono essere definiti
-secret manager, HTTPS, retention, replica, monitoraggio e disaster recovery.
+Il progetto è in sviluppo attivo. Oggi il profilo completo usa PostgreSQL e
+servizi Docker configurati tramite deployment. Restano da completare il
+registry backend dei servizi, i profili Compose opzionali e un adapter di
+persistenza standalone per esecuzioni con il solo Node. Prima dell’uso in
+produzione devono inoltre essere definiti secret manager, HTTPS, retention,
+replica, monitoraggio e disaster recovery.
