@@ -109,5 +109,24 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       occurred_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_audit_occurred_at ON audit_logs(occurred_at DESC);
+    CREATE TABLE IF NOT EXISTS system_settings (
+      setting_key TEXT PRIMARY KEY,
+      value_type TEXT NOT NULL,
+      value_text TEXT,
+      value_json TEXT,
+      row_version INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      deleted_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS runtime_capabilities (
+      capability_key TEXT PRIMARY KEY,
+      default_status TEXT NOT NULL CHECK (default_status IN ('enabled','disabled'))
+    );
+    CREATE TABLE IF NOT EXISTS runtime_capability_overrides (
+      capability_key TEXT NOT NULL REFERENCES runtime_capabilities(capability_key),
+      scope_key TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('enabled','disabled')),
+      PRIMARY KEY(capability_key, scope_key)
+    );
   `);
 }
