@@ -9,7 +9,7 @@ describe('ServiceConfigurationRegistry', () => {
     const services = defaultServiceConfigurationRegistry.list();
 
     expect(services.map((service) => service.key)).toEqual([
-      'database', 'realtime', 'attachment-storage', 'antivirus', 'mail', 'backup', 'observability',
+      'database', 'realtime', 'attachment-storage', 'antivirus', 'mail', 'backup', 'observability', 'security-keys',
     ]);
     expect(defaultServiceConfigurationRegistry.get('database').providers.map((provider) => provider.key))
       .toEqual(['postgres', 'sqlite']);
