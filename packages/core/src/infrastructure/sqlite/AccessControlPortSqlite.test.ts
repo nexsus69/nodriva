@@ -10,6 +10,9 @@ describe('AccessControlPortSqlite', () => {
     const now = new Date().toISOString();
     database.run('INSERT INTO nodes (id,path,path_label,depth,node_type_id,name,created_at,updated_at,row_version,payload) VALUES (?,?,?,?,?,?,?,?,?,?)', ['root', 'root', 'root', 0, 'type-root', 'Root', now, now, 1, '{}']);
     database.run('INSERT INTO nodes (id,parent_id,path,path_label,depth,node_type_id,name,created_at,updated_at,row_version,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?)', ['child', 'root', 'root.child', 'child', 1, 'type-child', 'Child', now, now, 1, '{}']);
+    database.run('INSERT INTO node_hierarchy VALUES (?,?,?)', ['root', 'root', 0]);
+    database.run('INSERT INTO node_hierarchy VALUES (?,?,?)', ['child', 'child', 0]);
+    database.run('INSERT INTO node_hierarchy VALUES (?,?,?)', ['root', 'child', 1]);
     const acl = new AccessControlPortSqlite(database);
     database.run('INSERT INTO users (id) VALUES (?)', ['user']); database.run('INSERT INTO roles (id,role_key) VALUES (?,?)', ['role', 'reader']); database.run('INSERT INTO permissions (id,permission_key) VALUES (?,?)', ['perm', 'node.read']); database.run('INSERT INTO user_roles VALUES (?,?)', ['user', 'role']); database.run('INSERT INTO role_permissions VALUES (?,?)', ['role', 'perm']);
     database.run('INSERT INTO node_scope_assignments VALUES (?,?,?,?,?,?)', ['allow', 'user', 'role', 'root', 'allow', 'subtree']);
