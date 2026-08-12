@@ -148,3 +148,12 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   the fail-safe boundary: never expose stack traces, SQL details or internal
   digests to the client, and add E2E coverage for validation, authorization
   and unexpected-error paths.
+
+## P2 — Archive attachments
+
+- [ ] Supportare opzionalmente archivi come allegati (`zip` e formati futuri)
+  tramite una capability esplicita e configurabile. L’implementazione dovrà
+  includere estrazione isolata, limiti su dimensione compressa/decompressa,
+  numero di file e profondità, protezione da ZIP bomb e path traversal,
+  scansione antivirus dei contenuti e test E2E per archivi validi e malevoli.
+  Fino al completamento, gli archivi restano rifiutati dalla policy di upload.
