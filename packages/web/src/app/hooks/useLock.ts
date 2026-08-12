@@ -94,8 +94,10 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     };
 
     window.addEventListener('pagehide', releaseOnPageExit);
+    window.addEventListener('beforeunload', releaseOnPageExit);
     return () => {
       window.removeEventListener('pagehide', releaseOnPageExit);
+      window.removeEventListener('beforeunload', releaseOnPageExit);
       if (ownsLockRef.current) {
         ownsLockRef.current = false;
         void releaseLockAction(resourceType, resourceId);
