@@ -91,7 +91,8 @@ Il contratto completo di attività, timeout e proprietà dei lock è descritto i
 
 ## Realtime disabilitato
 
-Con `REALTIME_ENABLED=false` il bus server non inizializza Pusher e le action
+Con la capability runtime `realtime` disabilitata il bus server non pubblica
+eventi Pusher e le action
 continuano a eseguire normalmente le mutazioni. Con
 `NEXT_PUBLIC_REALTIME_ENABLED=false` il client non apre sottoscrizioni e la
 route di autorizzazione risponde con `503`.

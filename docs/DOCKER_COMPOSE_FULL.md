@@ -50,7 +50,10 @@ MFA_ENCRYPTION_KEY=...
 ```
 
 Le variabili `NEXT_PUBLIC_*` sono usate durante la build dell’immagine Web;
-dopo una modifica è necessario ricostruire `web`.
+dopo una modifica è necessario ricostruire `web`. Il profilo completo dichiara
+esplicitamente `DATABASE_ADAPTER=postgres`. Il realtime server-side è governato
+dalla capability runtime `realtime`, mentre `NEXT_PUBLIC_REALTIME_ENABLED`
+controlla solo la sottoscrizione del client.
 
 ## Avvio completo
 

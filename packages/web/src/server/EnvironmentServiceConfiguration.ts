@@ -3,6 +3,10 @@ import type {
   ServiceConfigurationKey,
   ServiceDeploymentConfigurationSource,
 } from '@dashboard/core';
+import {
+  defaultServiceConfigurationRegistry,
+  type ServiceConfigurationRegistry,
+} from '@dashboard/core';
 
 type Environment = Record<string, string | undefined>;
 
@@ -23,26 +27,70 @@ function optionalUrl(value: string | undefined): URL | null {
 
 /** Maps the current deployment environment to the service configuration contract. */
 export class EnvironmentServiceDeploymentConfigurationSource implements ServiceDeploymentConfigurationSource {
-  constructor(private readonly environment: Environment = process.env) {}
+  constructor(
+    private readonly environment: Environment = process.env,
+    private readonly registry: ServiceConfigurationRegistry = defaultServiceConfigurationRegistry,
+  ) {}
 
   async get(serviceKey: ServiceConfigurationKey) {
     return this.getSync(serviceKey);
   }
 
   getSync(serviceKey: ServiceConfigurationKey) {
+    let deployment: { providerKey: string; values: Readonly<Record<string, unknown>> } | null;
     switch (serviceKey) {
-      case 'database': return this.database();
-      case 'realtime': return this.realtime();
-      case 'attachment-storage': return this.attachmentStorage();
-      case 'antivirus': return this.antivirus();
-      case 'mail': return this.mail();
-      case 'backup': return this.backup();
-      case 'observability': return this.observability();
-      case 'security-keys': return this.securityKeys();
+      case 'database': deployment = this.database(); break;
+      case 'realtime': deployment = this.realtime(); break;
+      case 'attachment-storage': deployment = this.attachmentStorage(); break;
+      case 'antivirus': deployment = this.antivirus(); break;
+      case 'mail': deployment = this.mail(); break;
+      case 'backup': deployment = this.backup(); break;
+      case 'observability': deployment = this.observability(); break;
+      case 'security-keys': deployment = this.securityKeys(); break;
     }
+    return deployment ? this.validateDeployment(serviceKey, deployment) : null;
+  }
+
+  private validateDeployment(serviceKey: ServiceConfigurationKey, deployment: { providerKey: string; values: Readonly<Record<string, unknown>> }) {
+    const definition = this.registry.get(serviceKey);
+    const provider = definition.providers.find((candidate) => candidate.key === deployment.providerKey);
+    if (!provider) throw new Error(`Provider '${deployment.providerKey}' is not registered for service '${serviceKey}'.`);
+    const fields = new Map(provider.fields.map((field) => [field.key, field]));
+    for (const [key, value] of Object.entries(deployment.values)) {
+      const field = fields.get(key);
+      if (!field) throw new Error(`Configuration '${serviceKey}.${key}' is not registered for provider '${deployment.providerKey}'.`);
+      const valid = field.type === 'boolean'
+        ? typeof value === 'boolean'
+        : field.type === 'integer'
+          ? Number.isInteger(value)
+          : typeof value === 'string';
+      if (!valid) throw new Error(`Configuration '${serviceKey}.${key}' has an invalid value type.`);
+      if (field.secret && (typeof value !== 'string' || !value.startsWith('secret://'))) {
+        throw new Error(`Secret '${serviceKey}.${key}' must be a secret reference.`);
+      }
+    }
+    return deployment;
+  }
+
+  resolveSecretSync(reference: string): string | null {
+    return new EnvironmentSecretReferenceResolver(this.environment).resolveSync(reference);
+  }
+
+  isProduction(): boolean {
+    return this.environment.NODE_ENV === 'production';
+  }
+
+  requiresRestrictedDatabaseRole(): boolean {
+    return this.environment.REQUIRE_RESTRICTED_DB_ROLE === 'true';
   }
 
   private database() {
+    if (this.environment.DATABASE_ADAPTER?.toLowerCase() === 'sqlite') {
+      return {
+        providerKey: 'sqlite',
+        values: { path: this.environment.SQLITE_DATABASE_PATH || './data/dashboard.sqlite' },
+      };
+    }
     const url = optionalUrl(this.environment.DATABASE_URL);
     if (!url) return null;
     return {
@@ -152,13 +200,17 @@ export interface PostgresConnectionConfiguration {
 }
 
 /** Builds the driver configuration from the registered database deployment contract. */
-export function getPostgresConnectionConfiguration(environment: Environment = process.env): PostgresConnectionConfiguration {
-  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('database');
+export function getPostgresConnectionConfiguration(environment: Environment | EnvironmentServiceDeploymentConfigurationSource = process.env): PostgresConnectionConfiguration {
+  const source = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? environment.getSync('database')
+    : new EnvironmentServiceDeploymentConfigurationSource(environment as Environment).getSync('database');
   if (!source || source.providerKey !== 'postgres') {
     throw new Error('DATABASE_URL environment variable is missing or does not describe a PostgreSQL deployment.');
   }
   const values: Readonly<Record<string, unknown>> = source.values;
-  const resolver = new EnvironmentSecretReferenceResolver(environment);
+  const resolver = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? { resolveSync: (reference: string) => environment.resolveSecretSync(reference) }
+    : new EnvironmentSecretReferenceResolver(environment as Environment);
   const passwordReference = values.password;
   return {
     host: String(values.host),
@@ -181,10 +233,14 @@ export interface SecurityKeyConfiguration {
 }
 
 /** Resolves deployment-only encryption secrets for server-side adapter construction. */
-export function getSecurityKeyConfiguration(environment: Environment = process.env): SecurityKeyConfiguration {
-  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('security-keys');
+export function getSecurityKeyConfiguration(environment: Environment | EnvironmentServiceDeploymentConfigurationSource = process.env): SecurityKeyConfiguration {
+  const source = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? environment.getSync('security-keys')
+    : new EnvironmentServiceDeploymentConfigurationSource(environment as Environment).getSync('security-keys');
   const values: Readonly<Record<string, unknown>> = source?.providerKey === 'environment' ? source.values : {};
-  const resolver = new EnvironmentSecretReferenceResolver(environment);
+  const resolver = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? { resolveSync: (reference: string) => environment.resolveSecretSync(reference) }
+    : new EnvironmentSecretReferenceResolver(environment as Environment);
   const resolve = (key: string) => {
     const reference = values[key];
     return typeof reference === 'string' ? resolver.resolveSync(reference) ?? undefined : undefined;
@@ -219,10 +275,14 @@ export class EnvironmentSecretReferenceResolver implements SecretReferenceResolv
   }
 }
 
-export function getRealtimePusherConfiguration(environment: Environment = process.env, perspective: 'public' | 'internal' = 'public') {
-  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('realtime');
+export function getRealtimePusherConfiguration(environment: Environment | EnvironmentServiceDeploymentConfigurationSource = process.env, perspective: 'public' | 'internal' = 'public') {
+  const source = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? environment.getSync('realtime')
+    : new EnvironmentServiceDeploymentConfigurationSource(environment as Environment).getSync('realtime');
   const values: Readonly<Record<string, unknown>> = source?.providerKey === 'soketi' ? source.values : {};
-  const secrets = new EnvironmentSecretReferenceResolver(environment);
+  const secrets = environment instanceof EnvironmentServiceDeploymentConfigurationSource
+    ? { resolveSync: (reference: string) => environment.resolveSecretSync(reference) }
+    : new EnvironmentSecretReferenceResolver(environment as Environment);
   const host = perspective === 'internal' ? values.internalHost : values.publicHost;
   const port = perspective === 'internal' ? values.internalPort : values.publicPort;
   return {
@@ -233,6 +293,6 @@ export function getRealtimePusherConfiguration(environment: Environment = proces
     useTLS: perspective === 'internal' ? values.internalScheme === 'https' : values.scheme === 'https',
     host: typeof host === 'string' && host.length > 0 ? host : undefined,
     port: typeof port === 'number' ? String(port) : undefined,
-    enabled: environment.REALTIME_ENABLED !== 'false',
+    enabled: true,
   };
 }

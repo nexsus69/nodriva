@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { PostgresHealthCheck } from './ServiceHealthCheckAdapters';
+import { PostgresHealthCheck, SqliteHealthCheck } from './ServiceHealthCheckAdapters';
+import { SqliteDatabase } from '@dashboard/core';
 import type { PgExecutor } from '@dashboard/core';
 
 describe('service health check adapters', () => {
@@ -16,5 +17,11 @@ describe('service health check adapters', () => {
     await expect(new PostgresHealthCheck(executor).check('database', 'postgres', {})).resolves.toMatchObject({
       status: 'unhealthy', message: 'database unavailable',
     });
+  });
+
+  it('reports SQLite health through the same service contract', async () => {
+    const database = new SqliteDatabase();
+    await expect(new SqliteHealthCheck(database).check('database', 'sqlite', {})).resolves.toMatchObject({ status: 'healthy' });
+    database.close();
   });
 });

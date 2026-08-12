@@ -82,16 +82,19 @@ import {
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck, SqliteHealthCheck } from './ServiceHealthCheckAdapters';
 
-const databaseAdapter = process.env.DATABASE_ADAPTER?.toLowerCase() === 'sqlite' ? 'sqlite' : 'postgres';
+const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
+const databaseDeployment = deploymentConfigurationSource.getSync('database');
+const databaseAdapter = databaseDeployment?.providerKey === 'sqlite' ? 'sqlite' : 'postgres';
 const sqliteMode = databaseAdapter === 'sqlite';
+const databaseDeploymentValues: Readonly<Record<string, unknown>> = databaseDeployment?.values ?? {};
 const sqliteInfrastructure = sqliteMode
-  ? new SqliteInfrastructure(process.env.SQLITE_DATABASE_PATH || './data/dashboard.sqlite')
+  ? new SqliteInfrastructure(String(databaseDeploymentValues.path ?? './data/dashboard.sqlite'))
   : undefined;
-const databaseConfiguration = sqliteMode ? null : getPostgresConnectionConfiguration();
+const databaseConfiguration = sqliteMode ? null : getPostgresConnectionConfiguration(deploymentConfigurationSource);
 const databaseUser = databaseConfiguration?.user;
 if (
   databaseUser === 'postgres'
-  && (process.env.NODE_ENV === 'production' || process.env.REQUIRE_RESTRICTED_DB_ROLE === 'true')
+  && (deploymentConfigurationSource.isProduction() || deploymentConfigurationSource.requiresRestrictedDatabaseRole())
 ) {
   throw new Error('Refusing to start the Web application with the PostgreSQL superuser. Configure a restricted login role.');
 }
@@ -110,10 +113,9 @@ export const pgExecutor = pool ? new PgExecutor(pool) : undefined;
 export const attachmentRepository = sqliteMode ? sqliteInfrastructure!.attachmentRepository : new AttachmentRepositoryPostgres(pgExecutor!);
 export const attachmentPolicyRepository = sqliteMode ? sqliteInfrastructure!.attachmentPolicyRepository : new AttachmentPolicyRepositoryPostgres(pgExecutor!);
 export const resourcePurgeRepository = sqliteMode ? sqliteInfrastructure!.resourcePurgeRepository : new ResourcePurgeRepositoryPostgres(pgExecutor!);
-const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
-const securityKeys = getSecurityKeyConfiguration();
-const realtimePusherConfiguration = getRealtimePusherConfiguration(process.env, 'internal');
+const securityKeys = getSecurityKeyConfiguration(deploymentConfigurationSource);
+const realtimePusherConfiguration = getRealtimePusherConfiguration(deploymentConfigurationSource, 'internal');
 
 const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
 export const realtimeMetrics = new RealtimeMetrics();
@@ -191,7 +193,6 @@ export const realtimeOutbox = sqliteMode ? sqliteInfrastructure!.realtimeOutbox 
 export const runtimeConfigPort = sqliteMode ? sqliteInfrastructure!.runtimeConfigurationPort : new RuntimeConfigurationPortPostgres(pgExecutor!);
 
 export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
-  if (process.env.REALTIME_ENABLED === 'false') return false;
   return runtimeConfigPort.isCapabilityEnabled('realtime');
 }
 export const configurationRepository = sqliteMode ? sqliteInfrastructure!.configurationRepository : new ConfigurationRepositoryPostgres(pgExecutor!);
@@ -398,7 +399,7 @@ export const entitySubtreeQueryPort = sqliteMode ? sqliteInfrastructure!.entityS
 
 export const systemSeedService = sqliteMode
   ? sqliteInfrastructure!.systemSeedService
-  : new SystemSeedPostgres(pgExecutor!, transactionPort, process.env.SEED_ADMIN_PASSWORD);
+  : new SystemSeedPostgres(pgExecutor!, transactionPort, deploymentConfigurationSource.resolveSecretSync('secret://env/SEED_ADMIN_PASSWORD') ?? undefined);
 
 export const authApplicationService = new AuthApplicationService(
   sessionRepository,

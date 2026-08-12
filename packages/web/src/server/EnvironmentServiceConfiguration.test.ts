@@ -49,6 +49,20 @@ describe('Environment service configuration', () => {
     await expect(resolver.resolve('secret://env/DATABASE_URL_PASSWORD')).resolves.toBe('database-password');
   });
 
+  it('selects the SQLite deployment profile without requiring DATABASE_URL', async () => {
+    const source = new EnvironmentServiceDeploymentConfigurationSource({
+      DATABASE_ADAPTER: 'sqlite',
+      SQLITE_DATABASE_PATH: './data/test.sqlite',
+    });
+
+    await expect(source.get('database')).resolves.toEqual({
+      providerKey: 'sqlite',
+      values: { path: './data/test.sqlite' },
+    });
+    expect(source.isProduction()).toBe(false);
+    expect(source.requiresRestrictedDatabaseRole()).toBe(false);
+  });
+
   it('resolves security keys only for server-side adapter construction', () => {
     const configuration = getSecurityKeyConfiguration({
       FIELD_ENCRYPTION_KEY: '11'.repeat(32),
