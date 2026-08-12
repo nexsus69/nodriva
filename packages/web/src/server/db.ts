@@ -59,6 +59,8 @@ import {
   DefaultServiceHealthCheckRegistry,
   defaultServiceConfigurationRegistry,
   defaultConfigurationRegistry,
+  SqliteInfrastructure,
+  FieldEncryptionServiceSqlite,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -80,8 +82,13 @@ import {
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
 
-const databaseConfiguration = getPostgresConnectionConfiguration();
-const databaseUser = databaseConfiguration.user;
+const databaseAdapter = process.env.DATABASE_ADAPTER?.toLowerCase() === 'sqlite' ? 'sqlite' : 'postgres';
+const sqliteMode = databaseAdapter === 'sqlite';
+const sqliteInfrastructure = sqliteMode
+  ? new SqliteInfrastructure(process.env.SQLITE_DATABASE_PATH || './data/dashboard.sqlite')
+  : undefined;
+const databaseConfiguration = sqliteMode ? null : getPostgresConnectionConfiguration();
+const databaseUser = databaseConfiguration?.user;
 if (
   databaseUser === 'postgres'
   && (process.env.NODE_ENV === 'production' || process.env.REQUIRE_RESTRICTED_DB_ROLE === 'true')
@@ -90,19 +97,19 @@ if (
 }
 
 // Inizializza il pool di connessione a PostgreSQL
-const pool = new pg.Pool({
+const pool = databaseConfiguration ? new pg.Pool({
   host: databaseConfiguration.host,
   port: databaseConfiguration.port,
   database: databaseConfiguration.database,
   user: databaseConfiguration.user,
   password: databaseConfiguration.password,
   ssl: databaseConfiguration.ssl,
-});
+}) : undefined;
 
-export const pgExecutor = new PgExecutor(pool);
-export const attachmentRepository = new AttachmentRepositoryPostgres(pgExecutor);
-export const attachmentPolicyRepository = new AttachmentPolicyRepositoryPostgres(pgExecutor);
-export const resourcePurgeRepository = new ResourcePurgeRepositoryPostgres(pgExecutor);
+export const pgExecutor = pool ? new PgExecutor(pool) : undefined;
+export const attachmentRepository = sqliteMode ? sqliteInfrastructure!.attachmentRepository : new AttachmentRepositoryPostgres(pgExecutor!);
+export const attachmentPolicyRepository = sqliteMode ? sqliteInfrastructure!.attachmentPolicyRepository : new AttachmentPolicyRepositoryPostgres(pgExecutor!);
+export const resourcePurgeRepository = sqliteMode ? sqliteInfrastructure!.resourcePurgeRepository : new ResourcePurgeRepositoryPostgres(pgExecutor!);
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
 const securityKeys = getSecurityKeyConfiguration();
@@ -130,9 +137,9 @@ async function getRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
 }
 
 // Porte e Adapter concreti infrastrutturali
-export const transactionPort = new TransactionPortPostgres(pool);
-export const auditPort = new AuditPortPostgres(pgExecutor);
-export const lockRepository = new LockRepositoryPostgres(pgExecutor);
+export const transactionPort = sqliteMode ? sqliteInfrastructure!.transactionPort : new TransactionPortPostgres(pool!);
+export const auditPort = sqliteMode ? sqliteInfrastructure!.auditPort : new AuditPortPostgres(pgExecutor!);
+export const lockRepository = sqliteMode ? sqliteInfrastructure!.lockRepository : new LockRepositoryPostgres(pgExecutor!);
 export const pusherEventBus = new PusherEventBus({
   ...realtimePusherConfiguration,
   // Il backend gira nella rete Docker: l'endpoint pubblico usato dal browser
@@ -180,15 +187,15 @@ export const pusherEventBus = new PusherEventBus({
     metric.success,
   ),
 });
-export const realtimeOutbox = new RealtimeOutboxPostgres(pgExecutor);
-export const runtimeConfigPort = new RuntimeConfigurationPortPostgres(pgExecutor);
+export const realtimeOutbox = sqliteMode ? sqliteInfrastructure!.realtimeOutbox : new RealtimeOutboxPostgres(pgExecutor!);
+export const runtimeConfigPort = sqliteMode ? sqliteInfrastructure!.runtimeConfigurationPort : new RuntimeConfigurationPortPostgres(pgExecutor!);
 
 export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
   if (process.env.REALTIME_ENABLED === 'false') return false;
   return runtimeConfigPort.isCapabilityEnabled('realtime');
 }
-export const configurationRepository = new ConfigurationRepositoryPostgres(pgExecutor);
-export const serviceConfigurationRepository = new ServiceConfigurationRepositoryPostgres(pgExecutor);
+export const configurationRepository = sqliteMode ? sqliteInfrastructure!.configurationRepository : new ConfigurationRepositoryPostgres(pgExecutor!);
+export const serviceConfigurationRepository = sqliteMode ? sqliteInfrastructure!.serviceConfigurationRepository : new ServiceConfigurationRepositoryPostgres(pgExecutor!);
 export const serviceConfigurationService = new ServiceConfigurationService(
   defaultServiceConfigurationRegistry,
   serviceConfigurationRepository,
@@ -196,7 +203,7 @@ export const serviceConfigurationService = new ServiceConfigurationService(
   deploymentSecretResolver,
 );
 export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
-serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor));
+if (!sqliteMode) serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor!));
 serviceHealthCheckRegistry.register('realtime', 'soketi', new RealtimeHttpHealthCheck());
 serviceHealthCheckRegistry.register('antivirus', 'clamav', new ClamAvHealthCheck());
 export const serviceHealthCheckService = new ServiceHealthCheckService(
@@ -207,27 +214,23 @@ export const configService = new ConfigService(
   configurationRepository,
   defaultConfigurationRegistry,
 );
-export const accessControlPort = new AccessControlPortPostgres(pgExecutor);
-export const fieldEncryptionService = new FieldEncryptionService(
-  pgExecutor,
-  configService,
-  securityKeys.fieldEncryptionKey,
-  securityKeys.fieldEncryptionKeys,
-  securityKeys.fieldEncryptionActiveVersion ?? 'v1',
-);
-export const revisionPort = new RevisionPortPostgres(pgExecutor, fieldEncryptionService);
+export const accessControlPort = sqliteMode ? sqliteInfrastructure!.accessControlPort : new AccessControlPortPostgres(pgExecutor!);
+export const fieldEncryptionService = sqliteMode
+  ? new FieldEncryptionServiceSqlite(sqliteInfrastructure!.database, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1')
+  : new FieldEncryptionService(pgExecutor!, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1');
+export const revisionPort = sqliteMode ? sqliteInfrastructure!.revisionPort : new RevisionPortPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
 
 // Repository PostgreSQL
-export const nodeRepository = new NodeRepositoryPostgres(pgExecutor, fieldEncryptionService);
-export const realtimeScopeResolver = new RealtimeScopeResolverPostgres(nodeRepository);
-export const nodeTypeRepository = new NodeTypeRepositoryPostgres(pgExecutor);
-export const entityRepository = new EntityRepositoryPostgres(pgExecutor, fieldEncryptionService);
-export const entityTypeRepository = new EntityTypeRepositoryPostgres(pgExecutor);
-export const typeAdminRepository = new TypeDefinitionAdminRepositoryPostgres(pgExecutor);
-export const userRepository = new UserRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
-export const securityRepository = new SecurityRepositoryPostgres(pgExecutor, scheduleRealtimePolicyChange);
-export const systemConfigRepository = new SystemConfigRepositoryPostgres(pgExecutor);
-export const sessionRepository = new SessionRepositoryPostgres(pgExecutor);
+export const nodeRepository = sqliteMode ? sqliteInfrastructure!.nodeRepository : new NodeRepositoryPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
+export const realtimeScopeResolver = sqliteMode ? sqliteInfrastructure!.realtimeScopeResolver : new RealtimeScopeResolverPostgres(nodeRepository);
+export const nodeTypeRepository = sqliteMode ? sqliteInfrastructure!.nodeTypeRepository : new NodeTypeRepositoryPostgres(pgExecutor!);
+export const entityRepository = sqliteMode ? sqliteInfrastructure!.entityRepository : new EntityRepositoryPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
+export const entityTypeRepository = sqliteMode ? sqliteInfrastructure!.entityTypeRepository : new EntityTypeRepositoryPostgres(pgExecutor!);
+export const typeAdminRepository = sqliteMode ? sqliteInfrastructure!.typeAdminRepository : new TypeDefinitionAdminRepositoryPostgres(pgExecutor!);
+export const userRepository = sqliteMode ? sqliteInfrastructure!.userRepository : new UserRepositoryPostgres(pgExecutor!, scheduleRealtimePolicyChange);
+export const securityRepository = sqliteMode ? sqliteInfrastructure!.securityRepository : new SecurityRepositoryPostgres(pgExecutor!, scheduleRealtimePolicyChange);
+export const systemConfigRepository = sqliteMode ? sqliteInfrastructure!.systemConfigRepository : new SystemConfigRepositoryPostgres(pgExecutor!);
+export const sessionRepository = sqliteMode ? sqliteInfrastructure!.sessionRepository : new SessionRepositoryPostgres(pgExecutor!);
 const attachmentStorageDeployment = deploymentConfigurationSource.getSync('attachment-storage');
 const attachmentStorageValues: Readonly<Record<string, unknown>> = attachmentStorageDeployment?.providerKey === 'filesystem'
   ? attachmentStorageDeployment.values
@@ -266,8 +269,8 @@ export const attachmentScanner: AttachmentScannerPort | undefined = typeof antiv
       typeof antivirusValues.timeoutMs === 'number' ? antivirusValues.timeoutMs : undefined,
     )
   : undefined;
-export const loginRateLimitPort = new LoginRateLimitPortPostgres(pgExecutor);
-export const accountActionTokenPort = new AccountActionTokenPortPostgres(pgExecutor);
+export const loginRateLimitPort = sqliteMode ? sqliteInfrastructure!.loginRateLimitPort : new LoginRateLimitPortPostgres(pgExecutor!);
+export const accountActionTokenPort = sqliteMode ? sqliteInfrastructure!.accountActionTokenPort : new AccountActionTokenPortPostgres(pgExecutor!);
 const mailDeployment = deploymentConfigurationSource.getSync('mail');
 const mailValues: Readonly<Record<string, unknown>> = mailDeployment?.providerKey === 'webhook' ? mailDeployment.values : {};
 export const accountActionDelivery = typeof mailValues.endpoint === 'string'
@@ -278,19 +281,19 @@ export const accountActionDelivery = typeof mailValues.endpoint === 'string'
       typeof mailValues.token === 'string' ? deploymentSecretResolver.resolveSync(mailValues.token) ?? undefined : undefined,
     )
   : undefined;
-export const mfaTotpPort = new MfaTotpPortPostgres(pgExecutor);
+export const mfaTotpPort = sqliteMode ? sqliteInfrastructure!.mfaTotpPort : new MfaTotpPortPostgres(pgExecutor!);
 export const mfaTotpService = securityKeys.mfaEncryptionKey
   ? new MfaTotpApplicationService(mfaTotpPort, auditPort, securityKeys.mfaEncryptionKey)
   : undefined;
 
 // Registry degli schemi ed invalidazione
-export const typeReader = new TypeDefinitionReaderPostgres(pgExecutor);
+export const typeReader = sqliteMode ? sqliteInfrastructure!.typeDefinitionReader : new TypeDefinitionReaderPostgres(pgExecutor!);
 export const schemaCompiler = new FieldSchemaCompiler();
 export const schemaRegistry = new CachingSchemaRegistry(typeReader, schemaCompiler);
 export const entitySchemaBridge = new EntitySchemaRegistryBridge(schemaRegistry);
 
 export const schemaInvalidationPort = new SchemaInvalidationAdapter(schemaRegistry);
-export const storageTableManager = new StorageTableManagementPostgres(pgExecutor);
+export const storageTableManager = sqliteMode ? sqliteInfrastructure!.storageTableManagement : new StorageTableManagementPostgres(pgExecutor!);
 
 // Generatore di UUIDv7 per ID Port
 export const idGenerator = {
@@ -384,19 +387,17 @@ export const systemAdminService = new SystemAdminApplicationService(
   accessControlPort
 );
 
-export const auditQueryPort = new AuditQueryPortPostgres(pgExecutor);
+export const auditQueryPort = sqliteMode ? sqliteInfrastructure!.auditQueryPort : new AuditQueryPortPostgres(pgExecutor!);
 export const auditAdminService = new AuditAdminApplicationService(
   auditQueryPort,
   accessControlPort
 );
 
-export const entitySubtreeQueryPort = new EntitySubtreeQueryPortPostgres(pgExecutor, fieldEncryptionService);
+export const entitySubtreeQueryPort = sqliteMode ? sqliteInfrastructure!.entitySubtreeQueryPort : new EntitySubtreeQueryPortPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
 
-export const systemSeedService = new SystemSeedPostgres(
-  pgExecutor,
-  transactionPort,
-  process.env.SEED_ADMIN_PASSWORD
-);
+export const systemSeedService = sqliteMode
+  ? sqliteInfrastructure!.systemSeedService
+  : new SystemSeedPostgres(pgExecutor!, transactionPort, process.env.SEED_ADMIN_PASSWORD);
 
 export const authApplicationService = new AuthApplicationService(
   sessionRepository,

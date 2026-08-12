@@ -109,10 +109,13 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       node_id TEXT NOT NULL REFERENCES nodes(id),
       assignment_effect TEXT NOT NULL CHECK (assignment_effect IN ('allow','deny')),
       propagation TEXT NOT NULL CHECK (propagation IN ('self','subtree'))
-      ,assigned_by TEXT, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
       ,UNIQUE(user_id, node_id, role_id, propagation)
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_scope_assignments_user ON node_scope_assignments(user_id, node_id);
+    CREATE TABLE IF NOT EXISTS scope_assignment_metadata (
+      assignment_id TEXT PRIMARY KEY REFERENCES node_scope_assignments(id) ON DELETE CASCADE,
+      assigned_by TEXT, assigned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       actor_user_id TEXT,
@@ -135,9 +138,12 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS runtime_capabilities (
-      capability_key TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '',
-      default_status TEXT NOT NULL CHECK (default_status IN ('enabled','disabled','optional')),
-      is_system INTEGER NOT NULL DEFAULT 0,
+      capability_key TEXT PRIMARY KEY,
+      default_status TEXT NOT NULL CHECK (default_status IN ('enabled','disabled','optional'))
+    );
+    CREATE TABLE IF NOT EXISTS runtime_capability_metadata (
+      capability_key TEXT PRIMARY KEY REFERENCES runtime_capabilities(capability_key) ON DELETE CASCADE,
+      name TEXT NOT NULL DEFAULT '', description TEXT NOT NULL DEFAULT '', is_system INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE TABLE IF NOT EXISTS runtime_capability_overrides (
@@ -210,6 +216,7 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       relation_target_domain TEXT,
       relation_target_type_key TEXT,
       default_value_text TEXT,
+      default_value TEXT,
       UNIQUE(entity_type_id, field_key),
       UNIQUE(entity_type_id, column_name)
     );

@@ -70,12 +70,12 @@ export class SqliteInfrastructure {
     this.database = new SqliteDatabase(location);
     ensureSqliteSchema(this.database);
     this.transactionPort = new TransactionPortSqlite(this.database);
-    this.nodeRepository = new NodeRepositorySqlite(this.database);
+    this.accessControlPort = new AccessControlPortSqlite(this.database);
+    this.nodeRepository = new NodeRepositorySqlite(this.database, this.accessControlPort);
     this.entityRepository = new EntityRepositorySqlite(this.database);
     this.nodeTypeRepository = new NodeTypeRepositorySqlite(this.database);
     this.entityTypeRepository = new EntityTypeRepositorySqlite(this.database);
     this.lockRepository = new LockRepositorySqlite(this.database);
-    this.accessControlPort = new AccessControlPortSqlite(this.database);
     this.auditPort = new AuditPortSqlite(this.database);
     this.revisionPort = new RevisionPortSqlite(this.database);
     this.realtimeOutbox = new RealtimeOutboxSqlite(this.database);

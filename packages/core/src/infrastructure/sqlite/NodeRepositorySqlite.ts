@@ -3,12 +3,13 @@ import { Node } from '../../domain/models/Node.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
+import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 
 interface NodeRow { id: string; parent_id: string | null; path: string; path_label: string; depth: number; node_type_id: string; name: string; description: string; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; created_by: string | null; updated_by: string | null; payload: string; deletion_batch_id: string | null; }
 
 /** SQLite node repository. Hierarchy queries use parent_id and recursive CTEs, not ltree. */
 export class NodeRepositorySqlite implements NodeRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPort) {}
 
   async findById(id: string): Promise<Node | null> { return this.find(id, false); }
   async findDeletedById(id: string): Promise<Node | null> { return this.find(id, true); }
@@ -20,6 +21,16 @@ export class NodeRepositorySqlite implements NodeRepository {
     if (limit !== undefined) { sql += ' LIMIT ?'; params.push(limit); }
     if (offset !== undefined) { sql += ' OFFSET ?'; params.push(offset); }
     return this.database.all<NodeRow>(sql, params).map((row) => this.map(row));
+  }
+
+  async listReadableVirtualRoots(actorUserId: string): Promise<Node[]> {
+    const roots = await this.listChildren(null);
+    if (!this.accessControl) return roots;
+    const visible: Node[] = [];
+    for (const node of roots) {
+      try { await this.accessControl.assertCanReadNode(actorUserId, node.id); visible.push(node); } catch { /* hidden root */ }
+    }
+    return visible;
   }
 
   async create(node: Node): Promise<void> {

@@ -24,7 +24,10 @@ export class SqliteDatabase {
 
   constructor(location: string = ':memory:') {
     this.database = new DatabaseSync(location);
-    this.database.exec('PRAGMA foreign_keys = ON;');
+    // Next.js may create several server workers during build/startup. WAL plus
+    // a bounded busy timeout prevents harmless schema/bootstrap races from
+    // surfacing as SQLITE_BUSY while preserving transactional locking.
+    this.database.exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 10000; PRAGMA journal_mode = WAL;');
   }
 
   exec(sql: string): void {
