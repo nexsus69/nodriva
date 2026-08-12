@@ -72,6 +72,7 @@ import {
   EnvironmentSecretReferenceResolver,
   EnvironmentServiceDeploymentConfigurationSource,
 } from './EnvironmentServiceConfiguration';
+import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
@@ -187,6 +188,9 @@ export const serviceConfigurationService = new ServiceConfigurationService(
   new EnvironmentSecretReferenceResolver(),
 );
 export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
+serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor));
+serviceHealthCheckRegistry.register('realtime', 'soketi', new RealtimeHttpHealthCheck());
+serviceHealthCheckRegistry.register('antivirus', 'clamav', new ClamAvHealthCheck());
 export const serviceHealthCheckService = new ServiceHealthCheckService(
   serviceConfigurationService,
   serviceHealthCheckRegistry,

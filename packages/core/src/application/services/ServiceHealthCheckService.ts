@@ -20,6 +20,14 @@ export class ServiceHealthCheckService {
       throw error;
     }
     const checker = this.checks.get(serviceKey, config.providerKey);
+    if (config.values.enabled === false) {
+      return {
+        serviceKey,
+        providerKey: config.providerKey,
+        status: 'disabled',
+        checkedAt: this.now(),
+      };
+    }
     if (!checker) {
       return {
         serviceKey,
