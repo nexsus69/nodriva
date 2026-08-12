@@ -42,7 +42,9 @@ Attualmente:
   collegati al servizio di healthcheck;
   gli altri provider restano `not-configured` finché non viene aggiunto il
   relativo adapter;
-- non è ancora disponibile un profilo standalone affidabile con il solo Node.
+- il fondamento `SqliteDatabase`/`TransactionPortSqlite` è ora disponibile con
+  Node.js moderno, ma il profilo standalone non è ancora completo: mancano le
+  repository SQLite, lo schema applicativo e i test di contratto condivisi.
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione
 `db/migrations/030_service_configurations.sql`; deployment e secret restano
