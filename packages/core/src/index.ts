@@ -426,3 +426,5 @@ export { AuditAdminApplicationService } from './application/services/AuditAdminA
 export { AuditQueryPortPostgres } from './infrastructure/postgres/AuditQueryPortPostgres.js';
 export { SqliteDatabase } from './infrastructure/sqlite/SqliteDatabase.js';
 export { TransactionPortSqlite } from './infrastructure/sqlite/TransactionPortSqlite.js';
+export { ensureSqliteSchema } from './infrastructure/sqlite/SqliteSchema.js';
+export { NodeRepositorySqlite } from './infrastructure/sqlite/NodeRepositorySqlite.js';

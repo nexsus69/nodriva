@@ -39,14 +39,14 @@ export class SqliteDatabase {
     };
   }
 
-  get<T extends Record<string, unknown> = Record<string, unknown>>(
+  get<T extends object = Record<string, unknown>>(
     sql: string,
     parameters: readonly unknown[] = [],
   ): T | undefined {
     return this.database.prepare(sql).get(...parameters) as T | undefined;
   }
 
-  all<T extends Record<string, unknown> = Record<string, unknown>>(
+  all<T extends object = Record<string, unknown>>(
     sql: string,
     parameters: readonly unknown[] = [],
   ): T[] {
