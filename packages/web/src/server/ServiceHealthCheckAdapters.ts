@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { PgExecutor, ServiceHealthCheckPort, ServiceHealthCheckResult } from '@dashboard/core';
+import type { PgExecutor, ServiceHealthCheckPort, ServiceHealthCheckResult, SqliteDatabase } from '@dashboard/core';
 
 function elapsed(startedAt: number): number {
   return Math.max(0, Date.now() - startedAt);
@@ -32,6 +32,20 @@ export class PostgresHealthCheck implements ServiceHealthCheckPort {
       return result(serviceKey, providerKey, startedAt, 'healthy');
     } catch (error) {
       return result(serviceKey, providerKey, startedAt, 'unhealthy', error instanceof Error ? error.message : 'Database healthcheck failed.');
+    }
+  }
+}
+
+export class SqliteHealthCheck implements ServiceHealthCheckPort {
+  constructor(private readonly database: SqliteDatabase) {}
+
+  async check(serviceKey: ServiceHealthCheckResult['serviceKey'], providerKey: string, _values: Readonly<Record<string, unknown>>): Promise<ServiceHealthCheckResult> {
+    const startedAt = Date.now();
+    try {
+      this.database.get('SELECT 1');
+      return result(serviceKey, providerKey, startedAt, 'healthy');
+    } catch (error) {
+      return result(serviceKey, providerKey, startedAt, 'unhealthy', error instanceof Error ? error.message : 'SQLite healthcheck failed.');
     }
   }
 }

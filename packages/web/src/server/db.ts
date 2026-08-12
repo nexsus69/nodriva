@@ -80,7 +80,7 @@ import {
   EnvironmentServiceDeploymentConfigurationSource,
   getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
-import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
+import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck, SqliteHealthCheck } from './ServiceHealthCheckAdapters';
 
 const databaseAdapter = process.env.DATABASE_ADAPTER?.toLowerCase() === 'sqlite' ? 'sqlite' : 'postgres';
 const sqliteMode = databaseAdapter === 'sqlite';
@@ -204,6 +204,7 @@ export const serviceConfigurationService = new ServiceConfigurationService(
 );
 export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
 if (!sqliteMode) serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor!));
+if (sqliteMode) serviceHealthCheckRegistry.register('database', 'sqlite', new SqliteHealthCheck(sqliteInfrastructure!.database));
 serviceHealthCheckRegistry.register('realtime', 'soketi', new RealtimeHttpHealthCheck());
 serviceHealthCheckRegistry.register('antivirus', 'clamav', new ClamAvHealthCheck());
 export const serviceHealthCheckService = new ServiceHealthCheckService(
