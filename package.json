@@ -1,6 +1,7 @@
 {
   "name": "dashboard-ultimate",
   "private": true,
+  "license": "Apache-2.0",
   "scripts": {
     "test": "pnpm --filter @dashboard/core exec vitest run && pnpm --filter @dashboard/web test",
     "typecheck": "pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web typecheck",

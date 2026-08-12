@@ -84,6 +84,14 @@ Per la checklist di rilascio consultare
 - [Governance della documentazione](docs/DOCUMENTATION_GOVERNANCE.md)
 - [Configurazione dei servizi e dei deployment](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
 
+## Licenza
+
+Il codice del progetto è distribuito con [Apache License 2.0](LICENSE).
+Le dipendenze di terze parti mantengono le rispettive licenze. Il nome e il
+logo del progetto non sono automaticamente concessi per fork o distribuzioni
+derivate: per l'uso dei marchi fare riferimento alla relativa policy quando
+verrà pubblicata.
+
 ## Stato del progetto
 
 Il progetto è in sviluppo attivo. Sono disponibili i profili PostgreSQL e
