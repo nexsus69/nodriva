@@ -51,5 +51,16 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       updated_at TEXT NOT NULL,
       updated_by TEXT
     );
+    CREATE TABLE IF NOT EXISTS locks (
+      id TEXT PRIMARY KEY,
+      resource_type TEXT NOT NULL,
+      resource_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      acquired_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      UNIQUE(resource_type, resource_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_locks_expiry ON locks(expires_at);
   `);
 }
