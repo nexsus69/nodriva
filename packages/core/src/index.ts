@@ -436,3 +436,6 @@ export { AccessControlPortSqlite } from './infrastructure/sqlite/AccessControlPo
 export { AuditPortSqlite } from './infrastructure/sqlite/AuditPortSqlite.js';
 export { ConfigurationRepositorySqlite } from './infrastructure/sqlite/ConfigurationRepositorySqlite.js';
 export { RuntimeConfigurationPortSqlite } from './infrastructure/sqlite/RuntimeConfigurationPortSqlite.js';
+export { SessionRepositorySqlite } from './infrastructure/sqlite/SessionRepositorySqlite.js';
+export { LoginRateLimitPortSqlite } from './infrastructure/sqlite/LoginRateLimitPortSqlite.js';
+export { AccountActionTokenPortSqlite } from './infrastructure/sqlite/AccountActionTokenPortSqlite.js';

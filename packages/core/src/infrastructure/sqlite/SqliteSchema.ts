@@ -128,5 +128,30 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       status TEXT NOT NULL CHECK (status IN ('enabled','disabled')),
       PRIMARY KEY(capability_key, scope_key)
     );
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      session_token_hash TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT 'active',
+      expires_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_sessions_user ON user_sessions(user_id);
+    CREATE TABLE IF NOT EXISTS login_rate_limits (
+      subject_hash TEXT PRIMARY KEY,
+      attempts INTEGER NOT NULL,
+      window_started_at TEXT NOT NULL,
+      blocked_until TEXT,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS account_action_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      purpose TEXT NOT NULL CHECK (purpose IN ('invitation','password_reset')),
+      expires_at TEXT NOT NULL,
+      consumed_at TEXT,
+      created_by TEXT NOT NULL
+    );
   `);
 }
