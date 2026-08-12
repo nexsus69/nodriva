@@ -12,4 +12,9 @@ describe('detectAttachmentType', () => {
     expect(detectAttachmentType('image.png', 'image/jpeg', Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'image')).toBeNull();
     expect(detectAttachmentType('image.png', 'image/png', Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), 'file')).toBeNull();
   });
+
+  it('accepts a textual markdown file as a generic file attachment', () => {
+    expect(detectAttachmentType('README.md', 'text/markdown', new TextEncoder().encode('# Title'), 'file'))
+      .toEqual({ mimeType: 'text/markdown', kind: 'file' });
+  });
 });

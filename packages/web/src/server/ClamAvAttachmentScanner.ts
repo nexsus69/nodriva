@@ -22,12 +22,18 @@ export class ClamAvAttachmentScanner implements AttachmentScannerPort {
       };
       socket.setTimeout(this.timeoutMs, () => finish(new Error('ClamAV scan timed out')));
       socket.on('error', (error) => finish(error));
-      socket.on('data', (chunk: Buffer) => chunks.push(chunk));
+      socket.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+        // clamd terminates an INSTREAM response with NUL, but does not have
+        // to close the TCP connection immediately afterwards.
+        const response = Buffer.concat(chunks).toString('utf8');
+        if (/FOUND(?:\0|$)/.test(response)) finish(undefined, 'infected');
+        else if (/OK(?:\0|$)/.test(response)) finish(undefined, 'clean');
+      });
       socket.on('close', () => {
+        if (settled) return;
         const response = Buffer.concat(chunks).toString('utf8').trim();
-        if (/FOUND\s*\0?$/.test(response)) finish(undefined, 'infected');
-        else if (/OK\s*\0?$/.test(response)) finish(undefined, 'clean');
-        else finish(new Error(`Unexpected ClamAV response: ${response.slice(0, 200)}`));
+        finish(new Error(`Unexpected ClamAV response: ${response.slice(0, 200)}`));
       });
       socket.on('connect', () => {
         socket.write(Buffer.from('zINSTREAM\0'));

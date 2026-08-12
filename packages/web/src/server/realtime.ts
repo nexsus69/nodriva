@@ -33,6 +33,13 @@ export async function buildRealtimeEvent(
     return event;
   }
 
+  // Administrative and audit resources are global. They do not belong to a
+  // node subtree, so resolving hierarchy scopes only creates a false warning.
+  if (input.resourceType !== 'node' && input.resourceType !== 'entity') {
+    event.scopeNodeIds = [];
+    return event;
+  }
+
   const scopeResolver = resolveScopes ?? (async (scopedEvent: RealtimeDataChangedEvent) => {
     const { realtimeScopeResolver } = await import('./db');
     return realtimeScopeResolver.resolveScopes(scopedEvent);

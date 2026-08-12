@@ -9,7 +9,7 @@ export const defaultAttachmentSecurityPolicy: AttachmentSecurityPolicy = {
   maxFileSizeBytes: 25 * 1024 * 1024,
   maxResourceBytes: 500 * 1024 * 1024,
   maxUploadsPerHour: 60,
-  allowedMimeTypes: ['application/pdf', 'text/plain', 'text/csv', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  allowedMimeTypes: ['application/pdf', 'text/plain', 'text/csv', 'text/markdown', 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
 };
 
 const signatures: Array<{ mimeType: string; bytes: number[] }> = [
@@ -41,7 +41,7 @@ export function detectAttachmentType(
       break;
     }
   }
-  if (!mimeType && /\.(txt|csv|md|log)$/.test(name) && !bytes.includes(0) && ['text/plain', 'text/csv'].includes(declared)) mimeType = declared;
+  if (!mimeType && /\.(txt|csv|md|log)$/.test(name) && !bytes.includes(0) && ['text/plain', 'text/csv', 'text/markdown'].includes(declared)) mimeType = declared;
   if (!mimeType || !policy.allowedMimeTypes.includes(mimeType)) return null;
   if (declared !== 'application/octet-stream' && declared !== mimeType) return null;
   const kind = mimeType.startsWith('image/') ? 'image' : 'file';
