@@ -36,6 +36,8 @@ Attualmente:
   environment: il registry non è quindi ancora l'unico punto di risoluzione;
 - gli healthcheck reali e i provider sostituibili non sono ancora collegati al
   registry operativo;
+- esiste il registry applicativo dei healthcheck, ma non sono ancora registrati
+  checker concreti per PostgreSQL, Soketi, ClamAV o gli altri provider;
 - non è ancora disponibile un profilo standalone affidabile con il solo Node.
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione

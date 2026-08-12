@@ -52,6 +52,8 @@ import {
   ConfigurationRepositoryPostgres,
   ServiceConfigurationRepositoryPostgres,
   ServiceConfigurationService,
+  ServiceHealthCheckService,
+  DefaultServiceHealthCheckRegistry,
   defaultServiceConfigurationRegistry,
   defaultConfigurationRegistry,
 } from '@dashboard/core';
@@ -183,6 +185,11 @@ export const serviceConfigurationService = new ServiceConfigurationService(
   serviceConfigurationRepository,
   new EnvironmentServiceDeploymentConfigurationSource(),
   new EnvironmentSecretReferenceResolver(),
+);
+export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
+export const serviceHealthCheckService = new ServiceHealthCheckService(
+  serviceConfigurationService,
+  serviceHealthCheckRegistry,
 );
 export const configService = new ConfigService(
   configurationRepository,

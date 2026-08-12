@@ -38,7 +38,9 @@ export type {
   ServiceDeploymentConfigurationSource,
   ServiceRuntimeConfigurationRecord,
 } from './application/ports/ServiceConfigurationRepository.js';
-export type { ServiceHealthCheckPort, ServiceHealthCheckResult } from './application/ports/ServiceHealthCheckPort.js';
+export { DefaultServiceHealthCheckRegistry } from './application/ports/ServiceHealthCheckPort.js';
+export type { ServiceHealthCheckPort, ServiceHealthCheckRegistry, ServiceHealthCheckResult } from './application/ports/ServiceHealthCheckPort.js';
+export { ServiceHealthCheckService } from './application/services/ServiceHealthCheckService.js';
 export { ServiceConfigurationRepositoryPostgres } from './infrastructure/postgres/ServiceConfigurationRepositoryPostgres.js';
 export type {
   ConfigurationRecord,
