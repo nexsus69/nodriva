@@ -14,9 +14,11 @@
 - `docker-compose.full.yml` fornisce uno stack completo per sviluppo/staging;
 - realtime, antivirus, backup, storage e osservabilità sono configurabili
   soprattutto tramite environment/Compose;
-- esistono registry, resolver e repository PostgreSQL per le configurazioni
-  runtime, ma non sono ancora collegati al composition root, alle sorgenti
-  deployment/secret, agli healthcheck e ai provider effettivamente attivi;
+- esistono registry, resolver, repository PostgreSQL e sorgente environment
+  collegata al composition root Web;
+- alcuni provider applicativi leggono ancora direttamente environment e secret,
+  mentre healthcheck e selezione effettiva dei provider non sono ancora gestiti
+  dal registry;
 - non è ancora disponibile un profilo standalone affidabile con il solo Node.
 
 ### Obiettivo
@@ -78,10 +80,11 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
 
 ## P1 — Runtime session policy
 
-- [ ] Collegare il `ServiceConfigurationRegistry` al composition root e alle
-  sorgenti deployment/secret per database, realtime, storage allegati,
-  antivirus, mail, backup e osservabilità, completando timeout, retry,
-  healthcheck, dipendenze, origine del valore e requisito di riavvio.
+- [ ] Rendere il `ServiceConfigurationRegistry` l'unico punto di risoluzione
+  per database, realtime, storage allegati, antivirus, mail, backup e
+  osservabilità, sostituendo le letture dirette di environment/secret e
+  completando timeout, retry, healthcheck, dipendenze, origine del valore e
+  requisito di riavvio.
 - [ ] Separare nella configurazione la capability (`enabled`), il provider,
   gli endpoint pubblici/interni e i riferimenti ai secret; non esporre secret
   al client né trattare la configurazione Compose come configurazione runtime.

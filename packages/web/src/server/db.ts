@@ -50,6 +50,9 @@ import {
   MemoryCache,
   ConfigService,
   ConfigurationRepositoryPostgres,
+  ServiceConfigurationRepositoryPostgres,
+  ServiceConfigurationService,
+  defaultServiceConfigurationRegistry,
   defaultConfigurationRegistry,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
@@ -63,6 +66,10 @@ import type { AttachmentScannerPort } from '@dashboard/core';
 import { AttachmentRateLimiter } from './AttachmentRateLimiter';
 import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
 import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecurityPolicyResolver';
+import {
+  EnvironmentSecretReferenceResolver,
+  EnvironmentServiceDeploymentConfigurationSource,
+} from './EnvironmentServiceConfiguration';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
@@ -170,6 +177,13 @@ export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
   return runtimeConfigPort.isCapabilityEnabled('realtime');
 }
 export const configurationRepository = new ConfigurationRepositoryPostgres(pgExecutor);
+export const serviceConfigurationRepository = new ServiceConfigurationRepositoryPostgres(pgExecutor);
+export const serviceConfigurationService = new ServiceConfigurationService(
+  defaultServiceConfigurationRegistry,
+  serviceConfigurationRepository,
+  new EnvironmentServiceDeploymentConfigurationSource(),
+  new EnvironmentSecretReferenceResolver(),
+);
 export const configService = new ConfigService(
   configurationRepository,
   defaultConfigurationRegistry,

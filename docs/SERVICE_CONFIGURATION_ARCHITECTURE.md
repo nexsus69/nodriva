@@ -29,9 +29,13 @@ Attualmente:
   environment/Compose;
 - `docker-compose.full.yml` avvia lo stack completo e rappresenta il profilo
   di sviluppo/staging, non un requisito architetturale dell'applicazione;
-- esistono il registry descrittivo, il resolver applicativo e il repository
-  PostgreSQL versionato per i valori runtime, ma non sono ancora collegati al
-  composition root, alle sorgenti deployment/secret o agli healthcheck reali;
+- esistono il registry descrittivo, il resolver applicativo, il repository
+  PostgreSQL versionato per i valori runtime e la sorgente environment collegata
+  al composition root Web;
+- i provider applicativi esistenti leggono ancora direttamente alcune variabili
+  environment: il registry non è quindi ancora l'unico punto di risoluzione;
+- gli healthcheck reali e i provider sostituibili non sono ancora collegati al
+  registry operativo;
 - non è ancora disponibile un profilo standalone affidabile con il solo Node.
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione

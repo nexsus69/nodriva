@@ -3,9 +3,10 @@
 Questo catalogo descrive il modello obiettivo della configurazione backend.
 L'implementazione attuale è parziale: alcune capability sono già in
 `system_settings` o nell'environment; il core possiede registry, resolver e
-repository PostgreSQL per i valori runtime, ma non sono ancora collegati al
-composition root, alle sorgenti deployment/secret e agli healthcheck reali.
-Ogni nuova impostazione deve
+repository PostgreSQL per i valori runtime e il Web possiede una sorgente
+environment collegata al composition root. I provider applicativi leggono però
+ancora direttamente alcune variabili e gli healthcheck reali non sono ancora
+collegati. Ogni nuova impostazione deve
 essere classificata prima di essere aggiunta a `system_settings`, a un file di
 deployment o a un secret manager.
 
