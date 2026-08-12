@@ -76,7 +76,26 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   }, [currentSessionId, lockState.bySessionId, lockState.locked, registerActiveLock, resourceId, resourceType]);
 
   useEffect(() => {
+    const releaseOnPageExit = () => {
+      if (!ownsLockRef.current) return;
+      const body = JSON.stringify({ resourceType, resourceId });
+      const payload = new Blob([body], { type: 'application/json' });
+      const sent = typeof navigator.sendBeacon === 'function'
+        && navigator.sendBeacon('/api/locks/release', payload);
+      if (!sent) {
+        void fetch('/api/locks/release', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          keepalive: true,
+        }).catch(() => undefined);
+      }
+      ownsLockRef.current = false;
+    };
+
+    window.addEventListener('pagehide', releaseOnPageExit);
     return () => {
+      window.removeEventListener('pagehide', releaseOnPageExit);
       if (ownsLockRef.current) {
         ownsLockRef.current = false;
         void releaseLockAction(resourceType, resourceId);
