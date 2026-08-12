@@ -159,6 +159,13 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       consumed_at TEXT,
       created_by TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS user_mfa_totp (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      secret_ciphertext TEXT NOT NULL,
+      enabled_at TEXT,
+      recovery_code_hashes TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS node_revisions (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_id TEXT NOT NULL, revision_number INTEGER NOT NULL,
       event_type TEXT NOT NULL, node_row_version INTEGER NOT NULL, schema_version INTEGER NOT NULL,
@@ -176,15 +183,27 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       published_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT, locked_by TEXT, last_error TEXT
     );
     CREATE TABLE IF NOT EXISTS entity_type_fields (
+      id TEXT NOT NULL DEFAULT (lower(hex(randomblob(16)))),
       entity_type_id TEXT NOT NULL REFERENCES entity_types(id) ON DELETE CASCADE,
       field_key TEXT NOT NULL,
       column_name TEXT NOT NULL,
       data_type TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
       is_required INTEGER NOT NULL DEFAULT 0,
       is_unique INTEGER NOT NULL DEFAULT 0,
+      encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      relation_target_domain TEXT,
+      relation_target_type_key TEXT,
       default_value TEXT,
       PRIMARY KEY(entity_type_id, field_key),
       UNIQUE(entity_type_id, column_name)
+    );
+    CREATE TABLE IF NOT EXISTS node_type_fields (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_type_id TEXT NOT NULL REFERENCES node_types(id) ON DELETE CASCADE,
+      field_key TEXT NOT NULL, column_name TEXT NOT NULL, data_type TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
+      is_required INTEGER NOT NULL DEFAULT 0, is_unique INTEGER NOT NULL DEFAULT 0, encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      relation_target_domain TEXT, relation_target_type_key TEXT, default_value TEXT,
+      UNIQUE(node_type_id, field_key), UNIQUE(node_type_id, column_name)
     );
     CREATE TABLE IF NOT EXISTS resource_attachments (
       id TEXT PRIMARY KEY, resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, field_key TEXT NOT NULL,

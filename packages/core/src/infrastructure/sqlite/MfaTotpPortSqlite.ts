@@ -1,0 +1,11 @@
+import type { MfaTotpPort, MfaTotpRecord } from '../../application/ports/MfaTotpPort.js';
+import { SqliteDatabase } from './SqliteDatabase.js';
+
+export class MfaTotpPortSqlite implements MfaTotpPort {
+  constructor(private readonly database: SqliteDatabase) {}
+  async findByUserId(userId: string): Promise<MfaTotpRecord | null> { const row = this.database.get<{ user_id: string; secret_ciphertext: string; enabled_at: string | null; recovery_code_hashes: string }>('SELECT * FROM user_mfa_totp WHERE user_id=?', [userId]); return row ? { userId: row.user_id, secretCiphertext: row.secret_ciphertext, enabledAt: row.enabled_at ? new Date(row.enabled_at) : null, recoveryCodeHashes: JSON.parse(row.recovery_code_hashes) as string[] } : null; }
+  async savePending(userId: string, secretCiphertext: string): Promise<void> { this.database.run('INSERT INTO user_mfa_totp (user_id,secret_ciphertext,enabled_at,recovery_code_hashes,updated_at) VALUES (?,?,NULL,?,?) ON CONFLICT(user_id) DO UPDATE SET secret_ciphertext=excluded.secret_ciphertext,enabled_at=NULL,recovery_code_hashes=excluded.recovery_code_hashes,updated_at=excluded.updated_at', [userId, secretCiphertext, '[]', new Date().toISOString()]); }
+  async enable(userId: string, recoveryCodeHashes: string[], enabledAt: Date): Promise<void> { this.database.run('UPDATE user_mfa_totp SET enabled_at=?,recovery_code_hashes=?,updated_at=? WHERE user_id=?', [enabledAt.toISOString(), JSON.stringify(recoveryCodeHashes), enabledAt.toISOString(), userId]); }
+  async consumeRecoveryCode(userId: string, recoveryCodeHash: string): Promise<boolean> { const row = await this.findByUserId(userId); if (!row?.enabledAt || !row.recoveryCodeHashes.includes(recoveryCodeHash)) return false; const remaining = row.recoveryCodeHashes.filter((code) => code !== recoveryCodeHash); return this.database.run('UPDATE user_mfa_totp SET recovery_code_hashes=?,updated_at=? WHERE user_id=? AND enabled_at IS NOT NULL AND recovery_code_hashes=?', [JSON.stringify(remaining), new Date().toISOString(), userId, JSON.stringify(row.recoveryCodeHashes)]).changes === 1; }
+  async deleteForUser(userId: string): Promise<void> { this.database.run('DELETE FROM user_mfa_totp WHERE user_id=?', [userId]); }
+}

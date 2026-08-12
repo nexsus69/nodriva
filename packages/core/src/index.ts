@@ -453,3 +453,5 @@ export { AttachmentPolicyRepositorySqlite } from './infrastructure/sqlite/Attach
 export type { PurgeTargetResult, ResourcePurgeRepository } from './application/ports/ResourcePurgeRepository.js';
 export { ResourcePurgeRepositoryPostgres } from './infrastructure/postgres/ResourcePurgeRepositoryPostgres.js';
 export { ResourcePurgeRepositorySqlite } from './infrastructure/sqlite/ResourcePurgeRepositorySqlite.js';
+export { TypeDefinitionReaderSqlite } from './infrastructure/sqlite/TypeDefinitionReaderSqlite.js';
+export { MfaTotpPortSqlite } from './infrastructure/sqlite/MfaTotpPortSqlite.js';

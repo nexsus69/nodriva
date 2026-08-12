@@ -20,6 +20,8 @@ import { StorageTableManagementSqlite } from './StorageTableManagementSqlite.js'
 import { AttachmentRepositorySqlite } from './AttachmentRepositorySqlite.js';
 import { AttachmentPolicyRepositorySqlite } from './AttachmentPolicyRepositorySqlite.js';
 import { ResourcePurgeRepositorySqlite } from './ResourcePurgeRepositorySqlite.js';
+import { TypeDefinitionReaderSqlite } from './TypeDefinitionReaderSqlite.js';
+import { MfaTotpPortSqlite } from './MfaTotpPortSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -44,6 +46,8 @@ export class SqliteInfrastructure {
   readonly attachmentRepository: AttachmentRepositorySqlite;
   readonly attachmentPolicyRepository: AttachmentPolicyRepositorySqlite;
   readonly resourcePurgeRepository: ResourcePurgeRepositorySqlite;
+  readonly typeDefinitionReader: TypeDefinitionReaderSqlite;
+  readonly mfaTotpPort: MfaTotpPortSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -68,6 +72,8 @@ export class SqliteInfrastructure {
     this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
     this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
     this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
+    this.typeDefinitionReader = new TypeDefinitionReaderSqlite(this.database);
+    this.mfaTotpPort = new MfaTotpPortSqlite(this.database);
   }
 
   close(): void { this.database.close(); }
