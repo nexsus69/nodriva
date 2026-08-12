@@ -71,16 +71,14 @@ import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecuri
 import {
   EnvironmentSecretReferenceResolver,
   getRealtimePusherConfiguration,
+  getPostgresConnectionConfiguration,
   EnvironmentServiceDeploymentConfigurationSource,
   getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck } from './ServiceHealthCheckAdapters';
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL environment variable is missing. Please define it in your .env or .env.local file.');
-}
-
-const databaseUser = new URL(process.env.DATABASE_URL).username;
+const databaseConfiguration = getPostgresConnectionConfiguration();
+const databaseUser = databaseConfiguration.user;
 if (
   databaseUser === 'postgres'
   && (process.env.NODE_ENV === 'production' || process.env.REQUIRE_RESTRICTED_DB_ROLE === 'true')
@@ -90,7 +88,12 @@ if (
 
 // Inizializza il pool di connessione a PostgreSQL
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  host: databaseConfiguration.host,
+  port: databaseConfiguration.port,
+  database: databaseConfiguration.database,
+  user: databaseConfiguration.user,
+  password: databaseConfiguration.password,
+  ssl: databaseConfiguration.ssl,
 });
 
 export const pgExecutor = new PgExecutor(pool);

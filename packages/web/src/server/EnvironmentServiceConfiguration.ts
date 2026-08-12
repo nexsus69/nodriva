@@ -134,6 +134,34 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
   }
 }
 
+export interface PostgresConnectionConfiguration {
+  host: string;
+  port?: number;
+  database: string;
+  user: string;
+  password?: string;
+  ssl?: boolean;
+}
+
+/** Builds the driver configuration from the registered database deployment contract. */
+export function getPostgresConnectionConfiguration(environment: Environment = process.env): PostgresConnectionConfiguration {
+  const source = new EnvironmentServiceDeploymentConfigurationSource(environment).getSync('database');
+  if (!source || source.providerKey !== 'postgres') {
+    throw new Error('DATABASE_URL environment variable is missing or does not describe a PostgreSQL deployment.');
+  }
+  const values: Readonly<Record<string, unknown>> = source.values;
+  const resolver = new EnvironmentSecretReferenceResolver(environment);
+  const passwordReference = values.password;
+  return {
+    host: String(values.host),
+    ...(typeof values.port === 'number' ? { port: values.port } : {}),
+    database: String(values.name),
+    user: String(values.user),
+    ...(typeof passwordReference === 'string' ? { password: resolver.resolveSync(passwordReference) ?? undefined } : {}),
+    ...(typeof values.ssl === 'boolean' ? { ssl: values.ssl } : {}),
+  };
+}
+
 export interface SecurityKeyConfiguration {
   fieldEncryptionKey?: string;
   fieldEncryptionKeys?: string;

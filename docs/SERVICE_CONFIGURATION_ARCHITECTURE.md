@@ -35,8 +35,9 @@ Attualmente:
 - il composition root Web risolve ora anche le chiavi di cifratura dei campi,
   degli allegati e dell'MFA tramite il servizio `security-keys`; i valori restano
   secret di deployment e non vengono persistiti nella configurazione runtime;
-- alcuni valori di bootstrap restano necessariamente letti prima del container
-  applicativo, in particolare `DATABASE_URL` e la policy del ruolo PostgreSQL;
+- alcuni valori di bootstrap restano necessariamente forniti prima del container
+  applicativo: `DATABASE_URL` alimenta il provider PostgreSQL e la policy del
+  ruolo PostgreSQL resta una guardia di avvio;
 - il registry applicativo ha checker concreti per PostgreSQL, Soketi e ClamAV,
   collegati al servizio di healthcheck;
   gli altri provider restano `not-configured` finché non viene aggiunto il

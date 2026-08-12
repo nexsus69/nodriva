@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   EnvironmentSecretReferenceResolver,
   EnvironmentServiceDeploymentConfigurationSource,
+  getPostgresConnectionConfiguration,
   getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
 
@@ -31,6 +32,11 @@ describe('Environment service configuration', () => {
     await expect(source.get('realtime')).resolves.toMatchObject({
       providerKey: 'soketi',
       values: expect.objectContaining({ appKey: 'public-key', appSecret: 'secret://env/PUSHER_SECRET' }),
+    });
+    expect(getPostgresConnectionConfiguration({
+      DATABASE_URL: 'postgresql://dashboard_web:password@db.example:5433/dashboard?sslmode=require',
+    })).toEqual({
+      host: 'db.example', port: 5433, database: 'dashboard', user: 'dashboard_web', password: 'password', ssl: true,
     });
   });
 
