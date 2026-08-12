@@ -429,3 +429,5 @@ export { TransactionPortSqlite } from './infrastructure/sqlite/TransactionPortSq
 export { ensureSqliteSchema } from './infrastructure/sqlite/SqliteSchema.js';
 export { NodeRepositorySqlite } from './infrastructure/sqlite/NodeRepositorySqlite.js';
 export { LockRepositorySqlite } from './infrastructure/sqlite/LockRepositorySqlite.js';
+export { NodeTypeRepositorySqlite } from './infrastructure/sqlite/NodeTypeRepositorySqlite.js';
+export { EntityTypeRepositorySqlite } from './infrastructure/sqlite/EntityTypeRepositorySqlite.js';

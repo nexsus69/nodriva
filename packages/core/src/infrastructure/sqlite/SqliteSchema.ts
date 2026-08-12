@@ -9,7 +9,8 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       current_schema_version INTEGER NOT NULL DEFAULT 1,
-      is_active INTEGER NOT NULL DEFAULT 1
+      is_active INTEGER NOT NULL DEFAULT 1,
+      deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS nodes (
       id TEXT PRIMARY KEY,
@@ -50,6 +51,16 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       row_version INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT NOT NULL,
       updated_by TEXT
+    );
+    CREATE TABLE IF NOT EXISTS entity_types (
+      id TEXT PRIMARY KEY,
+      type_key TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      storage_table TEXT NOT NULL,
+      current_schema_version INTEGER NOT NULL DEFAULT 1,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS locks (
       id TEXT PRIMARY KEY,
