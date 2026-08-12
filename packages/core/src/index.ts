@@ -442,3 +442,4 @@ export { AccountActionTokenPortSqlite } from './infrastructure/sqlite/AccountAct
 export { UserRepositorySqlite } from './infrastructure/sqlite/UserRepositorySqlite.js';
 export { RevisionPortSqlite } from './infrastructure/sqlite/RevisionPortSqlite.js';
 export { RealtimeOutboxSqlite } from './infrastructure/sqlite/RealtimeOutboxSqlite.js';
+export { SqliteInfrastructure } from './infrastructure/sqlite/SqliteInfrastructure.js';
