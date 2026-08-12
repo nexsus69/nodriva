@@ -92,6 +92,11 @@ const pool = new pg.Pool({
 });
 
 export const pgExecutor = new PgExecutor(pool);
+const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
+const deploymentSecretResolver = new EnvironmentSecretReferenceResolver();
+const realtimeDeploymentValues: Readonly<Record<string, unknown>> = deploymentConfigurationSource.getSync('realtime')?.providerKey === 'soketi'
+  ? deploymentConfigurationSource.getSync('realtime')!.values
+  : {};
 
 const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
 export const realtimeMetrics = new RealtimeMetrics();
@@ -119,15 +124,15 @@ export const transactionPort = new TransactionPortPostgres(pool);
 export const auditPort = new AuditPortPostgres(pgExecutor);
 export const lockRepository = new LockRepositoryPostgres(pgExecutor);
 export const pusherEventBus = new PusherEventBus({
-  appId: process.env.PUSHER_APP_ID || '',
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || '',
-  secret: process.env.PUSHER_SECRET || '',
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || '',
+  appId: String(realtimeDeploymentValues.appId ?? ''),
+  key: String(realtimeDeploymentValues.appKey ?? ''),
+  secret: deploymentSecretResolver.resolveSync(String(realtimeDeploymentValues.appSecret ?? '')) ?? '',
+  cluster: String(realtimeDeploymentValues.cluster ?? ''),
   // Il backend gira nella rete Docker: l'endpoint pubblico usato dal browser
   // non coincide necessariamente con quello raggiungibile dal server.
-  useTLS: (process.env.REALTIME_INTERNAL_SCHEME ?? process.env.NEXT_PUBLIC_PUSHER_SCHEME) === 'https',
-  host: process.env.REALTIME_INTERNAL_HOST || process.env.NEXT_PUBLIC_PUSHER_HOST || undefined,
-  port: process.env.REALTIME_INTERNAL_PORT || process.env.NEXT_PUBLIC_PUSHER_PORT || undefined,
+  useTLS: realtimeDeploymentValues.internalScheme === 'https',
+  host: typeof realtimeDeploymentValues.internalHost === 'string' ? String(realtimeDeploymentValues.internalHost) : undefined,
+  port: typeof realtimeDeploymentValues.internalPort === 'number' ? String(realtimeDeploymentValues.internalPort) : undefined,
   enabled: process.env.REALTIME_ENABLED !== 'false',
   isEnabled: isRealtimeCapabilityEnabled,
   resolveDataChannelNames: async (event) => {
@@ -184,8 +189,8 @@ export const serviceConfigurationRepository = new ServiceConfigurationRepository
 export const serviceConfigurationService = new ServiceConfigurationService(
   defaultServiceConfigurationRegistry,
   serviceConfigurationRepository,
-  new EnvironmentServiceDeploymentConfigurationSource(),
-  new EnvironmentSecretReferenceResolver(),
+  deploymentConfigurationSource,
+  deploymentSecretResolver,
 );
 export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
 serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor));

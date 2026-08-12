@@ -151,6 +151,9 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
       displayName: 'Soketi/Pusher-compatible',
       fields: [
         field('enabled', 'boolean', 'runtime', { required: false, secret: false, clientVisible: true, restartRequired: false }, 'Abilita il realtime applicativo.'),
+        deploymentString('appId', 'Identificativo applicativo del provider.'),
+        deploymentString('cluster', 'Cluster del provider realtime.'),
+        deploymentString('internalScheme', 'Schema usato dal backend verso il provider.'),
         deploymentString('internalHost', 'Endpoint raggiungibile dal backend.'),
         field('internalPort', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Porta raggiungibile dal backend.'),
         deploymentString('publicHost', 'Endpoint raggiungibile dal browser.'),

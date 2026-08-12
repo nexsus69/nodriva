@@ -26,6 +26,10 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
   constructor(private readonly environment: Environment = process.env) {}
 
   async get(serviceKey: ServiceConfigurationKey) {
+    return this.getSync(serviceKey);
+  }
+
+  getSync(serviceKey: ServiceConfigurationKey) {
     switch (serviceKey) {
       case 'database': return this.database();
       case 'realtime': return this.realtime();
@@ -58,6 +62,9 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
     return {
       providerKey: 'soketi',
       values: {
+        ...(this.environment.PUSHER_APP_ID ? { appId: this.environment.PUSHER_APP_ID } : {}),
+        ...(this.environment.NEXT_PUBLIC_PUSHER_CLUSTER ? { cluster: this.environment.NEXT_PUBLIC_PUSHER_CLUSTER } : {}),
+        ...(this.environment.REALTIME_INTERNAL_SCHEME ? { internalScheme: this.environment.REALTIME_INTERNAL_SCHEME } : {}),
         ...(this.environment.REALTIME_INTERNAL_HOST ? { internalHost: this.environment.REALTIME_INTERNAL_HOST } : {}),
         ...(optionalPort(this.environment.REALTIME_INTERNAL_PORT) ? { internalPort: optionalPort(this.environment.REALTIME_INTERNAL_PORT) } : {}),
         ...(this.environment.NEXT_PUBLIC_PUSHER_HOST ? { publicHost: this.environment.NEXT_PUBLIC_PUSHER_HOST } : {}),
@@ -111,6 +118,10 @@ export class EnvironmentSecretReferenceResolver implements SecretReferenceResolv
   constructor(private readonly environment: Environment = process.env) {}
 
   async resolve(reference: string): Promise<string | null> {
+    return this.resolveSync(reference);
+  }
+
+  resolveSync(reference: string): string | null {
     const match = /^secret:\/\/env\/([A-Z0-9_]+)$/.exec(reference);
     if (!match) return null;
     if (match[1] === 'DATABASE_URL_PASSWORD') {
