@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { AdminResourceLock } from '../../../_components/AdminResourceLock';
 import { UserAccountDetailsPanel, UserRoleAssignmentPanel } from '../../_components/UserDetailPanels';
 import { UserDetailHeader } from './UserDetailHeader';

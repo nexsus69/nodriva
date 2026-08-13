@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, CreateUserUiCommand, ScopeAssignmentDto, UserListItemDto } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../navigation/unsavedChanges';
 
 type UserStatusFilter = 'all' | 'active' | 'disabled';
 
@@ -20,6 +22,9 @@ export function useUserAdminList() {
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const navigationGuard = useUnsavedChanges(isCreateOpen && (
+    !areFormValuesEqual(form, EMPTY_FORM) || selectedScopeIds.length > 0
+  ));
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -49,7 +54,13 @@ export function useUserAdminList() {
       .catch(() => setDelegableScopes([]));
   }, []);
 
-  const closeCreate = useCallback(() => setCreateOpen(false), []);
+  const closeCreate = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setForm(EMPTY_FORM);
+    setSelectedScopeIds([]);
+    setFormError(null);
+    setCreateOpen(false);
+  }, [navigationGuard]);
 
   const submitCreate = useCallback((event: FormEvent) => {
     event.preventDefault();

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 
 export function WorkspaceHeader() {
   return <section className="relative overflow-hidden rounded-[2rem] border border-indigo-100 bg-gradient-to-br from-white via-indigo-50/60 to-violet-50 p-7 shadow-xl shadow-slate-200/70 sm:p-9"><div className="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-end"><div className="max-w-2xl space-y-4"><div className="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-700">● Workspace operativo</div><div><h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">Il tuo spazio di lavoro.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-500">Esplora la struttura aziendale e accedi rapidamente a ordini, entità, clienti e sotto-nodi.</p></div></div><Link href="/admin" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm">⚙ Centro di controllo</Link></div></section>;

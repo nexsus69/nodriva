@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { ReactNode } from 'react';
 
 export interface BreadcrumbItem {

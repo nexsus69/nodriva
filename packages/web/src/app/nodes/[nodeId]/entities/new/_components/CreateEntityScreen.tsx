@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
 import { LockBadge } from '../../../../../components/LockBadge';
 import { Alert } from '../../../../../components/ui/feedback';

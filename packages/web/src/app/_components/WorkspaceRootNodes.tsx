@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { EmptyState, LoadingState } from '../components/ui/feedback';
 import { Panel, SectionHeader } from '../components/ui/layout';
 import { NodeResourceMenu } from '../components/ui/menu';

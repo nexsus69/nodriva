@@ -2,6 +2,8 @@ import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, UserDetailDto } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { issueAccountActionAction } from '../../../../actions/accountRecoveryActions';
+import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../../navigation/unsavedChanges';
 
 export function useUserDetail(userId: string) {
   const [user, setUser] = useState<UserDetailDto | null>(null);
@@ -16,6 +18,15 @@ export function useUserDetail(userId: string) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isPending, startTransition] = useTransition();
+  const rolesDirty = Boolean(user && !areFormValuesEqual(
+    [...selectedRoleIds].sort(),
+    user.roles.map((role) => role.id).sort(),
+  ));
+  const editDirty = Boolean(showEditModal && user && (
+    editEmail !== user.email || editIsSuperAdmin !== user.isSuperAdmin
+  ));
+  const passwordDirty = showPasswordModal && (newPassword !== '' || confirmPassword !== '');
+  const navigationGuard = useUnsavedChanges(rolesDirty || editDirty || passwordDirty);
 
   useEffect(() => {
     if (!userId) return;
@@ -139,13 +150,29 @@ export function useUserDetail(userId: string) {
     });
   };
 
+  const closeEditModal = () => {
+    if (editDirty && !navigationGuard.confirmDiscard()) return;
+    if (user) {
+      setEditEmail(user.email);
+      setEditIsSuperAdmin(user.isSuperAdmin);
+    }
+    setShowEditModal(false);
+  };
+
+  const closePasswordModal = () => {
+    if (passwordDirty && !navigationGuard.confirmDiscard()) return;
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowPasswordModal(false);
+  };
+
   return {
     user, loading, error, successMessage, selectedRoleIds, isPending,
     showEditModal, showPasswordModal, editEmail, editIsSuperAdmin, newPassword, confirmPassword,
     setEditEmail, setEditIsSuperAdmin, setNewPassword, setConfirmPassword,
     openEditModal, openPasswordModal,
-    closeEditModal: () => setShowEditModal(false),
-    closePasswordModal: () => setShowPasswordModal(false),
+    closeEditModal,
+    closePasswordModal,
     handleToggleStatus, handleRoleToggle, handleSaveRoles, handleSaveUser, handleResetPassword, handleIssueAccountAction,
   };
 }

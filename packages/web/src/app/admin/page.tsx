@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { AdminInfrastructureStatus } from './_components/AdminInfrastructureStatus';
 import { AdminModuleCard, type AdminModuleCardProps } from './_components/AdminModuleCard';
 

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { TypeKind, TypeListItemDto } from '@dashboard/core';
 
 export interface TypeListTableProps {

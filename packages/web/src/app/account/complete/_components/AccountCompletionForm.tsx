@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { completeAccountActionAction } from '../../../actions/accountRecoveryActions';
 import { PasswordInput } from '../../../components/ui/forms';
 

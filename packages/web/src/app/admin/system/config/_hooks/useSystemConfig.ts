@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, CapabilityStatus, RuntimeCapabilityDto, SystemSettingDto } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 
 export function useSystemConfig() {
   const [capabilities, setCapabilities] = useState<RuntimeCapabilityDto[]>([]);
@@ -13,6 +14,8 @@ export function useSystemConfig() {
   const [settingValue, setSettingValue] = useState('');
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const settingDirty = Boolean(editingSetting && settingValue !== (editingSetting.valueText ?? ''));
+  const navigationGuard = useUnsavedChanges(settingDirty);
 
   const loadData = useCallback(async () => {
     setLoading(true); setError(null);
@@ -49,5 +52,10 @@ export function useSystemConfig() {
     });
   }, [editingSetting, loadData, settingValue]);
 
-  return { capabilities, settings, loading, error, editingSetting, setEditingSetting, settingValue, setSettingValue, formError, isPending, updateCapability, openSetting, saveSetting };
+  const closeSetting = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setEditingSetting(null);
+  }, [navigationGuard]);
+
+  return { capabilities, settings, loading, error, editingSetting, settingValue, setSettingValue, formError, isPending, updateCapability, openSetting, closeSetting, saveSetting };
 }

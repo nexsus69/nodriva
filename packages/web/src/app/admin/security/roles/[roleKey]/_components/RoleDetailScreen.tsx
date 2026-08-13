@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { AdminResourceLock } from '../../../../_components/AdminResourceLock';
 import { RolePermissionsMatrix } from './RolePermissionsMatrix';
 import { useRoleDetail } from '../_hooks/useRoleDetail';

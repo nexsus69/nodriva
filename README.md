@@ -13,6 +13,7 @@ amministrative o di back office.
 - struttura gerarchica di nodi e risorse collegate;
 - tipi e campi configurabili dal pannello amministrativo;
 - form generati da uno schema comune con renderer specializzati;
+- protezione delle modifiche non salvate nei form operativi e amministrativi;
 - ACL, ruoli, scope e audit delle operazioni;
 - lock ottimistici e realtime per evitare modifiche concorrenti;
 - soft delete, cestino e ripristino di sottoalberi;

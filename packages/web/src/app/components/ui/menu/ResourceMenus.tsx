@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { OverflowMenu } from './Menu';
+import { useNavigationConfirmation } from '../../../navigation/NavigationBlocker';
 
 function copyTechnicalId(id: string): void {
   void navigator.clipboard?.writeText(id);
@@ -16,15 +17,17 @@ export interface NodeResourceMenuProps {
 /** Canonical operations for every node representation in the workspace. */
 export function NodeResourceMenu({ nodeId, nodeName, onEdit }: NodeResourceMenuProps) {
   const router = useRouter();
+  const confirmNavigation = useNavigationConfirmation();
+  const navigate = (href: string) => { if (confirmNavigation()) router.push(href); };
 
   return (
     <OverflowMenu
       label={`Azioni per ${nodeName}`}
       items={[
-        { id: 'open', label: 'Apri nodo', onSelect: () => router.push(`/nodes/${nodeId}`) },
-        { id: 'edit', label: 'Modifica nodo', onSelect: onEdit ?? (() => router.push(`/nodes/${nodeId}`)) },
-        { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => router.push(`/nodes/${nodeId}/new`) },
-        { id: 'new-entity', label: 'Nuova entità', onSelect: () => router.push(`/nodes/${nodeId}/entities/new`) },
+        { id: 'open', label: 'Apri nodo', onSelect: () => navigate(`/nodes/${nodeId}`) },
+        { id: 'edit', label: 'Modifica nodo', onSelect: onEdit ?? (() => navigate(`/nodes/${nodeId}`)) },
+        { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => navigate(`/nodes/${nodeId}/new`) },
+        { id: 'new-entity', label: 'Nuova entità', onSelect: () => navigate(`/nodes/${nodeId}/entities/new`) },
         { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => copyTechnicalId(nodeId) },
       ]}
     />
@@ -42,13 +45,15 @@ export interface EntityResourceMenuProps {
 /** Canonical operations for every entity representation in the workspace. */
 export function EntityResourceMenu({ entityId, entityName, parentNodeId, onEdit, editDisabled = false }: EntityResourceMenuProps) {
   const router = useRouter();
+  const confirmNavigation = useNavigationConfirmation();
+  const navigate = (href: string) => { if (confirmNavigation()) router.push(href); };
 
   return (
     <OverflowMenu
       label={`Azioni per ${entityName}`}
       items={[
-        { id: 'open', label: 'Apri entità', onSelect: () => router.push(`/nodes/${parentNodeId}/entities/${entityId}`) },
-        { id: 'edit', label: editDisabled ? 'In modifica' : 'Modifica entità', disabled: editDisabled, onSelect: onEdit ?? (() => router.push(`/nodes/${parentNodeId}/entities/${entityId}`)) },
+        { id: 'open', label: 'Apri entità', onSelect: () => navigate(`/nodes/${parentNodeId}/entities/${entityId}`) },
+        { id: 'edit', label: editDisabled ? 'In modifica' : 'Modifica entità', disabled: editDisabled, onSelect: onEdit ?? (() => navigate(`/nodes/${parentNodeId}/entities/${entityId}`)) },
         { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => copyTechnicalId(entityId) },
       ]}
     />

@@ -11,6 +11,8 @@ import { useSemanticMetadata } from '../../../../../hooks/useSemanticMetadata';
 import type { DynamicField } from '../../../../../components/ui/forms';
 import { coerceDynamicPayload, initializeDynamicPayload, uploadDynamicAttachments, validateDynamicAttachments } from '../../../../../components/ui/forms/dynamicResourceForm';
 import { useRelatedEntityCreation } from './useRelatedEntityCreation';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 
 export function useCreateEntity(parentNodeId: string) {
   const router = useRouter();
@@ -27,17 +29,25 @@ export function useCreateEntity(parentNodeId: string) {
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const createdId = useRef<string | null>(null);
+  const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
+  const [hasCreatedResource, setHasCreatedResource] = useState(false);
   const submitting = useRef(false);
   const lock = useLock({ resourceType: 'node', resourceId: parentNodeId });
   const { acquireLock } = lock;
   const related = useRelatedEntityCreation(parentNodeId, setPayload, setError);
+  const navigationGuard = useUnsavedChanges(
+    name !== '' || description !== '' || !areFormValuesEqual(payload, initialPayload)
+      || hasSelectedFiles(attachments) || hasCreatedResource,
+  );
 
   useEffect(() => { const timer = window.setTimeout(() => void acquireLock(), 0); return () => window.clearTimeout(timer); }, [acquireLock]);
   useEffect(() => {
     if (!selectedTypeKey) return;
     const timer = window.setTimeout(() => void AppCache.admin.getTypeDefinition('entity', selectedTypeKey).then((definition) => {
       const nextFields = definition?.fields ?? [];
-      setFields(nextFields); setPayload(initializeDynamicPayload(nextFields)); setAttachments({});
+      const nextPayload = initializeDynamicPayload(nextFields);
+      setInitialPayload(nextPayload);
+      setFields(nextFields); setPayload(nextPayload); setAttachments({});
     }), 0);
     return () => window.clearTimeout(timer);
   }, [selectedTypeKey]);
@@ -51,8 +61,10 @@ export function useCreateEntity(parentNodeId: string) {
         await validateDynamicAttachments(fields, attachments);
         const resourceId = createdId.current ?? (await AppCache.createEntity({ parentNodeId, entityTypeKey: selectedTypeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
         createdId.current = resourceId;
+        setHasCreatedResource(true);
         await uploadDynamicAttachments('entity', resourceId, fields, attachments);
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
+        navigationGuard.allowNavigation();
         router.push(`/nodes/${parentNodeId}`);
       } catch (reason) {
         submitting.current = false;

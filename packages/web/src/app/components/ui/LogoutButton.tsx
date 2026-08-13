@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { logoutAction } from '../../actions/authActions';
 import { AppCache } from '../../cache/GlobalCacheClient';
 import { useHumanActivity } from '../../activity/ActivityProvider';
+import { useNavigationConfirmation } from '../../navigation/NavigationBlocker';
 
 interface LogoutButtonProps {
   className?: string;
@@ -16,8 +17,10 @@ export function LogoutButton({ className }: LogoutButtonProps) {
   const router = useRouter();
   const { update: refreshSession } = useSession();
   const { resetActivity } = useHumanActivity();
+  const confirmNavigation = useNavigationConfirmation();
 
   const handleLogout = async () => {
+    if (!confirmNavigation()) return;
     setIsLoggingOut(true);
     try {
       // Ferma immediatamente timer e polling, prima che il cookie venga

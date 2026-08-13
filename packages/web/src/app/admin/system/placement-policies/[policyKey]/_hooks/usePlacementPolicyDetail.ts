@@ -9,6 +9,7 @@ import type {
   UpdatePlacementPolicyUiCommand,
 } from '@dashboard/core';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 
 export function usePlacementPolicyDetail(policyKey: string) {
   const router = useRouter();
@@ -30,6 +31,14 @@ export function usePlacementPolicyDetail(policyKey: string) {
   const [comparator, setComparator] = useState('EQUALS');
   const [valueText, setValueText] = useState('');
   const [isPending, startTransition] = useTransition();
+  const editPolicyDirty = Boolean(showEditPolicyModal && policy && (
+    editName !== policy.name || editDescription !== policy.description || editPolicyMode !== policy.policyMode
+  ));
+  const addRuleDirty = showAddRuleModal && (
+    ruleType !== 'allow_node_type' || targetNodeId !== '' || targetNodeTypeId !== ''
+    || comparator !== 'EQUALS' || valueText !== ''
+  );
+  const navigationGuard = useUnsavedChanges(editPolicyDirty || addRuleDirty);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -99,7 +108,10 @@ export function usePlacementPolicyDetail(policyKey: string) {
     setShowDeleteConfirm(false);
     startTransition(async () => {
       const result = await AppCache.admin.deletePlacementPolicy({ policyKey: policy.policyKey, expectedRowVersion: policy.rowVersion });
-      if (result.success) router.push('/admin/system/placement-policies');
+      if (result.success) {
+        navigationGuard.allowNavigation();
+        router.push('/admin/system/placement-policies');
+      }
       else if (result.error) setError(result.error);
     });
   };
@@ -137,6 +149,16 @@ export function usePlacementPolicyDetail(policyKey: string) {
     });
   };
 
+  const closeEditPolicy = () => {
+    if (editPolicyDirty && !navigationGuard.confirmDiscard()) return;
+    setShowEditPolicyModal(false);
+  };
+
+  const closeAddRule = () => {
+    if (addRuleDirty && !navigationGuard.confirmDiscard()) return;
+    setShowAddRuleModal(false);
+  };
+
   return {
     policy, nodes, nodeTypes, loading, error, formError, isPending,
     showEditPolicyModal, showDeleteConfirm, showAddRuleModal,
@@ -145,8 +167,8 @@ export function usePlacementPolicyDetail(policyKey: string) {
     setEditName, setEditDescription, setEditPolicyMode,
     setRuleType, setTargetNodeId, setTargetNodeTypeId, setComparator, setValueText,
     openEditPolicy, openAddRule,
-    closeEditPolicy: () => setShowEditPolicyModal(false),
-    closeAddRule: () => setShowAddRuleModal(false),
+    closeEditPolicy,
+    closeAddRule,
     requestDeletePolicy: () => setShowDeleteConfirm(true),
     cancelDeletePolicy: () => setShowDeleteConfirm(false),
     confirmDeletePolicy, handleUpdatePolicy, handleAddRule, handleDeleteRule,

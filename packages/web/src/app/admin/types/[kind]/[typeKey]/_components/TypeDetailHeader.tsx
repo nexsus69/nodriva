@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { ApiErrorResponse, TypeDetailDto } from '@dashboard/core';
 
 interface TypeDetailHeaderProps {

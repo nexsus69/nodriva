@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, PlacementPolicyListItemDto, PolicyMode } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../../navigation/unsavedChanges';
 
 export type PlacementPolicyForm = { policyKey: string; name: string; description: string; policyMode: PolicyMode };
 const EMPTY_FORM: PlacementPolicyForm = { policyKey: '', name: '', description: '', policyMode: 'allow_all' };
@@ -17,6 +19,10 @@ export function usePlacementPolicies() {
   const [form, setForm] = useState<PlacementPolicyForm>(EMPTY_FORM);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const baselineForm = editingPolicy
+    ? { policyKey: editingPolicy.policyKey, name: editingPolicy.name, description: editingPolicy.description, policyMode: editingPolicy.policyMode }
+    : EMPTY_FORM;
+  const navigationGuard = useUnsavedChanges(isEditorOpen && !areFormValuesEqual(form, baselineForm));
 
   const loadPolicies = useCallback(async () => {
     setLoading(true);
@@ -75,5 +81,10 @@ export function usePlacementPolicies() {
     });
   }, [loadPolicies, policyToDelete]);
 
-  return { policies, loading, error, editingPolicy, policyToDelete, setPolicyToDelete, isEditorOpen, setEditorOpen, form, setForm, formError, isPending, openCreate, openEdit, submit, confirmDelete };
+  const closeEditor = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setEditorOpen(false);
+  }, [navigationGuard]);
+
+  return { policies, loading, error, editingPolicy, policyToDelete, setPolicyToDelete, isEditorOpen, form, setForm, formError, isPending, openCreate, openEdit, closeEditor, submit, confirmDelete };
 }

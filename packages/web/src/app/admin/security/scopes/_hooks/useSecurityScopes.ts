@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, RoleListItemDto, ScopeAssignmentDto, UserListItemDto } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 
 type AssignmentEffect = 'allow' | 'deny';
 type Propagation = 'self' | 'subtree';
@@ -23,6 +24,13 @@ export function useSecurityScopes() {
   const [propagation, setPropagation] = useState<Propagation>('subtree');
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const scopeDirty = isModalOpen && (editingScope
+    ? selectedUserId !== editingScope.userId || selectedNodeId !== editingScope.nodeId
+      || selectedRoleId !== editingScope.roleId || assignmentEffect !== editingScope.assignmentEffect
+      || propagation !== editingScope.propagation
+    : selectedUserId !== '' || selectedNodeId !== '' || selectedRoleId !== ''
+      || assignmentEffect !== 'allow' || propagation !== 'subtree');
+  const navigationGuard = useUnsavedChanges(scopeDirty);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -92,5 +100,10 @@ export function useSecurityScopes() {
     });
   }, [loadData]);
 
-  return { scopes, users, roles, nodes, loading, error, isModalOpen, setModalOpen, editingScope, selectedUserId, setSelectedUserId, selectedNodeId, setSelectedNodeId, selectedRoleId, setSelectedRoleId, assignmentEffect, setAssignmentEffect, propagation, setPropagation, formError, isPending, openCreate, openEdit, submit, remove };
+  const closeModal = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setModalOpen(false);
+  }, [navigationGuard]);
+
+  return { scopes, users, roles, nodes, loading, error, isModalOpen, editingScope, selectedUserId, setSelectedUserId, selectedNodeId, setSelectedNodeId, selectedRoleId, setSelectedRoleId, assignmentEffect, setAssignmentEffect, propagation, setPropagation, formError, isPending, openCreate, openEdit, closeModal, submit, remove };
 }

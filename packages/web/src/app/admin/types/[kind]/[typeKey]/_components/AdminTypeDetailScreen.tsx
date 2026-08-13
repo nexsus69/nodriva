@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { TypeKind } from '@dashboard/core';
 import { AdminResourceLock } from '../../../../_components/AdminResourceLock';
 import { NodeTypeEncryptionPolicy } from '../../../_components/NodeTypeEncryptionPolicy';

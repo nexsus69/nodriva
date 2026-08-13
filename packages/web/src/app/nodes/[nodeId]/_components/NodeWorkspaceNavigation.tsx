@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { NodeBreadcrumb } from '../../../components/navigation/NodeBreadcrumb';
 
 interface NodeWorkspaceNavigationProps { nodeId: string; readOnly: boolean }

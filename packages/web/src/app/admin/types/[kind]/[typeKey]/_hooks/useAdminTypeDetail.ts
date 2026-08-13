@@ -13,6 +13,7 @@ import type {
 } from '@dashboard/core';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
 import { useTypeFieldEditor } from './useTypeFieldEditor';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 
 type SchemaImpact = Awaited<ReturnType<typeof AppCache.admin.getTypeSchemaImpact>>['data'];
 
@@ -47,6 +48,9 @@ export function useAdminTypeDetail(kind: TypeKind, typeKey: string) {
     reportConflict: setConflictError,
     reportSuccess: setSuccessMessage,
   });
+  useUnsavedChanges(Boolean(typeDetail && (
+    typeName !== typeDetail.name || typeDescription !== typeDetail.description
+  )));
 
   const loadData = useCallback(async () => {
     setLoading(true);

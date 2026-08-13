@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { NodeResourceMenu } from '../../../components/ui/menu';
 import type { ClientNode } from '../../../types/models';
 

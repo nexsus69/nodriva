@@ -101,6 +101,24 @@ di eliminare la sessione. La foreign key
 per revoche, errori o percorsi amministrativi. Alla scadenza per inattività, il
 TTL più breve del lock resta invece il meccanismo normale di sicurezza.
 
+## Modifiche non salvate
+
+I form di creazione e modifica del workspace e del pannello amministrativo
+registrano una guardia soltanto quando il loro valore differisce dal dato
+persistito (o contiene nuovi allegati). La guardia copre i link Next.js, le
+navigazioni imperative note, il logout, il refresh e la chiusura della scheda;
+nei browser che espongono la Navigation API copre anche avanti/indietro.
+
+L'annullamento locale chiede conferma prima di azzerare il form o rilasciare il
+lock. Un errore di validazione, rete o persistenza mantiene invece sia la bozza
+sia il lock. Dopo un salvataggio riuscito la nuova versione diventa il baseline
+e la navigazione applicativa può proseguire senza un falso avviso.
+
+Il rilascio di emergenza del lock usa `pagehide`, non `beforeunload`: in questo
+modo un utente che annulla l'uscita dalla pagina conserva il lock della propria
+sessione. La pulizia React continua a rilasciarlo sulle navigazioni client-side
+effettivamente completate.
+
 ## Diagnostica
 
 Con `NEXT_PUBLIC_ACTIVITY_DEBUG=true` il pannello Activity/Sync mostra attività

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, RoleDetailDto } from '@dashboard/core';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../../../navigation/unsavedChanges';
 
 export function useRoleDetail(roleKey: string) {
   const [role, setRole] = useState<RoleDetailDto | null>(null);
@@ -11,6 +13,10 @@ export function useRoleDetail(roleKey: string) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
+  useUnsavedChanges(Boolean(role && !areFormValuesEqual(
+    [...selectedPermissionIds].sort(),
+    role.permissions.map((permission) => permission.id).sort(),
+  )));
 
   useEffect(() => {
     if (!roleKey) return;

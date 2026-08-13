@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { Panel, SectionHeader } from '../../../components/ui/layout';
 import { NodeEntityGrid } from './NodeEntityGrid';
 import type { useNodeDetail } from '../_hooks/useNodeDetail';

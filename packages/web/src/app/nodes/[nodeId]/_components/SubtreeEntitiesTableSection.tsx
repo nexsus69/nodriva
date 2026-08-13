@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { useEffect, useRef, useState } from 'react';
 import {
   SubtreeEntityItem,

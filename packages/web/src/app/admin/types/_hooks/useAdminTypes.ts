@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, CreateTypeUiCommand, TypeKind, TypeListItemDto } from '@dashboard/core';
 import { AppCache } from '../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../navigation/unsavedChanges';
 
 export type TypeCreateForm = {
   typeKey: string;
@@ -22,6 +24,7 @@ export function useAdminTypes() {
   const [form, setForm] = useState<TypeCreateForm>(EMPTY_FORM);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const navigationGuard = useUnsavedChanges(isCreateOpen && !areFormValuesEqual(form, EMPTY_FORM));
   const cacheRevision = useSyncExternalStore(AppCache.subscribe, AppCache.getRevision, () => 0);
 
   const loadTypes = useCallback(async () => {
@@ -43,7 +46,12 @@ export function useAdminTypes() {
     setCreateOpen(true);
   }, []);
 
-  const closeCreate = useCallback(() => setCreateOpen(false), []);
+  const closeCreate = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    setCreateOpen(false);
+  }, [navigationGuard]);
 
   const submitCreate = useCallback((event: FormEvent) => {
     event.preventDefault();

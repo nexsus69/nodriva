@@ -60,7 +60,8 @@ Procedere in questo ordine, salvo richiesta esplicita diversa:
 1. eseguire in CI integrazioni PostgreSQL, contract test ed E2E necessari;
 2. distinguere dinieghi applicativi da guasti infrastrutturali nell'error
    handling amministrativo;
-3. verificare e irrobustire sessione scorrevole, form non salvati e lock;
+3. verificare e irrobustire sessione scorrevole, form non salvati e lock
+   (completato: mantenere i test di regressione);
 4. uniformare il bootstrap amministrativo PostgreSQL/SQLite;
 5. completare lo scenario E2E della verticale canonica sui profili supportati;
 6. rifattorizzare con test `ActivityProvider` e poi `VirtualGroupedTable`;

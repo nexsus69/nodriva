@@ -15,6 +15,7 @@ import { SessionCacheSynchronizer } from "./components/auth/SessionCacheSynchron
 import { WorkspaceShell } from "./components/layout/WorkspaceShell";
 import { ActivityProvider } from "./activity/ActivityProvider";
 import { ActivityDebugOverlayHost } from "./activity/ActivityDebugOverlayHost";
+import { NavigationBlockerProvider } from "./navigation/NavigationBlocker";
 
 export default async function RootLayout({
   children,
@@ -28,12 +29,14 @@ export default async function RootLayout({
       <body className="min-h-full bg-[#f4f7fb] text-slate-900 antialiased flex flex-col font-sans">
         <SessionProviderWrapper session={session}>
           <ActivityProvider initialExpires={session?.expires}>
-            <CacheInitializer />
-            <ActivityDebugOverlayHost />
-            <RealtimeDebugOverlayHost />
-            <SessionCacheSynchronizer />
-            <SessionModalWatcher />
-            <WorkspaceShell>{children}</WorkspaceShell>
+            <NavigationBlockerProvider>
+              <CacheInitializer />
+              <ActivityDebugOverlayHost />
+              <RealtimeDebugOverlayHost />
+              <SessionCacheSynchronizer />
+              <SessionModalWatcher />
+              <WorkspaceShell>{children}</WorkspaceShell>
+            </NavigationBlockerProvider>
           </ActivityProvider>
         </SessionProviderWrapper>
       </body>

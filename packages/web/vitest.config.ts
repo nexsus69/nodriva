@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   return {
     resolve: {
       alias: {
+        '@': path.resolve(__dirname, 'src'),
         'next/server': path.resolve(__dirname, 'node_modules/next/server.js'),
       },
     },

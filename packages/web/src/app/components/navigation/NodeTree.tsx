@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { KeyboardEvent, useState } from 'react';
 import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
 import type { ClientNode } from '../../types/models';

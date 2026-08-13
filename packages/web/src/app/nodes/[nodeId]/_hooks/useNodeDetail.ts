@@ -7,6 +7,8 @@ import { useLock } from '../../../hooks/useLock';
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
 import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
+import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
+import { areFormValuesEqual, hasSelectedFiles } from '../../../navigation/unsavedChanges';
 
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
@@ -29,6 +31,13 @@ export function useNodeDetail(nodeId: string) {
   const lock = useLock({ resourceType: 'node', resourceId: nodeId });
   const { data: currentNode, error: nodeError, isLoading: isLoadingNode } = useCacheNode(nodeId);
   const readOnly = !lock.isMyLock;
+  const hasUnsavedChanges = Boolean(lock.isMyLock && currentNode && (
+    nodeName !== currentNode.name
+    || nodeDescription !== (currentNode.description || '')
+    || !areFormValuesEqual(dynamicNodePayload, currentNode.payload ?? {})
+    || hasSelectedFiles(attachmentsByField)
+  ));
+  const navigationGuard = useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,15 +86,19 @@ export function useNodeDetail(nodeId: string) {
     setSuccessMessage(null);
     setNodeName(currentNode.name);
     setNodeDescription(currentNode.description || '');
+    setDynamicNodePayload(currentNode.payload ?? {});
     setAttachmentsByField({});
     return lock.acquireLock();
   };
 
   const exitEditMode = async () => {
+    if (!navigationGuard.confirmDiscard()) return;
     if (currentNode) {
       setNodeName(currentNode.name);
       setNodeDescription(currentNode.description || '');
+      setDynamicNodePayload(currentNode.payload ?? {});
     }
+    setAttachmentsByField({});
     await lock.releaseLock();
   };
 
@@ -108,6 +121,7 @@ export function useNodeDetail(nodeId: string) {
             await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
           }
         }
+        setAttachmentsByField({});
         await lock.releaseLock();
         setSuccessMessage('Nodo aggiornato con successo.');
       } catch (cause) {

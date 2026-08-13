@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { AuditLogDetailDto, ApiErrorResponse } from '@dashboard/core';
 
 export function AuditLogDetail({ log, loading, error }: { log: AuditLogDetailDto | null; loading: boolean; error: ApiErrorResponse | null }) {

@@ -11,6 +11,8 @@ import { useSemanticEntityDetail } from '../../../../../hooks/useSemanticEntityD
 import { useSemanticMetadata } from '../../../../../hooks/useSemanticMetadata';
 import type { DynamicField } from '../../../../../components/ui/forms';
 import { uploadDynamicAttachments, validateDynamicAttachments } from '../../../../../components/ui/forms/dynamicResourceForm';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -30,6 +32,13 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
   const entityType = detail.entity ? entityTypes[detail.entity.entityTypeId] : undefined;
+  const hasUnsavedChanges = Boolean(lock.isMyLock && detail.entity && (
+    name !== (detail.entity.name || '')
+    || description !== (detail.entity.description || '')
+    || !areFormValuesEqual(payload, detail.entity.payload ?? {})
+    || hasSelectedFiles(attachments)
+  ));
+  const navigationGuard = useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
     if (!detail.entity || !entityType?.typeKey) return;
@@ -44,9 +53,10 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
     return lock.acquireLock();
   };
-  const cancelEditing = () => {
+  const cancelEditing = async () => {
     if (!detail.entity) return;
-    setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({}); void lock.releaseLock();
+    if (!navigationGuard.confirmDiscard()) return;
+    setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({}); await lock.releaseLock();
   };
 
   const save = (event: FormEvent) => {
@@ -67,6 +77,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         await validateDynamicAttachments(fields, attachments);
         await AppCache.updateEntity({ entityId, name, description, payloadDelta: processed, expectedRowVersion: detail.entity!.rowVersion });
         await uploadDynamicAttachments('entity', entityId, fields, attachments);
+        setAttachments({});
         await lock.releaseLock(); setSuccessMessage('Entità aggiornata con successo.');
       } catch (reason) { setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’aggiornamento dell’entità.'); }
     });
@@ -79,6 +90,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
       try {
         await AppCache.deleteEntity(entityId, detail.entity!.entityTypeId, detail.entity!.rowVersion);
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
+        navigationGuard.allowNavigation();
         router.push(`/nodes/${parentNodeId}`);
       } catch (reason) { setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’eliminazione.'); }
     });

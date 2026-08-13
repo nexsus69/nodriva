@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import type { ApiErrorResponse, RoleListItemDto } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
+import { areFormValuesEqual } from '../../../../navigation/unsavedChanges';
 
 export type RoleCreateForm = { roleKey: string; name: string; description: string };
 const EMPTY_FORM: RoleCreateForm = { roleKey: '', name: '', description: '' };
@@ -15,6 +17,7 @@ export function useSecurityRoles() {
   const [form, setForm] = useState<RoleCreateForm>(EMPTY_FORM);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
+  const navigationGuard = useUnsavedChanges(isCreateOpen && !areFormValuesEqual(form, EMPTY_FORM));
 
   const loadRoles = useCallback(async () => {
     setLoading(true); setError(null);
@@ -36,5 +39,12 @@ export function useSecurityRoles() {
     });
   }, [form, loadRoles]);
 
-  return { roles, loading, error, isCreateOpen, setCreateOpen, form, setForm, formError, isPending, openCreate, submitCreate };
+  const closeCreate = useCallback(() => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    setCreateOpen(false);
+  }, [navigationGuard]);
+
+  return { roles, loading, error, isCreateOpen, form, setForm, formError, isPending, openCreate, closeCreate, submitCreate };
 }

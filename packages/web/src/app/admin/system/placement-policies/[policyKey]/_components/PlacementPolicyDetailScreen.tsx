@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import { ConfirmModal } from '../../../../../components/ui/ConfirmModal';
 import { AdminResourceLock } from '../../../../_components/AdminResourceLock';
 import { PlacementPolicyEditModal } from './PlacementPolicyEditModal';

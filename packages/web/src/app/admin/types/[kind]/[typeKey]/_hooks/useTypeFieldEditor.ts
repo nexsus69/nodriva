@@ -10,6 +10,7 @@ import type {
   UpdateFieldUiCommand,
 } from '@dashboard/core';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
+import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 
 interface UseTypeFieldEditorOptions {
   kind: TypeKind;
@@ -39,6 +40,17 @@ export function useTypeFieldEditor({ kind, typeKey, detail, applyDetail, reportC
   const [relationTargetTypes, setRelationTargetTypes] = useState<TypeListItemDto[]>([]);
   const [relationTargetTypesLoading, setRelationTargetTypesLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const isDirty = showModal && (editingField
+    ? label !== editingField.label
+      || isRequired !== editingField.isRequired
+      || isUnique !== editingField.isUnique
+      || isIndexed !== editingField.isIndexed
+      || defaultValueText !== (editingField.defaultValueText ?? '')
+      || encryptionMode !== (editingField.encryptionMode ?? 'plaintext')
+    : fieldKey !== '' || label !== '' || columnName !== '' || dataType !== 'string'
+      || enumMode !== 'static' || encryptionMode !== 'plaintext' || isRequired || isUnique || isIndexed
+      || defaultValueText !== '' || relationTargetDomain !== 'entity' || relationTargetTypeKey !== '');
+  const navigationGuard = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     if (dataType !== 'relation' || editingField) return;
@@ -140,12 +152,17 @@ export function useTypeFieldEditor({ kind, typeKey, detail, applyDetail, reportC
     });
   };
 
+  const close = () => {
+    if (!navigationGuard.confirmDiscard()) return;
+    setShowModal(false);
+  };
+
   return {
     showModal, editingField, formError, isPending,
     fieldKey, label, columnName, dataType, enumMode, encryptionMode, isRequired, isUnique, isIndexed,
     defaultValueText, relationTargetDomain, relationTargetTypeKey, relationTargetTypes, relationTargetTypesLoading,
     setFieldKey, setLabel, setColumnName, setDataType, setEnumMode, setEncryptionMode,
     setIsRequired, setIsUnique, setIsIndexed, setDefaultValueText, setRelationTargetDomain, setRelationTargetTypeKey,
-    openAdd, openEdit, close: () => setShowModal(false), handleSubmit,
+    openAdd, openEdit, close, handleSubmit,
   };
 }

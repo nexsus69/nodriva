@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { AuditLogListItemDto, PaginatedResultDto, TypeDetailDto } from '@dashboard/core';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
 
