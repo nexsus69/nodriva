@@ -2,6 +2,7 @@
 
 import { accessControlPort } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
+import { AppError } from '@dashboard/core';
 
 // L'accesso alla console richiede almeno una capacità amministrativa globale.
 // Le singole pagine continuano comunque a verificare il permesso specifico.
@@ -20,12 +21,17 @@ export async function checkAdminAccessAction(): Promise<boolean> {
       try {
         await accessControlPort.assertHasPermission(actorUserId, permission, null);
         return true;
-      } catch {
-        // L'utente può possedere una sola delle capacità amministrative.
+      } catch (error) {
+        if (error instanceof AppError && error.code === 'ACCESS_FORBIDDEN') {
+          // L'utente può possedere una sola delle capacità amministrative.
+          continue;
+        }
+        throw error;
       }
     }
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof AppError && error.code === 'AUTH_UNAUTHORIZED') return false;
+    throw error;
   }
   return false;
 }

@@ -12,8 +12,19 @@ export function useAdminShell() {
   const pathname = usePathname();
   const { data: session, status: sessionStatus } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [access, setAccess] = useState<'checking' | 'allowed' | 'denied'>('checking');
-  useEffect(() => { let cancelled = false; void checkAdminAccessAction().then((allowed) => { if (!cancelled) setAccess(allowed ? 'allowed' : 'denied'); }); return () => { cancelled = true; }; }, []);
+  const [access, setAccess] = useState<'checking' | 'allowed' | 'denied' | 'unavailable'>('checking');
+  const [accessAttempt, setAccessAttempt] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    void checkAdminAccessAction()
+      .then((allowed) => { if (!cancelled) setAccess(allowed ? 'allowed' : 'denied'); })
+      .catch(() => { if (!cancelled) setAccess('unavailable'); });
+    return () => { cancelled = true; };
+  }, [accessAttempt]);
+  const retryAccess = () => {
+    setAccess('checking');
+    setAccessAttempt((attempt) => attempt + 1);
+  };
   const breadcrumbs = useMemo(() => {
     const segments = pathname.split('/').filter(Boolean);
     return [{ label: 'Dashboard', href: '/', icon: createElement(HomeBreadcrumbIcon) }, ...segments.map((segment, index) => {
@@ -23,5 +34,5 @@ export function useAdminShell() {
     })];
   }, [pathname]);
   const email = session?.user?.email || 'utente@ignoto.com';
-  return { pathname, access, sidebarOpen, setSidebarOpen, breadcrumbs, email, initials: email.substring(0, 2).toUpperCase(), sessionStatus };
+  return { pathname, access, retryAccess, sidebarOpen, setSidebarOpen, breadcrumbs, email, initials: email.substring(0, 2).toUpperCase(), sessionStatus };
 }
