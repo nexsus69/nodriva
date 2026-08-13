@@ -1,8 +1,8 @@
-import { NodeRepository, DeletedNodeSummary } from '../../application/ports/NodeRepository.js';
+import type { NodeRepository, DeletedNodeSummary } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError, LockConflictError } from '../../domain/errors/ApplicationErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 
 interface NodeRow { id: string; parent_id: string | null; path: string; path_label: string; depth: number; node_type_id: string; name: string; description: string; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; created_by: string | null; updated_by: string | null; payload: string; deletion_batch_id: string | null; }

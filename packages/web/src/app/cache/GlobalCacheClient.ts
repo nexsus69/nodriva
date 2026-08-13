@@ -69,6 +69,10 @@ export interface UpdateEntityInput {
   payloadDelta?: Record<string, unknown>;
 }
 
+function actionError(error: { code: string; message: string; details?: unknown }): Error {
+  return Object.assign(new Error(error.message), error);
+}
+
 export class GlobalCacheClient {
   private cacheRevision = 0;
   private cacheSubscribers = new Set<() => void>();
@@ -404,7 +408,9 @@ export class GlobalCacheClient {
 
   public async createEntity(input: CreateEntityInput): Promise<ClientEntity> {
     try {
-      const newEntity = await createEntityAction(input);
+      const result = await createEntityAction(input);
+      if (!result.success) throw actionError(result.error);
+      const newEntity = result.data;
       const entityTypeKey = newEntity.entityTypeId;
       // Inietta il nuovo dato nella cache
       this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false);
@@ -418,7 +424,9 @@ export class GlobalCacheClient {
 
   public async updateEntity(input: UpdateEntityInput): Promise<ClientEntity> {
     try {
-      const updatedEntity = await updateEntityAction(input);
+      const result = await updateEntityAction(input);
+      if (!result.success) throw actionError(result.error);
+      const updatedEntity = result.data;
       const entityTypeKey = updatedEntity.entityTypeId;
       // Inietta il dato aggiornato nella cache
       this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false);
@@ -433,7 +441,8 @@ export class GlobalCacheClient {
 
   public async deleteEntity(entityId: string, entityTypeKey: string, expectedRowVersion: number) {
     try {
-      await deleteEntityAction({ entityId, expectedRowVersion });
+      const result = await deleteEntityAction({ entityId, expectedRowVersion });
+      if (!result.success) throw actionError(result.error);
       // Aggiorna lo store
       const cache = this.getEntityCache(entityTypeKey);
       cache.remove(entityId);
@@ -536,6 +545,8 @@ export class GlobalCacheClient {
       console.warn('⚠️ CacheService: 401 Unauthorized rilevato. Eseguo purge e redirect.');
       this.purgeAll();
       if (typeof window !== 'undefined') {
+        // A full reload removes residual React and NextAuth state after an unauthorized response.
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Security boundary requires a fresh server-authenticated document.
         window.location.href = '/login?error=SessionExpired';
       }
     }

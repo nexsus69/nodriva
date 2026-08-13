@@ -1,5 +1,5 @@
-import { SystemConfigRepository } from '../../application/ports/SystemConfigRepository.js';
-import {
+import type { SystemConfigRepository } from '../../application/ports/SystemConfigRepository.js';
+import type {
   RuntimeCapabilityDto,
   SystemSettingDto,
   PlacementPolicyListItemDto,
@@ -8,7 +8,7 @@ import {
   PolicyMode,
 } from '../../application/dto/SystemConfigDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface CapabilityRow {
   id: string;

@@ -1,4 +1,4 @@
-import { TypeDefinition, TypeDomain } from '../dto/TypeFieldDefinition.js';
+import type { TypeDefinition, TypeDomain } from '../dto/TypeFieldDefinition.js';
 
 /**
  * Porta per la lettura delle definizioni complete dei tipi dinamici dal database.

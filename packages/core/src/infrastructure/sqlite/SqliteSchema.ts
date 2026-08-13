@@ -1,4 +1,4 @@
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 /** Core relational schema shared by the standalone SQLite adapter. */
 export function ensureSqliteSchema(database: SqliteDatabase): void {

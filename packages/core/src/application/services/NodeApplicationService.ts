@@ -1,17 +1,18 @@
 import { Node } from '../../domain/models/Node.js';
-import { NodeRepository } from '../ports/NodeRepository.js';
-import { NodeTypeRepository } from '../ports/NodeTypeRepository.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { LockService } from './LockService.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { RevisionPort } from '../ports/RevisionPort.js';
-import { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { SchemaRegistry } from '../ports/SchemaRegistry.js';
-import { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
+import type { NodeRepository } from '../ports/NodeRepository.js';
+import type { NodeTypeRepository } from '../ports/NodeTypeRepository.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { LockService } from './LockService.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { RevisionPort } from '../ports/RevisionPort.js';
+import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { SchemaRegistry } from '../ports/SchemaRegistry.js';
+import type { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 
-import { CreateNodeCommand, CreateNodeCommandSchema, UpdateNodeCommand, UpdateNodeCommandSchema, MoveNodeCommand, MoveNodeCommandSchema, DeleteNodeCommand, DeleteNodeCommandSchema, RestoreNodeCommand, RestoreNodeCommandSchema } from '../commands/NodeCommands.js';
+import type { CreateNodeCommand, UpdateNodeCommand, MoveNodeCommand, DeleteNodeCommand, RestoreNodeCommand} from '../commands/NodeCommands.js';
+import { CreateNodeCommandSchema, UpdateNodeCommandSchema, MoveNodeCommandSchema, DeleteNodeCommandSchema, RestoreNodeCommandSchema } from '../commands/NodeCommands.js';
 import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError, NodeTypeNotFoundError, NodePathCollisionError, NodeCyclicMoveError } from '../../domain/errors/DomainErrors.js';
 

@@ -1,4 +1,4 @@
-import { TypeDomain } from '../dto/TypeFieldDefinition.js';
+import type { TypeDomain } from '../dto/TypeFieldDefinition.js';
 
 /**
  * Porta per l'invalidazione della cache del registry degli schemi.

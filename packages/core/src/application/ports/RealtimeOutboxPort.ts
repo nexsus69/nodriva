@@ -1,4 +1,4 @@
-import { RealtimeDataChangedEvent } from './RealtimeEventBus.js';
+import type { RealtimeDataChangedEvent } from './RealtimeEventBus.js';
 
 export interface RealtimeOutboxPort {
   enqueue(event: RealtimeDataChangedEvent): Promise<void>;

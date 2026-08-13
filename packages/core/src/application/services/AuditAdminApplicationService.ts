@@ -1,6 +1,6 @@
-import { AuditQueryPort } from '../ports/AuditQueryPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import {
+import type { AuditQueryPort } from '../ports/AuditQueryPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type {
   AuditLogFilterDto,
   AuditLogListItemDto,
   AuditLogDetailDto,

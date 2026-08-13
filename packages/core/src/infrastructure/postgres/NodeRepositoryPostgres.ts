@@ -1,10 +1,10 @@
-import { DeletedNodeSummary, NodeRepository } from '../../application/ports/NodeRepository.js';
+import type { DeletedNodeSummary, NodeRepository } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
-import { FieldEncryptionService } from './FieldEncryptionService.js';
+import type { FieldEncryptionService } from './FieldEncryptionService.js';
 
 interface NodeRow {
   id: string;

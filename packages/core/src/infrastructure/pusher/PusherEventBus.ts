@@ -1,9 +1,9 @@
-import { LockEventBus } from '../../application/ports/LockEventBus.js';
-import {
+import type { LockEventBus } from '../../application/ports/LockEventBus.js';
+import type {
   RealtimeDataChangedEvent,
   RealtimeEventBus,
 } from '../../application/ports/RealtimeEventBus.js';
-import { Lock } from '../../domain/models/Lock.js';
+import type { Lock } from '../../domain/models/Lock.js';
 import type { LockEventScope } from '../../application/ports/LockEventBus.js';
 import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 import { PusherTransport, type PusherTransportPort, type PusherTransportConfig } from './PusherTransport.js';

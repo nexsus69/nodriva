@@ -1,6 +1,6 @@
-import { SecurityRepository } from '../../application/ports/SecurityRepository.js';
+import type { SecurityRepository } from '../../application/ports/SecurityRepository.js';
 import { Role } from '../../domain/models/Role.js';
-import {
+import type {
   RoleListItemDto,
   RoleDetailDto,
   PermissionDto,
@@ -10,7 +10,7 @@ import {
 } from '../../application/dto/SecurityAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import {
   createRealtimeChannelPolicy,
   type RealtimeChannelPolicy,

@@ -1,11 +1,11 @@
 import crypto from 'crypto';
-import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
+import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
-import { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
-import { MfaTotpApplicationService } from './MfaTotpApplicationService.js';
-import { AuditPort } from '../ports/AuditPort.js';
+import type { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
+import type { MfaTotpApplicationService } from './MfaTotpApplicationService.js';
+import type { AuditPort } from '../ports/AuditPort.js';
 import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
 
 export class AuthApplicationService {

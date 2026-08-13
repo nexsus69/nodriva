@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { ConfigService } from '../../application/services/ConfigService.js';
 import { EncryptionKeyring } from '../crypto/EncryptionKeyring.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 type ResourceType = 'node' | 'entity';
 

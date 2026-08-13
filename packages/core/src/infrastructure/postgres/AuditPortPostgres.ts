@@ -1,5 +1,5 @@
-import { AuditPort } from '../../application/ports/AuditPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { AuditPort } from '../../application/ports/AuditPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 /**
  * Adapter PostgreSQL per la registrazione dei log di audit.

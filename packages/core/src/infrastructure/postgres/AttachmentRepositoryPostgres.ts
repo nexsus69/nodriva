@@ -1,5 +1,5 @@
 import type { AttachmentRecord, AttachmentRepository } from '../../application/ports/AttachmentRepository.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class AttachmentRepositoryPostgres implements AttachmentRepository {
   constructor(private readonly executor: PgExecutor) {}

@@ -1,6 +1,6 @@
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { ConfigurationRecord, ConfigurationRepository } from '../../application/ports/ConfigurationRepository.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface SettingRow { setting_key: string; value_type: string; value_text: string | null; value_json: string | null; row_version: number; updated_at: string; }
 

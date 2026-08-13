@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuditAdminApplicationService } from './AuditAdminApplicationService.js';
-import { AuditQueryPort } from '../ports/AuditQueryPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { AuditLogDetailDto, AuditLogListItemDto, PaginatedResultDto } from '../dto/AuditQueryDtos.js';
+import type { AuditQueryPort } from '../ports/AuditQueryPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { AuditLogDetailDto, AuditLogListItemDto, PaginatedResultDto } from '../dto/AuditQueryDtos.js';
 
 describe('AuditAdminApplicationService', () => {
   let mockAuditQueryPort: AuditQueryPort;

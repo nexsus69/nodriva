@@ -51,6 +51,8 @@ export function SessionModalWatcher() {
         </div>
         <button
           onClick={() => {
+            // The expiry path already purged caches; reload to recreate all auth providers from the server session.
+            // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Security boundary requires a fresh server-authenticated document.
             window.location.href = '/login?error=SessionExpired';
           }}
           className="flex w-full justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20"

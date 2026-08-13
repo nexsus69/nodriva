@@ -5,7 +5,7 @@ import { RevisionPortPostgres } from './RevisionPortPostgres.js';
 import { RuntimeConfigurationPortPostgres } from './RuntimeConfigurationPortPostgres.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
 

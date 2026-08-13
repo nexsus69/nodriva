@@ -1,8 +1,8 @@
-import {
+import type {
   ConfigurationDefinition,
   ConfigurationRegistry,
 } from '../config/ConfigurationRegistry.js';
-import {
+import type {
   ConfigurationRecord,
   ConfigurationRepository,
 } from '../ports/ConfigurationRepository.js';

@@ -3,7 +3,7 @@ import type {
   ConfigurationRecord,
   ConfigurationRepository,
 } from '../../application/ports/ConfigurationRepository.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface SettingRow {
   setting_key: string;

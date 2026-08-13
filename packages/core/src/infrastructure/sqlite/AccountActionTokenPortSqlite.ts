@@ -1,5 +1,5 @@
 import type { AccountActionPurpose, AccountActionTokenPort } from '../../application/ports/AccountActionTokenPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AccountActionTokenPortSqlite implements AccountActionTokenPort {
   constructor(private readonly database: SqliteDatabase) {}

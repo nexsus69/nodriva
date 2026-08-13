@@ -1,24 +1,25 @@
 import { Entity } from '../../domain/models/Entity.js';
-import { EntityRepository } from '../ports/EntityRepository.js';
-import { EntityTypeRepository } from '../ports/EntityTypeRepository.js';
-import { NodeRepository } from '../ports/NodeRepository.js';
-import { EntitySchemaRegistry } from '../ports/EntitySchemaRegistry.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { LockService } from './LockService.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { RevisionPort } from '../ports/RevisionPort.js';
-import { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
+import type { EntityRepository } from '../ports/EntityRepository.js';
+import type { EntityTypeRepository } from '../ports/EntityTypeRepository.js';
+import type { NodeRepository } from '../ports/NodeRepository.js';
+import type { EntitySchemaRegistry } from '../ports/EntitySchemaRegistry.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { LockService } from './LockService.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { RevisionPort } from '../ports/RevisionPort.js';
+import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
 
-import {
+import type {
   CreateEntityCommand,
-  CreateEntityCommandSchema,
   UpdateEntityCommand,
-  UpdateEntityCommandSchema,
   DeleteEntityCommand,
+  RestoreEntityCommand} from '../commands/EntityCommands.js';
+import {
+  CreateEntityCommandSchema,
+  UpdateEntityCommandSchema,
   DeleteEntityCommandSchema,
-  RestoreEntityCommand,
   RestoreEntityCommandSchema,
 } from '../commands/EntityCommands.js';
 import { CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';

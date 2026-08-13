@@ -1,6 +1,6 @@
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AccessControlPortSqlite implements AccessControlPort {
   constructor(private readonly database: SqliteDatabase) {}

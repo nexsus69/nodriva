@@ -1,5 +1,5 @@
-import { NodePathPolicy } from '../policies/NodePathPolicy.js';
-import { NodeType } from './NodeType.js';
+import type { NodePathPolicy } from '../policies/NodePathPolicy.js';
+import type { NodeType } from './NodeType.js';
 
 export class Node {
   constructor(

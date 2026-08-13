@@ -1,5 +1,5 @@
 import { AppError } from '../errors/AppError.js';
-import { NodePathPolicy } from './NodePathPolicy.js';
+import type { NodePathPolicy } from './NodePathPolicy.js';
 
 export class InvalidPathLabelError extends AppError {
   constructor(name: string, details?: Record<string, unknown> | undefined) {

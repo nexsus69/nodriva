@@ -1,7 +1,7 @@
 import { UnauthorizedError, LockConflictError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
-import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { LockService } from './LockService.js';
+import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { LockService } from './LockService.js';
 import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';
 import type { ResourceKind } from '../../domain/models/ResourceReference.js';
 

@@ -7,7 +7,7 @@ import {
   type EnumOptionDefinition,
   type TypeDomain,
 } from '../../application/dto/TypeFieldDefinition.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface TypeRow {
   id: string;

@@ -1,5 +1,5 @@
 import type { RuntimeConfigurationPort } from '../../application/ports/RuntimeConfigurationPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class RuntimeConfigurationPortSqlite implements RuntimeConfigurationPort {
   constructor(private readonly database: SqliteDatabase, private readonly scopeKey = 'single-user') {}

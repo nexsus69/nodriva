@@ -1,6 +1,6 @@
-import { SchemaInvalidationPort } from '../../application/ports/SchemaInvalidationPort.js';
-import { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
-import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
+import type { SchemaInvalidationPort } from '../../application/ports/SchemaInvalidationPort.js';
+import type { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 
 /**
  * Adapter che delega l'invalidazione al SchemaRegistry unificato.

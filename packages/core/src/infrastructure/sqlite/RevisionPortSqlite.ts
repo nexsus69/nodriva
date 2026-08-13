@@ -1,7 +1,7 @@
 import type { RevisionPort } from '../../application/ports/RevisionPort.js';
 import type { Node } from '../../domain/models/Node.js';
 import type { Entity } from '../../domain/models/Entity.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class RevisionPortSqlite implements RevisionPort {
   constructor(private readonly database: SqliteDatabase) {}

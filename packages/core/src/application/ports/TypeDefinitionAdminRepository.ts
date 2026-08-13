@@ -1,9 +1,9 @@
-import { TypeDomain } from '../dto/TypeFieldDefinition.js';
-import { TypeListItemDto, TypeDetailDto } from '../dto/AdminContractDtos.js';
-import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
-import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
-import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
-import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
+import type { TypeDomain } from '../dto/TypeFieldDefinition.js';
+import type { TypeListItemDto, TypeDetailDto } from '../dto/AdminContractDtos.js';
+import type { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
+import type { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
+import type { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
+import type { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 
 /**
  * Repository write/read side unificato per tipi, campi e vincoli.

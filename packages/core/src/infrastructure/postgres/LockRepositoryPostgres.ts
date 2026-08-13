@@ -1,7 +1,7 @@
-import { LockRepository } from '../../application/ports/LockRepository.js';
+import type { LockRepository } from '../../application/ports/LockRepository.js';
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockNotFoundError, LockForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import type { ResourceKind, ResourceReference } from '../../domain/models/ResourceReference.js';
 
 interface LockRow {

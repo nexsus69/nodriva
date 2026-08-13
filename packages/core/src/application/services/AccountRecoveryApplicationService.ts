@@ -1,17 +1,17 @@
 import crypto from 'crypto';
-import { AccountActionPurpose, AccountActionTokenPort } from '../ports/AccountActionTokenPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
+import type { AccountActionPurpose, AccountActionTokenPort } from '../ports/AccountActionTokenPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
 import { User } from '../../domain/models/User.js';
 import { UserPasswordSchema } from '../commands/UserAdminCommands.js';
-import { MfaTotpPort } from '../ports/MfaTotpPort.js';
+import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
 import { ValidationError } from '../../domain/errors/ApplicationErrors.js';
-import { AccountActionDeliveryPort } from '../ports/AccountActionDeliveryPort.js';
+import type { AccountActionDeliveryPort } from '../ports/AccountActionDeliveryPort.js';
 
 export class AccountRecoveryApplicationService {
   constructor(private readonly tokens: AccountActionTokenPort, private readonly users: UserRepository,

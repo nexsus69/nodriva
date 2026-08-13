@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SystemAdminApplicationService } from './SystemAdminApplicationService.js';
-import { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { PlacementPolicyKeyAlreadyExistsError } from '../../domain/errors/SystemAdminErrors.js';
 
 const ACTOR_ID = '00000000-0000-0000-0000-000000000001';

@@ -1,5 +1,5 @@
 import type { SessionRepositoryPort } from '../../application/ports/SessionRepositoryPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 import { randomUUID } from 'node:crypto';
 
 export class SessionRepositorySqlite implements SessionRepositoryPort {

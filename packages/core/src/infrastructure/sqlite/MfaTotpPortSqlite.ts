@@ -1,5 +1,5 @@
 import type { MfaTotpPort, MfaTotpRecord } from '../../application/ports/MfaTotpPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class MfaTotpPortSqlite implements MfaTotpPort {
   constructor(private readonly database: SqliteDatabase) {}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { CachingSchemaRegistry } from './CachingSchemaRegistry.js';
 import { FieldSchemaCompiler } from './FieldSchemaCompiler.js';
-import { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
+import type { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
 import {
   TypeDefinition,
   TypeFieldDefinition,

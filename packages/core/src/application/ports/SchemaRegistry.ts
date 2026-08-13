@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { TypeDomain } from '../dto/TypeFieldDefinition.js';
+import type { z } from 'zod';
+import type { TypeDomain } from '../dto/TypeFieldDefinition.js';
 
 /**
  * Porta unificata per il registry degli schemi Zod compilati a runtime.

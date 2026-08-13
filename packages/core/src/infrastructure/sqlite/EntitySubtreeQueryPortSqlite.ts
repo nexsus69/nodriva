@@ -6,7 +6,7 @@ import type {
 } from '../../application/ports/EntitySubtreeQueryPort.js';
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface PathRow { path: string; }
 interface EntityRow {

@@ -6,9 +6,9 @@ import {
   LockExpiredError,
   LockNotFoundError,
 } from '../../domain/errors/ApplicationErrors.js';
-import { LockRepository } from '../ports/LockRepository.js';
-import { LockEventBus } from '../ports/LockEventBus.js';
-import { AuditPort } from '../ports/AuditPort.js';
+import type { LockRepository } from '../ports/LockRepository.js';
+import type { LockEventBus } from '../ports/LockEventBus.js';
+import type { AuditPort } from '../ports/AuditPort.js';
 
 const RESOURCE_ID = '00000000-0000-0000-0000-000000000001';
 const ACTOR_ID = '00000000-0000-0000-0000-000000000002';

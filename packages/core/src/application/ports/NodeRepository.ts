@@ -1,4 +1,4 @@
-import { Node } from '../../domain/models/Node.js';
+import type { Node } from '../../domain/models/Node.js';
 
 export interface DeletedNodeSummary {
   id: string;

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthApplicationService } from './AuthApplicationService.js';
-import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
+import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { AppError } from '../../domain/errors/AppError.js';
 import { User } from '../../domain/models/User.js';
-import { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
+import type { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
 
 describe('AuthApplicationService', () => {
   let sessionRepoMock: SessionRepositoryPort;

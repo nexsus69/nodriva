@@ -4,7 +4,7 @@ import type { PermissionDto, RealtimeScopeAssignmentDto, RevokedDelegatedScopeAs
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
 import { createRealtimeChannelPolicy, type RealtimeChannelPolicy, type RealtimeChannelRule, type RealtimePermissionKey } from '../../application/realtime/RealtimeChannelPolicy.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 type RoleRow = { id: string; role_key: string; name: string; description: string | null; is_system: number; row_version: number; created_at: string; updated_at: string; deleted_at: string | null };
 type RoleListRow = RoleRow & { permissionCount: number };

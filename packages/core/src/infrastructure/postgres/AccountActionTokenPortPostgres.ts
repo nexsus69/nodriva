@@ -1,5 +1,5 @@
-import { AccountActionTokenPort, AccountActionPurpose } from '../../application/ports/AccountActionTokenPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { AccountActionTokenPort, AccountActionPurpose } from '../../application/ports/AccountActionTokenPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class AccountActionTokenPortPostgres implements AccountActionTokenPort {
   constructor(private readonly executor: PgExecutor) {}

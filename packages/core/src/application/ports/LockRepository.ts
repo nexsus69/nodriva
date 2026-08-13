@@ -1,4 +1,4 @@
-import { Lock } from '../../domain/models/Lock.js';
+import type { Lock } from '../../domain/models/Lock.js';
 import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 
 export interface LockRepository {

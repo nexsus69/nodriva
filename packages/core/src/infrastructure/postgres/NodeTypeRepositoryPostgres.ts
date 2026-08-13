@@ -1,6 +1,6 @@
-import { NodeTypeRepository } from '../../application/ports/NodeTypeRepository.js';
+import type { NodeTypeRepository } from '../../application/ports/NodeTypeRepository.js';
 import { NodeType } from '../../domain/models/NodeType.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface NodeTypeRow {
   id: string;

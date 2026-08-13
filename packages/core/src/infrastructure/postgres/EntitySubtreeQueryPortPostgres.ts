@@ -1,13 +1,14 @@
-import {
+import type {
   EntitySubtreeQueryPort,
   EntitySubtreeQueryParams,
   EntitySubtreePaginatedResult,
-  SubtreeEntityDto,
+  SubtreeEntityDto} from '../../application/ports/EntitySubtreeQueryPort.js';
+import {
   SubtreeCursor,
 } from '../../application/ports/EntitySubtreeQueryPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
-import { FieldEncryptionService } from './FieldEncryptionService.js';
+import type { FieldEncryptionService } from './FieldEncryptionService.js';
 
 interface SubtreeRow {
   entity_id: string;

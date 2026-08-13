@@ -1,6 +1,6 @@
-import { RealtimeOutboxPort, RealtimeOutboxOperationalStats } from '../../application/ports/RealtimeOutboxPort.js';
-import { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { RealtimeOutboxPort, RealtimeOutboxOperationalStats } from '../../application/ports/RealtimeOutboxPort.js';
+import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface OutboxRow { event_payload: RealtimeDataChangedEvent; }
 

@@ -1,6 +1,6 @@
 import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
 import type { RealtimeOutboxOperationalStats, RealtimeOutboxPort } from '../../application/ports/RealtimeOutboxPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class RealtimeOutboxSqlite implements RealtimeOutboxPort {
   constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {}

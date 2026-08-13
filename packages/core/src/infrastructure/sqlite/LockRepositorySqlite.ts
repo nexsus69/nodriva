@@ -2,7 +2,7 @@ import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockForbiddenError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
 import type { LockRepository } from '../../application/ports/LockRepository.js';
 import type { ResourceKind, ResourceReference } from '../../domain/models/ResourceReference.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface LockRow { id: string; resource_type: string; resource_id: string; user_id: string; session_id: string; acquired_at: string; expires_at: string; }
 

@@ -1,5 +1,5 @@
-import { MfaTotpPort, MfaTotpRecord } from '../../application/ports/MfaTotpPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { MfaTotpPort, MfaTotpRecord } from '../../application/ports/MfaTotpPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class MfaTotpPortPostgres implements MfaTotpPort {
   constructor(private readonly executor: PgExecutor) {}

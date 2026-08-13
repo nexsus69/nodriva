@@ -2,7 +2,7 @@ import type { UserRepository } from '../../application/ports/UserRepository.js';
 import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
 import { User } from '../../domain/models/User.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface UserRow { id: string; email: string; password_hash: string; is_active: number; is_super_admin: number; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; }
 

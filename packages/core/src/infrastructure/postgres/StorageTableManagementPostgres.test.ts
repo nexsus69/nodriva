@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StorageTableManagementPostgres } from './StorageTableManagementPostgres.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 describe('StorageTableManagementPostgres', () => {
   let mockExecutor: { query: ReturnType<typeof vi.fn> };

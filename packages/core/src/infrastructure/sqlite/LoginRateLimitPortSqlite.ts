@@ -1,6 +1,6 @@
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
 import type { LoginRateLimitPort } from '../../application/ports/LoginRateLimitPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 const WINDOW_MS = 15 * 60 * 1000;
 export class LoginRateLimitPortSqlite implements LoginRateLimitPort {

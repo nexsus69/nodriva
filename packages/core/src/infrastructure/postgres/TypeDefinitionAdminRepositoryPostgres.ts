@@ -1,13 +1,13 @@
-import { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
-import { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
-import { TypeListItemDto, TypeDetailDto, FieldDto, FieldConstraintDto, FieldDataType } from '../../application/dto/AdminContractDtos.js';
+import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
+import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
+import type { TypeListItemDto, TypeDetailDto, FieldDto, FieldConstraintDto, FieldDataType } from '../../application/dto/AdminContractDtos.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
-import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
+import type { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { TypeDefinitionNotFoundError } from '../../domain/errors/TypeAdminErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 // ─── Table Config ────────────────────────────────────────────────
 
@@ -264,7 +264,7 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
 
     // 3. Vincoli
     const fieldIds = fieldsRes.rows.map((f) => f.id);
-    let constraintsByField: Record<string, FieldConstraintDto[]> = {};
+    const constraintsByField: Record<string, FieldConstraintDto[]> = {};
     if (fieldIds.length > 0) {
       const constrQuery = `
         SELECT id, field_id AS "fieldId", constraint_type AS "constraintType", constraint_value_text AS "constraintValueText"

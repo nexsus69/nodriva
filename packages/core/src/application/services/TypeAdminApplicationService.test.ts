@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TypeAdminApplicationService } from './TypeAdminApplicationService.js';
-import { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
-import { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
+import type { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
-import { CreateTypeCommand } from '../commands/TypeAdminCommands.js';
+import type { CreateTypeCommand } from '../commands/TypeAdminCommands.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import {
   TypeAdminValidationError,

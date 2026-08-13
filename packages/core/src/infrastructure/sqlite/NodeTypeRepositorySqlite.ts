@@ -1,6 +1,6 @@
 import type { NodeTypeRepository } from '../../application/ports/NodeTypeRepository.js';
 import { NodeType } from '../../domain/models/NodeType.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface TypeRow { id: string; type_key: string; name: string; description: string; current_schema_version: number; is_active: number; }
 

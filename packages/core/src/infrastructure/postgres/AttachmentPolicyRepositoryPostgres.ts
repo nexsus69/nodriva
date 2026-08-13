@@ -1,5 +1,5 @@
 import type { AttachmentEncryptionMode, AttachmentPolicyRepository } from '../../application/ports/AttachmentPolicyRepository.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 export class AttachmentPolicyRepositoryPostgres implements AttachmentPolicyRepository {
   constructor(private readonly executor: PgExecutor) {}
   async getEncryptionMode(nodeTypeId: string): Promise<AttachmentEncryptionMode> { return (await this.executor.query<{ encryption_mode: AttachmentEncryptionMode }>('SELECT encryption_mode FROM node_type_attachment_policies WHERE node_type_id=$1', [nodeTypeId])).rows[0]?.encryption_mode ?? 'disabled'; }

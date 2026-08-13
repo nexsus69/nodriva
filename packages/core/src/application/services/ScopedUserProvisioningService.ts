@@ -1,10 +1,11 @@
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { SecurityRepository } from '../ports/SecurityRepository.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
-import { CreateScopedUserCommand, CreateScopedUserCommandSchema } from '../commands/ScopedUserCommands.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { SecurityRepository } from '../ports/SecurityRepository.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
+import type { CreateScopedUserCommand} from '../commands/ScopedUserCommands.js';
+import { CreateScopedUserCommandSchema } from '../commands/ScopedUserCommands.js';
 import { User } from '../../domain/models/User.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UserEmailAlreadyExistsError, UserAdminValidationError } from '../../domain/errors/UserAdminErrors.js';

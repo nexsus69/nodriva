@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { AuditPort } from '../ports/AuditPort.js';
-import { MfaTotpPort } from '../ports/MfaTotpPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
 import { UnauthorizedError, ValidationError } from '../../domain/errors/ApplicationErrors.js';
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

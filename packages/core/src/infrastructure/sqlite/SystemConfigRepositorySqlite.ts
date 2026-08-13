@@ -1,7 +1,7 @@
 import type { SystemConfigRepository } from '../../application/ports/SystemConfigRepository.js';
 import type { CapabilityStatus, PlacementPolicyDetailDto, PlacementPolicyListItemDto, RuntimeCapabilityDto, SystemSettingDto, PolicyMode } from '../../application/dto/SystemConfigDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface CapabilityRow extends Omit<RuntimeCapabilityDto, 'isSystem' | 'updatedAt'> { isSystem: number; updatedAt: string; }
 interface SettingRow extends Omit<SystemSettingDto, 'isSecret' | 'isSystem' | 'rowVersion' | 'updatedAt'> { isSecret: number; isSystem: number; rowVersion: number; updatedAt: string; }

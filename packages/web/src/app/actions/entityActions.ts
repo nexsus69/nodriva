@@ -3,8 +3,9 @@
 import { AuthResolver } from './auth/AuthResolver';
 import { runWithRealtimeOutbox } from '../../server/realtime';
 import { publishAuditRealtimeChange } from '../../server/adminRealtime';
-import { withSafeActionErrors } from './errorMapping';
+import { mapAppErrorToApiErrorResponse, withSafeActionErrors } from './errorMapping';
 import { validateRelationPayload } from './relationActions';
+import type { ApiErrorResponse } from '@dashboard/core';
 interface CreateEntityActionInput {
   parentNodeId: string;
   entityTypeKey?: string;
@@ -33,8 +34,25 @@ interface DeleteEntityActionInput {
   expectedRowVersion: number;
 }
 
+type EntityMutationActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ApiErrorResponse };
+
+/**
+ * Expected domain failures must cross the Server Action boundary as data.
+ * Throwing them makes React render an RSC error response in production, which
+ * hides the validation message from the client.
+ */
+async function entityMutationResult<T>(operation: () => Promise<T>): Promise<EntityMutationActionResult<T>> {
+  try {
+    return { success: true, data: await operation() };
+  } catch (error) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(error) };
+  }
+}
+
 export async function createEntityAction(input: CreateEntityActionInput) {
-  return withSafeActionErrors(async () => {
+  return entityMutationResult(async () => {
   const { entityService } = await import('../../server/db');
   const entityTypeKey = input.entityTypeKey || input.entityTypeId;
   if (!entityTypeKey) {
@@ -73,7 +91,7 @@ export async function createEntityAction(input: CreateEntityActionInput) {
 }
 
 export async function updateEntityAction(input: UpdateEntityActionInput) {
-  return withSafeActionErrors(async () => {
+  return entityMutationResult(async () => {
   const { entityService } = await import('../../server/db');
   const entityId = input.entityId || input.id;
   if (!entityId) {
@@ -119,7 +137,7 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
 }
 
 export async function deleteEntityAction(input: DeleteEntityActionInput) {
-  return withSafeActionErrors(async () => {
+  return entityMutationResult(async () => {
   const { entityService, lockService, runtimeConfigPort } = await import('../../server/db');
   const entityId = input.entityId || input.id;
   if (!entityId) {

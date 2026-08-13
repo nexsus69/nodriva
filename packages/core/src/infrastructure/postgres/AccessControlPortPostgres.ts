@@ -1,6 +1,6 @@
-import { AccessControlPort } from '../../application/ports/AccessControlPort.js';
+import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 /**
  * Adapter PostgreSQL per il controllo degli accessi gerarchico ed ACL (Access Control List).

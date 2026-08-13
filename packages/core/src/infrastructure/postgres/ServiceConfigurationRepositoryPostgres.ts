@@ -6,7 +6,7 @@ import type {
   ServiceConfigurationRepository,
   ServiceRuntimeConfigurationRecord,
 } from '../../application/ports/ServiceConfigurationRepository.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface ServiceConfigurationRow {
   service_key: ServiceConfigurationKey;

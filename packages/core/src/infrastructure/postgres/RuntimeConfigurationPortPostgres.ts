@@ -1,5 +1,5 @@
-import { RuntimeConfigurationPort } from '../../application/ports/RuntimeConfigurationPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { RuntimeConfigurationPort } from '../../application/ports/RuntimeConfigurationPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface SettingRow {
   value_type: string;

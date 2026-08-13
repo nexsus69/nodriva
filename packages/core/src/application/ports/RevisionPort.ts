@@ -1,5 +1,5 @@
-import { Node } from '../../domain/models/Node.js';
-import { Entity } from '../../domain/models/Entity.js';
+import type { Node } from '../../domain/models/Node.js';
+import type { Entity } from '../../domain/models/Entity.js';
 
 export interface RevisionPort {
   recordNodeRevision(

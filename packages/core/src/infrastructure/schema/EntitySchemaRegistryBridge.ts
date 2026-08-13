@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { EntitySchemaRegistry } from '../../application/ports/EntitySchemaRegistry.js';
-import { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
+import type { z } from 'zod';
+import type { EntitySchemaRegistry } from '../../application/ports/EntitySchemaRegistry.js';
+import type { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
 
 /**
  * Bridge adapter che implementa la porta EntitySchemaRegistry esistente

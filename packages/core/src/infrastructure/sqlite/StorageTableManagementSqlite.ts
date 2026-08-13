@@ -1,5 +1,5 @@
 import type { StorageTableManagementPort } from '../../application/ports/StorageTableManagementPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 const identifier = (value: string): string => { if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) throw new Error('Invalid SQLite schema identifier.'); return value; };
 

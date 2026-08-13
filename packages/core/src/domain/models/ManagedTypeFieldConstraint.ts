@@ -1,4 +1,4 @@
-import { ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
+import type { ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 
 /**
  * Modello di un vincolo su un campo di tipo.

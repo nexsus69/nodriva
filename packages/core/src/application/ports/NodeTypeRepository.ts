@@ -1,4 +1,4 @@
-import { NodeType } from '../../domain/models/NodeType.js';
+import type { NodeType } from '../../domain/models/NodeType.js';
 
 export interface NodeTypeRepository {
   findByKey(typeKey: string): Promise<NodeType | null>;

@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NodeApplicationService } from './NodeApplicationService.js';
-import { NodeRepository } from '../ports/NodeRepository.js';
-import { NodeTypeRepository } from '../ports/NodeTypeRepository.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { LockService } from './LockService.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { RevisionPort } from '../ports/RevisionPort.js';
-import { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
+import type { NodeRepository } from '../ports/NodeRepository.js';
+import type { NodeTypeRepository } from '../ports/NodeTypeRepository.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { LockService } from './LockService.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { RevisionPort } from '../ports/RevisionPort.js';
+import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
 import { LtreeNodePathPolicy } from '../../domain/policies/LtreeNodePathPolicy.js';
 
-import { CreateNodeCommand, MoveNodeCommand } from '../commands/NodeCommands.js';
+import type { CreateNodeCommand, MoveNodeCommand } from '../commands/NodeCommands.js';
 import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodePathCollisionError, NodeCyclicMoveError, NodeNotFoundError } from '../../domain/errors/DomainErrors.js';
 import { NodeType } from '../../domain/models/NodeType.js';

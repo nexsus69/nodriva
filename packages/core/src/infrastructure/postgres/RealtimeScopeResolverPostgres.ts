@@ -1,6 +1,6 @@
-import { RealtimeScopeResolver } from '../../application/ports/RealtimeScopeResolver.js';
-import { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
-import { NodeRepository } from '../../application/ports/NodeRepository.js';
+import type { RealtimeScopeResolver } from '../../application/ports/RealtimeScopeResolver.js';
+import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
+import type { NodeRepository } from '../../application/ports/NodeRepository.js';
 
 /** PostgreSQL-backed scope resolver; hierarchy mechanics remain behind ports. */
 export class RealtimeScopeResolverPostgres implements RealtimeScopeResolver {

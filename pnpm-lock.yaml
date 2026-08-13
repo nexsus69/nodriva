@@ -30,15 +30,24 @@ importers:
         specifier: ^3.22.4
         version: 3.25.76
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.39.5
+        version: 9.39.5
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.43
       '@types/pg':
         specifier: ^8.11.0
         version: 8.20.0
+      eslint:
+        specifier: ^9.39.5
+        version: 9.39.5(jiti@2.7.0)(supports-color@7.2.0)
       typescript:
         specifier: ^5.3.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.64.0
+        version: 8.64.0(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
       vitest:
         specifier: ^1.2.0
         version: 1.6.1(@types/node@20.19.43)(lightningcss@1.32.0)(supports-color@7.2.0)

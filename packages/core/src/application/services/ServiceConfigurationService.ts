@@ -1,5 +1,6 @@
+import type {
+  ServiceConfigurationRegistry} from '../config/ServiceConfigurationRegistry.js';
 import {
-  ServiceConfigurationRegistry,
   type ServiceConfigurationDefinition,
   type ServiceConfigurationFieldDefinition,
   type ServiceConfigurationKey,

@@ -1,5 +1,6 @@
 import type { ServiceConfigurationKey } from '../config/ServiceConfigurationRegistry.js';
-import { ServiceConfigurationValidationError, ServiceConfigurationService } from './ServiceConfigurationService.js';
+import type { ServiceConfigurationService } from './ServiceConfigurationService.js';
+import { ServiceConfigurationValidationError } from './ServiceConfigurationService.js';
 import type { ServiceHealthCheckRegistry, ServiceHealthCheckResult } from '../ports/ServiceHealthCheckPort.js';
 
 export class ServiceHealthCheckService {

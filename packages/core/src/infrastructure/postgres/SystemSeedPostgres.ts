@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
-import { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
-import { TransactionPort } from '../../application/ports/TransactionPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
+import type { TransactionPort } from '../../application/ports/TransactionPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class SystemSeedPostgres implements SystemSeedPort {
   constructor(

@@ -1,8 +1,8 @@
-import { UserRepository } from '../../application/ports/UserRepository.js';
+import type { UserRepository } from '../../application/ports/UserRepository.js';
 import { User } from '../../domain/models/User.js';
-import { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
+import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface UserRow {
   id: string;

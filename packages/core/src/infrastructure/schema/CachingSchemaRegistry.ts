@@ -1,8 +1,8 @@
-import { z } from 'zod';
-import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
-import { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
-import { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
-import { FieldSchemaCompiler } from './FieldSchemaCompiler.js';
+import type { z } from 'zod';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
+import type { SchemaRegistry } from '../../application/ports/SchemaRegistry.js';
+import type { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
+import type { FieldSchemaCompiler } from './FieldSchemaCompiler.js';
 
 /**
  * Registry con cache in memoria che compone TypeDefinitionReader + FieldSchemaCompiler.

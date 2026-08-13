@@ -1,5 +1,5 @@
 import type { ResourcePurgeRepository, PurgeTargetResult } from '../../application/ports/ResourcePurgeRepository.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class ResourcePurgeRepositoryPostgres implements ResourcePurgeRepository {
   constructor(private readonly executor: PgExecutor) {}

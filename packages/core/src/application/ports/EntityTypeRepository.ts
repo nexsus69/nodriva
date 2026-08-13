@@ -1,4 +1,4 @@
-import { EntityType } from '../../domain/models/EntityType.js';
+import type { EntityType } from '../../domain/models/EntityType.js';
 
 export interface EntityTypeRepository {
   findByKey(typeKey: string): Promise<EntityType | null>;

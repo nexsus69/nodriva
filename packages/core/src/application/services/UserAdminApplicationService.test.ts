@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserAdminApplicationService } from './UserAdminApplicationService.js';
-import { UserRepository } from '../ports/UserRepository.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { User } from '../../domain/models/User.js';
 import {
   UserEmailAlreadyExistsError,
@@ -12,7 +12,7 @@ import {
 } from '../../domain/errors/UserAdminErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
-import { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
+import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 
 const USER_ID = '00000000-0000-0000-0000-000000000010';

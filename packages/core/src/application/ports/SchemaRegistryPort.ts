@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export interface SchemaRegistryPort {
   getNodeTypeSchema(nodeTypeKey: string): Promise<z.ZodSchema | null>;

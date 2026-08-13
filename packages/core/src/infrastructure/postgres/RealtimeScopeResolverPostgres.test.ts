@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RealtimeScopeResolverPostgres } from './RealtimeScopeResolverPostgres.js';
-import { NodeRepository } from '../../application/ports/NodeRepository.js';
-import { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
+import type { NodeRepository } from '../../application/ports/NodeRepository.js';
+import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
 
 const baseEvent: RealtimeDataChangedEvent = {
   eventId: 'event-1',

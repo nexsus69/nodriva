@@ -1,6 +1,6 @@
-import { LoginRateLimitPort } from '../../application/ports/LoginRateLimitPort.js';
+import type { LoginRateLimitPort } from '../../application/ports/LoginRateLimitPort.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 const MAX_FAILURES = 5;
 const WINDOW_MINUTES = 15;

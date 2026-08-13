@@ -1,5 +1,5 @@
 import { AppError } from './AppError.js';
-import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 
 export class TypeAdminValidationError extends AppError {
   constructor(message: string, issues: Record<string, string[]>, cause?: unknown) {

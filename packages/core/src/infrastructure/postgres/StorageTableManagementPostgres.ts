@@ -1,5 +1,5 @@
-import { StorageTableManagementPort } from '../../application/ports/StorageTableManagementPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { StorageTableManagementPort } from '../../application/ports/StorageTableManagementPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 /**
  * PostgreSQL adapter for dynamic entity storage DDL.

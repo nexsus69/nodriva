@@ -1,5 +1,5 @@
 import type { AuditPort } from '../../application/ports/AuditPort.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AuditPortSqlite implements AuditPort {
   constructor(private readonly database: SqliteDatabase) {}

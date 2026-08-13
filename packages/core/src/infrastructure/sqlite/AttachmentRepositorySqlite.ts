@@ -1,5 +1,5 @@
 import type { AttachmentRecord, AttachmentRepository } from '../../application/ports/AttachmentRepository.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AttachmentRepositorySqlite implements AttachmentRepository {
   constructor(private readonly database: SqliteDatabase) {}

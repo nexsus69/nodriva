@@ -1,7 +1,8 @@
 import { Lock } from '../../domain/models/Lock.js';
-import { LockRepository } from '../ports/LockRepository.js';
-import { LockEventBus, type LockEventScope } from '../ports/LockEventBus.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { LockRepository } from '../ports/LockRepository.js';
+import type { LockEventBus} from '../ports/LockEventBus.js';
+import { type LockEventScope } from '../ports/LockEventBus.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { LockExpiredError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
 import type { SessionTimingPolicyPort } from '../ports/SessionTimingPolicyPort.js';

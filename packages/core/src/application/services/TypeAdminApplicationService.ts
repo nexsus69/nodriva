@@ -1,18 +1,18 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import safeRegex from 'safe-regex2';
-import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
-import { ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
+import type { ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
 import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
-import { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
-import { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
-import { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
+import type { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
+import type { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import {
   TypeAdminValidationError,
@@ -27,21 +27,22 @@ import {
   TypeHasInstancesError,
   TypeFieldHasValuesError,
 } from '../../domain/errors/TypeAdminErrors.js';
-import {
-  CreateTypeCommand, CreateTypeCommandSchema,
-  UpdateTypeCommand, UpdateTypeCommandSchema,
-  DisableTypeCommand, DisableTypeCommandSchema,
-  EnableTypeCommand, EnableTypeCommandSchema,
-  AddFieldCommand, AddFieldCommandSchema,
-  UpdateFieldCommand, UpdateFieldCommandSchema,
-  RemoveFieldCommand, RemoveFieldCommandSchema,
-  AddConstraintCommand, AddConstraintCommandSchema,
-  AddEnumOptionCommand, AddEnumOptionCommandSchema,
-  UpdateConstraintCommand, UpdateConstraintCommandSchema,
-  RemoveConstraintCommand, RemoveConstraintCommandSchema,
+import type {
+  CreateTypeCommand,
+  UpdateTypeCommand,
+  DisableTypeCommand,
+  EnableTypeCommand,
+  AddFieldCommand,
+  UpdateFieldCommand,
+  RemoveFieldCommand,
+  AddConstraintCommand,
+  AddEnumOptionCommand,
+  UpdateConstraintCommand,
+  RemoveConstraintCommand} from '../commands/TypeAdminCommands.js';
+import { CreateTypeCommandSchema, UpdateTypeCommandSchema, DisableTypeCommandSchema, EnableTypeCommandSchema, AddFieldCommandSchema, UpdateFieldCommandSchema, RemoveFieldCommandSchema, AddConstraintCommandSchema, AddEnumOptionCommandSchema, UpdateConstraintCommandSchema, RemoveConstraintCommandSchema,
 } from '../commands/TypeAdminCommands.js';
 
-import { TypeListItemDto, TypeDetailDto, TypeSchemaImpactDto } from '../dto/AdminContractDtos.js';
+import type { TypeListItemDto, TypeDetailDto, TypeSchemaImpactDto } from '../dto/AdminContractDtos.js';
 import type { ConfigService } from './ConfigService.js';
 
 const MAX_REGEX_CONSTRAINT_LENGTH = 512;

@@ -1,29 +1,30 @@
-import { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import {
+import type { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type {
   RuntimeCapabilityDto,
   SystemSettingDto,
   PlacementPolicyListItemDto,
   PlacementPolicyDetailDto,
 } from '../dto/SystemConfigDtos.js';
-import {
-  UpdateCapabilityStatusCommand, UpdateCapabilityStatusCommandSchema,
-  UpdateSystemSettingCommand, UpdateSystemSettingCommandSchema,
-  CreatePlacementPolicyCommand, CreatePlacementPolicyCommandSchema,
-  UpdatePlacementPolicyCommand, UpdatePlacementPolicyCommandSchema,
-  DeletePlacementPolicyCommand, DeletePlacementPolicyCommandSchema,
-  CreatePlacementRuleCommand, CreatePlacementRuleCommandSchema,
-  DeletePlacementRuleCommand, DeletePlacementRuleCommandSchema,
+import type {
+  UpdateCapabilityStatusCommand,
+  UpdateSystemSettingCommand,
+  CreatePlacementPolicyCommand,
+  UpdatePlacementPolicyCommand,
+  DeletePlacementPolicyCommand,
+  CreatePlacementRuleCommand,
+  DeletePlacementRuleCommand} from '../commands/SystemConfigCommands.js';
+import { UpdateCapabilityStatusCommandSchema, UpdateSystemSettingCommandSchema, CreatePlacementPolicyCommandSchema, UpdatePlacementPolicyCommandSchema, DeletePlacementPolicyCommandSchema, CreatePlacementRuleCommandSchema, DeletePlacementRuleCommandSchema,
 } from '../commands/SystemConfigCommands.js';
 import {
   PlacementPolicyNotFoundError,
   PlacementPolicyKeyAlreadyExistsError,
   SystemConfigValidationError,
 } from '../../domain/errors/SystemAdminErrors.js';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export class SystemAdminApplicationService {
   constructor(

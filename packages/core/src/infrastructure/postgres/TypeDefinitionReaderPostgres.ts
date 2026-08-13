@@ -1,13 +1,14 @@
-import { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
+import type { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
+import type {
+  TypeDomain,
+  ConstraintType,
+  EnumOptionDefinition} from '../../application/dto/TypeFieldDefinition.js';
 import {
   TypeDefinition,
-  TypeDomain,
   TypeFieldDefinition,
-  TypeFieldConstraint,
-  ConstraintType,
-  EnumOptionDefinition,
+  TypeFieldConstraint
 } from '../../application/dto/TypeFieldDefinition.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 /**
  * Riga restituita dalla query di metadati del tipo.

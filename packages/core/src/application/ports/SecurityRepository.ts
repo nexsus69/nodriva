@@ -1,5 +1,5 @@
-import { Role } from '../../domain/models/Role.js';
-import {
+import type { Role } from '../../domain/models/Role.js';
+import type {
   RoleListItemDto,
   RoleDetailDto,
   PermissionDto,

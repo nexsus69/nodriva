@@ -1,13 +1,13 @@
 import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
-import { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
+import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import type { EnumMode, FieldConstraintDto, FieldDataType, FieldDto, FieldEncryptionMode, RelationTargetDomain, TypeDetailDto, TypeListItemDto } from '../../application/dto/AdminContractDtos.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
-import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
+import type { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { TypeDefinitionNotFoundError } from '../../domain/errors/TypeAdminErrors.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 type Config = { types: string; fields: string; constraints: string; enums: string; fk: string; instances: string; instanceFk: string };
 type TypeRow = { id: string; type_key: string; name: string; description: string | null; storage_table?: string | null; placement_policy_id?: string | null; current_schema_version: number; is_active: number; is_system: number; row_version: number; created_at: string; updated_at: string; deleted_at: string | null };

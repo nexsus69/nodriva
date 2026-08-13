@@ -1,9 +1,9 @@
-import { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
+import type { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
 import { Entity } from '../../domain/models/Entity.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 import { EntityNotFoundError } from '../../domain/errors/EntityErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { FieldEncryptionService } from './FieldEncryptionService.js';
+import type { FieldEncryptionService } from './FieldEncryptionService.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 
 interface BaseEntityRow {

@@ -1,6 +1,6 @@
 import type { EntityTypeRepository } from '../../application/ports/EntityTypeRepository.js';
 import { EntityType } from '../../domain/models/EntityType.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface TypeRow { id: string; type_key: string; name: string; description: string; storage_table: string; current_schema_version: number; is_active: number; }
 

@@ -1,5 +1,5 @@
-import { SessionRepositoryPort } from '../../application/ports/SessionRepositoryPort.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { SessionRepositoryPort } from '../../application/ports/SessionRepositoryPort.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 export class SessionRepositoryPostgres implements SessionRepositoryPort {
   constructor(private readonly executor: PgExecutor) {}

@@ -2,7 +2,7 @@ import { Entity } from '../../domain/models/Entity.js';
 import { EntityNotFoundError } from '../../domain/errors/EntityErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 interface EntityRow { id: string; entity_type_id: string; parent_node_id: string; name: string; description: string; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; created_by: string | null; updated_by: string | null; payload: string; deletion_batch_id: string | null; }
 

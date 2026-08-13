@@ -1,5 +1,5 @@
 import type { ResourcePurgeRepository, PurgeTargetResult } from '../../application/ports/ResourcePurgeRepository.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class ResourcePurgeRepositorySqlite implements ResourcePurgeRepository {
   constructor(private readonly database: SqliteDatabase) {}

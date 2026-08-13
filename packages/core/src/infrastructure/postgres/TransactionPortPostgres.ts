@@ -1,5 +1,5 @@
-import pg from 'pg';
-import { TransactionPort } from '../../application/ports/TransactionPort.js';
+import type pg from 'pg';
+import type { TransactionPort } from '../../application/ports/TransactionPort.js';
 import { PgTransactionContext } from './PgTransactionContext.js';
 
 export class TransactionPortPostgres implements TransactionPort {

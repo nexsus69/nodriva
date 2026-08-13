@@ -4,7 +4,7 @@ import type {
   ServiceConfigurationRepository,
   ServiceRuntimeConfigurationRecord,
 } from '../../application/ports/ServiceConfigurationRepository.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 type ServiceRow = { serviceKey: ServiceConfigurationKey; providerKey: string; runtimeValues: string; version: number; updatedAt: string };
 

@@ -1,23 +1,24 @@
-import { SecurityRepository } from '../ports/SecurityRepository.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
+import type { SecurityRepository } from '../ports/SecurityRepository.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { Role } from '../../domain/models/Role.js';
-import {
+import type {
   RoleListItemDto,
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
 } from '../dto/SecurityAdminDtos.js';
-import {
-  CreateRoleCommand, CreateRoleCommandSchema,
-  UpdateRolePermissionsCommand, UpdateRolePermissionsCommandSchema,
-  CreateScopeAssignmentCommand, CreateScopeAssignmentCommandSchema,
-  DeleteScopeAssignmentCommand, DeleteScopeAssignmentCommandSchema,
-  UpdateScopeAssignmentCommand, UpdateScopeAssignmentCommandSchema,
+import type {
+  CreateRoleCommand,
+  UpdateRolePermissionsCommand,
+  CreateScopeAssignmentCommand,
+  DeleteScopeAssignmentCommand,
+  UpdateScopeAssignmentCommand} from '../commands/SecurityAdminCommands.js';
+import { CreateRoleCommandSchema, UpdateRolePermissionsCommandSchema, CreateScopeAssignmentCommandSchema, DeleteScopeAssignmentCommandSchema, UpdateScopeAssignmentCommandSchema,
 } from '../commands/SecurityAdminCommands.js';
 import {
   RoleNotFoundError,
@@ -26,7 +27,7 @@ import {
   SecurityAdminValidationError,
 } from '../../domain/errors/SecurityAdminErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export class SecurityAdminApplicationService {
   constructor(

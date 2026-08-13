@@ -39,12 +39,14 @@ export function LogoutButton({ className }: LogoutButtonProps) {
       } else {
         // Fallback: se success è falso per qualche motivo, forziamo un window reload 
         // per far scattare il middleware che farà redirect in base all'assenza del cookie
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- The server session outcome is uncertain, so discard the client runtime.
         window.location.href = '/login';
       }
     } catch (err) {
       console.error('Errore fatale durante il logout:', err);
       // Purge difensivo in caso di eccezione imprevista
       AppCache.purgeAll();
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- The server session outcome is uncertain, so discard the client runtime.
       window.location.href = '/login';
     } finally {
       setIsLoggingOut(false);

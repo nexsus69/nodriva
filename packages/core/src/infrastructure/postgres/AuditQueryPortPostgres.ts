@@ -1,11 +1,11 @@
-import { AuditQueryPort } from '../../application/ports/AuditQueryPort.js';
-import {
+import type { AuditQueryPort } from '../../application/ports/AuditQueryPort.js';
+import type {
   AuditLogFilterDto,
   AuditLogListItemDto,
   AuditLogDetailDto,
   PaginatedResultDto,
 } from '../../application/dto/AuditQueryDtos.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface AuditLogListRow {
   id: string;

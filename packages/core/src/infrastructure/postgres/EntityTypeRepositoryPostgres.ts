@@ -1,6 +1,6 @@
-import { EntityTypeRepository } from '../../application/ports/EntityTypeRepository.js';
+import type { EntityTypeRepository } from '../../application/ports/EntityTypeRepository.js';
 import { EntityType } from '../../domain/models/EntityType.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 interface EntityTypeRow {
   id: string;

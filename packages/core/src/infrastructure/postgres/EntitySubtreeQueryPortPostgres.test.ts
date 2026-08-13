@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EntitySubtreeQueryPortPostgres } from './EntitySubtreeQueryPortPostgres.js';
-import { PgExecutor } from './PgExecutor.js';
+import type { PgExecutor } from './PgExecutor.js';
 
 describe('EntitySubtreeQueryPortPostgres', () => {
   const validUUID = '00000000-0000-0000-0000-000000000001';

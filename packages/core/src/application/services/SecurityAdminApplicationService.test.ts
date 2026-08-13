@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SecurityAdminApplicationService } from './SecurityAdminApplicationService.js';
-import { SecurityRepository } from '../ports/SecurityRepository.js';
-import { AuditPort } from '../ports/AuditPort.js';
-import { TransactionPort } from '../ports/TransactionPort.js';
-import { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
-import { AccessControlPort } from '../ports/AccessControlPort.js';
-import { UserRepository } from '../ports/UserRepository.js';
+import type { SecurityRepository } from '../ports/SecurityRepository.js';
+import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
+import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { UserRepository } from '../ports/UserRepository.js';
 import { Role } from '../../domain/models/Role.js';
 import {
   RoleKeyAlreadyExistsError,

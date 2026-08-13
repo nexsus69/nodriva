@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TypeFieldDefinition } from '../../application/dto/TypeFieldDefinition.js';
+import type { TypeFieldDefinition } from '../../application/dto/TypeFieldDefinition.js';
 import { UnsupportedFieldDataTypeError } from '../../domain/errors/SchemaErrors.js';
 
 /**

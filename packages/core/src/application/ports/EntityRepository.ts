@@ -1,4 +1,4 @@
-import { Entity } from '../../domain/models/Entity.js';
+import type { Entity } from '../../domain/models/Entity.js';
 
 export interface DeletedEntitySummary {
   id: string;

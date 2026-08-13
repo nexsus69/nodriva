@@ -1,8 +1,8 @@
-import { RevisionPort } from '../../application/ports/RevisionPort.js';
-import { Node } from '../../domain/models/Node.js';
-import { Entity } from '../../domain/models/Entity.js';
-import { PgExecutor } from './PgExecutor.js';
-import { FieldEncryptionService } from './FieldEncryptionService.js';
+import type { RevisionPort } from '../../application/ports/RevisionPort.js';
+import type { Node } from '../../domain/models/Node.js';
+import type { Entity } from '../../domain/models/Entity.js';
+import type { PgExecutor } from './PgExecutor.js';
+import type { FieldEncryptionService } from './FieldEncryptionService.js';
 
 /**
  * Adapter PostgreSQL per la gestione delle revisioni storiche.

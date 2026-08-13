@@ -5,7 +5,7 @@ import type {
   AuditLogListItemDto,
   PaginatedResultDto,
 } from '../../application/dto/AuditQueryDtos.js';
-import { SqliteDatabase } from './SqliteDatabase.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
 
 type AuditRow = {
   id: string;

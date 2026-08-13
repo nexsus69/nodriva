@@ -1,5 +1,5 @@
-import { User } from '../../domain/models/User.js';
-import { UserListItemDto, UserDetailDto, UserRoleDto } from '../dto/UserAdminDtos.js';
+import type { User } from '../../domain/models/User.js';
+import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../dto/UserAdminDtos.js';
 
 export interface UserRepository {
   findById(id: string): Promise<User | null>;
