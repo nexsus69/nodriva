@@ -17,6 +17,7 @@ import { LockRepositoryPostgres } from './postgres/LockRepositoryPostgres.js';
 import { TransactionPortPostgres } from './postgres/TransactionPortPostgres.js';
 import { AttachmentRepositoryPostgres } from './postgres/AttachmentRepositoryPostgres.js';
 import { AttachmentRateLimitPortPostgres } from './postgres/AttachmentRateLimitPortPostgres.js';
+import { StorageTableManagementPostgres } from './postgres/StorageTableManagementPostgres.js';
 
 const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const integrationDatabaseName = integrationDatabaseUrl ? new URL(integrationDatabaseUrl).pathname.slice(1) : '';
@@ -228,10 +229,18 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
   let pool: pg.Pool;
   let postgres: AdapterHarness;
   let sqlite: AdapterHarness;
+  let adminPool: pg.Pool | undefined;
+  let adminExecutor: PgExecutor | undefined;
 
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString: integrationDatabaseUrl, max: 4 });
     const executor = new PgExecutor(pool);
+    const storageTableManager = new StorageTableManagementPostgres(executor);
+    const adminDatabaseUrl = process.env.INTEGRATION_DATABASE_ADMIN_URL;
+    if (adminDatabaseUrl) {
+      adminPool = new pg.Pool({ connectionString: adminDatabaseUrl, max: 2 });
+      adminExecutor = new PgExecutor(adminPool);
+    }
     const postgresCleanup = async () => {
       await executor.query('DELETE FROM attachment_upload_events WHERE actor_id = ANY($1::uuid[])', [[ids.actor, ids.otherActor]]);
       await executor.query('DELETE FROM resource_attachments WHERE id = ANY($1::uuid[])', [[ids.attachmentOne, ids.attachmentTwo]]);
@@ -239,7 +248,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       await executor.query('DELETE FROM user_sessions WHERE id = ANY($1::uuid[])', [[ids.session, ids.otherSession]]);
       await executor.query('DELETE FROM entities WHERE id = ANY($1::uuid[])', [allEntityIds]);
       await executor.query('DELETE FROM nodes WHERE id = ANY($1::uuid[])', [allNodeIds]);
-      await executor.query('DROP TABLE IF EXISTS entity_parity_probe');
+      await adminExecutor?.query('DROP TABLE IF EXISTS entity_parity_probe');
       await executor.query('DELETE FROM entity_type_fields WHERE entity_type_id = $1', [ids.entityType]);
       await executor.query('DELETE FROM entity_types WHERE id = $1', [ids.entityType]);
       await executor.query('DELETE FROM node_types WHERE id = $1', [ids.nodeType]);
@@ -273,7 +282,13 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
           "INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,position) VALUES ($1,$2,'value','Value','value_text','string',1)",
           [ids.entityField, ids.entityType],
         );
-        await executor.query('CREATE TABLE entity_parity_probe(entity_id UUID PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE, value_text TEXT NOT NULL)');
+        const storageExists = await executor.query<{ exists: boolean }>(
+          "SELECT to_regclass('public.entity_parity_probe') IS NOT NULL AS exists",
+        );
+        if (!storageExists.rows[0]?.exists) {
+          await storageTableManager.createStorageTable('entity_parity_probe');
+          await storageTableManager.addColumn('entity_parity_probe', 'value_text', 'string', false, false, null);
+        }
       },
     };
 
@@ -301,6 +316,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
     if (postgres) await postgres.cleanup();
     if (sqlite) await sqlite.cleanup();
     if (pool) await pool.end();
+    if (adminPool) await adminPool.end();
   }, 30_000);
 
   it('produces the same observable results and domain errors for both databases', async () => {

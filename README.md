@@ -81,9 +81,11 @@ di lock concorrente e propagazione realtime restano nella suite E2E autenticata
 generale.
 
 La pipeline GitHub Actions esegue automaticamente installazione riproducibile,
-typecheck, lint, suite core/web e build production. I test E2E autenticati e le
-integrazioni PostgreSQL distruttive restano verifiche operative da eseguire con
-un database e credenziali dedicati, mai con secret del repository.
+typecheck, lint, suite Core/Web e build production. Un job separato inizializza
+PostgreSQL 17 in un database `dashboard_ci_test`, applica schema e migrazioni,
+verifica il ruolo applicativo ristretto ed esegue integrazioni Core/Web e
+contract test di parità SQLite/PostgreSQL. Gli E2E browser autenticati restano
+verifiche operative con dati temporanei, mai con secret del repository.
 
 Per la checklist di rilascio consultare
 [`docs/OPERATIONS_READINESS.md`](docs/OPERATIONS_READINESS.md).

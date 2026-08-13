@@ -7,6 +7,8 @@ gli allegati o i secret dell'ambiente di sviluppo.
 ## Verifiche automatiche
 
 - [ ] La CI GitHub Actions è verde sul commit da rilasciare.
+- [ ] Il job PostgreSQL ha applicato schema e migrazioni da zero, verificato il
+      ruolo ristretto ed eseguito integrazioni e parità adapter senza skip.
 - [ ] `pnpm install --frozen-lockfile` completa senza modificare il lockfile.
 - [ ] `pnpm check` completa con typecheck, lint, test e build production.
 - [ ] Non ci sono modifiche locali o file secret inclusi nel commit.

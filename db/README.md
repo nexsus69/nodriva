@@ -113,3 +113,30 @@ Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL
 track under `packages/core/src/infrastructure/schema` was removed so every
 deployment follows this single ordered directory.
+
+## Database di integrazione
+
+La CI parte da un database PostgreSQL vuoto il cui nome contiene `test` e usa
+`scripts/postgres-test-bootstrap.sh` per applicare lo schema, tutte le
+migrazioni e creare un login membro di `dashboard_app`. Lo script rifiuta
+database senza il marcatore `test` e verifica che il login non sia superuser,
+non possa creare oggetti arbitrari nello schema e non possa modificare o
+eliminare l'audit.
+
+Per riprodurre la suite in un ambiente isolato, fornire URL amministrativo e
+applicativo dello stesso database temporaneo:
+
+```bash
+export INTEGRATION_DATABASE_ADMIN_URL='postgresql://postgres:...@127.0.0.1:5432/dashboard_local_test'
+export INTEGRATION_DATABASE_URL='postgresql://dashboard_test_app:...@127.0.0.1:5432/dashboard_local_test'
+export INTEGRATION_DATABASE_APP_ROLE='dashboard_test_app'
+export INTEGRATION_DATABASE_APP_PASSWORD='...'
+./scripts/postgres-test-bootstrap.sh
+
+export DATABASE_URL="$INTEGRATION_DATABASE_URL"
+pnpm test:postgres
+```
+
+Il bootstrap richiede un database vuoto e il client `psql`. È distruttivo solo
+per il database di test esplicitamente indicato; non usarlo sul database
+operativo.

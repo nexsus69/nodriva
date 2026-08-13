@@ -47,3 +47,61 @@ jobs:
             test-results
             playwright-report
           if-no-files-found: ignore
+
+  postgres-integration:
+    name: PostgreSQL integration and adapter parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dashboard_ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: dashboard-ci-admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dashboard_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      INTEGRATION_DATABASE_ADMIN_URL: postgresql://postgres:dashboard-ci-admin@127.0.0.1:5432/dashboard_ci_test
+      INTEGRATION_DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_ci_test
+      INTEGRATION_DATABASE_APP_PASSWORD: dashboard-ci-app
+      DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_ci_test
+      DATABASE_ADAPTER: postgres
+      REQUIRE_RESTRICTED_DB_ROLE: "true"
+      NEXTAUTH_SECRET: dashboard-ci-nextauth-secret-at-least-32-characters
+      NEXTAUTH_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_REALTIME_ENABLED: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --yes postgresql-client
+
+      - name: Initialize isolated PostgreSQL database
+        run: ./scripts/postgres-test-bootstrap.sh
+
+      - name: Build Core
+        run: pnpm --filter @dashboard/core build
+
+      - name: Run PostgreSQL integration and parity tests
+        run: pnpm test:postgres

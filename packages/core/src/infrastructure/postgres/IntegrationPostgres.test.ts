@@ -6,6 +6,7 @@ import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import { NodeRepositoryPostgres } from './NodeRepositoryPostgres.js';
 import { EntityRepositoryPostgres } from './EntityRepositoryPostgres.js';
 import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
+import { StorageTableManagementPostgres } from './StorageTableManagementPostgres.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
 
@@ -25,6 +26,9 @@ describeIntegration('PostgreSQL Integration Tests', () => {
   let nodeRepo: NodeRepositoryPostgres;
   let entityRepo: EntityRepositoryPostgres;
   let realtimeOutbox: RealtimeOutboxPostgres;
+  let storageTableManager: StorageTableManagementPostgres;
+  let adminPool: pg.Pool | undefined;
+  let adminExecutor: PgExecutor | undefined;
 
   const testUserId = '00000000-0000-0000-0000-000000000200';
   const testNodeFolderTypeId = '00000000-0000-0000-0000-000000000300';
@@ -42,6 +46,12 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     nodeRepo = new NodeRepositoryPostgres(executor);
     entityRepo = new EntityRepositoryPostgres(executor);
     realtimeOutbox = new RealtimeOutboxPostgres(executor);
+    storageTableManager = new StorageTableManagementPostgres(executor);
+    const adminDatabaseUrl = process.env.INTEGRATION_DATABASE_ADMIN_URL;
+    if (adminDatabaseUrl) {
+      adminPool = new pg.Pool({ connectionString: adminDatabaseUrl });
+      adminExecutor = new PgExecutor(adminPool);
+    }
 
     // Esegui una query semplice per testare la connettività
     try {
@@ -74,7 +84,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     // Controlla o crea il tipo entità 'customer-info' con la tabella fisica associata
     await executor.query("DELETE FROM entity_type_fields WHERE entity_type_id = $1", [testEntityTypeCustomerId]);
     await executor.query("DELETE FROM entity_types WHERE id = $1", [testEntityTypeCustomerId]);
-    await executor.query("DROP TABLE IF EXISTS entity_integration_customer_info CASCADE");
+    await adminExecutor?.query("DROP TABLE IF EXISTS entity_integration_customer_info CASCADE");
 
     await executor.query(`
       INSERT INTO entity_types (id, type_key, name, description, storage_table)
@@ -88,13 +98,14 @@ describeIntegration('PostgreSQL Integration Tests', () => {
         (gen_random_uuid(), $1, 'phone', 'Phone Number', 'phone', 'string', true, 2)
     `, [testEntityTypeCustomerId]);
 
-    await executor.query(`
-      CREATE TABLE entity_integration_customer_info (
-        entity_id UUID PRIMARY KEY REFERENCES entities(id) ON DELETE CASCADE,
-        email VARCHAR(255) NOT NULL,
-        phone VARCHAR(100) NOT NULL
-      )
-    `);
+    const storageExists = await executor.query<{ exists: boolean }>(
+      "SELECT to_regclass('public.entity_integration_customer_info') IS NOT NULL AS exists",
+    );
+    if (!storageExists.rows[0]?.exists) {
+      await storageTableManager.createStorageTable('entity_integration_customer_info');
+      await storageTableManager.addColumn('entity_integration_customer_info', 'email', 'string', true, false, null);
+      await storageTableManager.addColumn('entity_integration_customer_info', 'phone', 'string', true, false, null);
+    }
   });
 
   afterAll(async () => {
@@ -105,12 +116,15 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       await executor.query('DELETE FROM node_types WHERE id = $1', [testNodeFolderTypeId]);
       await executor.query("DELETE FROM entity_type_fields WHERE entity_type_id = $1", [testEntityTypeCustomerId]);
       await executor.query("DELETE FROM entity_types WHERE id = $1", [testEntityTypeCustomerId]);
-      await executor.query("DROP TABLE IF EXISTS entity_integration_customer_info CASCADE");
+      await adminExecutor?.query("DROP TABLE IF EXISTS entity_integration_customer_info CASCADE");
     } catch {
       // Cleanup is best-effort when the integration database is unavailable.
     }
     if (pool) {
       await pool.end();
+    }
+    if (adminPool) {
+      await adminPool.end();
     }
   });
 

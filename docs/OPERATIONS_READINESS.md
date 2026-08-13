@@ -34,6 +34,8 @@ RPO concordata.
 - `./scripts/stack-healthcheck.sh` completato;
 - backup e restore verificato completati;
 - `pnpm check` completato;
+- job CI `PostgreSQL integration and adapter parity` completato senza test
+  saltati;
 - `E2E_RUN=true E2E_EMAIL=... E2E_PASSWORD=... E2E_USER_ID=... pnpm e2e`
   completato con due contesti Chromium autenticati;
 - `pnpm e2e:admin-parity` completato contro il database PostgreSQL di test e
