@@ -4,7 +4,7 @@ packages:
 overrides:
   nanoid: 3.3.17
 
-onlyBuiltDependencies:
-  - esbuild
-  - sharp
-  - unrs-resolver
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true
