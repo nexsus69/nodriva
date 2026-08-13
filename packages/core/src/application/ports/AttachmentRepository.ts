@@ -17,6 +17,7 @@ export interface AttachmentRepository {
   getById(id: string): Promise<AttachmentRecord | null>;
   getResourceQuota(resourceType: AttachmentRecord['resourceType'], resourceId: string): Promise<number>;
   create(record: AttachmentRecord): Promise<void>;
+  createWithinQuota(record: AttachmentRecord, maximumResourceBytes: number): Promise<boolean>;
   delete(id: string): Promise<void>;
   deleteForResource(resourceType: AttachmentRecord['resourceType'], resourceId: string): Promise<string[]>;
 }

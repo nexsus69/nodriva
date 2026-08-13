@@ -93,12 +93,12 @@ Rotation procedure:
 
 1. create a new random 32-byte key in the secret manager;
 2. deploy the old and new keys together, with the new version active;
-3. execute and monitor an authorised re-encryption job when one is available;
+3. execute and monitor the authorised `pnpm encryption:rotate` batch job;
 4. take and verify a backup before removing the old key;
 5. remove the old key only after all ciphertexts and attachments have been
    re-encrypted and a restore test with the new key succeeds.
 
-The application currently provides dual-key decryption and single-key
-encryption. Bulk re-encryption remains an explicitly separate maintenance
-operation because it must be resumable, audited and protected by backup
-verification.
+The application provides dual-key decryption, active-key encryption and the
+separate resumable bulk re-encryption job. Its durable status and audit events
+must be reviewed before retiring an old key; backup verification remains
+mandatory.

@@ -364,7 +364,9 @@ export class EntityApplicationService {
   async getDeletedEntityById(entityId: string, actorUserId: string): Promise<Entity> {
     const entity = await this.entityRepository.findDeletedById(entityId);
     if (!entity || !entity.deletedAt) throw new EntityNotFoundError(entityId);
-    await this.accessControlPort.assertHasPermission(actorUserId, 'entity.restore', entity.parentNodeId);
+    const assertRestore = this.accessControlPort.assertHasPermissionIncludingDeleted?.bind(this.accessControlPort)
+      ?? this.accessControlPort.assertHasPermission.bind(this.accessControlPort);
+    await assertRestore(actorUserId, 'entity.restore', entity.parentNodeId);
     return entity;
   }
 
@@ -384,7 +386,9 @@ export class EntityApplicationService {
         throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, entity.rowVersion);
       }
 
-      await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'entity.restore', entity.parentNodeId);
+      const assertRestore = this.accessControlPort.assertHasPermissionIncludingDeleted?.bind(this.accessControlPort)
+        ?? this.accessControlPort.assertHasPermission.bind(this.accessControlPort);
+      await assertRestore(validatedCmd.actorUserId, 'entity.restore', entity.parentNodeId);
       const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
       if (isLockingEnabled) {
         await this.lockService.requireOwnedLock({ resourceType: 'entity', resourceId: entity.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);

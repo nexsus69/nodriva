@@ -260,7 +260,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
   async softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
     const query = `
       UPDATE entities
-      SET deleted_at = now(), updated_at = now(), updated_by = $1
+      SET deleted_at = now(), row_version = row_version + 1, updated_at = now(), updated_by = $1
       WHERE id = $2 AND row_version = $3 AND deleted_at IS NULL
     `;
     const result = await this.executor.query(query, [actorUserId, id, expectedRowVersion]);
@@ -294,7 +294,7 @@ export class EntityRepositoryPostgres implements EntityRepository {
              created_at, updated_at, deleted_at, created_by, updated_by
       FROM entities
       WHERE parent_node_id = $1 AND deleted_at IS NULL
-      ORDER BY created_at ASC
+      ORDER BY name ASC, id ASC
     `;
     const params: unknown[] = [parentNodeId];
     

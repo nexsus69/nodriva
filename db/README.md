@@ -77,18 +77,37 @@ CRUD access to registered dynamic entity tables while keeping schema creation
 and alteration restricted to the controlled DDL gateway.
 
 Migration `024_deleted_entity_management_permissions.sql` adds separate
-`entity.restore` and `entity.purge` permissions. The current recycle-bin
-increment uses only `entity.restore`; permanent purge remains a separate,
-explicitly protected feature.
+`entity.restore` and `entity.purge` permissions. The recycle bin exposes both
+restore and permanent purge through separately authorized application flows.
 
 Migration `025_subtree_deletion_batches.sql` adds deletion-batch provenance to
 nodes and entities. Subtree restoration can therefore restore only records
 deleted by that cascade, without resurrecting records that had been deleted
 individually beforehand.
 
+Migration `026_realtime_metadata_sequence.sql` adds the monotonically
+increasing metadata sequence used to reconcile client caches after type and
+configuration changes. Migration `027_realtime_capability.sql` adds the
+runtime capability controlling server-side realtime publication.
+
 Migration `029_encryption_rotation_jobs.sql` adds the durable status table used
 by `pnpm encryption:rotate`. The batch job and its verification procedure are
 documented in `docs/ENCRYPTION_ROTATION.md`.
+
+Migration `030_service_configurations.sql` adds the versioned provider/runtime
+configuration store. Deployment endpoints and secrets remain outside it.
+
+Migration `031_node_root_path_label_uniqueness.sql` aligns PostgreSQL root-node
+uniqueness with SQLite by treating a `NULL` parent as an equal scope for active
+path labels. Soft-deleted paths remain reusable.
+
+Migration `032_attachment_upload_rate_limit.sql` adds the durable PostgreSQL
+upload-event window consumed through `AttachmentRateLimitPort`; SQLite provides
+the same observable contract in its local schema.
+
+Migration `033_session_idle_timeout_30_minutes.sql` updates existing active
+session timeout settings to the current 1800-second default. Fresh PostgreSQL
+and SQLite seeds use the same value.
 
 Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL

@@ -36,4 +36,12 @@ describe('PostgresResourceSecurityPolicyResolver', () => {
     await expect(resolver.resolve('entity', 'entity-1')).resolves.toEqual({ encryptionEnabled: false, antivirusEnabled: true });
     expect(nodes.findById).toHaveBeenCalledWith('node-2');
   });
+
+  it('enforces deployment-required encryption independently of runtime switches', async () => {
+    const policy = { getEncryptionMode: vi.fn().mockResolvedValue('disabled') };
+    const config = { get: vi.fn().mockResolvedValue(false) };
+    const nodes = { findById: vi.fn().mockResolvedValue({ nodeTypeId: 'type-1' }) };
+    const resolver = new PostgresResourceSecurityPolicyResolver(policy as never, config as never, nodes as never, {} as never, false, true);
+    await expect(resolver.resolve('node', 'node-1')).resolves.toEqual({ encryptionEnabled: true, antivirusEnabled: false });
+  });
 });

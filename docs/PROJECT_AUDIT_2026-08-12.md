@@ -1,5 +1,12 @@
 # Audit tecnico — 12 agosto 2026
 
+> **Documento storico.** Risultati, conteggi e rilievi descrivono lo snapshot
+> del 12 agosto 2026 e non vengono riscritti retroattivamente. Lo stato corrente
+> delle correzioni è mantenuto in
+> [`CODE_QUALITY_AUDIT_TRACKER.md`](./CODE_QUALITY_AUDIT_TRACKER.md). Dopo questo
+> audit sono stati aggiunti contract test SQLite/PostgreSQL, un E2E comparativo
+> del pannello admin, lint Core e il refactoring delle route frontend.
+
 ## Esito
 
 Il progetto ha una buona struttura generale: il core espone porte, gli adapter

@@ -60,9 +60,27 @@ sessione. Tempi e comportamento sono documentati in
 - centralizzare mapping errori, retry, session refresh e purge;
 - aggiungere test di cache hit/miss, deduplicazione, rowVersion, evento realtime e cambio sessione.
 
+## Composizione delle route
+
+I file App Router `page.tsx` e `layout.tsx` sono entry point sottili. Possono
+risolvere i parametri della route e comporre uno screen, ma stato, effetti,
+reducer e transizioni devono vivere in hook/controller dedicati. Gli screen
+compongono sezioni e modali; i componenti presentazionali ricevono dati e
+callback tipizzati.
+
+`ArchitectureCompliance.test.ts` applica a tutte le route un limite di 60
+righe e vieta `useState`, `useEffect`, `useReducer` e `useTransition`. Il limite
+non si applica automaticamente ai componenti infrastrutturali complessi: per
+questi la separazione avviene per responsabilità osservabile e deve mantenere
+test di protocollo, accessibilità e comportamento.
+
 ## Migrazione
 
-Nodi ed entità seguono già questo modello tramite `AppCache`. Il pannello amministrativo usa `AdminCacheClient` per tipi, sistema, sicurezza, placement policy e audit. Il vertical slice utenti/sessione usa `UserCacheClient` e `SessionCacheSynchronizer`.
+Nodi ed entità seguono già questo modello tramite `AppCache`. I form dinamici
+condividono `dynamicResourceForm` per inizializzazione, coercizione e allegati.
+Il pannello amministrativo usa `AdminCacheClient` per tipi, sistema, sicurezza,
+placement policy e audit. Il vertical slice utenti/sessione usa
+`UserCacheClient` e `SessionCacheSynchronizer`.
 
 Login e logout restano coordinatori di autenticazione, non dati applicativi:
 aggiornano la sessione NextAuth e invocano il purge della cache. Il logout

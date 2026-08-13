@@ -26,6 +26,23 @@ export class AttachmentRepositoryPostgres implements AttachmentRepository {
     await this.executor.query('INSERT INTO resource_attachments (id,resource_type,resource_id,field_key,kind,file_name,mime_type,size_bytes,storage_key,checksum,created_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)', [record.id, record.resourceType, record.resourceId, record.fieldKey, record.kind, record.fileName, record.mimeType, record.sizeBytes, record.storageKey, record.checksum, record.createdBy]);
   }
 
+  async createWithinQuota(record: AttachmentRecord, maximumResourceBytes: number): Promise<boolean> {
+    const result = await this.executor.query<{ id: string }>(
+      `WITH resource_lock AS MATERIALIZED (
+         SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))
+       ), quota AS (
+         SELECT COALESCE(SUM(size_bytes),0) AS used_bytes FROM resource_attachments, resource_lock
+         WHERE resource_type=$1 AND resource_id=$2::uuid
+       )
+       INSERT INTO resource_attachments (id,resource_type,resource_id,field_key,kind,file_name,mime_type,size_bytes,storage_key,checksum,created_by)
+       SELECT $3,$1,$2::uuid,$4,$5,$6,$7,$8::bigint,$9,$10,$11 FROM quota
+       WHERE quota.used_bytes + $8::bigint <= $12::bigint
+       RETURNING id`,
+      [record.resourceType, record.resourceId, record.id, record.fieldKey, record.kind, record.fileName, record.mimeType, record.sizeBytes, record.storageKey, record.checksum, record.createdBy, maximumResourceBytes],
+    );
+    return result.rows.length === 1;
+  }
+
   async delete(id: string): Promise<void> { await this.executor.query('DELETE FROM resource_attachments WHERE id=$1', [id]); }
 
   async deleteForResource(resourceType: AttachmentRecord['resourceType'], resourceId: string): Promise<string[]> {

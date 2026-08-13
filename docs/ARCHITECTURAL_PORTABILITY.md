@@ -24,6 +24,9 @@ assembling concrete adapters and injecting them into application services.
 | Data event delivery | `RealtimeEventBus` | `PusherEventBus` |
 | Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` | `RealtimeOutboxSqlite` |
 | Transactions | `TransactionPort` | `TransactionPortPostgres` | `TransactionPortSqlite` |
+| Dynamic type storage | `StorageTableManagementPort` | physical tables through controlled DDL | JSON payload plus relational field metadata |
+| Attachments and quota | `AttachmentRepository` | `AttachmentRepositoryPostgres` | `AttachmentRepositorySqlite` |
+| Upload rate limiting | `AttachmentRateLimitPort` | `AttachmentRateLimitPortPostgres` | `AttachmentRateLimitPortSqlite` |
 
 The PostgreSQL implementation additionally materializes the assigned hierarchy
 path in `node_scope_assignments.node_path`. This is an adapter-level projection
@@ -36,6 +39,20 @@ same contract with its own hierarchy mechanism.
 The Web composition root selects the complete persistence profile through
 `DATABASE_ADAPTER=postgres|sqlite`. SQLite is not exposed to browser code: the
 frontend depends only on Server Actions and application contracts.
+
+## Parity verification
+
+`PersistenceAdapterParityPostgres.test.ts` executes the same observable
+scenario against an in-memory SQLite database and the dedicated PostgreSQL
+integration database. It compares hierarchy, entities, stale-version errors,
+soft delete/restore, locks, transaction rollback, attachment quotas and rate
+limits rather than requiring identical SQL or physical schemas.
+
+`pnpm e2e:admin-parity` extends this contract through the production Web build:
+it clones `dashboard_test` into a temporary PostgreSQL database, creates a
+temporary SQLite database, starts both profiles and compares the admin overview,
+all admin sections, creation/detail flows and audit actions. Temporary data and
+processes are removed by the script on exit.
 
 ## Forbidden dependencies
 
@@ -72,8 +89,9 @@ errors are logged and must not roll back an already committed mutation.
    database technology into the port.
 4. Provide a transaction adapter with the same commit/rollback contract.
 5. Add adapter tests and integration tests against the new database.
-6. Wire the adapter only in the composition root.
-7. Run static checks to ensure Application and Domain do not import
+6. Add a browser parity scenario for user-visible flows affected by the adapter.
+7. Wire the adapter only in the composition root.
+8. Run static checks to ensure Application and Domain do not import
    Infrastructure.
 
 ## Review checklist
@@ -84,6 +102,7 @@ errors are logged and must not roll back an already committed mutation.
 - Are realtime failures logged with a useful fallback?
 - Are committed mutations still correct when the message broker is offline?
 - Does the adapter have tests for missing rows, stale versions and failures?
+- Does it produce the same user-visible result in the admin parity E2E?
 - If it uses dynamic table or column names, are identifiers allow-listed and
   quoted by the adapter rather than interpolated from a request?
 - If it replaces `ltree` or `SKIP LOCKED`, do its ACL containment and concurrent

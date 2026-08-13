@@ -14,6 +14,9 @@ export interface AccessControlPort {
    */
   assertHasPermission(actorUserId: string, permissionKey: string, nodeId: string | null): Promise<void>;
 
+  /** Checks a scoped permission while retaining the immutable path of a soft-deleted node. */
+  assertHasPermissionIncludingDeleted?(actorUserId: string, permissionKey: string, nodeId: string): Promise<void>;
+
   /**
    * Verifica che l'attore possa esercitare e delegare un permesso sull'intera
    * copertura richiesta. `subtree` richiede un allow subtree che copra il nodo

@@ -1,0 +1,20 @@
+import type { DeletedEntityListItem, DeletedNodeListItem } from '../../../actions/recycleActions';
+import type { RecycleAction } from '../_hooks/useRecycleBin';
+
+type Props = { entities: DeletedEntityListItem[]; nodes: DeletedNodeListItem[]; loading: boolean; pending: boolean; onAction: (action: RecycleAction) => void };
+
+export function RecycleResourceLists({ entities, nodes, loading, pending, onAction }: Props) {
+  return <>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+      <header className="border-b border-slate-200 px-5 py-4"><h2 className="text-sm font-semibold text-slate-900">Entità eliminate <Count value={entities.length} /></h2></header>
+      {loading ? <Empty>Caricamento…</Empty> : entities.length === 0 ? <Empty>Nessuna entità eliminata nello scope corrente.</Empty> : <div className="divide-y divide-slate-200">{entities.map((item) => <div key={item.id} className="flex flex-col gap-4 px-5 py-4 hover:bg-slate-50 md:flex-row md:items-center md:justify-between"><div className="min-w-0"><h3 className="truncate text-sm font-semibold text-slate-900">{item.name}</h3><p className="mt-1 text-xs text-slate-600">{item.entityTypeName} · Nodo: {item.parentNodeName}</p><p className="mt-1 text-[11px] text-slate-500">Eliminata il {new Date(item.deletedAt).toLocaleString('it-IT')} · versione {item.rowVersion}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => onAction({ kind: 'restore-entity', item })} disabled={pending || !item.entityTypeActive} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{item.entityTypeActive ? 'Ripristina' : 'Tipo disabilitato'}</button><button type="button" onClick={() => onAction({ kind: 'purge-entity', item })} disabled={pending} className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">Purge</button></div></div>)}</div>}
+    </section>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+      <header className="border-b border-slate-200 px-5 py-4"><h2 className="text-sm font-semibold text-slate-900">Sottoalberi eliminati <Count value={nodes.length} /></h2></header>
+      {!loading && nodes.length === 0 ? <Empty>Nessun sottoalbero eliminato nello scope corrente.</Empty> : <div className="divide-y divide-slate-200">{nodes.map((item) => <div key={item.id} className="flex flex-col gap-4 px-5 py-4 hover:bg-slate-50 md:flex-row md:items-center md:justify-between"><div><h3 className="text-sm font-semibold text-slate-900">{item.name}</h3><p className="mt-1 text-xs text-slate-600">{item.nodeTypeName} · percorso {item.path}</p><p className="mt-1 text-[11px] text-slate-500">Eliminato il {new Date(item.deletedAt).toLocaleString('it-IT')} · versione {item.rowVersion}</p></div><div className="flex shrink-0 gap-2"><button type="button" onClick={() => onAction({ kind: 'restore-node', item })} disabled={pending} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">Ripristina sottoalbero</button><button type="button" onClick={() => onAction({ kind: 'purge-node', item })} disabled={pending} className="rounded-xl border border-rose-300 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50">Purge</button></div></div>)}</div>}
+    </section>
+  </>;
+}
+
+function Count({ value }: { value: number }) { return <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{value}</span>; }
+function Empty({ children }: { children: React.ReactNode }) { return <div className="p-8 text-center text-sm text-slate-500">{children}</div>; }

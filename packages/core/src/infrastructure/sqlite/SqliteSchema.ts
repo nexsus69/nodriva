@@ -32,9 +32,12 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       deletion_batch_id TEXT,
       created_by TEXT,
       updated_by TEXT,
-      payload TEXT NOT NULL DEFAULT '{}',
-      UNIQUE(parent_id, path_label)
+      payload TEXT NOT NULL DEFAULT '{}'
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_nodes_parent_label_active
+      ON nodes(parent_id, path_label) WHERE parent_id IS NOT NULL AND deleted_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_nodes_root_label_active
+      ON nodes(path_label) WHERE parent_id IS NULL AND deleted_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_sqlite_nodes_parent_active
       ON nodes(parent_id, deleted_at, name);
     CREATE INDEX IF NOT EXISTS idx_sqlite_nodes_path_active
@@ -269,6 +272,10 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_attachments_resource ON resource_attachments(resource_type, resource_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS attachment_upload_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id TEXT NOT NULL, occurred_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_attachment_upload_events_actor_time ON attachment_upload_events(actor_id, occurred_at);
     CREATE TABLE IF NOT EXISTS resource_field_ciphertexts (resource_type TEXT NOT NULL, resource_id TEXT NOT NULL, field_key TEXT NOT NULL, key_version TEXT NOT NULL, ciphertext TEXT NOT NULL, PRIMARY KEY(resource_type, resource_id, field_key));
     CREATE TABLE IF NOT EXISTS node_type_attachment_policies (
       node_type_id TEXT PRIMARY KEY REFERENCES node_types(id) ON DELETE CASCADE,

@@ -1,15 +1,15 @@
 import type { NodeRepository, DeletedNodeSummary } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
-import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import { NodeNotFoundError, NodePathCollisionError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError, LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
-import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
+import type { AccessControlPortSqlite } from './AccessControlPortSqlite.js';
 
 interface NodeRow { id: string; parent_id: string | null; path: string; path_label: string; depth: number; node_type_id: string; name: string; description: string; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; created_by: string | null; updated_by: string | null; payload: string; deletion_batch_id: string | null; }
 
 /** SQLite node repository. Hierarchy queries use parent_id and recursive CTEs, not ltree. */
 export class NodeRepositorySqlite implements NodeRepository {
-  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPort) {}
+  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite) {}
 
   async findById(id: string): Promise<Node | null> { return this.find(id, false); }
   async findDeletedById(id: string): Promise<Node | null> { return this.find(id, true); }
@@ -39,7 +39,17 @@ export class NodeRepositorySqlite implements NodeRepository {
   }
 
   async create(node: Node): Promise<void> {
-    this.database.run(`INSERT INTO nodes (id,parent_id,path,path_label,depth,node_type_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [node.id, node.parentId, node.path, node.pathLabel, node.depth, node.nodeTypeId, node.name, node.description, node.rowVersion, node.createdAt.toISOString(), node.updatedAt.toISOString(), node.deletedAt?.toISOString() ?? null, node.createdBy, node.updatedBy, JSON.stringify(node.payload)]);
+    try {
+      this.database.run(`INSERT INTO nodes (id,parent_id,path,path_label,depth,node_type_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by,payload) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [node.id, node.parentId, node.path, node.pathLabel, node.depth, node.nodeTypeId, node.name, node.description, node.rowVersion, node.createdAt.toISOString(), node.updatedAt.toISOString(), node.deletedAt?.toISOString() ?? null, node.createdBy, node.updatedBy, JSON.stringify(node.payload)]);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '';
+      const pathCollision = message.includes('UNIQUE constraint failed: nodes.parent_id, nodes.path_label')
+        || message.includes('UNIQUE constraint failed: nodes.path_label');
+      if (pathCollision) {
+        throw new NodePathCollisionError(node.parentId, node.pathLabel, error);
+      }
+      throw error;
+    }
     this.rebuildHierarchy();
   }
 
@@ -78,7 +88,7 @@ export class NodeRepositorySqlite implements NodeRepository {
   }
 
   async listAncestorIds(nodeId: string): Promise<string[]> {
-    return this.database.all<{ id: string }>('SELECT ancestor_id AS id FROM node_hierarchy WHERE descendant_id=? ORDER BY depth DESC, ancestor_id', [nodeId]).map((row) => row.id);
+    return this.database.all<{ id: string }>('SELECT ancestor_id AS id FROM node_hierarchy WHERE descendant_id=? ORDER BY depth ASC, ancestor_id', [nodeId]).map((row) => row.id);
   }
 
   async isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean> {
@@ -86,26 +96,63 @@ export class NodeRepositorySqlite implements NodeRepository {
     return this.database.get('SELECT 1 FROM node_hierarchy WHERE ancestor_id=? AND descendant_id=? AND depth > 0', [potentialAncestorId, nodeId]) !== undefined;
   }
 
-  async listDeletedByScope(_actorUserId: string, limit = 100, offset = 0): Promise<DeletedNodeSummary[]> {
-    return this.database.all<DeletedNodeSummary>(`SELECT id, node_type_id AS nodeTypeId, '' AS nodeTypeName, parent_id AS parentId, '' AS parentName, name, path, row_version AS rowVersion, deleted_at AS deletedAt, deletion_batch_id AS deletionBatchId FROM nodes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT ? OFFSET ?`, [limit, offset]);
+  async listDeletedByScope(actorUserId: string, limit = 100, offset = 0): Promise<DeletedNodeSummary[]> {
+    const rows = this.database.all<DeletedNodeSummary>(`SELECT n.id, n.node_type_id AS nodeTypeId, nt.name AS nodeTypeName, n.parent_id AS parentId, parent.name AS parentName, n.name, n.path, n.row_version AS rowVersion, n.deleted_at AS deletedAt, n.deletion_batch_id AS deletionBatchId FROM nodes n JOIN node_types nt ON nt.id=n.node_type_id LEFT JOIN nodes parent ON parent.id=n.parent_id WHERE n.deleted_at IS NOT NULL ORDER BY n.deleted_at DESC`);
+    if (!this.accessControl) return rows.slice(offset, offset + limit);
+    const visible: DeletedNodeSummary[] = [];
+    for (const row of rows) {
+      if (await this.accessControl.canAccessNodeIncludingDeleted(actorUserId, 'node.restore', row.id)) visible.push(row);
+    }
+    return visible.slice(offset, offset + limit);
   }
 
   async softDeleteSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]> {
     const root = this.database.get<NodeRow>('SELECT * FROM nodes WHERE id=? AND deleted_at IS NULL AND row_version=?', [nodeId, expectedRowVersion]);
-    if (!root) throw new NodeNotFoundError(nodeId);
+    if (!root) {
+      const current = this.database.get<{ row_version: number; deleted_at: string | null }>('SELECT row_version,deleted_at FROM nodes WHERE id=?', [nodeId]);
+      if (!current || current.deleted_at !== null) throw new NodeNotFoundError(nodeId);
+      throw new RowVersionMismatchError(expectedRowVersion, current.row_version);
+    }
     const ids = this.database.all<{ id: string }>(`WITH RECURSIVE subtree(id) AS (SELECT id FROM nodes WHERE id=? UNION ALL SELECT n.id FROM nodes n JOIN subtree s ON n.parent_id=s.id) SELECT id FROM subtree`, [nodeId]).map((row) => row.id);
-    for (const id of ids) this.database.run('UPDATE nodes SET deleted_at=?, deletion_batch_id=?, row_version=row_version+1, updated_at=?, updated_by=? WHERE id=? AND deleted_at IS NULL', [new Date().toISOString(), deletionBatchId, new Date().toISOString(), actorUserId, id]);
+    const changedAt = new Date().toISOString();
+    for (const id of ids) {
+      this.database.run('UPDATE entities SET deleted_at=?, deletion_batch_id=?, row_version=row_version+1, updated_at=?, updated_by=? WHERE parent_node_id=? AND deleted_at IS NULL', [changedAt, deletionBatchId, changedAt, actorUserId, id]);
+      this.database.run('UPDATE nodes SET deleted_at=?, deletion_batch_id=?, row_version=row_version+1, updated_at=?, updated_by=? WHERE id=? AND deleted_at IS NULL', [changedAt, deletionBatchId, changedAt, actorUserId, id]);
+    }
     this.rebuildHierarchy();
     return ids;
   }
 
-  async assertSubtreeUnlocked(_nodeId: string, _actorUserId: string): Promise<void> { /* lock repository is a separate SQLite vertical */ }
+  async assertSubtreeUnlocked(nodeId: string, actorUserId: string): Promise<void> {
+    const conflict = this.database.get<{ resource_type: string; resource_id: string }>(
+      `WITH RECURSIVE subtree(id) AS (
+         SELECT id FROM nodes WHERE id=?
+         UNION ALL SELECT child.id FROM nodes child JOIN subtree parent ON child.parent_id=parent.id
+       )
+       SELECT lock.resource_type, lock.resource_id
+       FROM locks lock
+       WHERE lock.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND lock.user_id<>?
+         AND ((lock.resource_type='node' AND lock.resource_id IN (SELECT id FROM subtree))
+           OR (lock.resource_type='entity' AND EXISTS (
+             SELECT 1 FROM entities entity WHERE entity.id=lock.resource_id AND entity.parent_node_id IN (SELECT id FROM subtree)
+           )))
+       ORDER BY lock.expires_at LIMIT 1`,
+      [nodeId, actorUserId],
+    );
+    if (conflict) throw new LockConflictError(conflict.resource_type, conflict.resource_id);
+  }
   async getDeletionBatchId(nodeId: string): Promise<string | null> { return this.database.get<{ deletion_batch_id: string | null }>('SELECT deletion_batch_id FROM nodes WHERE id=? AND deleted_at IS NOT NULL', [nodeId])?.deletion_batch_id ?? null; }
   async restoreSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]> {
     const root = this.database.get('SELECT id FROM nodes WHERE id=? AND deleted_at IS NOT NULL AND deletion_batch_id=? AND row_version=?', [nodeId, deletionBatchId, expectedRowVersion]);
-    if (!root) throw new NodeNotFoundError(nodeId);
+    if (!root) {
+      const current = this.database.get<{ row_version: number; deleted_at: string | null; deletion_batch_id: string | null }>('SELECT row_version,deleted_at,deletion_batch_id FROM nodes WHERE id=?', [nodeId]);
+      if (!current || current.deleted_at === null || current.deletion_batch_id !== deletionBatchId) throw new NodeNotFoundError(nodeId);
+      throw new RowVersionMismatchError(expectedRowVersion, current.row_version);
+    }
     const result = this.database.all<{ id: string }>('SELECT id FROM nodes WHERE deleted_at IS NOT NULL AND deletion_batch_id=?', [deletionBatchId]);
-    for (const item of result) this.database.run('UPDATE nodes SET deleted_at=NULL, deletion_batch_id=NULL, row_version=row_version+1, updated_at=?, updated_by=? WHERE id=?', [new Date().toISOString(), actorUserId, item.id]);
+    const changedAt = new Date().toISOString();
+    this.database.run('UPDATE entities SET deleted_at=NULL, deletion_batch_id=NULL, row_version=row_version+1, updated_at=?, updated_by=? WHERE deleted_at IS NOT NULL AND deletion_batch_id=?', [changedAt, actorUserId, deletionBatchId]);
+    for (const item of result) this.database.run('UPDATE nodes SET deleted_at=NULL, deletion_batch_id=NULL, row_version=row_version+1, updated_at=?, updated_by=? WHERE id=?', [changedAt, actorUserId, item.id]);
     this.rebuildHierarchy();
     return result.map((item) => item.id);
   }

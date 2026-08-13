@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { z } from 'zod';
 import { CachingSchemaRegistry } from './CachingSchemaRegistry.js';
 import { FieldSchemaCompiler } from './FieldSchemaCompiler.js';
 import type { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';

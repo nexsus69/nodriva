@@ -382,7 +382,9 @@ export class NodeApplicationService {
       const node = await this.nodeRepository.findDeletedById(validatedCmd.nodeId);
       if (!node || !node.deletedAt) throw new NodeNotFoundError(validatedCmd.nodeId);
       if (node.rowVersion !== validatedCmd.expectedRowVersion) throw new RowVersionMismatchError(validatedCmd.expectedRowVersion, node.rowVersion);
-      await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'node.restore', node.id);
+      const assertRestore = this.accessControlPort.assertHasPermissionIncludingDeleted?.bind(this.accessControlPort)
+        ?? this.accessControlPort.assertHasPermission.bind(this.accessControlPort);
+      await assertRestore(validatedCmd.actorUserId, 'node.restore', node.id);
       if (node.parentId && !(await this.nodeRepository.findById(node.parentId))) {
         throw new NodeNotFoundError(node.parentId);
       }

@@ -1,6 +1,6 @@
 import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
 import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
-import type { EnumMode, FieldConstraintDto, FieldDataType, FieldDto, FieldEncryptionMode, RelationTargetDomain, TypeDetailDto, TypeListItemDto } from '../../application/dto/AdminContractDtos.js';
+import type { EnumMode, FieldDataType, FieldDto, FieldEncryptionMode, RelationTargetDomain, TypeDetailDto, TypeListItemDto } from '../../application/dto/AdminContractDtos.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';

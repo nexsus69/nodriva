@@ -43,4 +43,35 @@ describe('TransactionPortSqlite', () => {
     expect(effect).not.toHaveBeenCalled();
     database.close();
   });
+
+  it('serializes independent concurrent transactions on the shared connection', async () => {
+    const database = new SqliteDatabase();
+    database.exec('CREATE TABLE records (id INTEGER PRIMARY KEY, value TEXT NOT NULL)');
+    const transactions = new TransactionPortSqlite(database);
+    let releaseFirst!: () => void;
+    const firstMayFinish = new Promise<void>((resolve) => { releaseFirst = resolve; });
+    const order: string[] = [];
+
+    const first = transactions.runInTransaction(async () => {
+      order.push('first-start');
+      database.run('INSERT INTO records (value) VALUES (?)', ['first']);
+      await firstMayFinish;
+      order.push('first-end');
+    });
+    await Promise.resolve();
+    const second = transactions.runInTransaction(async () => {
+      order.push('second-start');
+      database.run('INSERT INTO records (value) VALUES (?)', ['second']);
+    });
+    await Promise.resolve();
+
+    expect(order).toEqual(['first-start']);
+    releaseFirst();
+    await Promise.all([first, second]);
+    expect(order).toEqual(['first-start', 'first-end', 'second-start']);
+    expect(database.all<{ value: string }>('SELECT value FROM records ORDER BY id')).toEqual([
+      { value: 'first' }, { value: 'second' },
+    ]);
+    database.close();
+  });
 });

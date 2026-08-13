@@ -20,7 +20,10 @@
   mentre healthcheck e selezione effettiva dei provider non sono ancora gestiti
   dal registry;
 - il profilo standalone SQLite è disponibile con il solo Node.js e un file
-  locale; build, suite automatiche e smoke HTTP sono verificati.
+  locale; build, suite automatiche, smoke HTTP, contratti condivisi e parità
+  E2E del pannello amministrativo sono verificati;
+- le route App Router sono state ridotte a boundary di composizione e un test
+  architetturale impedisce il ritorno di stato/effetti nei file `page`/`layout`.
 
 ### Obiettivo
 
@@ -29,8 +32,8 @@ completo senza modificare il dominio applicativo. Ogni servizio dovrà avere un
 provider/adapter sostituibile e una configurazione separata per capability,
 provider, endpoint, secret, timeout, retry, healthcheck e requisito di riavvio.
 Il Compose completo sarà un profilo di deployment, non il requisito minimo
-dell'applicazione. Per la persistenza standalone dovrà essere introdotto e
-verificato un adapter SQLite o equivalente.
+dell'applicazione. La persistenza standalone SQLite è ora implementata; ogni
+nuovo adapter dovrà mantenere gli stessi contratti e risultati osservabili.
 
 Il piano dettagliato è in
 [`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md)
@@ -93,6 +96,8 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   opzionali, mantenendo un profilo completo per sviluppo/staging.
 - [x] Introdurre un adapter di persistenza standalone SQLite, collegarlo al
   composition root Web e verificarne build, suite e smoke test.
+- [x] Verificare la parità SQLite/PostgreSQL con contract test sul database di
+  integrazione e con un E2E dell'intero pannello amministrativo.
 
 - [ ] Approve the complete runtime/deployment/secret configuration catalog in
   [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md)

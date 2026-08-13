@@ -6,6 +6,8 @@ import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, isAtt
 import { publishAuditRealtimeChange } from '../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../server/realtime';
 
+class AttachmentQuotaExceededError extends Error {}
+
 export const GET = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
   if (!actorUserId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
@@ -34,6 +36,10 @@ export const POST = auth(async (request) => {
   const actorUserId = authenticatedUser(request);
   if (!actorUserId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
 
+  const contentLength = Number(request.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > defaultAttachmentSecurityPolicy.maxFileSizeBytes + 1024 * 1024) {
+    return NextResponse.json({ error: 'ATTACHMENT_TOO_LARGE' }, { status: 413 });
+  }
   const form = await request.formData();
   const file = form.get('file');
   const target = parseAttachmentTarget({
@@ -49,8 +55,8 @@ export const POST = auth(async (request) => {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, attachmentRepository, resourceSecurityPolicyResolver } = await import('../../../server/db');
-    if (!attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour)) {
+    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, attachmentRepository, resourceSecurityPolicyResolver, transactionPort } = await import('../../../server/db');
+    if (!(await attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour))) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });
     }
     const content = new Uint8Array(await file.arrayBuffer());
@@ -63,24 +69,29 @@ export const POST = auth(async (request) => {
     if (securityPolicy.antivirusEnabled && attachmentScanner && await attachmentScanner.scan(content, { fileName: file.name, mimeType: detected.mimeType }) === 'infected') {
       return NextResponse.json({ error: 'ATTACHMENT_INFECTED' }, { status: 422 });
     }
-    const quota = await attachmentRepository.getResourceQuota(target.resourceType, target.resourceId);
-    if (quota + content.byteLength > defaultAttachmentSecurityPolicy.maxResourceBytes) {
-      return NextResponse.json({ error: 'ATTACHMENT_QUOTA_EXCEEDED' }, { status: 413 });
-    }
     const attachmentId = randomUUID();
     const safeName = file.name.replace(/[\r\n"\\/]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-255) || 'upload';
     const storageKey = `${target.resourceType}/${target.resourceId}/${attachmentId}-${safeName}`;
     const stored = await attachmentStorage.put(storageKey, content, { encrypt: securityPolicy.encryptionEnabled });
     try {
-      await attachmentRepository.create({ id: attachmentId, resourceType: target.resourceType, resourceId: target.resourceId, fieldKey: target.fieldKey, kind: target.kind, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, storageKey: stored.storageKey, checksum: stored.checksum, createdBy: actorUserId });
+      await transactionPort.runInTransaction(async () => {
+        const created = await attachmentRepository.createWithinQuota(
+          { id: attachmentId, resourceType: target.resourceType, resourceId: target.resourceId, fieldKey: target.fieldKey, kind: target.kind, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, storageKey: stored.storageKey, checksum: stored.checksum, createdBy: actorUserId },
+          defaultAttachmentSecurityPolicy.maxResourceBytes,
+        );
+        if (!created) throw new AttachmentQuotaExceededError('Attachment resource quota exceeded');
+        await auditPort.record(actorUserId, 'attachment.upload', 'attachment', attachmentId, access.scopeNodeId, null, {
+          resourceType: target.resourceType, resourceId: target.resourceId, fileName: safeName,
+          mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, checksum: stored.checksum,
+        });
+      });
     } catch (error) {
       await attachmentStorage.delete(storageKey).catch((cleanupError) => console.error('[Attachments] Orphan cleanup failed', cleanupError));
+      if (error instanceof AttachmentQuotaExceededError) {
+        return NextResponse.json({ error: 'ATTACHMENT_QUOTA_EXCEEDED' }, { status: 413 });
+      }
       throw error;
     }
-    await auditPort.record(actorUserId, 'attachment.upload', 'attachment', attachmentId, access.scopeNodeId, null, {
-      resourceType: target.resourceType, resourceId: target.resourceId, fileName: safeName,
-      mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, checksum: stored.checksum,
-    });
     void publishRealtimeChange({
       resourceType: target.resourceType,
       resourceId: target.resourceId,

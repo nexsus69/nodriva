@@ -86,9 +86,9 @@ schema, timeout, retry, healthcheck, dipendenze e requisito di riavvio.
 - URL pubblici dell'applicazione;
 - secret database e credenziali di servizio.
 
-Questi valori restano fuori da `system_settings`. Nel modello obiettivo il
-provider di persistenza sarà selezionabile (`postgres`, `sqlite` o altro), con
-adapter e migrazioni/test di contratto dedicati.
+Questi valori restano fuori da `system_settings`. Il provider di persistenza è
+selezionabile tramite `DATABASE_ADAPTER=postgres|sqlite`; ogni ulteriore adapter
+richiederà migrazioni proprie, test di contratto condivisi ed E2E di parità.
 
 ### Integrazioni esterne — deployment/segreti
 
@@ -144,5 +144,7 @@ Prima dell'implementazione, ogni voce deve specificare:
 8. autorizzazione richiesta e evento di audit;
 9. impatto sui valori derivati e sulle sessioni già attive.
 
-Il timeout sessione backend sarà la prima impostazione implementata dopo la
-chiusura e approvazione di questo catalogo.
+`session.idleTimeoutSeconds` esiste già nei seed e viene allineato a 1800
+secondi dalla migrazione `033`. La temporanea fonte effettiva condivisa da Web
+e browser resta `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS`: il passaggio alla
+lettura runtime autorevole del setting, senza rebuild, rimane aperto.

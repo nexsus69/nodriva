@@ -456,6 +456,9 @@ export { StorageTableManagementSqlite } from './infrastructure/sqlite/StorageTab
 export type { AttachmentRecord, AttachmentRepository } from './application/ports/AttachmentRepository.js';
 export { AttachmentRepositoryPostgres } from './infrastructure/postgres/AttachmentRepositoryPostgres.js';
 export { AttachmentRepositorySqlite } from './infrastructure/sqlite/AttachmentRepositorySqlite.js';
+export type { AttachmentRateLimitPort } from './application/ports/AttachmentRateLimitPort.js';
+export { AttachmentRateLimitPortPostgres } from './infrastructure/postgres/AttachmentRateLimitPortPostgres.js';
+export { AttachmentRateLimitPortSqlite } from './infrastructure/sqlite/AttachmentRateLimitPortSqlite.js';
 export type { AttachmentEncryptionMode, AttachmentPolicyRepository } from './application/ports/AttachmentPolicyRepository.js';
 export { AttachmentPolicyRepositoryPostgres } from './infrastructure/postgres/AttachmentPolicyRepositoryPostgres.js';
 export { AttachmentPolicyRepositorySqlite } from './infrastructure/sqlite/AttachmentPolicyRepositorySqlite.js';

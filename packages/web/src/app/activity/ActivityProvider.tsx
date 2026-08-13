@@ -14,10 +14,9 @@ import type { ResourceReference } from '@dashboard/core';
 import { runtimeTiming } from '../../config/runtimeTiming';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { activityDebugStore } from './ActivityDebugStore';
+import { isLoginRedirect, toClientTiming, type ActivityResponse, type SessionCheckResult } from './activityProtocol';
 
 export type ActivityLockRef = ResourceReference;
-
-type SessionCheckResult = 'valid' | 'expired' | 'unreachable';
 
 interface ActivityContextValue {
   sessionExpiresAt?: string;
@@ -30,39 +29,6 @@ interface ActivityContextValue {
 
 const ActivityContext = createContext<ActivityContextValue | null>(null);
 const ACTIVITY_CHANNEL = 'dashboard-human-activity';
-
-interface ActivityResponse {
-  sessionExpiresAt: string;
-  renewedLocks: Array<ActivityLockRef & { expiresAt: string }>;
-  timing?: {
-    sessionIdleTimeoutSeconds: number;
-    sessionUpdateAgeSeconds: number;
-    lockTtlSeconds: number;
-    syncPollingIntervalSeconds: number;
-  };
-}
-
-function toClientTiming(value: ActivityResponse['timing']): typeof runtimeTiming {
-  if (!value) return runtimeTiming;
-  return {
-    ...runtimeTiming,
-    sessionIdleTimeoutSeconds: value.sessionIdleTimeoutSeconds,
-    sessionIdleTimeoutMs: value.sessionIdleTimeoutSeconds * 1000,
-    sessionUpdateAgeSeconds: value.sessionUpdateAgeSeconds,
-    lockTtlSeconds: value.lockTtlSeconds,
-    activityHeartbeatThrottleMs: value.sessionUpdateAgeSeconds * 1000,
-    syncPollingIntervalMs: value.syncPollingIntervalSeconds * 1000,
-  };
-}
-
-function isLoginRedirect(response: Response): boolean {
-  if (!response.redirected) return false;
-  try {
-    return new URL(response.url).pathname === '/login';
-  } catch {
-    return false;
-  }
-}
 
 export function ActivityProvider({
   children,

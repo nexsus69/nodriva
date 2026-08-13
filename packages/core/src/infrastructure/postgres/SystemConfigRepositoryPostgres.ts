@@ -46,7 +46,7 @@ interface PlacementPolicyListRow {
   ruleCount: number;
 }
 
-interface PlacementPolicyRow extends Omit<PlacementPolicyListRow, 'ruleCount'> {}
+type PlacementPolicyRow = Omit<PlacementPolicyListRow, 'ruleCount'>;
 
 interface PlacementRuleRow {
   id: string;

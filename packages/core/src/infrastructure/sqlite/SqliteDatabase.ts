@@ -62,14 +62,16 @@ export class SqliteDatabase {
     sql: string,
     parameters: readonly unknown[] = [],
   ): T | undefined {
-    return this.database.prepare(sql).get(...parameters) as T | undefined;
+    const row = this.database.prepare(sql).get(...parameters) as T | undefined;
+    return row ? { ...row } : undefined;
   }
 
   all<T extends object = Record<string, unknown>>(
     sql: string,
     parameters: readonly unknown[] = [],
   ): T[] {
-    return this.database.prepare(sql).all(...parameters) as T[];
+    const rows = this.database.prepare(sql).all(...parameters) as T[];
+    return rows.map((row) => ({ ...row }));
   }
 
   hasColumn(tableName: string, columnName: string): boolean {

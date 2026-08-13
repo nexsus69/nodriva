@@ -21,6 +21,10 @@ describe('FormRenderer', () => {
     expect(markup).toContain('Admin');
     expect(markup).toContain('type="checkbox"');
     expect(markup).toContain('checked');
+    expect(markup).toContain('for="form-field-email"');
+    expect(markup).toContain('id="form-field-email"');
+    expect(markup).toContain('for="form-field-isAdmin"');
+    expect(markup).toContain('id="form-field-isAdmin"');
   });
 
   it('renders custom children and pending submit state', () => {
@@ -33,11 +37,11 @@ describe('FormRenderer', () => {
         isPending
         pendingLabel="Creazione..."
       >
-        <div>Scope iniziali</div>
+        <div>Ambiti iniziali</div>
       </FormRenderer>,
     );
 
-    expect(markup).toContain('Scope iniziali');
+    expect(markup).toContain('Ambiti iniziali');
     expect(markup).toContain('Creazione...');
     expect(markup).toContain('disabled');
   });

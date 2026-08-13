@@ -55,6 +55,11 @@ esplicitamente `DATABASE_ADAPTER=postgres`. Il realtime server-side è governato
 dalla capability runtime `realtime`, mentre `NEXT_PUBLIC_REALTIME_ENABLED`
 controlla solo la sottoscrizione del client.
 
+`NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS` ha default `1800` (30 minuti) sia
+come build arg sia nel runtime Web. Heartbeat, polling e TTL dei lock sono
+derivati da questo unico valore; modificarlo richiede attualmente la
+ricostruzione dell'immagine.
+
 ## Avvio completo
 
 ```bash

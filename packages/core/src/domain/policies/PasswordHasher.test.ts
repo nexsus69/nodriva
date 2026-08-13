@@ -35,4 +35,10 @@ describe('PasswordHasher', () => {
     const altered = hashed.slice(0, -2) + '00';
     expect(PasswordHasher.verify('password123', altered)).toBe(false);
   });
+
+  it('verifies asynchronously and performs dummy work for a missing account', async () => {
+    const hashed = PasswordHasher.hash('password123');
+    await expect(PasswordHasher.verifyAsync('password123', hashed)).resolves.toBe(true);
+    await expect(PasswordHasher.verifyAsync('password123')).resolves.toBe(false);
+  });
 });

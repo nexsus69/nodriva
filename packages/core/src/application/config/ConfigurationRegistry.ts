@@ -40,7 +40,7 @@ const integerInRange = (min: number, max: number) => (value: number): void => {
 export const sessionIdleTimeoutDefinition: ConfigurationDefinition<number> = {
   key: 'session.idleTimeoutSeconds',
   type: 'integer',
-  defaultValue: 300,
+  defaultValue: 30 * 60,
   source: 'runtime',
   clientVisible: true,
   validate: integerInRange(60, 86_400),

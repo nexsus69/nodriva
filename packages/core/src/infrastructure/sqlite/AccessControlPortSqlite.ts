@@ -21,6 +21,33 @@ export class AccessControlPortSqlite implements AccessControlPort {
   async assertHasPermissionCoverageBatch(user: string, permissions: readonly string[], node: string, propagation: 'self' | 'subtree'): Promise<void> { for (const permission of new Set(permissions)) await this.assertHasPermissionCoverage(user, permission, node, propagation); }
   async assertIsSuperAdmin(user: string): Promise<void> { const row = this.database.get('SELECT 1 FROM users WHERE id=? AND is_active=1 AND is_super_admin=1', [user]); if (!row) throw new ForbiddenError('Only Super Admins can alter the global permission model.', { actorUserId: user }); }
 
+  async canAccessNodeIncludingDeleted(user: string, permission: string, node: string): Promise<boolean> {
+    const identity = this.database.get<{ is_super_admin: number }>('SELECT is_super_admin FROM users WHERE id=? AND is_active=1 AND deleted_at IS NULL', [user]);
+    if (!identity) return false;
+    if (identity.is_super_admin === 1) return true;
+    const target = this.database.get<{ path: string }>('SELECT path FROM nodes WHERE id=?', [node]);
+    const permissionRow = this.database.get<{ id: string }>('SELECT id FROM permissions WHERE permission_key=?', [permission]);
+    if (!target || !permissionRow) return false;
+    const matches = (effect: 'allow' | 'deny') => this.database.get(
+      `SELECT 1
+       FROM node_scope_assignments assignment
+       JOIN role_permissions role_permission ON role_permission.role_id=assignment.role_id
+       JOIN nodes assigned_node ON assigned_node.id=assignment.node_id
+       WHERE assignment.user_id=? AND role_permission.permission_id=? AND assignment.assignment_effect=?
+         AND ((assignment.propagation='self' AND assignment.node_id=?)
+           OR (assignment.propagation='subtree' AND (?=assigned_node.path OR ? LIKE assigned_node.path || '.%')))
+       LIMIT 1`,
+      [user, permissionRow.id, effect, node, target.path, target.path],
+    ) !== undefined;
+    return matches('allow') && !matches('deny');
+  }
+
+  async assertHasPermissionIncludingDeleted(user: string, permission: string, node: string): Promise<void> {
+    if (!(await this.canAccessNodeIncludingDeleted(user, permission, node))) {
+      throw new ForbiddenError(`User '${user}' lacks permission '${permission}' on deleted node '${node}'.`, { actorUserId: user, permissionKey: permission, nodeId: node });
+    }
+  }
+
   private async assert(user: string, permission: string, node: string | null, details: Record<string, unknown>): Promise<void> { if (!(await this.hasPermission(user, permission, node))) throw new ForbiddenError(`User '${user}' lacks permission '${permission}'.`, { actorUserId: user, ...details }); }
   private async assertEntity(user: string, permission: string, entity: string): Promise<void> { const row = this.database.get<{ parent_node_id: string }>('SELECT parent_node_id FROM entities WHERE id=? AND deleted_at IS NULL', [entity]); if (!row) throw new ForbiddenError(`Entity '${entity}' was not found or is deleted.`, { actorUserId: user, entityId: entity }); await this.assert(user, permission, row.parent_node_id, { entityId: entity, parentNodeId: row.parent_node_id }); }
   private async hasPermission(user: string, permission: string, node: string | null, requiredPropagation?: 'self' | 'subtree'): Promise<boolean> {

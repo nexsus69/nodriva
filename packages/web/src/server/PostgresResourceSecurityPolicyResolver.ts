@@ -7,6 +7,7 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     private readonly nodeRepository: NodeRepository,
     private readonly entityRepository: EntityRepository,
     private readonly requireScan = false,
+    private readonly requireEncryption = false,
   ) {}
 
   async resolve(resourceType: 'node' | 'entity', resourceId: string): Promise<ResourceSecurityPolicy> {
@@ -18,7 +19,7 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     ]);
     const mode = nodePolicy;
     return {
-      encryptionEnabled: encryptionGlobal && mode === 'enabled',
+      encryptionEnabled: this.requireEncryption || (encryptionGlobal && mode === 'enabled'),
       antivirusEnabled: antivirusGlobal || this.requireScan,
     };
   }

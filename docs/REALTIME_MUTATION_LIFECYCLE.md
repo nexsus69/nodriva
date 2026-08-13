@@ -42,7 +42,8 @@ policy corrente dell'utente. La connessione Pusher è inoltre autenticata con
 l'utente applicativo: una variazione di scope, ruolo o stato utente invalida la
 cache dopo il commit e termina le connessioni dell'utente, imponendo una nuova
 autorizzazione delle sottoscrizioni. Il client riconcilia canali e virtual root
-con l'intervallo derivato dalla durata di sessione (attualmente 50 secondi) come
+con l'intervallo derivato dalla durata di sessione (attualmente 300 secondi con
+il timeout predefinito di 30 minuti) come
 rete di sicurezza per provider compatibili senza terminazione utenti. Questa
 riconciliazione è passiva e non rinnova la sessione.
 

@@ -64,16 +64,15 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
        FROM entities e JOIN nodes n ON n.id=e.parent_node_id
        LEFT JOIN locks l ON l.resource_type='entity' AND l.resource_id=e.id AND l.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
        WHERE ${conditions.join(' AND ')}
-       ORDER BY n.path ${direction}, e.name ${direction}, e.id ${direction}
-       LIMIT ?`,
-      [...values, Math.max(1, params.limit) + 1],
+       ORDER BY n.path ${direction}, e.name ${direction}, e.id ${direction}`,
+      values,
     );
     const visible: SubtreeEntityDto[] = [];
     for (const row of rows) {
       if (this.accessControl && !(await this.canRead(params.actorUserId, row.parent_node_id))) continue;
       visible.push(this.mapRow(row));
     }
-    const hasMore = visible.length > params.limit || rows.length > params.limit;
+    const hasMore = visible.length > params.limit;
     const items = visible.slice(0, params.limit);
     return {
       items,

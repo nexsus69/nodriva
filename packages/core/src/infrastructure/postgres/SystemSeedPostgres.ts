@@ -546,7 +546,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
       ) VALUES (
         'security', 'session.idleTimeoutSeconds', 'Session inactivity timeout',
         'Maximum inactivity duration in seconds. Heartbeat, polling and lock TTL are derived from this value.',
-        'integer'::setting_value_type_enum, '300', TRUE, TRUE
+        'integer'::setting_value_type_enum, '1800', TRUE, TRUE
       ), (
         'security', 'attachments.antivirusEnabled', 'Real-time attachment antivirus',
         'Scan uploaded attachments with the configured antivirus service before storage.',

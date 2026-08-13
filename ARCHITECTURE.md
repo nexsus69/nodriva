@@ -109,8 +109,8 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 | `TypeDefinitionAdminRepositoryPostgres` | Infrastructure | `pg`, application port contract | direct UI use |
 | `SchemaInvalidationAdapter` | Infrastructure | `SchemaRegistry` | running invalidation before commit |
 | `EntitySchemaRegistryBridge` | Infrastructure | `SchemaRegistry` | new business logic |
-| Future `StorageTableManagementPort` | Application port | — | becoming a generic migration framework |
-| Future PostgreSQL DDL adapter | Infrastructure | DDL port, sanitizer/mapping helpers | arbitrary identifier interpolation |
+| `StorageTableManagementPort` | Application port | — | becoming a generic migration framework |
+| `StorageTableManagementPostgres` / `StorageTableManagementSqlite` | Infrastructure | DDL port, metadata, identifier validation | arbitrary identifier interpolation |
 | Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |
 
@@ -140,12 +140,13 @@ persisted by either database adapter.
 
 SQLite and PostgreSQL implement the same application ports. Shared contract
 tests exercise observable behaviour with a real SQLite database and the
-dedicated PostgreSQL integration database. The initial runtime-schema contract
-covers field ordering, constraints, managed enums, encryption metadata and
-inactive type visibility. The shared ACL contract also verifies contradictory
-deny rejection, coverage loss and transitive revocation across a delegation
-chain. Adapter-specific tests supplement these contracts for database-native
-details.
+dedicated PostgreSQL integration database. Besides runtime schema and ACL
+semantics, the parity suite covers node/entity round trips, ordering,
+optimistic concurrency, subtree delete/restore, path reuse, transactions,
+locks, attachment quota and upload rate limiting. A browser E2E starts both
+persistence profiles with isolated data and compares navigation, mutations,
+detail views and audit outcomes across the full admin panel. Adapter-specific
+tests supplement these contracts for database-native details.
 
 ### Identity, scope and delegated permissions
 
@@ -191,6 +192,15 @@ Schema reconstruction is driven by relational type definitions stored in dedicat
 ### Frontend composition
 
 The frontend must be configurable. Tree, list, detail, breadcrumb, and related components are not fixed architectural primitives; they are configurable consumers of a shared read model/cache.[cite:9][cite:7][cite:37]
+
+App Router `page.tsx` and `layout.tsx` files are composition boundaries: they
+resolve route parameters and assemble a screen, but do not own state, effects,
+reducers or transitions. View state and orchestration belong in dedicated
+hooks/controllers; rendering belongs in screen and section components. The Web
+architecture test enforces a 60-line ceiling and rejects React state/effect
+hooks in route files. Dynamic node/entity forms share coercion, initialization,
+attachment validation and upload helpers instead of duplicating those rules in
+each route.
 
 ### Type administration and DDL
 

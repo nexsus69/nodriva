@@ -234,5 +234,24 @@ describe('Architecture Compliance - Phase 1', () => {
       expect(nodePageContent).not.toContain('ReadModelContext');
       expect(nodePageContent).not.toContain('useReadModel');
     });
+
+    it('keeps route files as composition boundaries', () => {
+      const appDirectory = path.join(__dirname, '../app');
+      const routeFiles: string[] = [];
+      const visit = (directory: string): void => {
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+          const entryPath = path.join(directory, entry.name);
+          if (entry.isDirectory()) visit(entryPath);
+          else if (entry.name === 'page.tsx' || entry.name === 'layout.tsx') routeFiles.push(entryPath);
+        }
+      };
+      visit(appDirectory);
+
+      for (const routeFile of routeFiles) {
+        const source = fs.readFileSync(routeFile, 'utf8');
+        expect(source.split('\n').length, path.relative(appDirectory, routeFile)).toBeLessThanOrEqual(60);
+        expect(source, path.relative(appDirectory, routeFile)).not.toMatch(/\buse(?:State|Effect|Reducer|Transition)\b/);
+      }
+    });
   });
 });

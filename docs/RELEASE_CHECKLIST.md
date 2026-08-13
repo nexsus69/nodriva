@@ -19,6 +19,8 @@ gli allegati o i secret dell'ambiente di sviluppo.
 - [ ] Suite di integrazione PostgreSQL eseguita contro un database con nome
       dedicato `*_test`.
 - [ ] E2E autenticato eseguito con utenti e dati temporanei.
+- [ ] `pnpm e2e:admin-parity` eseguito: sezioni, mutation, dettagli e audit
+      amministrativi equivalenti su SQLite e PostgreSQL.
 - [ ] Verificati login, ACL, scope `self/subtree`, deny, lock concorrenti,
       revoca realtime e accessi diretti non autorizzati.
 - [ ] Verificati upload, download, antivirus, cifratura e rimozione allegati

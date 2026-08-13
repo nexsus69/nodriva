@@ -2,6 +2,25 @@
 
 Questo documento traccia i trade-off architetturali noti, accettati durante lo sviluppo, che potrebbero richiedere ottimizzazioni future.
 
+## Coordinatori frontend complessi
+
+Il refactoring generale ha reso `page.tsx` e `layout.tsx` semplici boundary di
+composizione e ha separato screen, sezioni e hook/controller. Tre moduli
+infrastrutturali restano intenzionalmente separati ma ancora densi:
+
+- `ActivityProvider` coordina attività umana, heartbeat, scadenza, visibilità e
+  lock: priorità medio-alta per separare protocollo, stato e binding DOM;
+- `VirtualGroupedTable` coordina virtualizzazione, sentinel, scroll e resa
+  responsive: priorità medio-alta, con test browser prima di modificare il
+  lifecycle della finestra;
+- `NodeTree` combina caricamento lazy, espansione e rendering ricorsivo:
+  priorità medio-bassa finché non emergono regressioni o nuove funzionalità.
+
+La dimensione da sola non dimostra un difetto. Questi refactoring vanno
+eseguiti per responsabilità e invarianti osservabili, preservando i test di
+sessione/lock, scroll/resize e navigazione/realtime; non rientrano nel limite
+automatico di 60 righe riservato alle route.
+
 ## Risolto in P2: Read Access Control & LTree Subquery
 
 **Contesto:**

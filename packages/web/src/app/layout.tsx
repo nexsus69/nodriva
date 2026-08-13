@@ -4,8 +4,8 @@ import { CacheInitializer } from "./components/CacheInitializer";
 import { RealtimeDebugOverlayHost } from "./components/realtime/RealtimeDebugOverlayHost";
 
 export const metadata: Metadata = {
-  title: "Dashboard Ultimate - Dynamic Hierarchy Platform",
-  description: "Advanced hierarchical entity management platform with dynamic type system and transactional storage.",
+  title: "Dashboard Ultimate - Piattaforma gerarchica dinamica",
+  description: "Piattaforma per la gestione gerarchica di entità, con tipi dinamici e archiviazione transazionale.",
 };
 
 import { auth } from "../auth";
@@ -24,7 +24,7 @@ export default async function RootLayout({
   const session = await auth();
 
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="it" className="h-full antialiased">
       <body className="min-h-full bg-[#f4f7fb] text-slate-900 antialiased flex flex-col font-sans">
         <SessionProviderWrapper session={session}>
           <ActivityProvider initialExpires={session?.expires}>

@@ -67,8 +67,18 @@ Test browser autenticati, quando sono disponibili le variabili necessarie:
 E2E_RUN=true E2E_EMAIL='utente@example.com' E2E_PASSWORD='password' E2E_USER_ID='user-id' E2E_BASE_URL='http://127.0.0.1:3001' pnpm e2e
 ```
 
-Il test amministrativo apre due contesti Chromium distinti e verifica lock e
-propagazione realtime.
+La parità osservabile del pannello amministrativo fra SQLite e PostgreSQL si
+verifica invece con un database PostgreSQL temporaneo derivato da
+`dashboard_test`, un file SQLite temporaneo e due server production isolati:
+
+```bash
+pnpm e2e:admin-parity
+```
+
+Lo scenario visita tutte le sezioni amministrative, crea utenti, ruoli e tipi,
+apre i relativi dettagli e confronta gli audit prodotti dai due adapter. I test
+di lock concorrente e propagazione realtime restano nella suite E2E autenticata
+generale.
 
 La pipeline GitHub Actions esegue automaticamente installazione riproducibile,
 typecheck, lint, suite core/web e build production. I test E2E autenticati e le
@@ -127,4 +137,5 @@ DATABASE_ADAPTER=sqlite SQLITE_DATABASE_PATH=./data/dashboard.sqlite SEED_ADMIN_
 
 Il valore predefinito resta PostgreSQL. SQLite usa `parent_id` e closure table
 al posto di `ltree`, mantenendo i port applicativi per transazioni, ACL, lock,
-audit, revisioni, tipi, sessioni, cifratura e outbox.
+audit, revisioni, tipi, sessioni, cifratura e outbox. Il timeout di inattività
+predefinito è 1800 secondi (30 minuti) in entrambi i profili.

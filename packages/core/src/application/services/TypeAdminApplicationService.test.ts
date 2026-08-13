@@ -14,7 +14,6 @@ import type { CreateTypeCommand } from '../commands/TypeAdminCommands.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import {
   TypeAdminValidationError,
-  TypeDefinitionNotFoundError,
   TypeKeyAlreadyExistsError,
   TypeFieldKeyAlreadyExistsError,
   TypeFieldColumnNameAlreadyExistsError,

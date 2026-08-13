@@ -3,6 +3,7 @@ import crypto from 'crypto';
 export class PasswordHasher {
   private static readonly KEY_LENGTH = 64;
   private static readonly SALT_LENGTH = 16;
+  private static readonly DUMMY_HASH = `${'0'.repeat(32)}:${'0'.repeat(128)}`;
   
   /**
    * Hashes a plaintext password using scryptSync.
@@ -32,7 +33,25 @@ export class PasswordHasher {
       
       if (storedBuffer.length !== computedBuffer.length) return false;
       return crypto.timingSafeEqual(storedBuffer, computedBuffer);
-    } catch (err) {
+    } catch {
+      return false;
+    }
+  }
+
+  static async verifyAsync(password: string, storedHash?: string): Promise<boolean> {
+    const serializedHash = storedHash ?? this.DUMMY_HASH;
+    const [salt, hash] = serializedHash.split(':');
+    const safeSalt = salt || '0'.repeat(32);
+    const expected = hash && /^[0-9a-f]+$/i.test(hash) ? Buffer.from(hash, 'hex') : Buffer.alloc(this.KEY_LENGTH);
+    try {
+      const computed = await new Promise<Buffer>((resolve, reject) => {
+        crypto.scrypt(password, safeSalt, this.KEY_LENGTH, (error, derivedKey) => {
+          if (error) reject(error);
+          else resolve(derivedKey);
+        });
+      });
+      return expected.length === computed.length && crypto.timingSafeEqual(expected, computed);
+    } catch {
       return false;
     }
   }

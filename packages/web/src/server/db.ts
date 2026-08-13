@@ -61,6 +61,7 @@ import {
   defaultConfigurationRegistry,
   SqliteInfrastructure,
   FieldEncryptionServiceSqlite,
+  AttachmentRateLimitPortPostgres,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -70,7 +71,6 @@ import crypto from 'crypto';
 import { LocalAttachmentStorage } from './LocalAttachmentStorage';
 import { DeletedResourcePurgeService } from './DeletedResourcePurgeService';
 import type { AttachmentScannerPort } from '@dashboard/core';
-import { AttachmentRateLimiter } from './AttachmentRateLimiter';
 import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
 import { PostgresResourceSecurityPolicyResolver } from './PostgresResourceSecurityPolicyResolver';
 import {
@@ -255,13 +255,16 @@ export const deletedResourcePurgeService = new DeletedResourcePurgeService(
   auditPort,
   attachmentStorage,
 );
-export const attachmentRateLimiter = new AttachmentRateLimiter();
+export const attachmentRateLimiter = sqliteMode
+  ? sqliteInfrastructure!.attachmentRateLimitPort
+  : new AttachmentRateLimitPortPostgres(pgExecutor!);
 export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicyResolver(
   attachmentPolicyRepository,
   configService,
   nodeRepository,
   entityRepository,
   antivirusValues.requireScan === true,
+  attachmentStorageValues.encryptionRequired === true,
 );
 export const attachmentScanner: AttachmentScannerPort | undefined = typeof antivirusValues.host === 'string'
   && typeof antivirusValues.port === 'number'

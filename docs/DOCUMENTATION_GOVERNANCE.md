@@ -23,3 +23,8 @@ history.
 - Realtime lifecycle and operations: `docs/REALTIME_MUTATION_LIFECYCLE.md`
 - Database portability: `docs/ARCHITECTURAL_PORTABILITY.md`
 - Frontend data flow: `docs/FRONTEND_DATA_FLOW_STANDARD.md`
+- Route composition guardrails: `packages/web/src/server/ArchitectureCompliance.test.ts`
+- Adapter parity: `packages/core/src/infrastructure/PersistenceAdapterParityPostgres.test.ts`
+  and `e2e/admin-adapter-parity.spec.ts`
+- Runtime timing: `packages/web/src/config/runtimeTiming.ts` and the
+  `session.idleTimeoutSeconds` system setting seed/migrations

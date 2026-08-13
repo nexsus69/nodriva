@@ -209,6 +209,10 @@ export class AccessControlPortPostgres implements AccessControlPort {
     }
   }
 
+  async assertHasPermissionIncludingDeleted(actorUserId: string, permissionKey: string, nodeId: string): Promise<void> {
+    return this.assertHasPermission(actorUserId, permissionKey, nodeId);
+  }
+
   async assertHasPermissionCoverage(
     actorUserId: string,
     permissionKey: string,

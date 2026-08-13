@@ -106,7 +106,9 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       await executor.query("DELETE FROM entity_type_fields WHERE entity_type_id = $1", [testEntityTypeCustomerId]);
       await executor.query("DELETE FROM entity_types WHERE id = $1", [testEntityTypeCustomerId]);
       await executor.query("DROP TABLE IF EXISTS entity_integration_customer_info CASCADE");
-    } catch {}
+    } catch {
+      // Cleanup is best-effort when the integration database is unavailable.
+    }
     if (pool) {
       await pool.end();
     }
@@ -229,6 +231,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
         eventId, occurredAt: new Date().toISOString(), resourceType: 'node', resourceId: rootNodeId,
         changeType: 'updated', actorUserId: testUserId, scopeNodeIds: [rootNodeId], directScopeNodeIds: [rootNodeId],
       });
+      await executor.query("UPDATE realtime_event_outbox SET created_at = '-infinity'::timestamptz WHERE event_id = $1", [eventId]);
       const claimed = await realtimeOutbox.claimPending(workerId, 1);
       expect(claimed.map((event) => event.eventId)).toContain(eventId);
 

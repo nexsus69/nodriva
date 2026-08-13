@@ -8,10 +8,10 @@ describe('ConfigService', () => {
     const repository: ConfigurationRepository = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = new ConfigService(repository, new ConfigurationRegistry([sessionIdleTimeoutDefinition]));
     await expect(service.getSessionTimingPolicy()).resolves.toEqual({
-      sessionIdleTimeoutSeconds: 300,
-      sessionUpdateAgeSeconds: 50,
-      lockTtlSeconds: 100,
-      syncPollingIntervalSeconds: 50,
+      sessionIdleTimeoutSeconds: 1800,
+      sessionUpdateAgeSeconds: 300,
+      lockTtlSeconds: 600,
+      syncPollingIntervalSeconds: 300,
     });
   });
 

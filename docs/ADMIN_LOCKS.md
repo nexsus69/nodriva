@@ -40,4 +40,6 @@ rifiutare comunque ogni mutation non autorizzata.
 
 I test automatici del core coprono ownership, conflitto, audit e routing dei
 canali amministrativi; i test browser devono essere eseguiti con sessioni
-autenticate non scadute.
+autenticate non scadute. `pnpm e2e:admin-parity` verifica inoltre che tutte le
+sezioni amministrative e le mutation principali producano lo stesso esito sui
+profili SQLite e PostgreSQL; non sostituisce il test concorrente a due sessioni.

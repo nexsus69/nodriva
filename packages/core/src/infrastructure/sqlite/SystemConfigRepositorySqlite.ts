@@ -14,7 +14,7 @@ export class SystemConfigRepositorySqlite implements SystemConfigRepository {
   async listCapabilities(): Promise<RuntimeCapabilityDto[]> {
     return this.database.all<CapabilityRow>(`SELECT c.capability_key AS capabilityKey,c.capability_key AS id,COALESCE(m.name,c.capability_key) AS name,COALESCE(m.description,'') AS description,c.default_status AS defaultStatus,COALESCE(o.status,c.default_status) AS currentStatus,COALESCE(m.is_system,0) AS isSystem,COALESCE(m.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS updatedAt FROM runtime_capabilities c LEFT JOIN runtime_capability_metadata m ON m.capability_key=c.capability_key LEFT JOIN runtime_capability_overrides o ON o.capability_key=c.capability_key AND o.scope_key='global' ORDER BY name`).map((row) => ({ ...row, isSystem: row.isSystem === 1, updatedAt: new Date(row.updatedAt).toISOString() }));
   }
-  async updateCapabilityStatus(key: string, status: CapabilityStatus, _actorId: string): Promise<string | null> {
+  async updateCapabilityStatus(key: string, status: CapabilityStatus): Promise<string | null> {
     if (!this.database.get<{ capability_key: string }>('SELECT capability_key FROM runtime_capabilities WHERE capability_key=?', [key])) return null;
     this.database.run('INSERT INTO runtime_capability_overrides(capability_key,scope_key,status) VALUES(?,?,?) ON CONFLICT(capability_key,scope_key) DO UPDATE SET status=excluded.status', [key, 'global', status]);
     return key;
@@ -22,7 +22,7 @@ export class SystemConfigRepositorySqlite implements SystemConfigRepository {
   async listSettings(): Promise<SystemSettingDto[]> {
     return this.database.all<SettingRow>(`SELECT setting_key AS settingKey,setting_key AS id,'system' AS category,setting_key AS displayName,'' AS description,value_type AS valueType,value_text AS valueText,0 AS isSecret,0 AS isSystem,row_version AS rowVersion,updated_at AS updatedAt FROM system_settings WHERE deleted_at IS NULL ORDER BY setting_key`).map((row) => ({ ...row, isSecret: false, isSystem: false, rowVersion: Number(row.rowVersion), updatedAt: new Date(row.updatedAt).toISOString() }));
   }
-  async updateSetting(key: string, value: string, expected: number, _actorId: string): Promise<string | null> {
+  async updateSetting(key: string, value: string, expected: number): Promise<string | null> {
     const result = this.database.run(`UPDATE system_settings SET value_text=?,row_version=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE setting_key=? AND row_version=? AND deleted_at IS NULL`, [value, expected + 1, key, expected]);
     if (result.changes) return key;
     const current = this.database.get<{ row_version: number }>('SELECT row_version FROM system_settings WHERE setting_key=?', [key]);

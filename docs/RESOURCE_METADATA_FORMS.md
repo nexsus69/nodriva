@@ -53,8 +53,8 @@ pagina dell’entità target anche quando questa appartiene a un altro nodo.
 
 La primitiva `ResourceAttachmentReference` conserva i metadati dell’allegato:
 risorsa, campo, nome, MIME type, dimensione, chiave di storage, checksum e
-autore. Il file dovrà essere caricato in uno storage dedicato e il database
-dovrà conservare solo questi metadati. Il provider locale salva i contenuti
+autore. Il file viene caricato in uno storage dedicato e il database conserva
+solo questi metadati. Il provider locale salva i contenuti
 fuori dal database e applica un checksum SHA-256. In produzione va impostato
 `ATTACHMENTS_ENCRYPTION_KEY` con una chiave AES-256 casuale in formato
 esadecimale; `ATTACHMENTS_REQUIRE_ENCRYPTION=true` fa fallire l’avvio se la
@@ -74,8 +74,10 @@ antivirus dovrà invece essere configurabile con host, porta, schema, timeout,
 credenziali/riferimenti ai secret e comportamento fail-closed; il server Web
 potrà quindi usare un ClamAV remoto o un altro adapter senza dipendere da
 Docker locale.
-Il rate limit integrato è per-processo: con più istanze va sostituito con un
-limitatore condiviso.
+Il rate limit degli upload usa `AttachmentRateLimitPort`: PostgreSQL conserva
+gli eventi in `attachment_upload_events`, mentre SQLite usa il proprio store
+locale. Più repliche Web che condividono PostgreSQL condividono quindi anche la
+finestra; istanze SQLite distinte restano intenzionalmente isolate.
 
 La cifratura dei nuovi allegati è controllata dal setting globale
 `attachments.encryptionEnabled`. Il caricamento dei file resta sempre
@@ -110,6 +112,9 @@ come `application/octet-stream` con `nosniff`, CSP, CORP e cache privata.
 `FormRenderer` rende i controlli comuni e gestisce il submit. Il coordinator
 della pagina deve fornire valori iniziali, opzioni per enum/relazioni e la
 mutazione; autorizzazioni e validazione restano responsabilità del backend.
+`dynamicResourceForm` centralizza inoltre inizializzazione e coercizione del
+payload, riconoscimento dei campi allegato, validazione e upload post-creazione
+per evitare divergenze fra form nodo ed entità.
 
 Per aggiungere un nuovo tipo occorre aggiornare nello stesso cambiamento:
 

@@ -35,18 +35,8 @@ export class AuthApplicationService {
       if (user) await this.audit?.record(null, 'auth.login_rate_limited', 'user', user.id, null, null, null);
       throw error;
     }
-    if (!user) {
-      await Promise.all(subjects.map((subject) => this.loginRateLimit?.recordFailure(subject, now)));
-      throw new UnauthorizedError('Invalid credentials');
-    }
-
-    if (!user.isActive) {
-      await Promise.all(subjects.map((subject) => this.loginRateLimit?.recordFailure(subject, now)));
-      throw new UnauthorizedError('Invalid credentials');
-    }
-
-    const isValid = PasswordHasher.verify(plainTextPassword, user.passwordHash);
-    if (!isValid) {
+    const isValid = await PasswordHasher.verifyAsync(plainTextPassword, user?.passwordHash);
+    if (!user || !user.isActive || !isValid) {
       await Promise.all(subjects.map((subject) => this.loginRateLimit?.recordFailure(subject, now)));
       throw new UnauthorizedError('Invalid credentials');
     }

@@ -26,7 +26,7 @@ function groupSubtreeItems<T extends GroupableItem>(items: T[]) {
 }
 
 describe('useSubtreeGrouping (Pure Grouping Unit Tests)', () => {
-  it('raggruppa correttamente le entità per nodeId mantenendo l ordine originale', () => {
+  it("raggruppa correttamente le entità per nodeId mantenendo l'ordine originale", () => {
     const items: TestItem[] = [
       { id: '1', nodeId: 'n-1', nodeName: 'Node 1', nodePath: 'path.1', nodeDepth: 0, title: 'Item 1' },
       { id: '2', nodeId: 'n-1', nodeName: 'Node 1', nodePath: 'path.1', nodeDepth: 0, title: 'Item 2' },

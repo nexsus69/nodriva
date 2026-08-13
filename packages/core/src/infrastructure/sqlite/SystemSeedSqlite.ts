@@ -49,6 +49,10 @@ export class SystemSeedSqlite implements SystemSeedPort {
       this.database.run('INSERT INTO role_permissions(role_id,permission_id) VALUES(?,?)', [ADMIN_ROLE_ID, permissionId]);
     }
     this.database.run('INSERT INTO user_roles(user_id,role_id) VALUES(?,?)', [ADMIN_ID, ADMIN_ROLE_ID]);
+    this.database.run(
+      'INSERT INTO system_settings(setting_key,value_type,value_text,row_version,updated_at) VALUES(?,?,?,?,?)',
+      ['session.idleTimeoutSeconds', 'integer', String(30 * 60), 1, now],
+    );
     for (const [key, name, description] of [
       ['hierarchical_structure', 'Hierarchical Tree', 'Node tree structure'],
       ['entities_structure', 'Entity Storage', 'Dynamic entities structure'],

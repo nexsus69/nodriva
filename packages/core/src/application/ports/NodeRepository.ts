@@ -26,7 +26,7 @@ export interface NodeRepository {
   moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void>;
   listSubtree(nodeId: string): Promise<Node[]>;
   existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean>;
-  /** Returns the active node ids containing the node itself and all its ancestors. */
+  /** Returns the active node itself followed by its ancestors, from nearest to root. */
   listAncestorIds(nodeId: string): Promise<string[]>;
   /** Resolves ancestors for multiple nodes with one repository operation. */
   listAncestorIdsForNodes?(nodeIds: string[]): Promise<Map<string, string[]>>;

@@ -29,8 +29,8 @@ import { SystemConfigRepositorySqlite } from './SystemConfigRepositorySqlite.js'
 import { SecurityRepositorySqlite } from './SecurityRepositorySqlite.js';
 import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js';
 import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
-import { FieldEncryptionServiceSqlite } from './FieldEncryptionServiceSqlite.js';
 import { SystemSeedSqlite } from './SystemSeedSqlite.js';
+import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -65,6 +65,7 @@ export class SqliteInfrastructure {
   readonly entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
   readonly systemSeedService: SystemSeedSqlite;
+  readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -72,7 +73,7 @@ export class SqliteInfrastructure {
     this.transactionPort = new TransactionPortSqlite(this.database);
     this.accessControlPort = new AccessControlPortSqlite(this.database);
     this.nodeRepository = new NodeRepositorySqlite(this.database, this.accessControlPort);
-    this.entityRepository = new EntityRepositorySqlite(this.database);
+    this.entityRepository = new EntityRepositorySqlite(this.database, this.accessControlPort);
     this.nodeTypeRepository = new NodeTypeRepositorySqlite(this.database);
     this.entityTypeRepository = new EntityTypeRepositorySqlite(this.database);
     this.lockRepository = new LockRepositorySqlite(this.database);
@@ -87,6 +88,7 @@ export class SqliteInfrastructure {
     this.userRepository = new UserRepositorySqlite(this.database);
     this.storageTableManagement = new StorageTableManagementSqlite(this.database);
     this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
+    this.attachmentRateLimitPort = new AttachmentRateLimitPortSqlite(this.database);
     this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
     this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
     this.typeDefinitionReader = new TypeDefinitionReaderSqlite(this.database);

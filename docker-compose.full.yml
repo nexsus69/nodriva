@@ -72,6 +72,7 @@ services:
         NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-localhost}
         NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-6001}
         NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-http}
+        NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
@@ -88,6 +89,7 @@ services:
       REQUIRE_RESTRICTED_DB_ROLE: "true"
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must be set}
+      NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
       NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-true}
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
@@ -103,7 +105,9 @@ services:
       PUSHER_SECRET: ${PUSHER_SECRET:?PUSHER_SECRET must be set}
       CLAMAV_HOST: clamav
       CLAMAV_PORT: "3310"
+      ATTACHMENTS_REQUIRE_SCAN: "true"
       ATTACHMENTS_ROOT: /app/data/attachments
+      ATTACHMENTS_REQUIRE_ENCRYPTION: "true"
       ATTACHMENTS_ENCRYPTION_KEY: ${ATTACHMENTS_ENCRYPTION_KEY:?ATTACHMENTS_ENCRYPTION_KEY must be set}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY must be set}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY must be set}
@@ -157,7 +161,7 @@ services:
     volumes:
       - dashboard_full_prometheus:/prometheus
     ports:
-      - "9090:9090"
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:9090:9090"
 
   backup:
     image: postgres:17
@@ -192,8 +196,8 @@ services:
       soketi:
         condition: service_healthy
     ports:
-      - "3001:80"
-      - "6001:6001"
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:3001:80"
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:6001:6001"
     volumes:
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - dashboard_full_caddy_data:/data

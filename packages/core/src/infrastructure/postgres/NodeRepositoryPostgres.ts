@@ -1,7 +1,7 @@
 import type { DeletedNodeSummary, NodeRepository } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import type { PgExecutor } from './PgExecutor.js';
-import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
+import { NodeNotFoundError, NodePathCollisionError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import type { FieldEncryptionService } from './FieldEncryptionService.js';
@@ -135,23 +135,30 @@ export class NodeRepositoryPostgres implements NodeRepository {
         created_at, updated_at, deleted_at, created_by, updated_by, payload
       ) VALUES ($1, $2, $3::ltree, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     `;
-    await this.executor.query(query, [
-      node.id,
-      node.parentId,
-      node.path,
-      node.pathLabel,
-      node.depth,
-      node.nodeTypeId,
-      node.name,
-      node.description,
-      node.rowVersion,
-      node.createdAt,
-      node.updatedAt,
-      node.deletedAt,
-      node.createdBy,
-      node.updatedBy,
-      payload,
-    ]);
+    try {
+      await this.executor.query(query, [
+        node.id,
+        node.parentId,
+        node.path,
+        node.pathLabel,
+        node.depth,
+        node.nodeTypeId,
+        node.name,
+        node.description,
+        node.rowVersion,
+        node.createdAt,
+        node.updatedAt,
+        node.deletedAt,
+        node.createdBy,
+        node.updatedBy,
+        payload,
+      ]);
+    } catch (error: unknown) {
+      if (typeof error === 'object' && error !== null && Reflect.get(error, 'code') === '23505' && Reflect.get(error, 'constraint') === 'uq_nodes_parent_id_path_label_active') {
+        throw new NodePathCollisionError(node.parentId, node.pathLabel, error);
+      }
+      throw error;
+    }
   }
 
   async update(node: Node): Promise<void> {
@@ -391,7 +398,14 @@ export class NodeRepositoryPostgres implements NodeRepository {
       'SELECT id FROM nodes WHERE id = $1 AND deleted_at IS NOT NULL AND deletion_batch_id = $3 AND row_version = $2',
       [nodeId, expectedRowVersion, deletionBatchId],
     );
-    if (root.rows.length === 0) throw new NodeNotFoundError(nodeId);
+    if (root.rows.length === 0) {
+      const current = await this.executor.query<{ row_version: number; deleted_at: Date | null; deletion_batch_id: string | null }>(
+        'SELECT row_version, deleted_at, deletion_batch_id FROM nodes WHERE id = $1', [nodeId],
+      );
+      const row = current.rows[0];
+      if (!row || row.deleted_at === null || row.deletion_batch_id !== deletionBatchId) throw new NodeNotFoundError(nodeId);
+      throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
+    }
 
     // The batch is the immutable membership set of the deleted subtree. No
     // recursive traversal is needed during restore, and independently deleted

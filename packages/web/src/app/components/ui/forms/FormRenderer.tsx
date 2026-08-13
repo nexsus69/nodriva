@@ -33,13 +33,14 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {fields.map((field) => {
+        const fieldId = `form-field-${field.name}`;
         if (field.type === 'boolean') {
-          return <label key={field.name} className="flex items-center gap-2 pt-2 text-xs text-slate-300"><input type="checkbox" checked={Boolean(values[field.name])} onChange={(event) => onChange(field.name, event.target.checked)} className="rounded bg-slate-900 border-slate-800 text-indigo-600 focus:ring-indigo-500" />{field.label}</label>;
+          return <label key={field.name} htmlFor={fieldId} className="flex items-center gap-2 pt-2 text-xs text-slate-300"><input id={fieldId} name={field.name} type="checkbox" checked={Boolean(values[field.name])} onChange={(event) => onChange(field.name, event.target.checked)} className="rounded bg-slate-900 border-slate-800 text-indigo-600 focus:ring-indigo-500" />{field.label}</label>;
         }
 
         return (
           <div key={field.name}>
-            <label className="block text-xs font-medium text-slate-300 mb-1">{field.label}{field.required ? ' *' : ''}</label>
+            <label htmlFor={field.type === 'attachment' ? undefined : fieldId} className="block text-xs font-medium text-slate-300 mb-1">{field.label}{field.required ? ' *' : ''}</label>
             {field.type === 'attachment' ? (
               <AttachmentInput
                 kind={field.kind}
@@ -50,16 +51,16 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
                 onChange={(files) => onChange(field.name, files)}
               />
             ) : field.type === 'select' ? (
-              <select required={field.required} value={String(values[field.name] ?? '')} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName}>
+              <select id={fieldId} name={field.name} required={field.required} value={String(values[field.name] ?? '')} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName}>
                 <option value="">Seleziona un valore</option>
                 {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             ) : field.type === 'password' ? (
-              <PasswordInput required={field.required} autoComplete={field.autoComplete} value={String(values[field.name] ?? '')} onChange={(value) => onChange(field.name, value)} placeholder={field.placeholder} />
+              <PasswordInput id={fieldId} name={field.name} required={field.required} autoComplete={field.autoComplete} value={String(values[field.name] ?? '')} onChange={(value) => onChange(field.name, value)} placeholder={field.placeholder} />
             ) : field.type === 'textarea' ? (
-              <textarea required={field.required} rows={field.rows ?? 3} value={String(values[field.name] ?? '')} placeholder={field.placeholder} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
+              <textarea id={fieldId} name={field.name} required={field.required} rows={field.rows ?? 3} value={String(values[field.name] ?? '')} placeholder={field.placeholder} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
             ) : (
-              <input required={field.required} type={field.type} min={field.type === 'number' ? field.min : undefined} step={field.type === 'number' ? field.step : undefined} value={String(values[field.name] ?? '')} placeholder={field.placeholder} autoComplete={field.autoComplete} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
+              <input id={fieldId} name={field.name} required={field.required} type={field.type} min={field.type === 'number' ? field.min : undefined} step={field.type === 'number' ? field.step : undefined} value={String(values[field.name] ?? '')} placeholder={field.placeholder} autoComplete={field.autoComplete} onChange={(event) => onChange(field.name, event.target.value)} className={fieldClassName} />
             )}
           </div>
         );

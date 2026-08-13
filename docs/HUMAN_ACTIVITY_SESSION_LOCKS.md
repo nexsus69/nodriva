@@ -25,6 +25,10 @@ Con il valore predefinito attuale di 1800 secondi:
 | Polling di riconciliazione | sessione / 6 | 300 s (5 min) |
 | TTL lock | 2 × heartbeat | 600 s (10 min) |
 
+I seed PostgreSQL e SQLite usano lo stesso default. La migrazione
+`033_session_idle_timeout_30_minutes.sql` riallinea anche le installazioni
+PostgreSQL esistenti.
+
 Il TTL del lock è quindi più corto della sessione. Nel normale flusso di
 inattività, quando la sessione scade non può esserci un suo lock ancora attivo:
 l'ultimo lock è già scaduto. Può rimanere temporaneamente una riga scaduta nel

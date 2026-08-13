@@ -49,7 +49,7 @@ interface RoleDetailRow {
   updatedAt: Date;
 }
 
-interface PermissionRow extends PermissionDto {}
+type PermissionRow = PermissionDto;
 
 interface ScopeAssignmentRow {
   id: string;

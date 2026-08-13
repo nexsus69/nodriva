@@ -13,7 +13,9 @@ export class DeletedResourcePurgeService {
     const storageKeys = await this.transaction.runInTransaction(async () => {
       const context = await this.repository.getEntityPurgeContext(entityId);
       if (!context) throw new Error('Deleted entity not found.');
-      await this.accessControl.assertHasPermission(actorUserId, 'entity.purge', context.parentNodeId);
+      const assertPurge = this.accessControl.assertHasPermissionIncludingDeleted?.bind(this.accessControl)
+        ?? this.accessControl.assertHasPermission.bind(this.accessControl);
+      await assertPurge(actorUserId, 'entity.purge', context.parentNodeId);
       const entity = await this.repository.purgeEntity(entityId);
       await this.audit.record(actorUserId, 'entity.purge', 'entity', entityId, context.parentNodeId, { name: context.name }, null);
       return entity.storageKeys;
@@ -32,7 +34,9 @@ export class DeletedResourcePurgeService {
     const storageKeys = await this.transaction.runInTransaction(async () => {
       const context = await this.repository.getNodePurgeContext(nodeId);
       if (!context) throw new Error('Deleted node subtree not found.');
-      await this.accessControl.assertHasPermission(actorUserId, 'node.purge', nodeId);
+      const assertPurge = this.accessControl.assertHasPermissionIncludingDeleted?.bind(this.accessControl)
+        ?? this.accessControl.assertHasPermission.bind(this.accessControl);
+      await assertPurge(actorUserId, 'node.purge', nodeId);
       const node = await this.repository.purgeNodeSubtree(nodeId);
       await this.audit.record(actorUserId, 'node.purge', 'node', nodeId, context.parentNodeId, { name: context.name, deletionBatchId: context.deletionBatchId }, null);
       return node.storageKeys;

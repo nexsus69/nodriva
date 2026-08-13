@@ -1,5 +1,9 @@
 # Prompt per audit completo del progetto
 
+> **Template storico.** Commit, conteggi e stato iniziale riportati nel prompt
+> appartengono all'audit del 12 agosto 2026 e non descrivono il repository
+> corrente.
+
 ```text
 Analizza integralmente il repository `/home/marco/docker_container/dashboard_ultimate` come una code review tecnica e operativa prima di iniziare P3.
 

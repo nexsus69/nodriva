@@ -14,9 +14,7 @@ import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
 
 import type { CreateEntityCommand, UpdateEntityCommand, DeleteEntityCommand } from '../commands/EntityCommands.js';
-import { CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import {
-  EntityNotFoundError,
   EntityTypeNotFoundError,
   EntitySchemaValidationError,
   EntityCommandValidationError,

@@ -36,5 +36,13 @@ pnpm --filter @dashboard/web build
 ```
 
 Le verifiche end-to-end sono gestite dalla configurazione Playwright nella
-root e richiedono un ambiente autenticato. Il test amministrativo usa due
-contesti Chromium e verifica lock, rilascio e propagazione realtime.
+root e richiedono un ambiente autenticato. Per confrontare l'intero pannello
+amministrativo sui due adapter usare, dalla root:
+
+```bash
+pnpm e2e:admin-parity
+```
+
+Lo script prepara dati isolati in SQLite e nel database PostgreSQL di test,
+avvia due server production e confronta sezioni, creazioni, dettagli e audit.
+La suite E2E generale copre separatamente lock concorrenti e realtime.

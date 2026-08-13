@@ -3,9 +3,6 @@ import type {
   EntitySubtreeQueryParams,
   EntitySubtreePaginatedResult,
   SubtreeEntityDto} from '../../application/ports/EntitySubtreeQueryPort.js';
-import {
-  SubtreeCursor,
-} from '../../application/ports/EntitySubtreeQueryPort.js';
 import type { PgExecutor } from './PgExecutor.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import type { FieldEncryptionService } from './FieldEncryptionService.js';

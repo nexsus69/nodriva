@@ -21,9 +21,10 @@ profilo di persistenza completo.
 Attualmente:
 
 - il dominio e i servizi applicativi consumano porte/interfacce astratte;
-- l'adapter PostgreSQL è l'unica implementazione completa della persistenza;
-- gerarchia, ACL, lock, outbox e tabelle dinamiche usano semantiche PostgreSQL,
-  inclusi `ltree`, JSONB e locking SQL;
+- PostgreSQL e SQLite sono profili di persistenza completi selezionabili dal
+  composition root; usano meccanismi fisici diversi dietro gli stessi port;
+- PostgreSQL usa `ltree`, JSONB, locking SQL e tabelle dinamiche fisiche;
+  SQLite usa `parent_id`, closure table, payload JSON e metadata relazionali;
 - lo storage allegati è locale al filesystem o al volume del container;
 - realtime e antivirus sono configurabili soprattutto tramite
   environment/Compose;
@@ -45,14 +46,15 @@ Attualmente:
 - il profilo SQLite dispone di schema, transaction root, closure table,
   nodi, entità JSON, tipi, ACL, lock, audit, revisioni, outbox, utenti,
   sessioni, rate limiting, token account, configurazione runtime e metadata
-  degli schemi dinamici; il Web composition root usa ancora PostgreSQL e il
-  e il composition root Web collega queste porte ai servizi applicativi.
+  degli schemi dinamici; il composition root Web collega il profilo selezionato
+  agli stessi servizi applicativi.
 
 La selezione avviene con `DATABASE_ADAPTER=sqlite` e
 `SQLITE_DATABASE_PATH=...`; senza il primo valore il profilo PostgreSQL resta
 quello predefinito. Build Web, avvio HTTP standalone e suite automatiche sono
-stati verificati. Il test browser autenticato del lock amministrativo è stato
-eseguito con due contesti Chromium e ha avuto esito positivo.
+stati verificati. La parità del pannello amministrativo viene inoltre verificata
+con due server production isolati e lo stesso scenario browser su SQLite e
+PostgreSQL.
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione
 `db/migrations/030_service_configurations.sql`; deployment e secret restano
@@ -97,6 +99,7 @@ soft delete, paginazione, cifratura dei campi e outbox. La gerarchia usa una
 closure table (`ancestor_id`, `descendant_id`, `depth`) invece di PostgreSQL
 `ltree`.
 
-La sostituzione del database sarà completa solo dopo test di contratto
-condivisi tra gli adapter, inclusi concorrenza, rollback, scope `self`/`subtree`,
-deny, spostamento di sottoalberi e replay dell'outbox.
+I test di contratto condivisi e l'E2E amministrativo verificano la parità
+osservabile fra i due adapter. Restano necessari test specifici per le
+semantiche native non riproducibili in modo identico, in particolare claim
+concorrenti dell'outbox e DDL fisico PostgreSQL.

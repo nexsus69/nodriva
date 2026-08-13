@@ -10,6 +10,7 @@ interface TransactionState {
 /** Transaction adapter for SQLite, including nested application service calls. */
 export class TransactionPortSqlite implements TransactionPort {
   private readonly context = new AsyncLocalStorage<TransactionState>();
+  private transactionTail: Promise<void> = Promise.resolve();
 
   constructor(private readonly database: SqliteDatabase) {}
 
@@ -24,11 +25,21 @@ export class TransactionPortSqlite implements TransactionPort {
       }
     }
 
+    let releaseTransaction!: () => void;
+    const previousTransaction = this.transactionTail;
+    this.transactionTail = new Promise<void>((resolve) => {
+      releaseTransaction = resolve;
+    });
+    await previousTransaction;
+
     const state: TransactionState = { depth: 1, afterCommitEffects: [] };
-    this.database.exec('BEGIN');
+    let transactionStarted = false;
     try {
+      this.database.exec('BEGIN');
+      transactionStarted = true;
       const result = await this.context.run(state, work);
       this.database.exec('COMMIT');
+      transactionStarted = false;
       for (const effect of state.afterCommitEffects) {
         try {
           await effect();
@@ -38,8 +49,10 @@ export class TransactionPortSqlite implements TransactionPort {
       }
       return result;
     } catch (error: unknown) {
-      this.database.exec('ROLLBACK');
+      if (transactionStarted) this.database.exec('ROLLBACK');
       throw error;
+    } finally {
+      releaseTransaction();
     }
   }
 
