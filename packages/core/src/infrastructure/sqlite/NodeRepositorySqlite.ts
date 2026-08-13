@@ -1,7 +1,7 @@
 import { NodeRepository, DeletedNodeSummary } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
-import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
+import { ForbiddenError, LockConflictError } from '../../domain/errors/ApplicationErrors.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 
@@ -28,7 +28,12 @@ export class NodeRepositorySqlite implements NodeRepository {
     if (!this.accessControl) return roots;
     const visible: Node[] = [];
     for (const node of roots) {
-      try { await this.accessControl.assertCanReadNode(actorUserId, node.id); visible.push(node); } catch { /* hidden root */ }
+      try {
+        await this.accessControl.assertCanReadNode(actorUserId, node.id);
+        visible.push(node);
+      } catch (error: unknown) {
+        if (!(error instanceof ForbiddenError)) throw error;
+      }
     }
     return visible;
   }

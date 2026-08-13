@@ -21,6 +21,7 @@ export interface SqliteRunResult {
 /** Small server-only wrapper around Node's built-in SQLite driver. */
 export class SqliteDatabase {
   private readonly database: DatabaseSyncLike;
+  private savepointSequence = 0;
 
   constructor(location: string = ':memory:') {
     this.database = new DatabaseSync(location);
@@ -42,6 +43,21 @@ export class SqliteDatabase {
     };
   }
 
+  /** Executes synchronous work atomically, including when the caller already has a transaction open. */
+  transaction<T>(work: () => T): T {
+    const savepoint = `sqlite_adapter_${this.savepointSequence += 1}`;
+    this.database.exec(`SAVEPOINT ${savepoint}`);
+    try {
+      const result = work();
+      this.database.exec(`RELEASE SAVEPOINT ${savepoint}`);
+      return result;
+    } catch (error: unknown) {
+      this.database.exec(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+      this.database.exec(`RELEASE SAVEPOINT ${savepoint}`);
+      throw error;
+    }
+  }
+
   get<T extends object = Record<string, unknown>>(
     sql: string,
     parameters: readonly unknown[] = [],
@@ -54,6 +70,15 @@ export class SqliteDatabase {
     parameters: readonly unknown[] = [],
   ): T[] {
     return this.database.prepare(sql).all(...parameters) as T[];
+  }
+
+  hasColumn(tableName: string, columnName: string): boolean {
+    const supportedTables = new Set(['node_types', 'entity_types', 'node_type_fields', 'entity_type_fields']);
+    if (!supportedTables.has(tableName)) {
+      throw new Error(`Unsupported SQLite schema table '${tableName}'.`);
+    }
+    const columns = this.all<{ name: string }>(`PRAGMA table_info(${tableName})`);
+    return columns.some((column) => column.name === columnName);
   }
 
   close(): void {

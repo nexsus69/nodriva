@@ -45,11 +45,11 @@ export class ServiceConfigurationRepositorySqlite implements ServiceConfiguratio
   }
 
   private toRecord(row: ServiceRow): ServiceRuntimeConfigurationRecord {
-    let values: Record<string, unknown> = {};
-    try {
-      const parsed: unknown = JSON.parse(row.runtimeValues);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) values = parsed as Record<string, unknown>;
-    } catch { /* malformed persisted configuration is treated as empty, never executed */ }
+    const parsed: unknown = JSON.parse(row.runtimeValues);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`Stored runtime configuration for '${row.serviceKey}' must be a JSON object.`);
+    }
+    const values = parsed as Record<string, unknown>;
     return { serviceKey: row.serviceKey, providerKey: row.providerKey, values, version: Number(row.version), updatedAt: new Date(row.updatedAt) };
   }
 }

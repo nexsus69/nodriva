@@ -31,6 +31,7 @@ interface FieldWithConstraintRow {
   is_required: boolean;
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
+  encryption_mode: 'plaintext' | 'encrypted';
   enum_mode: 'static' | 'managed';
   constraint_type: string | null;
   constraint_value_text: string | null;
@@ -104,7 +105,10 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
     const query = `
       SELECT id, type_key, name, description, current_schema_version
       FROM ${config.typesTable}
-      WHERE type_key = $1 AND deleted_at IS NULL
+      -- Runtime schema resolution must only expose operational types. The
+      -- administrative repository deliberately has a different contract: it
+      -- also exposes inactive types so they can be inspected and re-enabled.
+      WHERE type_key = $1 AND deleted_at IS NULL AND is_active = TRUE
     `;
     const result = await this.executor.query<TypeMetaRow>(query, [typeKey]);
     return result.rows[0] ?? null;
@@ -123,6 +127,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
         f.is_required,
         f.relation_target_domain,
         f.relation_target_type_key,
+        f.encryption_mode,
         f.enum_mode,
         COALESCE((SELECT json_agg(json_build_object(
           'value', eo.value, 'label', eo.label, 'isActive', eo.is_active, 'position', eo.position
@@ -144,6 +149,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
       relationTargetTypeKey: string | null;
       enumMode: 'static' | 'managed';
       enumOptions: EnumOptionDefinition[];
+      encryptionMode: 'plaintext' | 'encrypted';
       id: string;
       label: string;
       constraints: TypeFieldConstraint[];
@@ -158,6 +164,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           relationTargetTypeKey: row.relation_target_type_key,
           enumMode: row.enum_mode ?? 'static',
           enumOptions: row.enum_options ?? [],
+          encryptionMode: row.encryption_mode ?? 'plaintext',
           id: row.id,
           label: row.label,
           constraints: [],
@@ -190,6 +197,7 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           , entry.enumMode
           , entry.id
           , entry.label
+          , entry.encryptionMode
         )
       );
     }

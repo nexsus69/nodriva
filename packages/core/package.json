@@ -30,6 +30,7 @@
   "dependencies": {
     "pg": "^8.11.0",
     "pusher": "^5.3.4",
+    "safe-regex2": "^5.1.1",
     "zod": "^3.22.4"
   }
 }

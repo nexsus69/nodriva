@@ -1,14 +1,117 @@
-import type { EntitySubtreeQueryPort, EntitySubtreeQueryParams, EntitySubtreePaginatedResult, SubtreeEntityDto } from '../../application/ports/EntitySubtreeQueryPort.js';
+import type {
+  EntitySubtreePaginatedResult,
+  EntitySubtreeQueryParams,
+  EntitySubtreeQueryPort,
+  SubtreeEntityDto,
+} from '../../application/ports/EntitySubtreeQueryPort.js';
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
+import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
+
+interface PathRow { path: string; }
+interface EntityRow {
+  id: string;
+  parent_node_id: string;
+  entity_type_id: string;
+  name: string;
+  description: string;
+  row_version: number;
+  created_at: string;
+  updated_at: string;
+  payload: string;
+  nodeName: string;
+  nodePath: string;
+  nodeDepth: number;
+  nodeRowVersion: number;
+  lockUserId: string | null;
+  lockSessionId: string | null;
+  lockExpiresAt: string | null;
+}
+
+const parsePayload = (value: string): Record<string, unknown> => {
+  const parsed: unknown = JSON.parse(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Entity payload must be a JSON object.');
+  return parsed as Record<string, unknown>;
+};
 
 export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
   constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPort) {}
-  async findSubtreeEntitiesPaginated(p: EntitySubtreeQueryParams): Promise<EntitySubtreePaginatedResult> {
-    const base = this.database.get<any>('SELECT path FROM nodes WHERE id=? AND deleted_at IS NULL',[p.baseNodeId]); if(!base)return{items:[],hasMore:false};
-    const rows=this.database.all<any>(`SELECT e.*,n.name AS nodeName,n.path AS nodePath,n.depth AS nodeDepth,n.row_version AS nodeRowVersion,l.user_id AS lockUserId,l.session_id AS lockSessionId,l.expires_at AS lockExpiresAt FROM entities e JOIN nodes n ON n.id=e.parent_node_id LEFT JOIN locks l ON l.resource_type='entity' AND l.resource_id=e.id AND l.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE e.deleted_at IS NULL AND n.deleted_at IS NULL AND (n.path=? OR n.path LIKE ?)` ,[base.path,`${base.path}.%`]);
-    const visible:SubtreeEntityDto[]=[];for(const r of rows){if(p.entityTypeId&&r.entity_type_id!==p.entityTypeId)continue;if(p.search&&!`${r.name} ${r.id} ${r.nodeName}`.toLowerCase().includes(p.search.toLowerCase()))continue;if(p.filters?.name&&!r.name.toLowerCase().includes(p.filters.name.toLowerCase()))continue;if(p.filters?.description&&!r.description.toLowerCase().includes(p.filters.description.toLowerCase()))continue;if(p.filters?.lockState==='locked'&&!r.lockUserId)continue;if(p.filters?.lockState==='unlocked'&&r.lockUserId)continue;if(this.accessControl){try{await this.accessControl.assertCanReadNode(p.actorUserId,r.parent_node_id);}catch{continue;}}let payload:Record<string,unknown>={};try{const x=JSON.parse(r.payload??'{}');if(x&&typeof x==='object'&&!Array.isArray(x))payload=x;}catch{}const item:SubtreeEntityDto={id:r.id,parentNodeId:r.parent_node_id,entityTypeId:r.entity_type_id,name:r.name??'',description:r.description??'',rowVersion:Number(r.row_version),createdAt:new Date(r.created_at),updatedAt:new Date(r.updated_at),payload,nodeName:r.nodeName,nodePath:r.nodePath,nodeDepth:Number(r.nodeDepth),nodeRowVersion:Number(r.nodeRowVersion)};if(r.lockUserId){item.lockUserId=r.lockUserId;if(r.lockSessionId)item.lockSessionId=r.lockSessionId;if(r.lockExpiresAt)item.lockExpiresAt=new Date(r.lockExpiresAt);}visible.push(item);}
-    visible.sort((a,b)=>`${a.nodePath}\0${a.name}\0${a.id}`.localeCompare(`${b.nodePath}\0${b.name}\0${b.id}`));if(p.direction==='backward')visible.reverse();const cursor=p.cursor;if(cursor){const key=`${cursor.path}\0${cursor.name}\0${cursor.id}`;const index=visible.findIndex((x)=>`${x.nodePath}\0${x.name}\0${x.id}`===key);if(index>=0)visible.splice(0,index+1);}
-    const items=visible.slice(0,p.limit),hasMore=visible.length>p.limit;return{items,hasMore,...(items[0]?{prevCursor:{path:items[0].nodePath,name:items[0].name,id:items[0].id}}:{}),...(items.at(-1)?{nextCursor:{path:items.at(-1)!.nodePath,name:items.at(-1)!.name,id:items.at(-1)!.id}}:{})};
+
+  async findSubtreeEntitiesPaginated(params: EntitySubtreeQueryParams): Promise<EntitySubtreePaginatedResult> {
+    const base = this.database.get<PathRow>('SELECT path FROM nodes WHERE id=? AND deleted_at IS NULL', [params.baseNodeId]);
+    if (!base) return { items: [], hasMore: false };
+
+    const conditions = ['e.deleted_at IS NULL', 'n.deleted_at IS NULL', '(n.path=? OR n.path LIKE ?)'];
+    const values: unknown[] = [base.path, `${base.path}.%`];
+    if (params.entityTypeId) { conditions.push('e.entity_type_id=?'); values.push(params.entityTypeId); }
+    this.addSearchCondition(conditions, values, '(e.name LIKE ? ESCAPE \'\\\' OR e.id LIKE ? ESCAPE \'\\\' OR n.name LIKE ? ESCAPE \'\\\')', params.search, 3);
+    this.addSearchCondition(conditions, values, 'e.name LIKE ? ESCAPE \'\\\'', params.filters?.name, 1);
+    this.addSearchCondition(conditions, values, 'e.description LIKE ? ESCAPE \'\\\'', params.filters?.description, 1);
+    if (params.filters?.lockState === 'locked') conditions.push('l.user_id IS NOT NULL');
+    if (params.filters?.lockState === 'unlocked') conditions.push('l.user_id IS NULL');
+
+    const cursor = params.cursor;
+    if (cursor?.path && cursor.id) {
+      const operator = params.direction === 'backward' ? '<' : '>';
+      conditions.push(`(n.path, e.name, e.id) ${operator} (?, ?, ?)`);
+      values.push(cursor.path, cursor.name ?? '', cursor.id);
+    }
+    const direction = params.direction === 'backward' ? 'DESC' : 'ASC';
+    const rows = this.database.all<EntityRow>(
+      `SELECT e.id,e.parent_node_id,e.entity_type_id,e.name,e.description,e.row_version,e.created_at,e.updated_at,e.payload,
+              n.name AS nodeName,n.path AS nodePath,n.depth AS nodeDepth,n.row_version AS nodeRowVersion,
+              l.user_id AS lockUserId,l.session_id AS lockSessionId,l.expires_at AS lockExpiresAt
+       FROM entities e JOIN nodes n ON n.id=e.parent_node_id
+       LEFT JOIN locks l ON l.resource_type='entity' AND l.resource_id=e.id AND l.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE ${conditions.join(' AND ')}
+       ORDER BY n.path ${direction}, e.name ${direction}, e.id ${direction}
+       LIMIT ?`,
+      [...values, Math.max(1, params.limit) + 1],
+    );
+    const visible: SubtreeEntityDto[] = [];
+    for (const row of rows) {
+      if (this.accessControl && !(await this.canRead(params.actorUserId, row.parent_node_id))) continue;
+      visible.push(this.mapRow(row));
+    }
+    const hasMore = visible.length > params.limit || rows.length > params.limit;
+    const items = visible.slice(0, params.limit);
+    return {
+      items,
+      hasMore,
+      ...(items[0] ? { prevCursor: { path: items[0].nodePath, name: items[0].name, id: items[0].id } } : {}),
+      ...(items.at(-1) ? { nextCursor: { path: items.at(-1)!.nodePath, name: items.at(-1)!.name, id: items.at(-1)!.id } } : {}),
+    };
+  }
+
+  private addSearchCondition(conditions: string[], values: unknown[], condition: string, input: string | undefined, repetitions: number): void {
+    if (!input?.trim()) return;
+    const escaped = `%${input.trim().replace(/[\\%_]/g, '\\$&')}%`;
+    conditions.push(condition);
+    for (let index = 0; index < repetitions; index += 1) values.push(escaped);
+  }
+
+  private async canRead(actorUserId: string, nodeId: string): Promise<boolean> {
+    try {
+      await this.accessControl!.assertCanReadNode(actorUserId, nodeId);
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof ForbiddenError) return false;
+      throw error;
+    }
+  }
+
+  private mapRow(row: EntityRow): SubtreeEntityDto {
+    const item: SubtreeEntityDto = {
+      id: row.id, parentNodeId: row.parent_node_id, entityTypeId: row.entity_type_id, name: row.name,
+      description: row.description, rowVersion: Number(row.row_version), createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at), payload: parsePayload(row.payload), nodeName: row.nodeName,
+      nodePath: row.nodePath, nodeDepth: Number(row.nodeDepth), nodeRowVersion: Number(row.nodeRowVersion),
+    };
+    if (row.lockUserId) {
+      item.lockUserId = row.lockUserId;
+      if (row.lockSessionId) item.lockSessionId = row.lockSessionId;
+      if (row.lockExpiresAt) item.lockExpiresAt = new Date(row.lockExpiresAt);
+    }
+    return item;
   }
 }

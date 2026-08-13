@@ -19,7 +19,7 @@ export class EntityTypeRepositoryPostgres implements EntityTypeRepository {
     const query = `
       SELECT id, type_key, name, description, storage_table, current_schema_version, is_active
       FROM entity_types
-      WHERE type_key = $1
+      WHERE type_key = $1 AND deleted_at IS NULL AND is_active = TRUE
     `;
     const result = await this.executor.query<EntityTypeRow>(query, [typeKey]);
     const firstRow = result.rows[0];
@@ -33,7 +33,7 @@ export class EntityTypeRepositoryPostgres implements EntityTypeRepository {
     const query = `
       SELECT id, type_key, name, description, storage_table, current_schema_version, is_active
       FROM entity_types
-      WHERE id = $1 AND deleted_at IS NULL
+      WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE
     `;
     const result = await this.executor.query<EntityTypeRow>(query, [id]);
     const firstRow = result.rows[0];
@@ -47,7 +47,7 @@ export class EntityTypeRepositoryPostgres implements EntityTypeRepository {
     const query = `
       SELECT id, type_key, name, description, storage_table, current_schema_version, is_active
       FROM entity_types
-      WHERE deleted_at IS NULL
+      WHERE deleted_at IS NULL AND is_active = TRUE
       ORDER BY name ASC
     `;
     const result = await this.executor.query<EntityTypeRow>(query);

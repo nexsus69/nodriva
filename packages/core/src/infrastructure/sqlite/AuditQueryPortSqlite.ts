@@ -23,14 +23,11 @@ type AuditRow = {
 
 const parsePayload = (value: string | null): Record<string, unknown> | null => {
   if (!value) return null;
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : null;
-  } catch {
-    return null;
+  const parsed: unknown = JSON.parse(value);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Audit payload must be a JSON object.');
   }
+  return parsed as Record<string, unknown>;
 };
 
 export class AuditQueryPortSqlite implements AuditQueryPort {

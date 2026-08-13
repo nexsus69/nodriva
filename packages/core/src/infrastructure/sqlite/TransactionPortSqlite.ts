@@ -32,12 +32,12 @@ export class TransactionPortSqlite implements TransactionPort {
       for (const effect of state.afterCommitEffects) {
         try {
           await effect();
-        } catch (error) {
+        } catch (error: unknown) {
           console.error('[TransactionPortSqlite] afterCommit effect failed:', error);
         }
       }
       return result;
-    } catch (error) {
+    } catch (error: unknown) {
       this.database.exec('ROLLBACK');
       throw error;
     }
@@ -46,7 +46,7 @@ export class TransactionPortSqlite implements TransactionPort {
   afterCommit(effect: () => void | Promise<void>): void {
     const state = this.context.getStore();
     if (!state) {
-      void Promise.resolve(effect()).catch((error) => {
+      void Promise.resolve(effect()).catch((error: unknown) => {
         console.error('[TransactionPortSqlite] immediate afterCommit effect failed:', error);
       });
       return;

@@ -10,6 +10,10 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       description TEXT NOT NULL DEFAULT '',
       current_schema_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
+      is_system INTEGER NOT NULL DEFAULT 0,
+      row_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS nodes (
@@ -64,8 +68,13 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       storage_table TEXT NOT NULL,
+      placement_policy_id TEXT,
       current_schema_version INTEGER NOT NULL DEFAULT 1,
       is_active INTEGER NOT NULL DEFAULT 1,
+      is_system INTEGER NOT NULL DEFAULT 0,
+      row_version INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       deleted_at TEXT
     );
     CREATE TABLE IF NOT EXISTS locks (
@@ -211,8 +220,11 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       is_unique INTEGER NOT NULL DEFAULT 0,
       is_indexed INTEGER NOT NULL DEFAULT 0,
       encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      enum_mode TEXT NOT NULL DEFAULT 'static' CHECK (enum_mode IN ('static', 'managed')),
       position INTEGER NOT NULL DEFAULT 0,
       is_system INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       relation_target_domain TEXT,
       relation_target_type_key TEXT,
       default_value_text TEXT,
@@ -223,8 +235,10 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     CREATE TABLE IF NOT EXISTS node_type_fields (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_type_id TEXT NOT NULL REFERENCES node_types(id) ON DELETE CASCADE,
       field_key TEXT NOT NULL, column_name TEXT NOT NULL, data_type TEXT NOT NULL, label TEXT NOT NULL DEFAULT '',
-      is_required INTEGER NOT NULL DEFAULT 0, is_unique INTEGER NOT NULL DEFAULT 0, is_indexed INTEGER NOT NULL DEFAULT 0, encryption_mode TEXT NOT NULL DEFAULT 'plaintext',
+      is_required INTEGER NOT NULL DEFAULT 0, is_unique INTEGER NOT NULL DEFAULT 0, is_indexed INTEGER NOT NULL DEFAULT 0, encryption_mode TEXT NOT NULL DEFAULT 'plaintext', enum_mode TEXT NOT NULL DEFAULT 'static' CHECK (enum_mode IN ('static', 'managed')),
       position INTEGER NOT NULL DEFAULT 0, is_system INTEGER NOT NULL DEFAULT 0, default_value_text TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       relation_target_domain TEXT, relation_target_type_key TEXT, default_value TEXT,
       UNIQUE(node_type_id, field_key), UNIQUE(node_type_id, column_name)
     );
@@ -280,4 +294,32 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
   `);
+
+  for (const tableName of ['node_type_fields', 'entity_type_fields'] as const) {
+    if (!database.hasColumn(tableName, 'enum_mode')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN enum_mode TEXT NOT NULL DEFAULT 'static' CHECK (enum_mode IN ('static', 'managed'))`);
+    }
+    if (!database.hasColumn(tableName, 'created_at')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN created_at TEXT NOT NULL DEFAULT ''`);
+      database.exec(`UPDATE ${tableName} SET created_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE created_at=''`);
+    }
+    if (!database.hasColumn(tableName, 'updated_at')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`);
+      database.exec(`UPDATE ${tableName} SET updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE updated_at=''`);
+    }
+  }
+
+  for (const tableName of ['node_types', 'entity_types'] as const) {
+    if (!database.hasColumn(tableName, 'is_system')) database.exec(`ALTER TABLE ${tableName} ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0`);
+    if (!database.hasColumn(tableName, 'row_version')) database.exec(`ALTER TABLE ${tableName} ADD COLUMN row_version INTEGER NOT NULL DEFAULT 1`);
+    if (!database.hasColumn(tableName, 'created_at')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN created_at TEXT NOT NULL DEFAULT ''`);
+      database.exec(`UPDATE ${tableName} SET created_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE created_at=''`);
+    }
+    if (!database.hasColumn(tableName, 'updated_at')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`);
+      database.exec(`UPDATE ${tableName} SET updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE updated_at=''`);
+    }
+  }
+  if (!database.hasColumn('entity_types', 'placement_policy_id')) database.exec('ALTER TABLE entity_types ADD COLUMN placement_policy_id TEXT');
 }

@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import safeRegex from 'safe-regex2';
 import { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
+import { ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
@@ -41,6 +43,8 @@ import {
 
 import { TypeListItemDto, TypeDetailDto, TypeSchemaImpactDto } from '../dto/AdminContractDtos.js';
 import type { ConfigService } from './ConfigService.js';
+
+const MAX_REGEX_CONSTRAINT_LENGTH = 512;
 
 export class TypeAdminApplicationService {
   constructor(
@@ -561,6 +565,8 @@ export class TypeAdminApplicationService {
         throw new TypeFieldNotFoundError(v.fieldId, v.domain);
       }
 
+      this.validateConstraintValue(v.constraintType, v.constraintValueText);
+
       const now = new Date();
       const newConstraint = new ManagedTypeFieldConstraint(
         this.idGenerator.generate(), v.fieldId, v.constraintType, v.constraintValueText, now
@@ -590,6 +596,8 @@ export class TypeAdminApplicationService {
       if (!existing) {
         throw new TypeFieldConstraintNotFoundError(v.constraintId, v.domain);
       }
+
+      this.validateConstraintValue(existing.constraintType, v.constraintValueText);
 
       const updated = new ManagedTypeFieldConstraint(
         existing.id, existing.fieldId, existing.constraintType, v.constraintValueText, existing.createdAt
@@ -649,6 +657,41 @@ export class TypeAdminApplicationService {
       throw new TypeAdminValidationError(`Validation failed for ${operationName}.`, issues);
     }
     return parseResult.data;
+  }
+
+  /**
+   * Regular expressions are executed while validating dynamic fields. Limit their
+   * size, require JavaScript syntax, and reject patterns flagged as potentially
+   * catastrophic by safe-regex2 before they are persisted.
+   */
+  private validateConstraintValue(constraintType: ConstraintType, value: string): void {
+    if (constraintType !== 'regex') {
+      return;
+    }
+
+    if (value.length > MAX_REGEX_CONSTRAINT_LENGTH) {
+      throw new TypeAdminValidationError('Regular expression constraint is too long.', {
+        constraintValueText: [`A regular expression can contain at most ${MAX_REGEX_CONSTRAINT_LENGTH} characters.`],
+      });
+    }
+
+    let expression: RegExp;
+    try {
+      expression = new RegExp(value);
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        throw new TypeAdminValidationError('Regular expression constraint has invalid syntax.', {
+          constraintValueText: ['The regular expression is not valid JavaScript syntax.'],
+        }, error);
+      }
+      throw error;
+    }
+
+    if (!safeRegex(expression)) {
+      throw new TypeAdminValidationError('Regular expression constraint is potentially unsafe.', {
+        constraintValueText: ['The regular expression may cause catastrophic backtracking and is not allowed.'],
+      });
+    }
   }
 
   /**

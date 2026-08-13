@@ -98,7 +98,7 @@ export class SqliteInfrastructure {
     this.securityRepository = new SecurityRepositorySqlite(this.database);
     this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort);
     this.realtimeScopeResolver = new RealtimeScopeResolverSqlite(this.nodeRepository);
-    this.systemSeedService = new SystemSeedSqlite(this.database, process.env.SEED_ADMIN_PASSWORD);
+    this.systemSeedService = new SystemSeedSqlite(this.database, process.env.SEED_ADMIN_PASSWORD, process.env.SEED_ADMIN_EMAIL);
   }
 
   close(): void { this.database.close(); }

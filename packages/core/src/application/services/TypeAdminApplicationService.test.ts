@@ -537,6 +537,51 @@ describe('TypeAdminApplicationService', () => {
   // ─── addConstraint ───────────────────────────────────────────
 
   describe('addConstraint', () => {
+    it('should accept a syntactically valid and safe regex', async () => {
+      mockRepo.findTypeById.mockResolvedValue(makeType());
+      mockRepo.findFieldById.mockResolvedValue(makeField());
+
+      await service.addConstraint({
+        domain: 'node', typeId: TYPE_ID, fieldId: FIELD_ID,
+        constraintType: 'regex', constraintValueText: '^[a-z0-9_]+$', actorUserId: ACTOR,
+      });
+
+      expect(mockRepo.createConstraint).toHaveBeenCalledOnce();
+    });
+
+    it('should reject a regex with invalid syntax', async () => {
+      mockRepo.findTypeById.mockResolvedValue(makeType());
+      mockRepo.findFieldById.mockResolvedValue(makeField());
+
+      await expect(service.addConstraint({
+        domain: 'node', typeId: TYPE_ID, fieldId: FIELD_ID,
+        constraintType: 'regex', constraintValueText: '[a-', actorUserId: ACTOR,
+      })).rejects.toThrow(TypeAdminValidationError);
+      expect(mockRepo.createConstraint).not.toHaveBeenCalled();
+    });
+
+    it('should reject a regex longer than 512 characters', async () => {
+      mockRepo.findTypeById.mockResolvedValue(makeType());
+      mockRepo.findFieldById.mockResolvedValue(makeField());
+
+      await expect(service.addConstraint({
+        domain: 'node', typeId: TYPE_ID, fieldId: FIELD_ID,
+        constraintType: 'regex', constraintValueText: `^${'a'.repeat(511)}$`, actorUserId: ACTOR,
+      })).rejects.toThrow(TypeAdminValidationError);
+      expect(mockRepo.createConstraint).not.toHaveBeenCalled();
+    });
+
+    it('should reject a regex with nested quantifiers', async () => {
+      mockRepo.findTypeById.mockResolvedValue(makeType());
+      mockRepo.findFieldById.mockResolvedValue(makeField());
+
+      await expect(service.addConstraint({
+        domain: 'node', typeId: TYPE_ID, fieldId: FIELD_ID,
+        constraintType: 'regex', constraintValueText: '^(a+)+$', actorUserId: ACTOR,
+      })).rejects.toThrow(TypeAdminValidationError);
+      expect(mockRepo.createConstraint).not.toHaveBeenCalled();
+    });
+
     it('should add a constraint and bump schema version', async () => {
       mockRepo.findTypeById.mockResolvedValue(makeType());
       mockRepo.findFieldById.mockResolvedValue(makeField());
@@ -578,6 +623,19 @@ describe('TypeAdminApplicationService', () => {
   // ─── updateConstraint ────────────────────────────────────────
 
   describe('updateConstraint', () => {
+    it('should validate a regex when updating its value', async () => {
+      mockRepo.findTypeById.mockResolvedValue(makeType());
+      mockRepo.findConstraintById.mockResolvedValue(
+        new ManagedTypeFieldConstraint(CONSTRAINT_ID, FIELD_ID, 'regex', '^[A-Z]+$', new Date())
+      );
+
+      await expect(service.updateConstraint({
+        domain: 'node', typeId: TYPE_ID, constraintId: CONSTRAINT_ID,
+        constraintValueText: '^(a+)+$', actorUserId: ACTOR,
+      })).rejects.toThrow(TypeAdminValidationError);
+      expect(mockRepo.updateConstraint).not.toHaveBeenCalled();
+    });
+
     it('should update constraint value', async () => {
       mockRepo.findTypeById.mockResolvedValue(makeType());
       mockRepo.findConstraintById.mockResolvedValue(

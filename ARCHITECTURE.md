@@ -120,6 +120,33 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 
 Critical mutations must follow the same sequence: structural input validation, transaction start, persistence/update work, commit, then post-commit side effects such as schema invalidation or event propagation.[cite:32][cite:13]
 
+### Dynamic schema resolution
+
+Dynamic schemas have one implementation path for both `node` and `entity`:
+`TypeDefinitionReader` loads the active, non-tombstoned definition,
+`FieldSchemaCompiler` produces the Zod schema, and `CachingSchemaRegistry`
+caches it by `domain:typeKey`. `EntitySchemaRegistryBridge` adapts that unified
+registry to the entity service's narrower port. Type-admin mutations invalidate
+the same registry after commit through `SchemaInvalidationAdapter`; no
+database-specific entity schema compiler or independent cache is retained.
+
+Regex constraints are validated when they are written: they must be valid
+JavaScript regular expressions, contain at most 512 characters, and pass the
+`safe-regex2` static analysis. This protects the runtime Zod validators from
+known catastrophic-backtracking patterns; a rejected expression is never
+persisted by either database adapter.
+
+### Adapter contracts
+
+SQLite and PostgreSQL implement the same application ports. Shared contract
+tests exercise observable behaviour with a real SQLite database and the
+dedicated PostgreSQL integration database. The initial runtime-schema contract
+covers field ordering, constraints, managed enums, encryption metadata and
+inactive type visibility. The shared ACL contract also verifies contradictory
+deny rejection, coverage loss and transitive revocation across a delegation
+chain. Adapter-specific tests supplement these contracts for database-native
+details.
+
 ### Identity, scope and delegated permissions
 
 User identities and `user_roles` are global in the current data model. Global
