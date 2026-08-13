@@ -17,6 +17,10 @@ jobs:
     name: Typecheck, lint, test and build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      DATABASE_ADAPTER: sqlite
+      SQLITE_DATABASE_PATH: ":memory:"
+      NEXT_PUBLIC_REALTIME_ENABLED: "false"
     steps:
       - name: Checkout
         uses: actions/checkout@v6
