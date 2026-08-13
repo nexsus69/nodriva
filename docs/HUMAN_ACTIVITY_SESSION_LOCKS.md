@@ -55,6 +55,13 @@ risposta `401` o una verifica autorevole negativa porta il client allo stato
 `Sessione scaduta`, svuota la cache e interrompe polling, realtime e listener di
 attività.
 
+La stessa distinzione vale nel callback JWT di Auth.js: soltanto
+`AUTH_UNAUTHORIZED` rimuove dal token firmato l'identità della sessione
+persistita. Un errore infrastrutturale conserva le claim già firmate e lascia
+che la richiesta successiva ritenti la verifica. Questo non prolunga la
+sessione nel database: dopo il ripristino, una sessione che nel frattempo è
+realmente scaduta viene comunque rifiutata e invalidata.
+
 ## Background e verifica della scadenza
 
 I browser, soprattutto su mobile, possono sospendere timer e rete quando la

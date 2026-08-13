@@ -3,37 +3,13 @@ import Credentials from 'next-auth/providers/credentials';
 import { authApplicationService, lockService } from './server/db';
 import { authConfig } from './auth.config';
 import { parseLoginCredentials } from './app/actions/auth/authInputValidation';
+import { reconcileDatabaseSessionToken } from './server/authSessionToken';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
   callbacks: {
     async jwt({ token, user }) {
-      if (user?.id && user.dbToken) {
-        token.userId = user.id;
-        token.dbToken = user.dbToken;
-        token.dbSessionId = user.dbSessionId;
-        if (user.email) token.email = user.email;
-        return token;
-      }
-
-      if (typeof token.dbToken !== 'string') {
-        delete token.userId;
-        delete token.dbSessionId;
-        return token;
-      }
-
-      try {
-        const resolvedUserId = await authApplicationService.resolveSession(token.dbToken);
-        token.userId = resolvedUserId;
-        const currentUser = await authApplicationService.getUserById(resolvedUserId);
-        if (!currentUser) throw new Error('Authenticated user no longer exists');
-        token.email = currentUser.email;
-      } catch {
-        delete token.userId;
-        delete token.dbToken;
-        delete token.dbSessionId;
-      }
-      return token;
+      return await reconcileDatabaseSessionToken(token, user, authApplicationService);
     },
     async session({ session, token }) {
       if (token.userId) {

@@ -14,7 +14,7 @@ import type { ResourceReference } from '@dashboard/core';
 import { runtimeTiming } from '../../config/runtimeTiming';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { activityDebugStore } from './ActivityDebugStore';
-import { isLoginRedirect, toClientTiming, type ActivityResponse, type SessionCheckResult } from './activityProtocol';
+import { requestActivity, toClientTiming, type ActivityResponse, type SessionCheckResult } from './activityProtocol';
 
 export type ActivityLockRef = ResourceReference;
 
@@ -88,28 +88,23 @@ export function ActivityProvider({
   }, []);
 
   const checkSession = useCallback(async (): Promise<SessionCheckResult> => {
-    try {
-      const response = await fetch('/api/activity', {
-        method: 'GET',
-        cache: 'no-store',
-      });
-      if (response.status === 401 || isLoginRedirect(response)) {
-        markExpired();
-        return 'expired';
-      }
-      if (!response.ok) {
-        activityDebugStore.sessionChecked('server-error');
-        return 'unreachable';
-      }
-      const result = await response.json() as { sessionExpiresAt: string; timing?: ActivityResponse['timing'] };
-      adoptExpiry(result.sessionExpiresAt);
-      adoptTiming(result.timing);
-      activityDebugStore.sessionChecked('success', result.sessionExpiresAt);
-      return 'valid';
-    } catch {
-      activityDebugStore.sessionChecked('network-error');
+    const request = await requestActivity('/api/activity', {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (request.outcome === 'expired') {
+      markExpired();
+      return 'expired';
+    }
+    if (request.outcome === 'unreachable') {
+      activityDebugStore.sessionChecked(request.response ? 'server-error' : 'network-error');
       return 'unreachable';
     }
+    const result = await request.response.json() as { sessionExpiresAt: string; timing?: ActivityResponse['timing'] };
+    adoptExpiry(result.sessionExpiresAt);
+    adoptTiming(result.timing);
+    activityDebugStore.sessionChecked('success', result.sessionExpiresAt);
+    return 'valid';
   }, [adoptExpiry, adoptTiming, markExpired]);
 
   const sendHeartbeat = useCallback(async () => {
@@ -128,22 +123,28 @@ export function ActivityProvider({
     const startedAt = performance.now();
     activityDebugStore.heartbeatStarted(activeLocks.length);
     try {
-      const response = await fetch('/api/activity', {
+      const request = await requestActivity('/api/activity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeLocks }),
       });
       if (requestGeneration !== activityGenerationRef.current || !userId) return;
-      if (response.status === 401 || isLoginRedirect(response)) {
-        activityDebugStore.heartbeatFinished('unauthorized', performance.now() - startedAt, undefined, 0, response.status);
+      if (request.outcome === 'expired') {
+        activityDebugStore.heartbeatFinished('unauthorized', performance.now() - startedAt, undefined, 0, request.response.status);
         markExpired();
         return;
       }
-      if (!response.ok) {
-        activityDebugStore.heartbeatFinished('server-error', performance.now() - startedAt, undefined, 0, response.status);
+      if (request.outcome === 'unreachable') {
+        activityDebugStore.heartbeatFinished(
+          request.response ? 'server-error' : 'network-error',
+          performance.now() - startedAt,
+          undefined,
+          0,
+          request.response?.status,
+        );
         return;
       }
-      const result = await response.json() as ActivityResponse;
+      const result = await request.response.json() as ActivityResponse;
       if (requestGeneration !== activityGenerationRef.current || !userId) return;
       adoptExpiry(result.sessionExpiresAt);
       adoptTiming(result.timing);
@@ -153,7 +154,7 @@ export function ActivityProvider({
         performance.now() - startedAt,
         result.sessionExpiresAt,
         result.renewedLocks.length,
-        response.status,
+        request.response.status,
       );
 
       const renewedKeys = new Set(result.renewedLocks.map(
@@ -175,9 +176,8 @@ export function ActivityProvider({
       }
     } catch {
       if (requestGeneration !== activityGenerationRef.current) return;
-      // A transient network failure is not proof of session expiry. The next
-      // genuine interaction or the passive status check will retry.
-      activityDebugStore.heartbeatFinished('network-error', performance.now() - startedAt);
+      // A malformed success payload is not proof of session expiry either.
+      activityDebugStore.heartbeatFinished('server-error', performance.now() - startedAt);
     } finally {
       heartbeatInFlightRef.current = false;
     }
