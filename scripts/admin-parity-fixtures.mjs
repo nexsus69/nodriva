@@ -64,8 +64,10 @@ async function seedPostgres() {
   const executor = new PgExecutor(pool);
   try {
     const transaction = new TransactionPortPostgres(pool);
-    await new SystemSeedPostgres(executor, transaction, password).seedDatabase();
-    await executor.query('UPDATE users SET email=$2 WHERE id=$1', [adminId, adminEmail]);
+    // The parity database is disposable. Remove inherited template identities
+    // so the configured fixture administrator receives the canonical id.
+    await executor.query('DELETE FROM users');
+    await new SystemSeedPostgres(executor, transaction, password, adminEmail).seedDatabase();
     await executor.query('DELETE FROM users WHERE id<>$1', [adminId]);
     await executor.query(
       `INSERT INTO node_types(id,type_key,name,description)

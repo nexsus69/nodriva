@@ -8,14 +8,11 @@ export async function checkDatabaseSeededAction() {
   return await systemSeedService.checkSeeded();
 }
 
-const SEED_CONFIRMATION = 'RESET DEMO DATABASE';
+const SEED_CONFIRMATION = 'INITIALIZE SYSTEM';
 
 export async function seedDatabaseAction(confirmation: string) {
-  if (process.env.NODE_ENV === 'production' || process.env.ALLOW_DESTRUCTIVE_SEED !== 'true') {
-    throw new Error('Database seeding is disabled. Set ALLOW_DESTRUCTIVE_SEED=true only in an isolated demo environment.');
-  }
   if (confirmation !== SEED_CONFIRMATION) {
-    throw new Error(`Type ${SEED_CONFIRMATION} to confirm destructive seeding.`);
+    throw new Error(`Type ${SEED_CONFIRMATION} to confirm the administrative bootstrap.`);
   }
   const actorUserId = await AuthResolver.resolveActorUserId();
   const { systemSeedService, accessControlPort } = await import('../../server/db');

@@ -402,7 +402,12 @@ export const entitySubtreeQueryPort = sqliteMode ? sqliteInfrastructure!.entityS
 
 export const systemSeedService = sqliteMode
   ? sqliteInfrastructure!.systemSeedService
-  : new SystemSeedPostgres(pgExecutor!, transactionPort, deploymentConfigurationSource.resolveSecretSync('secret://env/SEED_ADMIN_PASSWORD') ?? undefined);
+  : new SystemSeedPostgres(
+    pgExecutor!,
+    transactionPort,
+    deploymentConfigurationSource.resolveSecretSync('secret://env/SEED_ADMIN_PASSWORD') ?? undefined,
+    process.env.SEED_ADMIN_EMAIL,
+  );
 
 export const authApplicationService = new AuthApplicationService(
   sessionRepository,

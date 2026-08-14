@@ -23,4 +23,22 @@ describe('SqliteInfrastructure', () => {
     ]);
     infrastructure.close();
   });
+
+  it('bootstraps a fresh standalone database when administrator credentials are configured', async () => {
+    const previousPassword = process.env.SEED_ADMIN_PASSWORD;
+    const previousEmail = process.env.SEED_ADMIN_EMAIL;
+    process.env.SEED_ADMIN_PASSWORD = 'Standalone-bootstrap-2026!';
+    process.env.SEED_ADMIN_EMAIL = 'standalone@example.test';
+    try {
+      const infrastructure = new SqliteInfrastructure();
+      expect(infrastructure.database.get("SELECT 1 FROM users WHERE email='standalone@example.test' AND is_super_admin=1")).toBeTruthy();
+      await expect(infrastructure.systemSeedService.checkSeeded()).resolves.toBe(true);
+      infrastructure.close();
+    } finally {
+      if (previousPassword === undefined) delete process.env.SEED_ADMIN_PASSWORD;
+      else process.env.SEED_ADMIN_PASSWORD = previousPassword;
+      if (previousEmail === undefined) delete process.env.SEED_ADMIN_EMAIL;
+      else process.env.SEED_ADMIN_EMAIL = previousEmail;
+    }
+  });
 });

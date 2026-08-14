@@ -36,17 +36,11 @@ try {
     }
   }
 
-  const existing = await pool.query('SELECT 1 FROM users WHERE email = $1 LIMIT 1', [seedEmail]);
-  if (existing.rowCount > 0) {
-    console.log(`[dashboard-db-bootstrap] ${seedEmail} already exists; skipping seed.`);
-    process.exitCode = 0;
-  } else {
-    const executor = new PgExecutor(pool);
-    const transaction = new TransactionPortPostgres(pool);
-    const seed = new SystemSeedPostgres(executor, transaction, seedPassword);
-    await seed.seedDatabase();
-    console.log(`[dashboard-db-bootstrap] Seed completed for ${seedEmail}.`);
-  }
+  const executor = new PgExecutor(pool);
+  const transaction = new TransactionPortPostgres(pool);
+  const seed = new SystemSeedPostgres(executor, transaction, seedPassword, seedEmail);
+  await seed.seedDatabase();
+  console.log(`[dashboard-db-bootstrap] Idempotent bootstrap completed for ${seedEmail}.`);
 } finally {
   await pool.end();
 }

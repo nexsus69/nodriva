@@ -23,6 +23,9 @@ The `task-record.depends_on` field is a relation targeting another
 `task-record`, so the fixture exercises relation metadata in addition to
 hierarchy and dynamic storage tables.
 
-The scenario is loaded by the existing destructive demo seed. In development
+The scenario is retained in installations that already loaded the historical
+demo fixture. New installations use the non-destructive administrative
+bootstrap; demo data must be provisioned explicitly by development or E2E
+fixtures and is never created during service startup. In development
 it can be activated from the landing page using `RESET DEMO DATABASE` while
 `ALLOW_DESTRUCTIVE_SEED=true`; it must not be run against production data.

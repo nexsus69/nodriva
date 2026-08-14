@@ -44,6 +44,11 @@ sostituisce la persistenza né la verifica ACL lato server. Le mutation
 amministrative applicano lock e controllo `rowVersion`. Il Compose completo è
 solo uno dei profili di deployment.
 
+Entrambi i profili condividono lo stesso bootstrap amministrativo configurato
+da `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD`. Il bootstrap è transazionale,
+additivo e idempotente: inizializza account, ruoli, permessi, capability e
+impostazioni mancanti senza cancellare o ripristinare dati applicativi.
+
 ## Avvio rapido
 
 Creare un file `.env.docker` con i secret richiesti e avviare:

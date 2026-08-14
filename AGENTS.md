@@ -62,7 +62,8 @@ Procedere in questo ordine, salvo richiesta esplicita diversa:
    handling amministrativo;
 3. verificare e irrobustire sessione scorrevole, form non salvati e lock
    (completato: mantenere i test di regressione);
-4. uniformare il bootstrap amministrativo PostgreSQL/SQLite;
+4. uniformare il bootstrap amministrativo PostgreSQL/SQLite
+   (completato: preservare catalogo condiviso, idempotenza e test contract);
 5. completare lo scenario E2E della verticale canonica sui profili supportati;
 6. rifattorizzare con test `ActivityProvider` e poi `VirtualGroupedTable`;
 7. intervenire su `NodeTree` solo con una motivazione concreta e test di
