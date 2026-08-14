@@ -20,17 +20,18 @@ if (!sqlitePath || !postgresUrl || !password) {
 const adminId = '00000000-0000-0000-0000-000000000001';
 const nodeTypeId = '70000000-0000-0000-0000-000000000001';
 const nodeId = '70000000-0000-0000-0000-000000000002';
+const outsideNodeId = '70000000-0000-0000-0000-000000000003';
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
 
-function parityNode() {
+function parityNode(id = nodeId, path = 'admin_parity_root', name = 'Admin parity root') {
   return new Node(
-    nodeId,
+    id,
     null,
-    'admin_parity_root',
-    'admin_parity_root',
+    path,
+    path,
     0,
     nodeTypeId,
-    'Admin parity root',
+    name,
     'Fixture condivisa dai test browser dei due adapter',
     1,
     createdAt,
@@ -48,11 +49,13 @@ async function seedSqlite() {
   const infrastructure = new SqliteInfrastructure(sqlitePath);
   try {
     await infrastructure.systemSeedService.seedDatabase();
+    infrastructure.database.run("UPDATE runtime_capabilities SET default_status='disabled' WHERE capability_key='realtime'");
     infrastructure.database.run(
       'INSERT INTO node_types(id,type_key,name,description) VALUES(?,?,?,?)',
       [nodeTypeId, 'admin_parity_root', 'Admin parity root', 'Fixture E2E'],
     );
     await infrastructure.nodeRepository.create(parityNode());
+    await infrastructure.nodeRepository.create(parityNode(outsideNodeId, 'outside_parity_root', 'Outside parity root'));
     infrastructure.database.run('DELETE FROM audit_logs');
   } finally {
     infrastructure.close();
@@ -68,6 +71,7 @@ async function seedPostgres() {
     // so the configured fixture administrator receives the canonical id.
     await executor.query('DELETE FROM users');
     await new SystemSeedPostgres(executor, transaction, password, adminEmail).seedDatabase();
+    await executor.query("UPDATE runtime_capabilities SET default_status='disabled' WHERE capability_key='realtime'");
     await executor.query('DELETE FROM users WHERE id<>$1', [adminId]);
     await executor.query(
       `INSERT INTO node_types(id,type_key,name,description)
@@ -75,6 +79,7 @@ async function seedPostgres() {
       [nodeTypeId],
     );
     await new NodeRepositoryPostgres(executor).create(parityNode());
+    await new NodeRepositoryPostgres(executor).create(parityNode(outsideNodeId, 'outside_parity_root', 'Outside parity root'));
     await executor.query('DELETE FROM audit_logs');
   } finally {
     await pool.end();

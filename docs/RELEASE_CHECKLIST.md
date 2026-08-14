@@ -23,6 +23,9 @@ gli allegati o i secret dell'ambiente di sviluppo.
 - [ ] E2E autenticato eseguito con utenti e dati temporanei.
 - [ ] `pnpm e2e:admin-parity` eseguito: sezioni, mutation, dettagli e audit
       amministrativi equivalenti su SQLite e PostgreSQL.
+- [ ] `pnpm e2e:canonical` eseguito: schema dinamico, scope, due sessioni,
+      lock, `rowVersion`, relazioni, delete/restore e audit equivalenti; in
+      alternativa `pnpm e2e:parity` ha eseguito entrambi gli scenari.
 - [ ] Verificati login, ACL, scope `self/subtree`, deny, lock concorrenti,
       revoca realtime e accessi diretti non autorizzati.
 - [ ] Verificati upload, download, antivirus, cifratura e rimozione allegati

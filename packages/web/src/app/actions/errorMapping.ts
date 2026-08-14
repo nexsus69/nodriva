@@ -110,7 +110,7 @@ export function mapAppErrorToApiErrorResponse(error: unknown): ApiErrorResponse 
     case 'NODE_CYCLIC_MOVE':
       return { code: 'NODE_CYCLIC_MOVE', message: 'Lo spostamento creerebbe un ciclo nella gerarchia.' };
     case 'LOCK_CONFLICT':
-      return { code: 'LOCK_CONFLICT', message: 'La risorsa è attualmente modificata da un altro utente.' };
+      return { code: 'LOCK_CONFLICT', message: 'La risorsa è attualmente modificata da un’altra sessione.' };
     case 'LOCK_NOT_FOUND':
     case 'LOCK_EXPIRED':
       return { code: error.code, message: 'Il lock non è più valido. Ricarica la pagina.' };

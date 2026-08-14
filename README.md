@@ -79,12 +79,17 @@ verifica invece con un database PostgreSQL temporaneo derivato da
 
 ```bash
 pnpm e2e:admin-parity
+pnpm e2e:canonical
+pnpm e2e:parity
 ```
 
-Lo scenario visita tutte le sezioni amministrative, crea utenti, ruoli e tipi,
-apre i relativi dettagli e confronta gli audit prodotti dai due adapter. I test
-di lock concorrente e propagazione realtime restano nella suite E2E autenticata
-generale.
+Il primo scenario visita tutte le sezioni amministrative. Il secondo esegue la
+verticale canonica completa: configura tipi, enum e relazioni, crea utente,
+ruolo e scope, verifica il diniego fuori perimetro, usa due sessioni dello
+stesso utente per lock e `rowVersion`, quindi controlla cancellazione,
+ripristino e audit. `e2e:parity` esegue entrambi in sequenza contro gli stessi
+profili isolati. Il realtime distribuito e gli allegati restano verifiche
+separate perché sono capability deliberatamente escluse dal profilo SQLite.
 
 La pipeline GitHub Actions esegue automaticamente installazione riproducibile,
 typecheck, lint, suite Core/Web e build production. Un job separato inizializza

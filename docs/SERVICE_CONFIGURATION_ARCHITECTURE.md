@@ -52,9 +52,9 @@ Attualmente:
 La selezione avviene con `DATABASE_ADAPTER=sqlite` e
 `SQLITE_DATABASE_PATH=...`; senza il primo valore il profilo PostgreSQL resta
 quello predefinito. Build Web, avvio HTTP standalone e suite automatiche sono
-stati verificati. La parità del pannello amministrativo viene inoltre verificata
-con due server production isolati e lo stesso scenario browser su SQLite e
-PostgreSQL.
+stati verificati. Due server production isolati verificano sia la parità del
+pannello amministrativo sia la verticale canonica comune su SQLite e
+PostgreSQL (`pnpm e2e:parity`).
 
 La persistenza runtime delle configurazioni è preparata dalla migrazione
 `db/migrations/030_service_configurations.sql`; deployment e secret restano
@@ -99,7 +99,8 @@ soft delete, paginazione, cifratura dei campi e outbox. La gerarchia usa una
 closure table (`ancestor_id`, `descendant_id`, `depth`) invece di PostgreSQL
 `ltree`.
 
-I test di contratto condivisi e l'E2E amministrativo verificano la parità
-osservabile fra i due adapter. Restano necessari test specifici per le
-semantiche native non riproducibili in modo identico, in particolare claim
-concorrenti dell'outbox e DDL fisico PostgreSQL.
+I test di contratto condivisi, l'E2E amministrativo e l'E2E canonico verificano
+la parità osservabile fra i due adapter, comprese ACL scoped, lock per sessione,
+concorrenza ottimistica, relazioni e lifecycle delete/restore. Restano necessari
+test specifici per le semantiche native non riproducibili in modo identico, in
+particolare claim concorrenti dell'outbox e DDL fisico PostgreSQL.

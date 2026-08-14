@@ -3,6 +3,10 @@ import { uploadResourceAttachment, validateResourceAttachmentFile } from '../../
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 const ATTACHMENT_TYPES = new Set(['file', 'image']);
+const OPTIONAL_EMPTY_TO_NULL_TYPES = new Set([
+  ...NUMBER_TYPES,
+  'date', 'datetime', 'timestamp', 'uuid', 'enum', 'relation', 'array',
+]);
 
 export const isAttachmentField = (field: DynamicField) => ATTACHMENT_TYPES.has(field.dataType.toLowerCase());
 
@@ -14,6 +18,9 @@ export function coerceDynamicPayload(fields: readonly DynamicField[], payload: R
   return Object.fromEntries(fields.filter((field) => !isAttachmentField(field)).map((field) => {
     const value = payload[field.fieldKey];
     const type = field.dataType.toLowerCase();
+    if (!field.isRequired && value === '' && OPTIONAL_EMPTY_TO_NULL_TYPES.has(type)) {
+      return [field.fieldKey, null];
+    }
     if (NUMBER_TYPES.has(type)) {
       if (value === '' || value === null || value === undefined) return [field.fieldKey, null];
       const numericValue = Number(value);

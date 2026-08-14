@@ -38,8 +38,8 @@ RPO concordata.
   saltati;
 - `E2E_RUN=true E2E_EMAIL=... E2E_PASSWORD=... E2E_USER_ID=... pnpm e2e`
   completato con due contesti Chromium autenticati;
-- `pnpm e2e:admin-parity` completato contro il database PostgreSQL di test e
-  un database SQLite temporaneo;
+- `pnpm e2e:parity` completato contro il database PostgreSQL di test e un
+  database SQLite temporaneo; include pannello admin e verticale canonica;
 - per lo standalone: `DATABASE_ADAPTER=sqlite` e
   `SQLITE_DATABASE_PATH` valorizzati, build Web e smoke HTTP completati;
 - chiavi e password fornite da secret manager, mai da file versionati;

@@ -54,6 +54,14 @@ temporary SQLite database, starts both profiles and compares the admin overview,
 all admin sections, creation/detail flows and audit actions. Temporary data and
 processes are removed by the script on exit.
 
+`pnpm e2e:canonical` exercises the common project-operations vertical on both
+profiles: dynamic type/field configuration, managed enum and relation values,
+scoped operator access, direct out-of-scope denial, two sessions of the same
+user, lock conflict, stale `rowVersion`, delete/restore and audit. The test
+compares semantic outcomes, not storage layout. `pnpm e2e:parity` runs the admin
+and canonical scenarios sequentially so they cannot contend for shared
+administrative locks or mix audit windows.
+
 ## Forbidden dependencies
 
 The following imports are forbidden in `domain/` and `application/`:

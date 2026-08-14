@@ -426,5 +426,14 @@ describe('NodeApplicationService', () => {
       expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.restore', deleted.id);
       expect(mockNodeRepository.restoreSubtree).toHaveBeenCalledWith(deleted.id, '00000000-0000-0000-0000-000000000001', 4, '00000000-0000-0000-0000-000000000099');
     });
+
+    it('loads a deleted node only through the restore permission boundary', async () => {
+      const deleted = new Node('00000000-0000-0000-0000-000000000010', null, 'root', 'root', 0, 'type-123', 'Root', '', 4, new Date(), new Date(), new Date(), 'user-1', 'user-1', {});
+      mockNodeRepository.findDeletedById = vi.fn().mockResolvedValue(deleted);
+
+      await expect(service.getDeletedNodeById(deleted.id, 'actor-1')).resolves.toBe(deleted);
+
+      expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('actor-1', 'node.restore', deleted.id);
+    });
   });
 });

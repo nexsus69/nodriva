@@ -2,11 +2,34 @@
 
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
-import type { ApiErrorResponse } from '@dashboard/core';
+import { resourceReference, type ApiErrorResponse, type ResourceKind } from '@dashboard/core';
 
 type RecycleActionResult<T> = { success: true; data: T } | { success: false; error: ApiErrorResponse };
 import { runWithRealtimeOutbox } from '../../server/realtime';
 import { publishAuditRealtimeChange } from '../../server/adminRealtime';
+
+async function runWithRestoreLock<T>(
+  resourceType: Extract<ResourceKind, 'node' | 'entity'>,
+  resourceId: string,
+  actor: { userId: string; sessionId: string },
+  scopeNodeId: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const { lockService, runtimeConfigPort } = await import('../../server/db');
+  if (!(await runtimeConfigPort.isCapabilityEnabled('locking'))) return await operation();
+
+  const resource = resourceReference(resourceType, resourceId);
+  await lockService.lock(resource, actor.userId, actor.sessionId, undefined, { scopeNodeId });
+  try {
+    return await operation();
+  } finally {
+    try {
+      await lockService.unlock(resource, actor.userId, actor.sessionId, { scopeNodeId });
+    } catch (error) {
+      console.error('[RecycleActions] Failed to release restore lock:', error);
+    }
+  }
+}
 
 export interface DeletedEntityListItem {
   id: string;
@@ -50,9 +73,12 @@ export async function restoreDeletedNodeAction(input: { nodeId: string; expected
   try {
     const { nodeService } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
-    await runWithRealtimeOutbox(
-      () => nodeService.restoreNode({ actorUserId: identity.userId, actorSessionId: identity.sessionId, nodeId: input.nodeId, expectedRowVersion: input.expectedRowVersion }),
-      () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId }),
+    const existing = await nodeService.getDeletedNodeById(input.nodeId, identity.userId);
+    await runWithRestoreLock('node', input.nodeId, identity, existing.id, () =>
+      runWithRealtimeOutbox(
+        () => nodeService.restoreNode({ actorUserId: identity.userId, actorSessionId: identity.sessionId, nodeId: input.nodeId, expectedRowVersion: input.expectedRowVersion }),
+        () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId }),
+      ),
     );
     await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId });
     return { success: true, data: { restored: true } } as const;
@@ -103,18 +129,20 @@ export async function restoreDeletedEntityAction(input: { entityId: string; expe
     const { entityService } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
     const existing = await entityService.getDeletedEntityById(input.entityId, identity.userId);
-    await runWithRealtimeOutbox(
-      () => entityService.restoreEntity({ actorUserId: identity.userId, actorSessionId: identity.sessionId, entityId: input.entityId, expectedRowVersion: input.expectedRowVersion }),
-      () => existing ? {
-        resourceType: 'entity',
-        resourceId: input.entityId,
-        changeType: 'restored',
-        actorUserId: identity.userId,
-        parentNodeId: existing.parentNodeId,
-        entityTypeId: existing.entityTypeId,
-      } : null,
+    await runWithRestoreLock('entity', input.entityId, identity, existing.parentNodeId, () =>
+      runWithRealtimeOutbox(
+        () => entityService.restoreEntity({ actorUserId: identity.userId, actorSessionId: identity.sessionId, entityId: input.entityId, expectedRowVersion: input.expectedRowVersion }),
+        () => ({
+          resourceType: 'entity',
+          resourceId: input.entityId,
+          changeType: 'restored',
+          actorUserId: identity.userId,
+          parentNodeId: existing.parentNodeId,
+          entityTypeId: existing.entityTypeId,
+        }),
+      ),
     );
-    if (existing) await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: input.entityId, changeType: 'restored', actorUserId: identity.userId });
+    await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: input.entityId, changeType: 'restored', actorUserId: identity.userId });
     return { success: true, data: { restored: true } };
   } catch (error) {
     return { success: false, error: mapAppErrorToApiErrorResponse(error) };

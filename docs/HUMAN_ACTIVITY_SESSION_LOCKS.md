@@ -101,6 +101,13 @@ di eliminare la sessione. La foreign key
 per revoche, errori o percorsi amministrativi. Alla scadenza per inattività, il
 TTL più breve del lock resta invece il meccanismo normale di sicurezza.
 
+Il ripristino dal cestino è una mutation protetta ma non parte da una pagina di
+modifica. L'azione server verifica quindi il permesso sul record eliminato,
+acquisisce un lock transitorio per la sessione, esegue restore e controllo
+`rowVersion`, quindi rilascia il lock in `finally`. Due restore concorrenti non
+possono così attraversare insieme il confine applicativo e un errore non lascia
+un lock amministrativo residuo.
+
 ## Modifiche non salvate
 
 I form di creazione e modifica del workspace e del pannello amministrativo

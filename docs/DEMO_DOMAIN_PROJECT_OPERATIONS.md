@@ -29,3 +29,9 @@ bootstrap; demo data must be provisioned explicitly by development or E2E
 fixtures and is never created during service startup. In development
 it can be activated from the landing page using `RESET DEMO DATABASE` while
 `ALLOW_DESTRUCTIVE_SEED=true`; it must not be run against production data.
+
+The release-gate browser scenario is `pnpm e2e:canonical`. It provisions its
+own project-operations-shaped schema and data in temporary SQLite and
+PostgreSQL profiles, then compares the common observable outcome. It does not
+depend on the historical demo fixture and does not touch an operational
+database.

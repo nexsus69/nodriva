@@ -374,6 +374,15 @@ export class NodeApplicationService {
     return await this.nodeRepository.listDeletedByScope(actorUserId, limit, offset);
   }
 
+  async getDeletedNodeById(nodeId: string, actorUserId: string): Promise<Node> {
+    const node = await this.nodeRepository.findDeletedById(nodeId);
+    if (!node || !node.deletedAt) throw new NodeNotFoundError(nodeId);
+    const assertRestore = this.accessControlPort.assertHasPermissionIncludingDeleted?.bind(this.accessControlPort)
+      ?? this.accessControlPort.assertHasPermission.bind(this.accessControlPort);
+    await assertRestore(actorUserId, 'node.restore', node.id);
+    return node;
+  }
+
   async restoreNode(cmd: RestoreNodeCommand): Promise<void> {
     const parseResult = RestoreNodeCommandSchema.safeParse(cmd);
     if (!parseResult.success) throw new ValidationError('Validation failed for restoring node.', { root: parseResult.error.issues.map((issue) => issue.message) });
