@@ -1,22 +1,14 @@
 'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import type { ResourceReference } from '@dashboard/core';
 import { runtimeTiming } from '../../config/runtimeTiming';
-import { AppCache } from '../cache/GlobalCacheClient';
-import { activityDebugStore } from './ActivityDebugStore';
-import { requestActivity, toClientTiming, type ActivityResponse, type SessionCheckResult } from './activityProtocol';
+import { useActivityBrowserBindings } from './activityBrowserBindings';
+import type { SessionCheckResult } from './activityProtocol';
+import type { ActivityChannelMessage, ActivityLockRef } from './activityTypes';
+import { useActivityController } from './useActivityController';
 
-export type ActivityLockRef = ResourceReference;
+export type { ActivityLockRef } from './activityTypes';
 
 interface ActivityContextValue {
   sessionExpiresAt?: string;
@@ -28,231 +20,39 @@ interface ActivityContextValue {
 }
 
 const ActivityContext = createContext<ActivityContextValue | null>(null);
-const ACTIVITY_CHANNEL = 'dashboard-human-activity';
 
-export function ActivityProvider({
-  children,
-  initialExpires,
-}: {
-  children: React.ReactNode;
-  initialExpires?: string;
-}) {
+export function ActivityProvider({ children, initialExpires }: { children: React.ReactNode; initialExpires?: string }) {
   const { data: session, status: sessionStatus } = useSession();
-  const userId = session?.userId;
-  const sessionId = session?.activitySessionId;
-  const [sessionExpiresAt, setSessionExpiresAt] = useState(initialExpires);
-  const [timing, setTiming] = useState<typeof runtimeTiming>(runtimeTiming);
-  const [isSessionExpired, setSessionExpired] = useState(false);
-  const activeLocksRef = useRef(new Map<string, ActivityLockRef>());
-  const lastHeartbeatAtRef = useRef(0);
-  const heartbeatInFlightRef = useRef(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
-  const activityGenerationRef = useRef(0);
+  const publish = useCallback((message: ActivityChannelMessage) => channelRef.current?.postMessage(message), []);
+  const controller = useActivityController({
+    initialExpires,
+    userId: session?.userId,
+    sessionId: session?.activitySessionId,
+    publish,
+  });
+  const {
+    sessionExpiresAt,
+    isSessionExpired,
+    timing,
+    registerActiveLock,
+    checkSession,
+    resetForLogout,
+  } = controller;
 
-  const adoptExpiry = useCallback((expiresAt: string, broadcast = true) => {
-    setSessionExpiresAt(expiresAt);
-    setSessionExpired(false);
-    if (broadcast) channelRef.current?.postMessage({ type: 'renewed', expiresAt });
-  }, []);
-
-  const markExpired = useCallback(() => {
-    setSessionExpired(true);
-    AppCache.purgeAll();
-    activityDebugStore.sessionExpired();
-    channelRef.current?.postMessage({ type: 'expired' });
-  }, []);
-
-  const adoptTiming = useCallback((serverTiming: ActivityResponse['timing']) => {
-    if (!serverTiming) return;
-    const next = toClientTiming(serverTiming);
-    setTiming((current) => (
-      current.sessionIdleTimeoutSeconds === next.sessionIdleTimeoutSeconds
-      && current.sessionUpdateAgeSeconds === next.sessionUpdateAgeSeconds
-      && current.lockTtlSeconds === next.lockTtlSeconds
-      && current.syncPollingIntervalMs === next.syncPollingIntervalMs
-        ? current
-        : next
-    ));
-  }, []);
-
-  const resetForLogout = useCallback(() => {
-    activityGenerationRef.current += 1;
-    activeLocksRef.current.clear();
-    lastHeartbeatAtRef.current = 0;
-    heartbeatInFlightRef.current = false;
-    setSessionExpiresAt(undefined);
-    setSessionExpired(true);
-    setTiming(runtimeTiming);
-    AppCache.purgeAll();
-    activityDebugStore.resetForLogout();
-  }, []);
-
-  const checkSession = useCallback(async (): Promise<SessionCheckResult> => {
-    const request = await requestActivity('/api/activity', {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (request.outcome === 'expired') {
-      markExpired();
-      return 'expired';
-    }
-    if (request.outcome === 'unreachable') {
-      activityDebugStore.sessionChecked(request.response ? 'server-error' : 'network-error');
-      return 'unreachable';
-    }
-    const result = await request.response.json() as { sessionExpiresAt: string; timing?: ActivityResponse['timing'] };
-    adoptExpiry(result.sessionExpiresAt);
-    adoptTiming(result.timing);
-    activityDebugStore.sessionChecked('success', result.sessionExpiresAt);
-    return 'valid';
-  }, [adoptExpiry, adoptTiming, markExpired]);
-
-  const sendHeartbeat = useCallback(async () => {
-    if (!userId || isSessionExpired || document.visibilityState !== 'visible') return;
-    const requestGeneration = activityGenerationRef.current;
-    const now = Date.now();
-    const nextAllowedAt = lastHeartbeatAtRef.current + timing.activityHeartbeatThrottleMs;
-    if (heartbeatInFlightRef.current || now < nextAllowedAt) {
-      activityDebugStore.heartbeatThrottled();
-      return;
-    }
-
-    lastHeartbeatAtRef.current = now;
-    heartbeatInFlightRef.current = true;
-    const activeLocks = [...activeLocksRef.current.values()];
-    const startedAt = performance.now();
-    activityDebugStore.heartbeatStarted(activeLocks.length);
-    try {
-      const request = await requestActivity('/api/activity', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activeLocks }),
-      });
-      if (requestGeneration !== activityGenerationRef.current || !userId) return;
-      if (request.outcome === 'expired') {
-        activityDebugStore.heartbeatFinished('unauthorized', performance.now() - startedAt, undefined, 0, request.response.status);
-        markExpired();
-        return;
-      }
-      if (request.outcome === 'unreachable') {
-        activityDebugStore.heartbeatFinished(
-          request.response ? 'server-error' : 'network-error',
-          performance.now() - startedAt,
-          undefined,
-          0,
-          request.response?.status,
-        );
-        return;
-      }
-      const result = await request.response.json() as ActivityResponse;
-      if (requestGeneration !== activityGenerationRef.current || !userId) return;
-      adoptExpiry(result.sessionExpiresAt);
-      adoptTiming(result.timing);
-      activityDebugStore.sessionRenewed(result.sessionExpiresAt, 'heartbeat');
-      activityDebugStore.heartbeatFinished(
-        'success',
-        performance.now() - startedAt,
-        result.sessionExpiresAt,
-        result.renewedLocks.length,
-        request.response.status,
-      );
-
-      const renewedKeys = new Set(result.renewedLocks.map(
-        (lock) => `${lock.resourceType}:${lock.resourceId}`,
-      ));
-      for (const lock of activeLocks) {
-        const key = `${lock.resourceType}:${lock.resourceId}`;
-        if (!renewedKeys.has(key)) {
-          AppCache.setLockState(lock.resourceType, lock.resourceId, { locked: false });
-        }
-      }
-      for (const lock of result.renewedLocks) {
-        AppCache.setLockState(lock.resourceType, lock.resourceId, {
-          locked: true,
-          byUserId: userId,
-          bySessionId: sessionId,
-          expiresAt: lock.expiresAt,
-        });
-      }
-    } catch {
-      if (requestGeneration !== activityGenerationRef.current) return;
-      // A malformed success payload is not proof of session expiry either.
-      activityDebugStore.heartbeatFinished('server-error', performance.now() - startedAt);
-    } finally {
-      heartbeatInFlightRef.current = false;
-    }
-  }, [adoptExpiry, adoptTiming, isSessionExpired, markExpired, sessionId, timing.activityHeartbeatThrottleMs, userId]);
-
-  const registerActiveLock = useCallback((lock: ActivityLockRef) => {
-    const key = `${lock.resourceType}:${lock.resourceId}`;
-    activeLocksRef.current.set(key, lock);
-    activityDebugStore.lockRegistered(lock);
-    return () => {
-      activeLocksRef.current.delete(key);
-      activityDebugStore.lockUnregistered(lock);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof BroadcastChannel === 'undefined') return;
-    const channel = new BroadcastChannel(ACTIVITY_CHANNEL);
-    channelRef.current = channel;
-    channel.onmessage = (event: MessageEvent<unknown>) => {
-      if (!event.data || typeof event.data !== 'object') return;
-      const type = Reflect.get(event.data, 'type');
-      const expiresAt = Reflect.get(event.data, 'expiresAt');
-      if (type === 'renewed' && typeof expiresAt === 'string') {
-        adoptExpiry(expiresAt, false);
-        activityDebugStore.sessionRenewed(expiresAt, 'broadcast');
-      }
-      if (type === 'expired') {
-        setSessionExpired(true);
-        AppCache.purgeAll();
-      }
-    };
-    return () => {
-      channelRef.current = null;
-      channel.close();
-    };
-  }, [adoptExpiry]);
-
-  useEffect(() => {
-    if (!userId || isSessionExpired) return;
-    const activity = (event: Event) => {
-      activityDebugStore.activityDetected(event.type);
-      void sendHeartbeat();
-    };
-    document.addEventListener('pointerdown', activity, true);
-    document.addEventListener('keydown', activity, true);
-    document.addEventListener('input', activity, true);
-    document.addEventListener('wheel', activity, true);
-    return () => {
-      document.removeEventListener('pointerdown', activity, true);
-      document.removeEventListener('keydown', activity, true);
-      document.removeEventListener('input', activity, true);
-      document.removeEventListener('wheel', activity, true);
-    };
-  }, [isSessionExpired, sendHeartbeat, userId]);
-
-  useEffect(() => {
-    if (sessionStatus !== 'authenticated' || !userId) {
-      const resetTimer = window.setTimeout(resetForLogout, 0);
-      return () => window.clearTimeout(resetTimer);
-    }
-    const activateTimer = window.setTimeout(() => setSessionExpired(false), 0);
-    activityDebugStore.setAuthenticated(true);
-    return () => window.clearTimeout(activateTimer);
-  }, [resetForLogout, sessionStatus, userId]);
-
-  useEffect(() => {
-    const validateWhenVisible = () => {
-      activityDebugStore.setVisibility(document.visibilityState);
-      if (document.visibilityState === 'visible' && userId && !isSessionExpired) void checkSession();
-    };
-    document.addEventListener('visibilitychange', validateWhenVisible);
-    validateWhenVisible();
-    return () => document.removeEventListener('visibilitychange', validateWhenVisible);
-  }, [checkSession, isSessionExpired, userId]);
+  useActivityBrowserBindings({
+    channelRef,
+    sessionStatus,
+    userId: session?.userId,
+    sessionId: session?.activitySessionId,
+    isSessionExpired: controller.isSessionExpired,
+    adoptRemoteExpiry: controller.adoptRemoteExpiry,
+    adoptRemoteExpiration: controller.adoptRemoteExpiration,
+    authenticate: controller.authenticate,
+    resetForLogout: controller.resetForLogout,
+    checkSession: controller.checkSession,
+    sendHeartbeat: controller.sendHeartbeat,
+  });
 
   const value = useMemo<ActivityContextValue>(() => ({
     sessionExpiresAt,

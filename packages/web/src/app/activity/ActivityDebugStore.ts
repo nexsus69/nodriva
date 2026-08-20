@@ -1,6 +1,6 @@
 'use client';
 
-import type { ActivityLockRef } from './ActivityProvider';
+import type { ActivityLockRef } from './activityTypes';
 
 export type DebugOutcome = 'idle' | 'running' | 'success' | 'unauthorized' | 'network-error' | 'server-error';
 

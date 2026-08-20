@@ -5,11 +5,9 @@ Questo documento traccia i trade-off architetturali noti, accettati durante lo s
 ## Coordinatori frontend complessi
 
 Il refactoring generale ha reso `page.tsx` e `layout.tsx` semplici boundary di
-composizione e ha separato screen, sezioni e hook/controller. Tre moduli
+composizione e ha separato screen, sezioni e hook/controller. Due moduli
 infrastrutturali restano intenzionalmente separati ma ancora densi:
 
-- `ActivityProvider` coordina attività umana, heartbeat, scadenza, visibilità e
-  lock: priorità medio-alta per separare protocollo, stato e binding DOM;
 - `VirtualGroupedTable` coordina virtualizzazione, sentinel, scroll e resa
   responsive: priorità medio-alta, con test browser prima di modificare il
   lifecycle della finestra;
@@ -20,6 +18,11 @@ La dimensione da sola non dimostra un difetto. Questi refactoring vanno
 eseguiti per responsabilità e invarianti osservabili, preservando i test di
 sessione/lock, scroll/resize e navigazione/realtime; non rientrano nel limite
 automatico di 60 righe riservato alle route.
+
+Il rilievo storico su `ActivityProvider` è risolto: il componente compone il
+controller, mentre reducer, gate temporale/registro lock, protocollo HTTP e
+binding browser hanno moduli e test indipendenti. Il contratto osservabile di
+sessione scorrevole e rinnovo lock non è cambiato.
 
 ## Risolto in P2: Read Access Control & LTree Subquery
 

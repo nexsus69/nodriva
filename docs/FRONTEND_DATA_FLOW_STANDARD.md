@@ -49,6 +49,10 @@ rinnova sessione e lock registrati tramite `/api/activity`. Il polling
 `/api/sync/access` è soltanto riconciliazione passiva e non può rinnovare la
 sessione. Tempi e comportamento sono documentati in
 [`HUMAN_ACTIVITY_SESSION_LOCKS.md`](./HUMAN_ACTIVITY_SESSION_LOCKS.md).
+Il provider è un boundary di composizione: il protocollo HTTP, la macchina di
+stato della sessione, il gate temporale/registro lock e i binding DOM e
+`BroadcastChannel` restano separati e testabili senza duplicare il
+coordinamento.
 
 ## Regole operative
 
