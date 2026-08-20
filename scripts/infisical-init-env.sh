@@ -18,7 +18,7 @@ target_dir="$(dirname "$target_path")"
 install -d -m 700 "$target_dir"
 umask 077
 
-encryption_key="$(openssl rand -hex 32)"
+encryption_key="$(openssl rand -hex 16)"
 auth_secret="$(openssl rand -base64 48 | tr -d '\n')"
 db_password="$(openssl rand -base64 36 | tr -d '\n' | tr '/+' '_-')"
 
