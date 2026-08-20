@@ -203,8 +203,8 @@ services:
       soketi:
         condition: service_healthy
     ports:
-      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:3001:80"
-      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:6001:6001"
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:80:80"
+      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:443:443"
     volumes:
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - dashboard_full_caddy_data:/data

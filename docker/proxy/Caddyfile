@@ -1,10 +1,14 @@
-:80 {
+wk1695d.glddns.com {
   request_body {
     max_size 26MB
   }
-  reverse_proxy web:3000
-}
 
-:6001 {
-  reverse_proxy soketi:6001
+  @realtime path /app/*
+  handle @realtime {
+    reverse_proxy soketi:6001
+  }
+
+  handle {
+    reverse_proxy web:3000
+  }
 }

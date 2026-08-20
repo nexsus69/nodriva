@@ -26,8 +26,8 @@ attuale di questo file.
 
 | Host | Destinazione | Uso |
 |---:|---:|---|
-| 3001 | Caddy → Web | applicazione |
-| 6001 | Caddy → Soketi | WebSocket realtime |
+| 80 | Caddy → Web | redirect/HTTP challenge |
+| 443 | Caddy → Web/Soketi | HTTPS e WebSocket realtime |
 | 9090 | Prometheus | metriche |
 
 PostgreSQL, ClamAV e i container interni non pubblicano porte sull’host.
