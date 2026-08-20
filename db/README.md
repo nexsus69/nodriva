@@ -109,6 +109,11 @@ Migration `033_session_idle_timeout_30_minutes.sql` updates existing active
 session timeout settings to the current 1800-second default. Fresh PostgreSQL
 and SQLite seeds use the same value.
 
+Il numero `028` è un gap storico e non deve essere riutilizzato o colmato
+retroattivamente. Ogni nuova migrazione deve usare un numero maggiore
+dell'ultimo già distribuito; rinominare file applicati cambierebbe l'ordine di
+upgrade osservato dai deployment esistenti.
+
 Migrations `010`–`012` are the canonical home for relation-field metadata,
 node custom payloads, and managed-enum option tables. The former second SQL
 track under `packages/core/src/infrastructure/schema` was removed so every
@@ -117,11 +122,18 @@ deployment follows this single ordered directory.
 ## Database di integrazione
 
 La CI parte da un database PostgreSQL vuoto il cui nome contiene `test` e usa
-`scripts/postgres-test-bootstrap.sh` per applicare lo schema, tutte le
-migrazioni e creare un login membro di `dashboard_app`. Lo script rifiuta
-database senza il marcatore `test` e verifica che il login non sia superuser,
-non possa creare oggetti arbitrari nello schema e non possa modificare o
-eliminare l'audit.
+`scripts/postgres-test-bootstrap.sh` per applicare lo schema e tutte le
+migrazioni. Prima della `009` inserisce un fixture compatibile con la tabella
+storica `sessions`, quindi verifica la conversione del token in
+`user_sessions`, ripulisce il fixture e riapplica l'intera sequenza per
+controllarne l'idempotenza. Infine crea un login membro di `dashboard_app` e
+verifica che non sia superuser, non possa creare oggetti arbitrari nello
+schema e non possa modificare o eliminare l'audit.
+
+Lo script rifiuta sia database senza il marcatore `test` sia database che
+contengono già tabelle applicative. Questo rende esplicito che è un gate
+distruttivo per ambienti effimeri, non un comando di deploy o upgrade del
+database operativo.
 
 Per riprodurre la suite in un ambiente isolato, fornire URL amministrativo e
 applicativo dello stesso database temporaneo:
@@ -139,4 +151,6 @@ pnpm test:postgres
 
 Il bootstrap richiede un database vuoto e il client `psql`. È distruttivo solo
 per il database di test esplicitamente indicato; non usarlo sul database
-operativo.
+operativo. La migrazione reale del Compose continua a essere eseguita da
+`docker/db-migrate/entrypoint.sh`, nella stessa sequenza lessicografica
+verificata dalla CI.

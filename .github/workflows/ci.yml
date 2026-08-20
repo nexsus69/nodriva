@@ -93,7 +93,7 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install --yes postgresql-client
 
-      - name: Initialize isolated PostgreSQL database
+      - name: Verify PostgreSQL empty schema, upgrade and migration reapply
         run: ./scripts/postgres-test-bootstrap.sh
 
       - name: Build Core

@@ -37,6 +37,19 @@ validate_backup_file() {
   [[ -s "$1" ]] || fail "backup file is empty: $1"
 }
 
+validate_checksum() {
+  local backup_path="$1"
+  local checksum_path="${backup_path}.sha256"
+  [[ -f "$checksum_path" ]] || fail "backup checksum not found: $checksum_path"
+  [[ -s "$checksum_path" ]] || fail "backup checksum is empty: $checksum_path"
+
+  local expected_checksum actual_checksum
+  expected_checksum="$(awk 'NR == 1 { print $1 }' "$checksum_path" | tr '[:upper:]' '[:lower:]')"
+  [[ "$expected_checksum" =~ ^[0-9a-fA-F]{64}$ ]] || fail "backup checksum is invalid: $checksum_path"
+  actual_checksum="$(sha256sum "$backup_path" | awk '{ print $1 }')"
+  [[ "$actual_checksum" == "$expected_checksum" ]] || fail "backup checksum mismatch: $backup_path"
+}
+
 database_exec() {
   if [[ "$BACKUP_DIRECT" == "true" ]]; then
     psql -X -v ON_ERROR_STOP=1 "$@"
@@ -81,19 +94,23 @@ create_backup() {
 verify_backup() {
   local backup_path="$1"
   validate_backup_file "$backup_path"
+  validate_checksum "$backup_path"
   if [[ "$BACKUP_DIRECT" == "true" ]]; then
     pg_restore -l "$backup_path" >/dev/null || fail "pg_restore cannot read backup archive"
   else
     docker exec -i "$CONTAINER_NAME" pg_restore -l < "$backup_path" >/dev/null || fail "pg_restore cannot read backup archive"
   fi
 
-  local verify_database="${SOURCE_DATABASE}_restore_verify_$(date -u +%Y%m%d%H%M%S)_$$"
+  local verify_database="dashboard_restore_test_$(date -u +%Y%m%d%H%M%S)_$$"
   validate_identifier "$verify_database"
   local cleanup_required=1
   cleanup() {
+    local status=$?
+    trap - EXIT
     if [[ "$cleanup_required" -eq 1 ]]; then
-      database_exec -d postgres -c "DROP DATABASE IF EXISTS \"$verify_database\";" >/dev/null
+      database_exec -d postgres -c "DROP DATABASE IF EXISTS \"$verify_database\" WITH (FORCE);" >/dev/null || true
     fi
+    exit "$status"
   }
   trap cleanup EXIT
 
@@ -115,14 +132,14 @@ verify_backup() {
   [[ "$(database_scalar "$verify_database" "SELECT COUNT(*) FROM pg_class WHERE relkind IN ('r','p','v','m');")" -gt 0 ]] || fail "restored catalog contains no relations"
 
   local data_table source_count restored_count
-  for data_table in users nodes entities node_types entity_types audit_logs; do
+  for data_table in users nodes entities node_types entity_types audit_logs resource_attachments resource_field_ciphertexts realtime_event_outbox; do
     source_count="$(database_scalar "$SOURCE_DATABASE" "SELECT COUNT(*) FROM $data_table;")"
     restored_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM $data_table;")"
     [[ "$source_count" == "$restored_count" ]] || fail "row count mismatch for $data_table: source=$source_count restored=$restored_count"
   done
 
   printf 'Restore verification passed in disposable database: %s\n' "$verify_database"
-  database_exec -d postgres -c "DROP DATABASE IF EXISTS \"$verify_database\";" >/dev/null
+  database_exec -d postgres -c "DROP DATABASE IF EXISTS \"$verify_database\" WITH (FORCE);" >/dev/null
   cleanup_required=0
   trap - EXIT
 }

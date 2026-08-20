@@ -17,6 +17,12 @@ Il dump contiene dati applicativi, audit e potenziali valori sensibili. Deve
 essere trattato come un secret: permessi `0600`, cifratura a riposo e accesso
 limitato agli operatori autorizzati.
 
+Il dump PostgreSQL include i record e i metadati degli allegati, non i payload
+nel volume `dashboard_full_attachments`. Quel volume deve essere protetto con
+backup e replica dell'infrastruttura, coordinati con il dump database. La
+procedura applicativa non introduce deliberatamente un secondo formato di
+archivio per gli allegati.
+
 ## Creazione e verifica
 
 ```bash
@@ -24,8 +30,9 @@ limitato agli operatori autorizzati.
 ```
 
 Il comando crea un file in `var/backups/postgres/`, il relativo `.sha256`,
-valida la leggibilità dell’archivio e ripristina il dump in un database
-temporaneo. Al termine il database temporaneo viene eliminato.
+verifica il checksum, valida la leggibilità dell’archivio e ripristina il dump
+in un database temporaneo il cui nome contiene sempre `test`. Al termine il
+database temporaneo viene eliminato anche quando una verifica fallisce.
 
 Per usare un percorso esplicito:
 
@@ -37,12 +44,13 @@ Per verificare un archivio già prodotto:
 
 ```bash
 ./scripts/postgres-backup-verify.sh verify /secure/backups/dashboard-20260811.dump
-sha256sum --check /secure/backups/dashboard-20260811.dump.sha256
 ```
 
-La verifica controlla anche la presenza e la interrogabilità delle tabelle
-principali (`users`, `nodes`, `entities`, tipi, audit, realtime, allegati e
-cifratura campi).
+Il file `.sha256` affiancato è obbligatorio anche per `verify`: un checksum
+mancante, malformato o non corrispondente interrompe la procedura prima del
+restore. La verifica controlla inoltre la presenza e l'interrogabilità delle
+tabelle principali e confronta fra sorgente e copia ripristinata i conteggi di
+utenti, nodi, entità, tipi, audit, allegati, cifratura campi e outbox realtime.
 
 ## Restore operativo
 
@@ -58,6 +66,11 @@ procedere:
    conservati;
 6. riavviare i servizi e verificare login, ACL, audit, allegati, cifratura e
    realtime.
+
+Se il deployment usa allegati, ripristinare il volume dalla copia coordinata
+prima del punto 6 e verificare che ogni record `resource_attachments` abbia il
+relativo payload. Un restore del solo database non costituisce disaster
+recovery completo per quel deployment.
 
 La procedura non automatizza il punto 5 per evitare un overwrite distruttivo
 del database operativo tramite un comando eseguito per errore.

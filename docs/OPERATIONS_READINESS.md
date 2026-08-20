@@ -3,7 +3,8 @@
 ## Healthcheck
 
 La verifica non modifica dati e controlla endpoint applicativo, stato dei
-container, healthcheck Docker e disponibilità PostgreSQL:
+container del solo progetto Compose atteso, healthcheck Docker, disponibilità
+PostgreSQL, ultimo restore verificato e target Prometheus:
 
 ```bash
 ./scripts/stack-healthcheck.sh
@@ -15,6 +16,13 @@ Per un proxy o un host diverso:
 DASHBOARD_BASE_URL=http://192.168.3.247:3001 ./scripts/stack-healthcheck.sh
 ```
 
+Il progetto Compose predefinito è `dashboard_ultimate`; usare
+`DASHBOARD_COMPOSE_PROJECT` se il deployment ha un nome differente. Il backup
+verificato può avere al massimo 93600 secondi (26 ore); la soglia è regolabile
+con `BACKUP_MAX_AGE_SECONDS` in base alla RPO del deployment. Il controllo
+fallisce se `last-status.json` non è completato o è troppo vecchio, se
+Prometheus non è pronto oppure se il target applicativo risulta `down`.
+
 ## Backup e restore verificato
 
 Il backup è considerato valido solo dopo un restore in un database temporaneo:
@@ -23,11 +31,12 @@ Il backup è considerato valido solo dopo un restore in un database temporaneo:
 ./scripts/postgres-backup-verify.sh backup-verify
 ```
 
-La procedura non sovrascrive mai il database operativo. Il job schedulato nel
+La procedura non sovrascrive mai il database operativo: il restore automatico
+usa un database usa-e-getta con marcatore `test`. Il job schedulato nel
 container `backup` mantiene il lock di manutenzione, la retention e il file di
-stato. Un operatore deve monitorare `last-status.json` e configurare un alert
-quando lo stato non è `completed` o il backup verificato è più vecchio della
-RPO concordata.
+stato. Lo stack healthcheck valida `last-status.json`; il deployment deve
+comunque configurare un alert autonomo quando lo stato non è `completed` o il
+backup verificato supera la RPO concordata.
 
 ## Checklist prima del rilascio
 

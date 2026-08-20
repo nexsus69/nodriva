@@ -7,8 +7,9 @@ gli allegati o i secret dell'ambiente di sviluppo.
 ## Verifiche automatiche
 
 - [ ] La CI GitHub Actions è verde sul commit da rilasciare.
-- [ ] Il job PostgreSQL ha applicato schema e migrazioni da zero, verificato il
-      ruolo ristretto ed eseguito integrazioni e parità adapter senza skip.
+- [ ] Il job PostgreSQL ha applicato schema e migrazioni da zero, convertito il
+      fixture legacy, riapplicato le migrazioni, verificato il ruolo ristretto
+      ed eseguito integrazioni e parità adapter senza skip.
 - [ ] `pnpm install --frozen-lockfile` completa senza modificare il lockfile.
 - [ ] `pnpm check` completa con typecheck, lint, test e build production.
 - [ ] Non ci sono modifiche locali o file secret inclusi nel commit.
@@ -38,8 +39,11 @@ gli allegati o i secret dell'ambiente di sviluppo.
 
 - [ ] Backup PostgreSQL creato e ripristinato con successo in un database
       temporaneo.
+- [ ] Se gli allegati sono abilitati, copia e restore del volume allegati
+      coordinati con il dump PostgreSQL e verificati su payload reali.
 - [ ] Chiavi di cifratura presenti nel secret manager e non nei file versionati.
-- [ ] Migrazioni applicate in ordine e ruolo applicativo ristretto verificato.
+- [ ] Migrazioni applicate in ordine, percorso di upgrade e riapplicazione
+      verificati, ruolo applicativo ristretto verificato.
 - [ ] Policy HTTPS, cookie, proxy e WebSocket verificate fuori dall'ambiente
       locale.
 - [ ] Retention audit, backup, log e metriche definite per il deployment.
