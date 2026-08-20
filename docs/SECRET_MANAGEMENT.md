@@ -42,3 +42,24 @@ Il Dashboard non interroga Infisical durante le richieste utente: il deploy
 recupera i secret e li consegna ai container tramite file protetti/Docker
 secrets. In questo modo un'indisponibilità temporanea di Infisical non interrompe
 una sessione già avviata.
+
+## Export per il deploy
+
+Una volta configurati i secret nel progetto, generare il file dotenv di runtime
+fuori dal repository:
+
+```bash
+./scripts/infisical-export-env.sh
+```
+
+Il file predefinito è
+`/home/marco/.config/dashboard-ultimate/dashboard-production.env`. Per usarlo
+con lo stack completo:
+
+```bash
+docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env \
+  -f docker-compose.full.yml up -d --build
+```
+
+L'export usa un token temporaneo e non stampa mai i valori. Ripeterlo dopo una
+rotazione dei secret prima del successivo deploy.
