@@ -88,3 +88,10 @@ Soketi. Caddy inoltra anche l’upgrade WebSocket.
 
 Per replicare l’installazione su un’altra macchina occorre trasferire i
 volumi dati, i secret e verificare un restore prima di avviare il Web.
+Per impostazione predefinita anche applicazione, WebSocket e Prometheus sono
+vincolati a `127.0.0.1`.
+
+Prometheus conserva le serie per 30 giorni (`PROMETHEUS_RETENTION_TIME`); il
+valore può essere modificato nel deployment. Le regole realtime sono valutate
+localmente; per consegnare notifiche è necessario collegare Prometheus a un
+Alertmanager o a un sistema di alerting esterno approvato.

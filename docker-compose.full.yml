@@ -218,3 +218,4 @@ volumes:
   dashboard_full_backups:
   dashboard_full_caddy_data:
   dashboard_full_caddy_config:
+      PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
