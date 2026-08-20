@@ -12,6 +12,7 @@ import {
 } from '../../../components/ui/VirtualGroupedTable';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { EntityResourceMenu } from '../../../components/ui/menu';
+import { Skeleton } from '../../../components/ui/feedback';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -81,7 +82,12 @@ export function SubtreeEntitiesTableSection({
       key: 'entityTypeId',
       header: 'Tipo',
       width: '1fr',
-      render: (item) => entityTypes[item.entityTypeId]?.name ?? item.entityTypeId,
+      render: (item) => {
+        const entityType = Object.values(entityTypes).find(
+          (type) => type.id === item.entityTypeId || type.typeKey === item.entityTypeId,
+        );
+        return entityType?.name ?? <Skeleton className="h-4 w-24" />;
+      },
     },
     { key: 'rowVersion', header: 'Versione', width: '0.8fr' },
     {

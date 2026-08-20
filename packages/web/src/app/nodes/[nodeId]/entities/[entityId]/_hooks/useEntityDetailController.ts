@@ -31,7 +31,11 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
-  const entityType = detail.entity ? entityTypes[detail.entity.entityTypeId] : undefined;
+  const entityType = detail.entity
+    ? Object.values(entityTypes).find(
+        (type) => type.id === detail.entity!.entityTypeId || type.typeKey === detail.entity!.entityTypeId,
+      )
+    : undefined;
   const hasUnsavedChanges = Boolean(lock.isMyLock && detail.entity && (
     name !== (detail.entity.name || '')
     || description !== (detail.entity.description || '')
