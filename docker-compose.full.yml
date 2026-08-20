@@ -159,6 +159,7 @@ services:
     environment:
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
       REALTIME_METRICS_TARGET: web:3000
+      PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
     volumes:
       - dashboard_full_prometheus:/prometheus
     ports:
@@ -218,4 +219,3 @@ volumes:
   dashboard_full_backups:
   dashboard_full_caddy_data:
   dashboard_full_caddy_config:
-      PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
