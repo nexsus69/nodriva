@@ -1,28 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { GroupableItem } from './useSubtreeGrouping.js';
+import type { GroupableItem } from './useSubtreeGrouping';
+import { groupSubtreeItems } from './virtualTableModel';
 
 interface TestItem extends GroupableItem {
   title: string;
-}
-
-function groupSubtreeItems<T extends GroupableItem>(items: T[]) {
-  const groups: { nodeId: string; nodeName: string; nodePath: string; nodeDepth: number; items: T[] }[] = [];
-  let currentGroup: (typeof groups)[number] | null = null;
-
-  for (const item of items) {
-    if (!currentGroup || currentGroup.nodeId !== item.nodeId) {
-      currentGroup = {
-        nodeId: item.nodeId,
-        nodeName: item.nodeName,
-        nodePath: item.nodePath,
-        nodeDepth: item.nodeDepth,
-        items: [],
-      };
-      groups.push(currentGroup);
-    }
-    currentGroup.items.push(item);
-  }
-  return groups;
 }
 
 describe('useSubtreeGrouping (Pure Grouping Unit Tests)', () => {

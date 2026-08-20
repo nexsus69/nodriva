@@ -54,6 +54,11 @@ stato della sessione, il gate temporale/registro lock e i binding DOM e
 `BroadcastChannel` restano separati e testabili senza duplicare il
 coordinamento.
 
+Le liste di sottoalbero mantengono la finestra paginata nella vista della cache
+semantica. `VirtualGroupedTable` compone soltanto controller UI, sentinel,
+ancoraggio e resa desktop/mobile: non conserva una seconda copia locale della
+finestra e non decide quali pagine trattenere o espellere.
+
 ## Regole operative
 
 - usare `AppCache` o un coordinator di dominio per ogni dato condiviso;

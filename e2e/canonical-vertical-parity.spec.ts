@@ -129,7 +129,7 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
 
 async function createOperatorAccess(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
   await page.goto(`${baseUrl}/admin/users`);
-  await expect(page.getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
+  await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
   await page.getByLabel('Email Utente').fill(names.operatorEmail);
   const passwordInput = page.getByLabel('Password Iniziale');
@@ -202,7 +202,9 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
     await expect(relationSelect.locator('option')).toHaveCount(2);
     await relationSelect.selectOption({ index: 1 });
   }
-  await page.getByRole('button', { name: 'Crea Entità' }).click();
+  const createButton = page.getByRole('button', { name: 'Crea Entità' });
+  await expect(createButton).toBeEnabled();
+  await createButton.click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${nodeId}`);
   const entityLink = page.getByRole('link', { name: entityName, exact: true }).first();
   await expect(entityLink).toBeVisible();

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useCallback, useState, RefObject } from 'react';
+import { SentinelTriggerGate } from './sentinelTriggerGate';
+import { bindSentinelObserver } from './sentinelObserverBinding';
 
 export interface UseSentinelObserverOptions {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -31,9 +33,7 @@ export function useSentinelObserver({
   canLoadMoreForward = true,
   canLoadMoreBackward = true,
 }: UseSentinelObserverOptions) {
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const lastForwardTriggerRef = useRef<number>(0);
-  const lastBackwardTriggerRef = useRef<number>(0);
+  const triggerGateRef = useRef(new SentinelTriggerGate(DEBOUNCE_MS));
   const [topTriggerCount, setTopTriggerCount] = useState<number>(0);
   const [bottomTriggerCount, setBottomTriggerCount] = useState<number>(0);
   const [lastTriggered, setLastTriggered] = useState<'top' | 'bottom' | null>(null);
@@ -77,7 +77,7 @@ export function useSentinelObserver({
     const bottomEl = bottomSentinelRef.current;
     if (!container || !topEl || !bottomEl) return;
 
-    const observer = new IntersectionObserver(
+    const disconnect = bindSentinelObserver(container, topEl, bottomEl,
       (entries) => {
         const now = Date.now();
 
@@ -85,10 +85,12 @@ export function useSentinelObserver({
           if (!entry.isIntersecting) continue;
 
           if (entry.target === bottomEl) {
-            if (now - lastForwardTriggerRef.current < DEBOUNCE_MS) continue;
-            if (!hasMoreForwardRef.current || !canLoadMoreForwardRef.current || isLoadingForwardRef.current) continue;
+            if (!triggerGateRef.current.tryTrigger('forward', now, {
+              hasMore: hasMoreForwardRef.current,
+              canLoadMore: canLoadMoreForwardRef.current,
+              isLoading: isLoadingForwardRef.current,
+            })) continue;
 
-            lastForwardTriggerRef.current = now;
             onBeforeFetchRef.current?.('forward');
             setBottomTriggerCount((prev) => prev + 1);
             setLastTriggered('bottom');
@@ -97,10 +99,12 @@ export function useSentinelObserver({
           }
 
           if (entry.target === topEl) {
-            if (now - lastBackwardTriggerRef.current < DEBOUNCE_MS) continue;
-            if (!hasMoreBackwardRef.current || !canLoadMoreBackwardRef.current || isLoadingBackwardRef.current) continue;
+            if (!triggerGateRef.current.tryTrigger('backward', now, {
+              hasMore: hasMoreBackwardRef.current,
+              canLoadMore: canLoadMoreBackwardRef.current,
+              isLoading: isLoadingBackwardRef.current,
+            })) continue;
 
-            lastBackwardTriggerRef.current = now;
             onBeforeFetchRef.current?.('backward');
             setTopTriggerCount((prev) => prev + 1);
             setLastTriggered('top');
@@ -109,16 +113,9 @@ export function useSentinelObserver({
           }
         }
       },
-      { root: container, threshold: 0.01 }
     );
-
-    observer.observe(topEl);
-    observer.observe(bottomEl);
-    observerRef.current = observer;
-
     return () => {
-      observer.disconnect();
-      observerRef.current = null;
+      disconnect();
     };
   }, [containerRef, topSentinelRef, bottomSentinelRef]);
 

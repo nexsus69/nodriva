@@ -5,12 +5,9 @@ Questo documento traccia i trade-off architetturali noti, accettati durante lo s
 ## Coordinatori frontend complessi
 
 Il refactoring generale ha reso `page.tsx` e `layout.tsx` semplici boundary di
-composizione e ha separato screen, sezioni e hook/controller. Due moduli
-infrastrutturali restano intenzionalmente separati ma ancora densi:
+composizione e ha separato screen, sezioni e hook/controller. Un modulo
+infrastrutturale resta intenzionalmente separato ma ancora denso:
 
-- `VirtualGroupedTable` coordina virtualizzazione, sentinel, scroll e resa
-  responsive: priorità medio-alta, con test browser prima di modificare il
-  lifecycle della finestra;
 - `NodeTree` combina caricamento lazy, espansione e rendering ricorsivo:
   priorità medio-bassa finché non emergono regressioni o nuove funzionalità.
 
@@ -23,6 +20,13 @@ Il rilievo storico su `ActivityProvider` è risolto: il componente compone il
 controller, mentre reducer, gate temporale/registro lock, protocollo HTTP e
 binding browser hanno moduli e test indipendenti. Il contratto osservabile di
 sessione scorrevole e rinnovo lock non è cambiato.
+
+Anche il rilievo su `VirtualGroupedTable` è risolto: il componente compone un
+controller UI e un corpo presentazionale, mentre grouping, selezione, gate
+sentinel, binding dell'observer e compensazione scroll sono isolati e coperti
+da test. La finestra paginata continua a essere governata dalla cache semantica
+e `useVirtualSubtreeData`; il refactoring non introduce una seconda finestra
+locale né cambia soglie, markup responsive o protocollo di caricamento.
 
 ## Risolto in P2: Read Access Control & LTree Subquery
 
