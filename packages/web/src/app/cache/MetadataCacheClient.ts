@@ -35,7 +35,11 @@ export class MetadataCacheClient {
       this.queryKey(kind),
       async () => {
         const records = kind === 'node' ? await listNodeTypesAction() : await listEntityTypesAction();
-        records.forEach((record) => this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record));
+        records.forEach((record) => this.kernel.upsertRecord(
+          RECORD_NAMESPACES[kind],
+          record,
+          { completeness: 'full' },
+        ));
         return {
           ids: records.map((record) => record.id),
           recordNamespace: RECORD_NAMESPACES[kind],
@@ -54,7 +58,7 @@ export class MetadataCacheClient {
   }
 
   public inject(kind: MetadataKind, record: MetadataRecord): void {
-    this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record);
+    this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record, { completeness: 'full' });
   }
 
   public subscribe(kind: MetadataKind, subscriber: MetadataSubscriber): () => void {
