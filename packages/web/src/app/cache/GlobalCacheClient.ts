@@ -119,6 +119,21 @@ export class GlobalCacheClient {
     GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.entityMembership);
   }
 
+  private entityMembershipChanged(
+    event: RealtimeDataChangedEvent,
+    previous: ClientEntity | null,
+  ): boolean {
+    if (event.changeType !== 'updated') return true;
+    if (!previous || !event.data || typeof event.data !== 'object') return true;
+
+    const next = event.data as Partial<ClientEntity>;
+    const has = (key: keyof ClientEntity): boolean => Object.prototype.hasOwnProperty.call(next, key);
+    return (has('name') && next.name !== previous.name)
+      || (has('description') && next.description !== previous.description)
+      || (has('parentNodeId') && next.parentNodeId !== previous.parentNodeId)
+      || (has('entityTypeId') && next.entityTypeId !== previous.entityTypeId);
+  }
+
   private invalidateNodeHierarchyViews(): void {
     GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeHierarchy);
   }
@@ -318,7 +333,12 @@ export class GlobalCacheClient {
     }
     if (event.subresourceKind === 'attachment') {
       if (event.resourceType === 'node') this.nodes.invalidate(event.resourceId);
-      else this.invalidateEntityViews();
+      else if (event.entityTypeId) {
+        GlobalViewStore.invalidateReference({
+          namespace: `entity:${event.entityTypeId}`,
+          id: event.resourceId,
+        });
+      }
       this.notifyCacheSubscribers();
       return;
     }
@@ -354,6 +374,9 @@ export class GlobalCacheClient {
     }
     if (event.resourceType === 'entity') {
       const entityTypeId = event.entityTypeId;
+      const previous = entityTypeId
+        ? this.getEntityCache(entityTypeId).get(event.resourceId)
+        : null;
       if (entityTypeId && event.changeType !== 'deleted' && event.data) {
         this.getEntityCache(entityTypeId).inject(
           event.resourceId,
@@ -368,7 +391,7 @@ export class GlobalCacheClient {
           id: event.resourceId,
         });
       }
-      this.invalidateEntityViews();
+      if (this.entityMembershipChanged(event, previous)) this.invalidateEntityViews();
     } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
       if (event.changeType === 'deleted') {

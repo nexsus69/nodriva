@@ -14,7 +14,7 @@ interface VirtualTableRowProps<T> {
   gridTemplateColumns: string;
 }
 
-export function VirtualTableRow<T extends { id: string, entityTypeId?: string }>({
+function VirtualTableRowComponent<T extends { id: string, entityTypeId?: string }>({
   item,
   columns,
   isSelected,
@@ -106,3 +106,32 @@ export function VirtualTableRow<T extends { id: string, entityTypeId?: string }>
     </div>
   );
 }
+
+function equalRowItems<T extends { id: string }>(left: T, right: T): boolean {
+  if (left === right) return true;
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const keys = new Set([...Object.keys(leftRecord), ...Object.keys(rightRecord)]);
+  for (const key of keys) {
+    if (leftRecord[key] !== rightRecord[key]) return false;
+  }
+  return true;
+}
+
+function areRowsEqual<T extends { id: string }>(
+  previous: VirtualTableRowProps<T>,
+  next: VirtualTableRowProps<T>,
+): boolean {
+  if (!equalRowItems(previous.item, next.item)) return false;
+  if (previous.isSelected !== next.isSelected) return false;
+  if (previous.gridTemplateColumns !== next.gridTemplateColumns) return false;
+  if (previous.columns.length !== next.columns.length) return false;
+  return previous.columns.every((column, index) => {
+    const nextColumn = next.columns[index];
+    return column.key === nextColumn.key
+      && column.header === nextColumn.header
+      && column.width === nextColumn.width;
+  });
+}
+
+export const VirtualTableRow = React.memo(VirtualTableRowComponent, areRowsEqual) as typeof VirtualTableRowComponent;

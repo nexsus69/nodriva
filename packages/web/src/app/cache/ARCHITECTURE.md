@@ -215,9 +215,11 @@ await AppCache.updateEntity({ entityId, name, payloadDelta, expectedRowVersion }
 1. Il backend aggiorna e restituisce il payload salvato.
 2. `AppCache` inietta il record aggiornato nell'EntityStore tramite `inject()`.
 3. Dettagli e form ricevono il nuovo dato canonico via push.
-4. Le viste di collezione vengono invalidate tramite il token di membership,
-   perché nome, payload, filtri o ordinamento possono aver cambiato la loro
-   composizione. Non vengono invece invalidate viste puntuali non coinvolte.
+4. Le viste di collezione vengono invalidate tramite il token di membership
+   solo quando può cambiare la composizione (nome, descrizione filtrata,
+   parent o tipo). Una modifica ai soli campi dinamici/payload aggiorna il
+   record normalizzato senza ricostruire le finestre della lista. Non vengono
+   invece invalidate viste puntuali non coinvolte.
 
 ### Delete
 
