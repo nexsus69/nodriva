@@ -9,4 +9,11 @@ describe('AttachmentInput', () => {
     expect(markup).toContain('accept="image/*"');
     expect(markup).not.toContain('multiple=""');
   });
+
+  it('uses the light workspace palette when requested', () => {
+    const markup = renderToStaticMarkup(<AttachmentInput kind="file" tone="light" onChange={vi.fn()} />);
+    expect(markup).toContain('border-slate-200');
+    expect(markup).toContain('bg-slate-50');
+    expect(markup).not.toContain('bg-slate-900');
+  });
 });

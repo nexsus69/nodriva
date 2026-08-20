@@ -5,6 +5,7 @@ import type { GroupedNode, GroupableItem } from './useSubtreeGrouping';
 import type { GroupHeaderSlotProps, RowActionSlotProps, VirtualTableColumnDef } from './types';
 import { VirtualGroupHeader } from './VirtualGroupHeader';
 import { VirtualTableRow } from './VirtualTableRow';
+import { Skeleton, SkeletonState } from '../feedback';
 
 interface VirtualGroupedTableBodyProps<T extends GroupableItem> {
   items: T[];
@@ -60,10 +61,7 @@ export function VirtualGroupedTableBody<T extends GroupableItem>({
       )}
 
       {isLoading && items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
-          <span className="h-7 w-7 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-600" />
-          <span className="text-sm font-medium">Caricamento dati in corso…</span>
-        </div>
+        <SkeletonState label="Caricamento dati tabella" className="divide-y divide-slate-100">{Array.from({ length: 6 }, (_, row) => <div key={row} className="grid items-center gap-3 px-4 py-4" style={{ gridTemplateColumns }}>{columns.map((column, columnIndex) => <Skeleton key={column.key} className={`h-3 ${columnIndex === 0 ? 'w-4' : row % 2 === 0 ? 'w-4/5' : 'w-3/5'}`} />)}</div>)}</SkeletonState>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-slate-400">
           <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-xl">⌁</span>

@@ -43,7 +43,10 @@ describe('VirtualGroupedTableBody', () => {
       <VirtualGroupedTableBody items={[]} groupedItems={[]} columns={columns} isLoading={false} isError={false} errorMessage="" emptyStateMessage="Vuoto" gridTemplateColumns="32px 1fr" />,
     );
 
-    expect(loading).toContain('Caricamento dati in corso');
+    expect(loading).toContain('aria-label="Caricamento dati tabella"');
+    expect(loading).toContain('animate-pulse');
+    expect(loading).toContain('grid-template-columns:32px 1fr');
+    expect(loading).not.toContain('Caricamento dati in corso');
     expect(loading).not.toContain('Vuoto');
     expect(empty).toContain('Vuoto');
   });

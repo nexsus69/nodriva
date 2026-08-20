@@ -1,3 +1,4 @@
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { ScopeAssignmentDto } from '@dashboard/core';
 
 export interface ScopeAssignmentsTableProps {
@@ -9,7 +10,7 @@ export interface ScopeAssignmentsTableProps {
 }
 
 export function ScopeAssignmentsTable({ scopes, loading, isPending, onEdit, onDelete }: ScopeAssignmentsTableProps) {
-  if (loading) return <div className="p-8 text-center text-xs text-slate-400">Caricamento assegnazioni scope in corso...</div>;
+  if (loading) return <SkeletonState label="Caricamento assegnazioni scope" className="divide-y divide-slate-800/60">{Array.from({ length: 5 }, (_, row) => <div key={row} className="grid grid-cols-[1.5fr_1.5fr_1fr_1fr_auto] items-center gap-5 px-6 py-4"><Skeleton className="h-3 w-4/5" /><Skeleton className="h-3 w-3/4" /><Skeleton className="h-5 w-16 rounded-full" /><Skeleton className="h-3 w-20" /><Skeleton className="h-6 w-28" /></div>)}</SkeletonState>;
   if (scopes.length === 0) return <div className="p-12 text-center space-y-3"><span className="text-3xl block">🔒</span><p className="text-sm font-semibold text-slate-300">Nessuna assegnazione scope trovata</p><p className="text-xs text-slate-500">Gli utenti senza scope dedicato ereditano i permessi di default.</p></div>;
 
   return (

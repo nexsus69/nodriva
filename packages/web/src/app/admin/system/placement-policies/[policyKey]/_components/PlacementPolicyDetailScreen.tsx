@@ -1,6 +1,7 @@
 'use client';
 
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import { ConfirmModal } from '../../../../../components/ui/ConfirmModal';
 import { AdminResourceLock } from '../../../../_components/AdminResourceLock';
 import { PlacementPolicyEditModal } from './PlacementPolicyEditModal';
@@ -11,7 +12,7 @@ import { usePlacementPolicyDetail } from '../_hooks/usePlacementPolicyDetail';
 
 export function PlacementPolicyDetailScreen({ policyKey }: { policyKey: string }) {
   const controller = usePlacementPolicyDetail(policyKey);
-  if (controller.loading) return <div className="p-8 text-center text-xs text-slate-400">Caricamento dettaglio policy in corso...</div>;
+  if (controller.loading) return <SkeletonState label="Caricamento dettaglio placement policy" className="space-y-6"><div className="flex justify-between"><div className="space-y-3"><Skeleton className="h-6 w-64" /><Skeleton className="h-3 w-40" /></div><Skeleton className="h-9 w-32" /></div><div className="glass-panel space-y-4 rounded-2xl border border-slate-800 p-6">{[0, 1, 2, 3].map((row) => <div key={row} className="flex justify-between border-b border-slate-800 pb-4"><Skeleton className="h-3 w-2/5" /><Skeleton className="h-7 w-24" /></div>)}</div></SkeletonState>;
   if (!controller.policy) return <div className="space-y-4"><BackLink /><div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300"><strong>Errore:</strong> {controller.error?.message || 'Placement policy non trovata.'}</div></div>;
   const policy = controller.policy;
   return <div className="space-y-6">

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { LogoutButton } from '../ui/LogoutButton';
+import { Skeleton } from '../ui/feedback';
 import { MobileDrawer } from '../ui/menu';
 
 const NAV_ITEMS = [
@@ -66,8 +67,8 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
 
           <div className="mt-auto rounded-xl border border-white/10 bg-white/5 p-3">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-200 ring-1 ring-indigo-400/20">{status === 'loading' ? '··' : userInitials}</span>
-              <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-100">{status === 'loading' ? 'Caricamento…' : email}</p><p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sessione attiva</p></div>
+              {status === 'loading' ? <span role="status" aria-label="Caricamento sessione"><Skeleton className="h-10 w-10 rounded-full" /></span> : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-bold text-indigo-200 ring-1 ring-indigo-400/20">{userInitials}</span>}
+              <div className="min-w-0">{status === 'loading' ? <Skeleton className="h-3 w-32" /> : <p className="truncate text-xs font-semibold text-slate-100">{email}</p>}<p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Sessione attiva</p></div>
             </div>
             <LogoutButton className="mt-3 w-full justify-center border-white/10 bg-white/5 text-slate-300 hover:bg-rose-500/10 hover:text-rose-300" />
           </div>

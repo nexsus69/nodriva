@@ -1,4 +1,5 @@
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { UserListItemDto } from '@dashboard/core';
 
 export interface UserListTableProps {
@@ -7,7 +8,7 @@ export interface UserListTableProps {
 }
 
 export function UserListTable({ users, loading }: UserListTableProps) {
-  if (loading) return <div className="p-8 text-center text-xs text-slate-400">Caricamento elenco utenti in corso...</div>;
+  if (loading) return <SkeletonState label="Caricamento elenco utenti" className="divide-y divide-slate-800/60">{Array.from({ length: 5 }, (_, row) => <div key={row} className="grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-6 px-6 py-4"><div className="flex items-center gap-3"><Skeleton className="h-7 w-7 shrink-0 rounded-full" /><Skeleton className="h-3 w-36" /></div><Skeleton className="h-5 w-16 rounded-full" /><Skeleton className="h-3 w-20" /><Skeleton className="h-6 w-20 justify-self-end" /></div>)}</SkeletonState>;
   if (users.length === 0) return <div className="p-12 text-center space-y-3"><span className="text-3xl block">👤</span><p className="text-sm font-semibold text-slate-300">Nessun utente trovato</p><p className="text-xs text-slate-500">Non ci sono account corrispondenti ai criteri di ricerca.</p></div>;
 
   return (

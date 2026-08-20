@@ -1,4 +1,5 @@
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { TypeKind, TypeListItemDto } from '@dashboard/core';
 
 export interface TypeListTableProps {
@@ -9,7 +10,7 @@ export interface TypeListTableProps {
 
 export function TypeListTable({ kind, types, loading }: TypeListTableProps) {
   if (loading) {
-    return <div className="p-12 text-center text-slate-400 space-y-3"><div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto" /><p className="text-sm">Caricamento tipi in corso...</p></div>;
+    return <SkeletonState label="Caricamento tipi" className="divide-y divide-slate-800/60">{Array.from({ length: 6 }, (_, row) => <div key={row} className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto] items-center gap-5 px-5 py-4"><div className="space-y-2"><Skeleton className="h-3 w-32" /><Skeleton className="h-2.5 w-44" /></div>{[0, 1, 2, 3].map((cell) => <Skeleton key={cell} className="h-3 w-3/4" />)}<Skeleton className="h-6 w-20" /></div>)}</SkeletonState>;
   }
   if (types.length === 0) {
     return <div className="p-12 text-center text-slate-400 space-y-2"><p className="text-lg font-medium text-slate-300">Nessun tipo configurato per {kind}</p><p className="text-sm">Crea il tuo primo tipo per iniziare ad amministrare i dati.</p></div>;

@@ -1,2 +1,2 @@
-export { Alert, EmptyState, LoadingState, StatusBadge } from './Feedback';
+export { Alert, EmptyState, Skeleton, SkeletonState, StatusBadge } from './Feedback';
 export { ModalShell } from './ModalShell';

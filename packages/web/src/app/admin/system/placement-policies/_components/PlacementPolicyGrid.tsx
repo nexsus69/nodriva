@@ -1,4 +1,5 @@
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { PlacementPolicyListItemDto } from '@dashboard/core';
 
 export interface PlacementPolicyGridProps {
@@ -10,7 +11,7 @@ export interface PlacementPolicyGridProps {
 }
 
 export function PlacementPolicyGrid({ policies, loading, isPending, onEdit, onDelete }: PlacementPolicyGridProps) {
-  if (loading) return <div className="col-span-2 glass-panel p-8 text-center text-xs text-slate-400">Caricamento placement policies in corso...</div>;
+  if (loading) return <SkeletonState label="Caricamento placement policies" className="col-span-2 grid grid-cols-1 gap-4 md:grid-cols-2">{[0, 1, 2, 3].map((card) => <div key={card} className="glass-panel space-y-4 rounded-2xl border border-slate-800 p-5"><div className="flex justify-between"><Skeleton className="h-3 w-28" /><Skeleton className="h-5 w-16 rounded" /></div><Skeleton className="h-5 w-2/3" /><Skeleton className="h-3 w-full" /><div className="flex justify-between border-t border-slate-800 pt-3"><Skeleton className="h-3 w-24" /><Skeleton className="h-7 w-36" /></div></div>)}</SkeletonState>;
   if (policies.length === 0) return <div className="col-span-2 glass-panel p-12 text-center space-y-3"><span className="text-3xl block">🗺️</span><p className="text-sm font-semibold text-slate-300">Nessuna Placement Policy trovata</p><p className="text-xs text-slate-500">Crea una nuova policy per regolare l&apos;allocazione delle entità.</p></div>;
 
   return <>{policies.map((policy) => <div key={policy.id} className="glass-panel p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4 hover:border-slate-700 transition-all">

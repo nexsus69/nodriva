@@ -33,19 +33,17 @@ export default function NodeDetailPage() {
 
   if (controller.nodeAccessDenied || controller.nodeAccess === 'denied') return <AccessDenied />;
   if (controller.nodeAccess === 'unavailable') return <NodeAccessUnavailable onRetry={controller.retryNodeAccess} />;
-  if (controller.nodeAccess === 'checking') {
-    return <PageShell><Panel className="mx-auto max-w-xl"><p className="text-sm text-slate-500">Verifica autorizzazioni del nodo…</p></Panel></PageShell>;
-  }
+  const readOnly = controller.readOnly || controller.nodeAccess !== 'allowed';
 
   return (
     <PageShell>
-      <NodeWorkspaceNavigation nodeId={nodeId} readOnly={controller.readOnly} />
+      <NodeWorkspaceNavigation nodeId={nodeId} readOnly={readOnly} />
       <NodeContextOverview nodeId={nodeId} controller={controller} />
       {controller.displayedError && <Alert tone="danger"><span className="font-bold">Errore:</span> {controller.displayedError}</Alert>}
       {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
       <NodeEntitiesSection nodeId={nodeId} controller={controller} />
-      <ChildNodesSection nodeId={nodeId} childNodes={controller.childNodes} readOnly={controller.readOnly} />
+      <ChildNodesSection nodeId={nodeId} childNodes={controller.childNodes} loading={controller.isChildrenLoading} readOnly={readOnly} />
       <SubtreeEntitiesTableSection nodeId={nodeId} />
     </PageShell>
   );

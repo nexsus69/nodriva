@@ -2,6 +2,7 @@ import { LockBadge } from '../../../components/LockBadge';
 import { Panel, SectionHeader } from '../../../components/ui/layout';
 import { NodeResourceMenu } from '../../../components/ui/menu';
 import { AttachmentInput, AttachmentList, DynamicFieldsForm } from '../../../components/ui/forms';
+import { Skeleton } from '../../../components/ui/feedback';
 import type { useNodeDetail } from '../_hooks/useNodeDetail';
 
 interface NodeEditorPanelProps { nodeId: string; controller: ReturnType<typeof useNodeDetail> }
@@ -16,19 +17,18 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-xl text-indigo-600">📦</div>
             <div>
               <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-900">
-                {controller.isNodeLoading && <span aria-label="Caricamento" className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />}
-                <span className="min-w-0 break-words">{controller.currentNode?.name || 'Caricamento...'}</span>
+                {controller.isNodeLoading || !controller.currentNode ? <span role="status" aria-label="Caricamento nodo"><Skeleton className="h-6 w-48" /></span> : <span className="min-w-0 break-words">{controller.currentNode.name}</span>}
                 {controller.currentNode && <NodeResourceMenu nodeId={controller.currentNode.id} nodeName={controller.currentNode.name} onEdit={() => { void controller.beginNodeEditing(); }} />}
               </h1>
-              <p className="mt-0.5 text-xs font-mono text-slate-400">Path: {controller.currentNode?.pathLabel || controller.currentNode?.path || '-'}</p>
+              {controller.isNodeLoading || !controller.currentNode ? <Skeleton className="mt-1 h-3 w-36" /> : <p className="mt-0.5 text-xs font-mono text-slate-400">Path: {controller.currentNode.pathLabel || controller.currentNode.path || '-'}</p>}
             </div>
-            <DynamicFieldsForm fields={controller.dynamicNodeFields} payload={controller.dynamicNodePayload} setPayload={controller.setDynamicNodePayload} title="Campi dinamici" />
+            <DynamicFieldsForm fields={controller.dynamicNodeFields} payload={controller.dynamicNodePayload} setPayload={controller.setDynamicNodePayload} title="Campi dinamici" tone="light" />
             {controller.isMyLock && attachmentFields.map((field) => {
               const kind = field.dataType.toLowerCase() as 'file' | 'image';
               return (
                 <div key={field.fieldKey} className="mt-3 space-y-2">
                   <span className="block text-xs font-medium text-slate-700">{field.label ?? field.fieldKey}</span>
-                  <AttachmentInput kind={kind} maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={controller.attachmentsByField[field.fieldKey] ?? []} onChange={(files) => controller.setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} />
+                  <AttachmentInput kind={kind} tone="light" maxFiles={10} maxSizeBytes={25 * 1024 * 1024} value={controller.attachmentsByField[field.fieldKey] ?? []} onChange={(files) => controller.setAttachmentsByField((current) => ({ ...current, [field.fieldKey]: files }))} />
                 </div>
               );
             })}
@@ -59,7 +59,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
       {attachmentFields.map((field) => (
         <Panel key={field.fieldKey} className="space-y-3">
           <SectionHeader title={field.label ?? field.fieldKey} description={field.dataType.toLowerCase() === 'image' ? 'Immagini collegate al campo.' : 'Documenti collegati al campo.'} />
-          <AttachmentList resourceType="node" resourceId={nodeId} fieldKey={field.fieldKey} kind={field.dataType.toLowerCase() as 'file' | 'image'} canDelete={controller.isMyLock} />
+          <AttachmentList resourceType="node" resourceId={nodeId} fieldKey={field.fieldKey} kind={field.dataType.toLowerCase() as 'file' | 'image'} tone="light" canDelete={controller.isMyLock} />
         </Panel>
       ))}
     </>

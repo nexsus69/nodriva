@@ -15,7 +15,8 @@ export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.ad
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
 
 export function useNodeDetail(nodeId: string) {
-  const [nodeAccess, setNodeAccess] = useState<NodeAccessState>('checking');
+  const [nodeAccessResult, setNodeAccessResult] = useState<{ nodeId: string; state: NodeAccessState }>({ nodeId, state: 'checking' });
+  const nodeAccess = nodeAccessResult.nodeId === nodeId ? nodeAccessResult.state : 'checking';
   const [nodeAccessAttempt, setNodeAccessAttempt] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export function useNodeDetail(nodeId: string) {
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
   const [isSavingNode, startNodeUpdate] = useTransition();
 
-  const { nodes: childNodes, error: childrenError } = useSemanticNodeList(nodeId, { retentionClass: 'persistent' });
+  const { nodes: childNodes, isLoading: isChildrenLoading, error: childrenError } = useSemanticNodeList(nodeId, { retentionClass: 'persistent' });
   const { entities: nodeEntities, isLoading: isEntitiesLoading, error: entitiesError } = useSemanticEntityCollection(nodeId);
   const { entityTypes, nodeTypes } = useSemanticMetadata();
   const lock = useLock({ resourceType: 'node', resourceId: nodeId });
@@ -44,12 +45,12 @@ export function useNodeDetail(nodeId: string) {
   useEffect(() => {
     let cancelled = false;
     void resolveNodeAccess(() => checkNodeReadAccessAction(nodeId))
-      .then((access) => { if (!cancelled) setNodeAccess(access); });
+      .then((access) => { if (!cancelled) setNodeAccessResult({ nodeId, state: access }); });
     return () => { cancelled = true; };
   }, [nodeAccessAttempt, nodeId]);
 
   const retryNodeAccess = () => {
-    setNodeAccess('checking');
+    setNodeAccessResult({ nodeId, state: 'checking' });
     setNodeAccessAttempt((attempt) => attempt + 1);
   };
 
@@ -146,7 +147,7 @@ export function useNodeDetail(nodeId: string) {
 
   return {
     nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, entityDefinitions,
-    isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
+    isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
     setDynamicNodePayload, setAttachmentsByField, setNodeName, setNodeDescription,

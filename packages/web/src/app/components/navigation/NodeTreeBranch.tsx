@@ -3,6 +3,7 @@ import { useCachedNode } from '../../hooks/useCachedNode';
 import { useSemanticNodeList } from '../../hooks/useSemanticNodeList';
 import { resolveNodeTreeItemState } from './nodeTreeModel';
 import { NodeTreeRow } from './NodeTreeRow';
+import { Skeleton, SkeletonState } from '../ui/feedback';
 
 interface NodeTreeBranchProps {
   parentNode?: ClientNode;
@@ -23,8 +24,8 @@ export function NodeTreeBranch(props: NodeTreeBranchProps) {
 
   if (isLoading) {
     return props.parentNode
-      ? <div role="status" className="py-2 text-[11px] text-slate-500" style={{ paddingLeft: childIndent }}>Caricamento…</div>
-      : <TreeStatus>Caricamento nodi radice…</TreeStatus>;
+      ? <SkeletonState label="Caricamento sotto-nodi"><div className="space-y-3 py-2 pr-3" style={{ paddingLeft: childIndent }}><Skeleton className="h-3 w-28" /><Skeleton className="h-3 w-20" /></div></SkeletonState>
+      : <NodeTreeSkeleton />;
   }
 
   if (error) {
@@ -56,6 +57,10 @@ export function NodeTreeBranch(props: NodeTreeBranchProps) {
       {nodes.map((node) => <NodeTreeItem key={node.id} node={node} {...props} />)}
     </ul>
   );
+}
+
+function NodeTreeSkeleton() {
+  return <SkeletonState label="Caricamento nodi radice" className="space-y-4 px-3 py-2">{[0, 1, 2, 3].map((row) => <div key={row} className="flex items-center gap-2"><Skeleton className="h-5 w-5 shrink-0 rounded" /><Skeleton className={`h-3 ${row % 2 === 0 ? 'w-32' : 'w-24'}`} /></div>)}</SkeletonState>;
 }
 
 function NodeTreeItem({ node, ...props }: NodeTreeBranchProps & { node: ClientNode }) {

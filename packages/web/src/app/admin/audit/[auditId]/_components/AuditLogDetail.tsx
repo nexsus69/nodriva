@@ -1,8 +1,9 @@
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { AuditLogDetailDto, ApiErrorResponse } from '@dashboard/core';
 
 export function AuditLogDetail({ log, loading, error }: { log: AuditLogDetailDto | null; loading: boolean; error: ApiErrorResponse | null }) {
-  if (loading) return <div className="p-12 text-center text-xs text-slate-400">Caricamento dettaglio evento di audit in corso...</div>;
+  if (loading) return <SkeletonState label="Caricamento dettaglio evento di audit" className="space-y-6"><div className="glass-panel space-y-4 rounded-2xl border border-slate-800 p-6"><div className="flex justify-between"><Skeleton className="h-6 w-28" /><Skeleton className="h-3 w-36" /></div><Skeleton className="h-6 w-2/3" /></div><div className="grid grid-cols-2 gap-4 lg:grid-cols-4">{[0, 1, 2, 3].map((card) => <Skeleton key={card} className="h-20 w-full rounded-xl" />)}</div><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><Skeleton className="h-72 w-full rounded-2xl" /><Skeleton className="h-72 w-full rounded-2xl" /></div></SkeletonState>;
   if (!log) return <div className="space-y-4"><BackLink /><div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300"><strong>Errore:</strong> {error?.message || 'Evento di audit non trovato.'}</div></div>;
   return <div className="space-y-6">
     <BackLink />

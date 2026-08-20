@@ -25,6 +25,7 @@ export interface DynamicFieldsFormProps {
   onCreateRelation?: (field: DynamicField) => void;
   onAddEnumOption?: (field: DynamicField) => void;
   title?: string;
+  tone?: 'dark' | 'light';
 }
 
 export function DynamicFieldsForm({
@@ -35,6 +36,7 @@ export function DynamicFieldsForm({
   onCreateRelation,
   onAddEnumOption,
   title = 'Campi dinamici',
+  tone = 'dark',
 }: DynamicFieldsFormProps) {
   if (fields.length === 0) return null;
 
@@ -43,8 +45,8 @@ export function DynamicFieldsForm({
   };
 
   return (
-    <div className="space-y-3 border-t border-slate-800 pt-4">
-      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}{title === 'Campi dinamici' && ` (${fields.length})`}</h3>
+    <div className={`space-y-3 border-t pt-4 ${tone === 'light' ? 'border-slate-200' : 'border-slate-800'}`}>
+      <h3 className={`text-xs font-bold uppercase tracking-wider ${tone === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{title}{title === 'Campi dinamici' && ` (${fields.length})`}</h3>
       {fields.map((field) => {
         const dataType = field.dataType.toLowerCase();
         if (dataType === 'file' || dataType === 'image') return null;
@@ -52,8 +54,8 @@ export function DynamicFieldsForm({
 
         if (dataType === 'boolean') {
           return (
-            <label key={field.fieldKey} className="flex items-center gap-2 text-xs text-slate-300">
-              <input type="checkbox" checked={Boolean(payload[field.fieldKey])} onChange={(event) => updateValue(field.fieldKey, event.target.checked)} className="rounded border-slate-800 bg-slate-900 text-indigo-600" />
+            <label key={field.fieldKey} className={`flex items-center gap-2 text-xs ${tone === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+              <input type="checkbox" checked={Boolean(payload[field.fieldKey])} onChange={(event) => updateValue(field.fieldKey, event.target.checked)} className={`rounded text-indigo-600 ${tone === 'light' ? 'border-slate-300 bg-white' : 'border-slate-800 bg-slate-900'}`} />
               {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
             </label>
           );
@@ -61,10 +63,10 @@ export function DynamicFieldsForm({
 
         return (
           <div key={field.fieldKey}>
-            <label className="mb-1 block text-xs font-medium text-slate-300">{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
+            <label className={`mb-1 block text-xs font-medium ${tone === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
             {dataType === 'enum' ? (
               <>
-                <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100">
+                <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className={`w-full rounded-lg border px-3 py-2 text-xs ${tone === 'light' ? 'border-slate-200 bg-slate-50 text-slate-800' : 'border-slate-800 bg-slate-900 text-slate-100'}`}>
                   <option value="">Seleziona un valore</option>
                   {getEnumOptions(field).filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
@@ -72,11 +74,11 @@ export function DynamicFieldsForm({
               </>
             ) : dataType === 'relation' && field.relationTargetDomain && field.relationTargetTypeKey ? (
               <>
-                <RelationPicker fieldKey={field.fieldKey} label={field.label ?? field.fieldKey} value={payload[field.fieldKey]} required={field.isRequired} resourceType={field.relationTargetDomain} typeKey={field.relationTargetTypeKey} onChange={(value) => updateValue(field.fieldKey, value)} />
+                <RelationPicker fieldKey={field.fieldKey} label={field.label ?? field.fieldKey} value={payload[field.fieldKey]} required={field.isRequired} resourceType={field.relationTargetDomain} typeKey={field.relationTargetTypeKey} tone={tone} onChange={(value) => updateValue(field.fieldKey, value)} />
                 {field.relationTargetDomain === 'entity' && targetType && onCreateRelation && <button type="button" onClick={() => onCreateRelation(field)} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">+ Crea nuova istanza di {targetType.name}</button>}
               </>
             ) : (
-              <input required={field.isRequired} type={NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text'} step={dataType !== 'integer' ? 'any' : undefined} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className="w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 font-mono text-xs text-slate-100" />
+              <input required={field.isRequired} type={NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text'} step={dataType !== 'integer' ? 'any' : undefined} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className={`w-full rounded-lg border px-3 py-2 font-mono text-xs ${tone === 'light' ? 'border-slate-200 bg-slate-50 text-slate-800' : 'border-slate-800 bg-slate-900 text-slate-100'}`} />
             )}
           </div>
         );

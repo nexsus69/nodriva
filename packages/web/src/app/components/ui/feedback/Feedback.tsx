@@ -25,6 +25,10 @@ export function EmptyState({ title = 'Nessun elemento', description, action }: {
   return <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><p className="text-sm font-semibold text-slate-700">{title}</p>{description && <p className="mx-auto mt-2 max-w-md text-xs text-slate-500">{description}</p>}{action && <div className="mt-4">{action}</div>}</div>;
 }
 
-export function LoadingState({ label = 'Caricamento…' }: { label?: ReactNode }) {
-  return <div role="status" className="flex min-h-20 items-center justify-center p-6 text-xs text-slate-500">{label}</div>;
+export function Skeleton({ className = '' }: { className?: string }) {
+  return <span aria-hidden="true" className={`block rounded-md bg-slate-200 motion-safe:animate-pulse ${className}`} />;
+}
+
+export function SkeletonState({ label, children, className = '' }: { label: string; children: ReactNode; className?: string }) {
+  return <div role="status" aria-label={label} className={className}>{children}</div>;
 }

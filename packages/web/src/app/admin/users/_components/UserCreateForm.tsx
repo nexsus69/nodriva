@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react';
 import type { ApiErrorResponse, ScopeAssignmentDto } from '@dashboard/core';
+import { Skeleton } from '@/app/components/ui/feedback';
 import { FormRenderer, type FormFieldSchema } from '../../../components/ui/forms';
 import type { DelegableScopeLoadState } from '../_hooks/delegableScopeLoad';
 
@@ -28,7 +29,7 @@ export function UserCreateForm({ values, scopes, selectedScopeIds, formError, sc
   return (
     <>
       {formError && <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">{formError.message}</div>}
-      {scopeLoadState === 'loading' && <div role="status" className="text-xs text-slate-400">Verifica degli ambiti delegabili…</div>}
+      {scopeLoadState === 'loading' && <div role="status" aria-label="Caricamento ambiti delegabili" className="space-y-2"><Skeleton className="h-3 w-40" /><Skeleton className="h-8 w-full" /></div>}
       {scopeLoadState === 'restricted' && <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">Non disponi del permesso per assegnare ambiti iniziali. Puoi creare un account senza scope.</div>}
       {scopeLoadState === 'failed' && <div role="alert" className="space-y-2 rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-300"><p>{scopeLoadError?.message ?? 'Impossibile verificare gli ambiti delegabili.'}</p><button type="button" onClick={onRetryScopes} className="font-semibold underline">Riprova</button></div>}
       <FormRenderer fields={userFields} values={values} onChange={onChange} onSubmit={onSubmit} isPending={isPending} submitDisabled={scopeLoadBlocksSubmit} submitLabel="Crea Account" pendingLabel="Creazione in corso...">

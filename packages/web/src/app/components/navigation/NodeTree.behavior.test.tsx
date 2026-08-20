@@ -85,7 +85,9 @@ describe('NodeTree observable behavior', () => {
       <NodeTree activeNodeId={childNode.id} activeNodePath={childNode.path} />,
     );
 
-    expect(markup).toContain('Caricamento…');
+    expect(markup).toContain('aria-label="Caricamento sotto-nodi"');
+    expect(markup).toContain('animate-pulse');
+    expect(markup).not.toContain('Caricamento…');
   });
 
   it('renders the canonical node updated by the realtime cache', () => {

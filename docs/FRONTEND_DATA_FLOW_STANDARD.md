@@ -114,6 +114,24 @@ test di protocollo, accessibilità e comportamento.
   cleanup idempotente o rappresentazione di debug. Non possono determinare
   autorizzazioni, presenza di dati o successo di una mutation.
 
+## Stati di caricamento
+
+Quando una vista non dispone ancora dei dati necessari, deve preservare per
+quanto possibile la geometria del contenuto. È condivisa soltanto la primitiva
+visiva `Skeleton` e il wrapper accessibile `SkeletonState`: ogni componente
+compone localmente forme, quantità e dimensioni coerenti con il contenuto che
+sostituiranno. Colore e animazione appartengono invece esclusivamente alla
+primitiva e non possono essere sovrascritti dai singoli componenti. Il
+caricamento non deve introdurre testi transitori, spinner o
+un placeholder generico a righe. Lo stato resta annunciato alle tecnologie
+assistive tramite `role="status"` e un'etichetta descrittiva non visibile; le
+animazioni rispettano la preferenza di movimento ridotto.
+
+Un refresh in background non sostituisce dati completi e ancora utilizzabili
+con uno skeleton. Errori, risultati vuoti e retry restano stati espliciti e
+distinti. Le mutation conservano invece un feedback testuale come
+`Salvataggio…`: indicano un'operazione in corso, non dati mancanti.
+
 ## Migrazione
 
 Nodi ed entità seguono già questo modello tramite `AppCache`. I form dinamici

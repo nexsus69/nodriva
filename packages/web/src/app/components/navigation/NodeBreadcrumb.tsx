@@ -3,6 +3,7 @@
 import { useSemanticNodeBreadcrumb } from '../../hooks/useSemanticNodeBreadcrumb';
 import { LockIndicator } from '../LockIndicator';
 import { HomeBreadcrumbIcon, ResponsiveBreadcrumb, type BreadcrumbItem } from './Breadcrumb';
+import { Skeleton, SkeletonState } from '../ui/feedback';
 
 export interface NodeBreadcrumbProps {
   nodeId: string;
@@ -21,12 +22,17 @@ export function NodeBreadcrumb({ nodeId, currentNodeLinkable = false }: NodeBrea
       suffix: <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />,
     })),
   ];
-  if (isLoading && nodes.length === 0) items.push({ label: 'Catena in caricamento', href: null });
   if (error && nodes.length === 0) items.push({ label: 'Breadcrumb non disponibile', href: null });
 
   return (
     <div className="flex min-w-0 items-center gap-2">
       <ResponsiveBreadcrumb items={items} ariaLabel="Breadcrumb nodi" />
+      {isLoading && nodes.length === 0 && (
+        <SkeletonState label="Caricamento breadcrumb" className="flex min-w-0 items-center gap-2 text-xs text-slate-400">
+          <span aria-hidden="true">/</span><Skeleton className="h-3 w-12 shrink-0 rounded-sm" />
+          <span aria-hidden="true" className="hidden sm:inline">/</span><Skeleton className="hidden h-3 w-16 shrink-0 rounded-sm sm:block" />
+        </SkeletonState>
+      )}
       {error && (
         <button type="button" onClick={() => void retry()} className="shrink-0 text-[11px] font-semibold text-rose-600 underline">
           Riprova

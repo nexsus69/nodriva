@@ -1,13 +1,14 @@
 'use client';
 
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import { AdminResourceLock } from '../../../../_components/AdminResourceLock';
 import { RolePermissionsMatrix } from './RolePermissionsMatrix';
 import { useRoleDetail } from '../_hooks/useRoleDetail';
 
 export function RoleDetailScreen({ roleKey }: { roleKey: string }) {
   const controller = useRoleDetail(roleKey);
-  if (controller.loading) return <div className="p-8 text-center text-xs text-slate-400">Caricamento dettaglio ruolo in corso...</div>;
+  if (controller.loading) return <SkeletonState label="Caricamento dettaglio ruolo" className="space-y-6"><div className="space-y-3"><Skeleton className="h-5 w-56" /><Skeleton className="h-3 w-28" /></div><div className="space-y-5 rounded-2xl border border-slate-800 p-6"><Skeleton className="h-5 w-48" />{[0, 1, 2, 3].map((row) => <div key={row} className="flex justify-between"><Skeleton className="h-3 w-44" /><Skeleton className="h-5 w-10 rounded-full" /></div>)}</div></SkeletonState>;
   if (!controller.role) return <div className="space-y-4"><BackLink /><div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300"><strong>Impossibile caricare il ruolo</strong><p>{controller.error?.message ?? 'Ruolo non trovato.'}</p></div></div>;
   const role = controller.role;
   return <div className="space-y-6">

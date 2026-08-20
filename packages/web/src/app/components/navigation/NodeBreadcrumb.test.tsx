@@ -29,10 +29,15 @@ describe('NodeBreadcrumb states', () => {
     mocks.result.retry.mockReset();
   });
 
-  it('shows a stable loading label instead of the technical node id on cold reload', () => {
+  it('shows a skeleton instead of loading copy or the technical node id on cold reload', () => {
     mocks.result.isLoading = true;
     const markup = renderToStaticMarkup(<NodeBreadcrumb nodeId="technical-node-id" />);
-    expect(markup).toContain('Catena in caricamento');
+    expect(markup).toContain('aria-label="Caricamento breadcrumb"');
+    expect(markup).toContain('animate-pulse');
+    expect(markup).toContain('w-12');
+    expect(markup).toContain('w-16');
+    expect(markup).not.toContain('h-3 w-full');
+    expect(markup).not.toContain('Catena in caricamento');
     expect(markup).not.toContain('technical-node-id');
   });
 

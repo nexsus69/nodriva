@@ -1,4 +1,5 @@
 import Link from '@/app/components/navigation/GuardedLink';
+import { Skeleton, SkeletonState } from '@/app/components/ui/feedback';
 import type { RoleListItemDto } from '@dashboard/core';
 
 export interface RoleListTableProps {
@@ -7,7 +8,7 @@ export interface RoleListTableProps {
 }
 
 export function RoleListTable({ roles, loading }: RoleListTableProps) {
-  if (loading) return <div className="p-8 text-center text-xs text-slate-400">Caricamento elenco ruoli in corso...</div>;
+  if (loading) return <SkeletonState label="Caricamento elenco ruoli" className="divide-y divide-slate-800/60">{Array.from({ length: 5 }, (_, row) => <div key={row} className="grid grid-cols-[2fr_1fr_1fr_auto] items-center gap-6 px-6 py-4"><div className="space-y-2"><Skeleton className="h-3 w-32" /><Skeleton className="h-2.5 w-48" /></div><Skeleton className="h-3 w-24" /><Skeleton className="h-5 w-20 rounded-full" /><Skeleton className="h-6 w-24" /></div>)}</SkeletonState>;
   if (roles.length === 0) return <div className="p-12 text-center space-y-3"><span className="text-3xl block">🛡️</span><p className="text-sm font-semibold text-slate-300">Nessun ruolo trovato</p><p className="text-xs text-slate-500">Non ci sono ruoli configurati nel sistema.</p></div>;
 
   return (
