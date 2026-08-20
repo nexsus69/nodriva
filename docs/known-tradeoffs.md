@@ -5,16 +5,11 @@ Questo documento traccia i trade-off architetturali noti, accettati durante lo s
 ## Coordinatori frontend complessi
 
 Il refactoring generale ha reso `page.tsx` e `layout.tsx` semplici boundary di
-composizione e ha separato screen, sezioni e hook/controller. Un modulo
-infrastrutturale resta intenzionalmente separato ma ancora denso:
-
-- `NodeTree` combina caricamento lazy, espansione e rendering ricorsivo:
-  priorità medio-bassa finché non emergono regressioni o nuove funzionalità.
-
-La dimensione da sola non dimostra un difetto. Questi refactoring vanno
-eseguiti per responsabilità e invarianti osservabili, preservando i test di
-sessione/lock, scroll/resize e navigazione/realtime; non rientrano nel limite
-automatico di 60 righe riservato alle route.
+composizione e ha separato screen, sezioni e hook/controller. La dimensione da
+sola non dimostra un difetto: questi refactoring vengono eseguiti per
+responsabilità e invarianti osservabili, preservando i test di sessione/lock,
+scroll/resize e navigazione/realtime; non rientrano nel limite automatico di 60
+righe riservato alle route.
 
 Il rilievo storico su `ActivityProvider` è risolto: il componente compone il
 controller, mentre reducer, gate temporale/registro lock, protocollo HTTP e
@@ -27,6 +22,13 @@ sentinel, binding dell'observer e compensazione scroll sono isolati e coperti
 da test. La finestra paginata continua a essere governata dalla cache semantica
 e `useVirtualSubtreeData`; il refactoring non introduce una seconda finestra
 locale né cambia soglie, markup responsive o protocollo di caricamento.
+
+Il rilievo su `NodeTree` è risolto: il boundary compone il controller dello
+stato espanso e il ramo ricorsivo, mentre riga e transizioni osservabili sono
+separate. Il caricamento resta lazy tramite `useSemanticNodeList` e il record
+canonico continua a provenire da `useCachedNode`; i test coprono espansione,
+selezione, stato di caricamento e aggiornamento realtime senza introdurre una
+seconda cache locale.
 
 ## Risolto in P2: Read Access Control & LTree Subquery
 
