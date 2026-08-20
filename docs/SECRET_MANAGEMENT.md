@@ -6,8 +6,16 @@ dei secret. L'istanza è separata dallo stack Dashboard e ascolta solo su
 
 ## Bootstrap
 
-1. Copiare `.env.infisical.example` fuori dal repository in `.env.infisical`,
-   valorizzando password e chiavi generate casualmente, con permessi `0600`.
+1. Generare il file dei segreti fuori dal repository con lo script
+   ripetibile (non sovrascrive un file esistente):
+
+   ```bash
+   ./scripts/infisical-init-env.sh
+   ```
+
+   In alternativa copiare `.env.infisical.example` fuori dal repository,
+   valorizzare password e chiavi generate casualmente e impostare permessi
+   `0600`.
 2. Avviare l'istanza:
 
    ```bash
