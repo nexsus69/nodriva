@@ -52,9 +52,12 @@ export function UserAdminScreen() {
             scopes={controller.delegableScopes}
             selectedScopeIds={controller.selectedScopeIds}
             formError={controller.formError}
+            scopeLoadState={controller.delegableScopeLoadState}
+            scopeLoadError={controller.delegableScopeError}
             isPending={controller.isPending}
             onChange={(name, value) => controller.setForm((current) => ({ ...current, [name]: value }))}
             onScopeToggle={(scopeId, checked) => controller.setSelectedScopeIds((current) => checked ? [...current, scopeId] : current.filter((id) => id !== scopeId))}
+            onRetryScopes={() => void controller.reloadDelegableScopes()}
             onSubmit={controller.submitCreate}
           />
         </AdminModalShell>

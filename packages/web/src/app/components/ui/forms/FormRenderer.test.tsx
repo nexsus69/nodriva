@@ -45,4 +45,13 @@ describe('FormRenderer', () => {
     expect(markup).toContain('Creazione...');
     expect(markup).toContain('disabled');
   });
+
+  it('can disable submission while prerequisite data is unavailable', () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer fields={[]} values={{}} onChange={vi.fn()} onSubmit={vi.fn()} submitDisabled />,
+    );
+
+    expect(markup).toContain('disabled');
+    expect(markup).toContain('Salva');
+  });
 });

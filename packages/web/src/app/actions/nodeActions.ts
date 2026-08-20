@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  AppError,
   CreateNodeCommand,
   UpdateNodeCommand,
   MoveNodeCommand,
@@ -19,8 +20,11 @@ export async function checkNodeReadAccessAction(nodeId: string): Promise<boolean
     const actorUserId = await AuthResolver.resolveActorUserId();
     await accessControlPort.assertCanReadNode(actorUserId, nodeId);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof AppError && (
+      error.code === 'ACCESS_FORBIDDEN' || error.code === 'AUTH_UNAUTHORIZED'
+    )) return false;
+    throw error;
   }
 }
 

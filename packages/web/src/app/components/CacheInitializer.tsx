@@ -7,6 +7,7 @@ import { AppCache } from '../cache/GlobalCacheClient';
 import { runtimeTiming } from '../../config/runtimeTiming';
 import { activityDebugStore } from '../activity/ActivityDebugStore';
 import { useHumanActivity } from '../activity/ActivityProvider';
+import { reconcileMetadataBestEffort } from '../cache/metadataReconciliation';
 
 interface PassiveSyncResponse {
   dataChannels: string[];
@@ -91,14 +92,17 @@ export function CacheInitializer() {
       });
     };
     synchronizeAccess();
-    void AppCache.reconcileMetadata();
+    const reconcileMetadata = (source: string) => {
+      reconcileMetadataBestEffort(() => AppCache.reconcileMetadata(), source);
+    };
+    reconcileMetadata('session bootstrap');
     // Il realtime è il canale primario; il polling è una riconciliazione
     // passiva e non rinnova più la sessione. Al ritorno dal background viene
     // eseguito anche un riallineamento immediato.
     const synchronizeWhenVisible = () => {
       if (document.visibilityState === 'visible') {
         synchronizeAccess();
-        void AppCache.reconcileMetadata();
+        reconcileMetadata('visibility return');
       }
     };
     document.addEventListener('visibilitychange', synchronizeWhenVisible);
@@ -107,7 +111,7 @@ export function CacheInitializer() {
       timing.syncPollingIntervalMs,
     );
     const metadataRefresh = window.setInterval(
-      () => void AppCache.reconcileMetadata(),
+      () => reconcileMetadata('periodic polling'),
       timing.metadataReconciliationIntervalMs,
     );
 

@@ -131,6 +131,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await page.goto(`${baseUrl}/admin/users`);
   await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
+  await expect(page.getByRole('button', { name: 'Crea Account' })).toBeEnabled();
   await page.getByLabel('Email Utente').fill(names.operatorEmail);
   const passwordInput = page.getByLabel('Password Iniziale');
   await passwordInput.fill(OPERATOR_PASSWORD);
@@ -178,6 +179,7 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
   await page.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
   await ensureEditMode(page);
   await page.getByRole('link', { name: /Sotto-Nodo/ }).first().click();
+  await expect(page.getByText('Modalità modifica')).toBeVisible();
   await page.getByLabel('Tipo Nodo *').selectOption(names.nodeTypeKey);
   await page.getByLabel('Nome Nodo *').fill(names.childName);
   await page.getByRole('button', { name: 'Crea Sotto-Nodo' }).click();
@@ -193,6 +195,7 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   await page.goto(`${baseUrl}/nodes/${nodeId}`);
   await ensureEditMode(page);
   await page.getByRole('link', { name: /Nuova Entità/i }).first().click();
+  await expect(page.getByText('Modalità modifica')).toBeVisible();
   await page.getByLabel('Tipo Entità *').selectOption(names.entityTypeKey);
   await page.getByLabel('Nome Entità *').fill(entityName);
   await page.locator('select').filter({ has: page.locator('option[value="planned"]') }).selectOption('planned');

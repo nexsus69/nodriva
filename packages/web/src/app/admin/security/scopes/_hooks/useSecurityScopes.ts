@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useTransition, type FormEvent } from 
 import type { ApiErrorResponse, RoleListItemDto, ScopeAssignmentDto, UserListItemDto } from '@dashboard/core';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
+import { toClientErrorResponse } from '../../../../errors/clientError';
 
 type AssignmentEffect = 'allow' | 'deny';
 type Propagation = 'self' | 'subtree';
@@ -56,7 +57,7 @@ export function useSecurityScopes() {
       else if (roleResult.error) setError(roleResult.error);
       setNodes(loadedNodes);
     } catch (reason) {
-      setError(reason as ApiErrorResponse);
+      setError(toClientErrorResponse(reason, 'Impossibile caricare gli ambiti di sicurezza.'));
     } finally {
       setLoading(false);
     }

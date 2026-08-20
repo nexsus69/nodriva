@@ -6,6 +6,7 @@ import { Alert } from '../../components/ui/feedback';
 import { PageShell, Panel } from '../../components/ui/layout';
 import { ChildNodesSection } from './_components/ChildNodesSection';
 import { NodeContextOverview } from './_components/NodeContextOverview';
+import { NodeAccessUnavailable } from './_components/NodeAccessUnavailable';
 import { NodeEditorPanel } from './_components/NodeEditorPanel';
 import { NodeEntitiesSection } from './_components/NodeEntitiesSection';
 import { NodeWorkspaceNavigation } from './_components/NodeWorkspaceNavigation';
@@ -31,6 +32,7 @@ export default function NodeDetailPage() {
   const controller = useNodeDetail(nodeId);
 
   if (controller.nodeAccessDenied || controller.nodeAccess === 'denied') return <AccessDenied />;
+  if (controller.nodeAccess === 'unavailable') return <NodeAccessUnavailable onRetry={controller.retryNodeAccess} />;
   if (controller.nodeAccess === 'checking') {
     return <PageShell><Panel className="mx-auto max-w-xl"><p className="text-sm text-slate-500">Verifica autorizzazioni del nodo…</p></Panel></PageShell>;
   }

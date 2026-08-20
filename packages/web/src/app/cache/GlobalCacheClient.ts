@@ -19,6 +19,7 @@ import { CacheKernel } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
 import { KernelEntityCacheClient } from './KernelEntityCacheClient';
+import { reconcileMetadataBestEffort } from './metadataReconciliation';
 
 export interface CachedLockState {
   locked: boolean;
@@ -91,10 +92,14 @@ export class GlobalCacheClient {
     (eventName, event) => this.applyLockEvent(eventName, event),
     (event) => this.recordRealtimeDebugEvent(event),
     (state: RealtimeConnectionState) => {
-      if (state === 'connected') void this.reconcileMetadata();
+      if (state === 'connected') {
+        reconcileMetadataBestEffort(() => this.reconcileMetadata(), 'realtime connection');
+      }
     },
     (gap) => {
-      if (gap.stream === 'metadata') void this.reconcileMetadata();
+      if (gap.stream === 'metadata') {
+        reconcileMetadataBestEffort(() => this.reconcileMetadata(), 'realtime metadata gap');
+      }
       else this.reconcileResources();
     },
   );

@@ -4,6 +4,7 @@ import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { issueAccountActionAction } from '../../../../actions/accountRecoveryActions';
 import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual } from '../../../../navigation/unsavedChanges';
+import { toClientErrorResponse } from '../../../../errors/clientError';
 
 export function useUserDetail(userId: string) {
   const [user, setUser] = useState<UserDetailDto | null>(null);
@@ -40,7 +41,7 @@ export function useUserDetail(userId: string) {
       setLoading(false);
     }).catch((cause: unknown) => {
       if (cancelled) return;
-      setError(cause as ApiErrorResponse);
+      setError(toClientErrorResponse(cause, 'Impossibile caricare il dettaglio utente.'));
       setLoading(false);
     });
     return () => { cancelled = true; };
@@ -75,7 +76,7 @@ export function useUserDetail(userId: string) {
         setUser(updated);
         setSuccessMessage(updated.isActive ? 'Account attivato con successo.' : 'Account disabilitato con successo.');
       } catch (cause) {
-        setError(cause as ApiErrorResponse);
+        setError(toClientErrorResponse(cause, 'Impossibile aggiornare lo stato utente.'));
       }
     });
   };
@@ -95,7 +96,7 @@ export function useUserDetail(userId: string) {
         setSelectedRoleIds(updated.roles.map((role) => role.id));
         setSuccessMessage('Ruoli utente aggiornati con successo.');
       } catch (cause) {
-        setError(cause as ApiErrorResponse);
+        setError(toClientErrorResponse(cause, 'Impossibile aggiornare i ruoli utente.'));
       }
     });
   };
@@ -111,7 +112,7 @@ export function useUserDetail(userId: string) {
         setShowEditModal(false);
         setSuccessMessage('Dati utente aggiornati con successo.');
       } catch (cause) {
-        setError(cause as ApiErrorResponse);
+        setError(toClientErrorResponse(cause, 'Impossibile aggiornare i dati utente.'));
       }
     });
   };
@@ -133,7 +134,7 @@ export function useUserDetail(userId: string) {
         setShowPasswordModal(false);
         setSuccessMessage('Password aggiornata e sessioni attive revocate.');
       } catch (cause) {
-        setError(cause as ApiErrorResponse);
+        setError(toClientErrorResponse(cause, 'Impossibile reimpostare la password.'));
       }
     });
   };
@@ -145,7 +146,7 @@ export function useUserDetail(userId: string) {
         const result = await issueAccountActionAction(userId, purpose);
         setSuccessMessage(`Email inviata. Il link scade il ${new Date(result.expiresAt).toLocaleString()}.`);
       } catch (cause) {
-        setError({ code: 'UNKNOWN_ERROR', message: cause instanceof Error ? cause.message : 'Invio non riuscito.' });
+        setError(toClientErrorResponse(cause, 'Invio dell’email non riuscito.'));
       }
     });
   };

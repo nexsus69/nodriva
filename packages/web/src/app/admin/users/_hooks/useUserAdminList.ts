@@ -5,6 +5,8 @@ import type { ApiErrorResponse, CreateUserUiCommand, ScopeAssignmentDto, UserLis
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
 import { areFormValuesEqual } from '../../../navigation/unsavedChanges';
+import { toClientErrorResponse } from '../../../errors/clientError';
+import { classifyDelegableScopeResult, type DelegableScopeLoadState } from './delegableScopeLoad';
 
 type UserStatusFilter = 'all' | 'active' | 'disabled';
 
@@ -19,6 +21,8 @@ export function useUserAdminList() {
   const [isCreateOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [delegableScopes, setDelegableScopes] = useState<ScopeAssignmentDto[]>([]);
+  const [delegableScopeLoadState, setDelegableScopeLoadState] = useState<DelegableScopeLoadState>('idle');
+  const [delegableScopeError, setDelegableScopeError] = useState<ApiErrorResponse | null>(null);
   const [selectedScopeIds, setSelectedScopeIds] = useState<string[]>([]);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -32,7 +36,7 @@ export function useUserAdminList() {
     try {
       setUsers(await AppCache.users.listUsers());
     } catch (reason) {
-      setError(reason as ApiErrorResponse);
+      setError(toClientErrorResponse(reason, 'Impossibile caricare gli utenti.'));
     } finally {
       setLoading(false);
     }
@@ -43,28 +47,45 @@ export function useUserAdminList() {
     return () => window.clearTimeout(timer);
   }, [loadUsers]);
 
+  const loadDelegableScopes = useCallback(async () => {
+    setDelegableScopeLoadState('loading');
+    setDelegableScopeError(null);
+    try {
+      const resolved = classifyDelegableScopeResult(await AppCache.admin.listScopeAssignments());
+      setDelegableScopes(resolved.scopes);
+      setDelegableScopeLoadState(resolved.state);
+      setDelegableScopeError(resolved.error);
+    } catch (reason) {
+      setDelegableScopes([]);
+      setDelegableScopeLoadState('failed');
+      setDelegableScopeError(toClientErrorResponse(reason, 'Impossibile verificare gli ambiti delegabili.'));
+    }
+  }, []);
+
   const openCreate = useCallback(() => {
     setFormError(null);
     setSelectedScopeIds([]);
     setCreateOpen(true);
-    void AppCache.admin.listScopeAssignments()
-      .then((result) => setDelegableScopes(result.success && result.data
-        ? result.data.filter((scope) => scope.assignmentEffect === 'allow')
-        : []))
-      .catch(() => setDelegableScopes([]));
-  }, []);
+    void loadDelegableScopes();
+  }, [loadDelegableScopes]);
 
   const closeCreate = useCallback(() => {
     if (!navigationGuard.confirmDiscard()) return;
     setForm(EMPTY_FORM);
     setSelectedScopeIds([]);
     setFormError(null);
+    setDelegableScopeError(null);
+    setDelegableScopeLoadState('idle');
     setCreateOpen(false);
   }, [navigationGuard]);
 
   const submitCreate = useCallback((event: FormEvent) => {
     event.preventDefault();
     setFormError(null);
+    if (delegableScopeLoadState === 'idle' || delegableScopeLoadState === 'loading' || delegableScopeLoadState === 'failed') {
+      setFormError(delegableScopeError ?? { code: 'INTERNAL_ERROR', message: 'Attendi la verifica degli ambiti delegabili.' });
+      return;
+    }
     startTransition(async () => {
       try {
         const assignments = delegableScopes
@@ -85,10 +106,10 @@ export function useUserAdminList() {
         setSelectedScopeIds([]);
         await loadUsers();
       } catch (reason) {
-        setFormError(reason as ApiErrorResponse);
+        setFormError(toClientErrorResponse(reason, 'Impossibile creare l’utente.'));
       }
     });
-  }, [delegableScopes, form, loadUsers, selectedScopeIds]);
+  }, [delegableScopeError, delegableScopeLoadState, delegableScopes, form, loadUsers, selectedScopeIds]);
 
   const filteredUsers = useMemo(() => users.filter((user) => {
     const matchesStatus = filterStatus === 'all'
@@ -111,6 +132,9 @@ export function useUserAdminList() {
     form,
     setForm,
     delegableScopes,
+    delegableScopeLoadState,
+    delegableScopeError,
+    reloadDelegableScopes: loadDelegableScopes,
     selectedScopeIds,
     setSelectedScopeIds,
     formError,

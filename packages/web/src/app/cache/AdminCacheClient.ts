@@ -10,6 +10,14 @@ type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
 type MetadataInvalidator = (kind: MetadataKind, typeKey?: string) => void;
 
+function isFailedActionResult(value: unknown): boolean {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && Reflect.get(value, 'success') === false,
+  );
+}
+
 /**
  * Coordinator for administrative read models.
  * Components use this facade instead of importing Server Actions directly.
@@ -22,10 +30,17 @@ export class AdminCacheClient {
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
     const cached = this.reads.get(key);
     if (cached) return cached as Promise<T>;
-    const request = action().catch((error) => {
-      this.reads.delete(key);
-      throw error;
-    });
+    const request = action()
+      .then((result) => {
+        if (isFailedActionResult(result) && this.reads.get(key) === request) {
+          this.reads.delete(key);
+        }
+        return result;
+      })
+      .catch((error) => {
+        if (this.reads.get(key) === request) this.reads.delete(key);
+        throw error;
+      });
     this.reads.set(key, request);
     return request;
   }

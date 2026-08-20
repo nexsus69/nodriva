@@ -22,6 +22,7 @@ export interface FormRendererProps {
   onChange: (name: string, value: unknown) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   isPending?: boolean;
+  submitDisabled?: boolean;
   submitLabel?: string;
   pendingLabel?: string;
   children?: ReactNode;
@@ -29,7 +30,7 @@ export interface FormRendererProps {
 
 const fieldClassName = 'w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500';
 
-export function FormRenderer({ fields, values, onChange, onSubmit, isPending = false, submitLabel = 'Salva', pendingLabel = 'Salvataggio...', children }: FormRendererProps) {
+export function FormRenderer({ fields, values, onChange, onSubmit, isPending = false, submitDisabled = false, submitLabel = 'Salva', pendingLabel = 'Salvataggio...', children }: FormRendererProps) {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {fields.map((field) => {
@@ -67,7 +68,7 @@ export function FormRenderer({ fields, values, onChange, onSubmit, isPending = f
       })}
       {children}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
-        <button type="submit" disabled={isPending} className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50">{isPending ? pendingLabel : submitLabel}</button>
+        <button type="submit" disabled={isPending || submitDisabled} className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50">{isPending ? pendingLabel : submitLabel}</button>
       </div>
     </form>
   );

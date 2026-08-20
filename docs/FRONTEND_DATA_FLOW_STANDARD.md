@@ -83,6 +83,22 @@ non si applica automaticamente ai componenti infrastrutturali complessi: per
 questi la separazione avviene per responsabilità osservabile e deve mantenere
 test di protocollo, accessibilità e comportamento.
 
+## Error handling dei flussi UI
+
+- Gli errori applicativi attesi attraversano il boundary delle Server Actions
+  come `ApiErrorResponse` tipizzate. Il client può mostrarli senza reinterpretare
+  codici o messaggi.
+- Un errore inatteso non deve essere convertito in lista vuota, accesso negato o
+  database non inizializzato. I check autorizzativi propagano i guasti e la UI
+  presenta uno stato `unavailable` con retry distinto dal diniego.
+- Le operazioni best-effort passive, come polling di riconciliazione, heartbeat
+  e drain post-commit, non interrompono il lavoro dell'utente ma devono
+  registrare l'esito o produrre un log; non sono ammesse promise rejection
+  ignorate.
+- I fallback silenziosi restano ammessi soltanto per parsing non autorevole,
+  cleanup idempotente o rappresentazione di debug. Non possono determinare
+  autorizzazioni, presenza di dati o successo di una mutation.
+
 ## Migrazione
 
 Nodi ed entità seguono già questo modello tramite `AppCache`. I form dinamici

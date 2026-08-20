@@ -9,12 +9,14 @@ import { uploadResourceAttachment } from '../../../attachments/attachmentClient'
 import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../navigation/unsavedChanges';
+import { resolveNodeAccess, type NodeAccessState } from './nodeAccessState';
 
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
 
 export function useNodeDetail(nodeId: string) {
-  const [nodeAccess, setNodeAccess] = useState<'checking' | 'allowed' | 'denied'>('checking');
+  const [nodeAccess, setNodeAccess] = useState<NodeAccessState>('checking');
+  const [nodeAccessAttempt, setNodeAccessAttempt] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [nodeName, setNodeName] = useState('');
@@ -41,11 +43,15 @@ export function useNodeDetail(nodeId: string) {
 
   useEffect(() => {
     let cancelled = false;
-    void checkNodeReadAccessAction(nodeId)
-      .then((allowed) => { if (!cancelled) setNodeAccess(allowed ? 'allowed' : 'denied'); })
-      .catch(() => { if (!cancelled) setNodeAccess('denied'); });
+    void resolveNodeAccess(() => checkNodeReadAccessAction(nodeId))
+      .then((access) => { if (!cancelled) setNodeAccess(access); });
     return () => { cancelled = true; };
-  }, [nodeId]);
+  }, [nodeAccessAttempt, nodeId]);
+
+  const retryNodeAccess = () => {
+    setNodeAccess('checking');
+    setNodeAccessAttempt((attempt) => attempt + 1);
+  };
 
   useEffect(() => {
     const nodeTypeKey = currentNode ? nodeTypes[currentNode.nodeTypeId]?.typeKey : undefined;
@@ -139,7 +145,7 @@ export function useNodeDetail(nodeId: string) {
     || nodeError?.message.includes('does not have permission');
 
   return {
-    nodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, entityDefinitions,
+    nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, entityDefinitions,
     isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
