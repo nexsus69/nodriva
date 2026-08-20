@@ -130,7 +130,8 @@ function areRowsEqual<T extends { id: string }>(
     const nextColumn = next.columns[index];
     return column.key === nextColumn.key
       && column.header === nextColumn.header
-      && column.width === nextColumn.width;
+      && column.width === nextColumn.width
+      && column.render === nextColumn.render;
   });
 }
 

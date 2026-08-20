@@ -1,7 +1,7 @@
 'use client';
 
 import Link from '@/app/components/navigation/GuardedLink';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   SubtreeEntityItem,
   useVirtualSubtreeData,
@@ -64,9 +64,9 @@ export function SubtreeEntitiesTableSection({
   });
 
 
-  const columns: VirtualTableColumnDef<
+  const columns = useMemo<VirtualTableColumnDef<
     SubtreeEntityItem & { nodeId: string }
-  >[] = [
+  >[]>(() => [
     {
       key: 'name',
       header: 'Nome Entità',
@@ -100,7 +100,7 @@ export function SubtreeEntitiesTableSection({
         </span>
       ),
     },
-  ];
+  ], [entityTypes]);
 
   const formattedItems = items.map((item) => ({
     ...item,
