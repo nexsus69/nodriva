@@ -53,6 +53,10 @@ export class MetadataCacheClient {
     return this.load(kind);
   }
 
+  public inject(kind: MetadataKind, record: MetadataRecord): void {
+    this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record);
+  }
+
   public subscribe(kind: MetadataKind, subscriber: MetadataSubscriber): () => void {
     const notify = (snapshot: CacheQuerySnapshot | null) => {
       if (snapshot) {

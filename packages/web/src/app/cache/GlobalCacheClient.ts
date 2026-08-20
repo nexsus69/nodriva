@@ -147,11 +147,12 @@ export class GlobalCacheClient {
         reference.completeness,
       );
     }
-    const metadataCache = reference.namespace === 'node-type' ? this.nodeTypes : this.entityTypes;
-    if (!metadataCache.get(reference.id)) return 'missing';
-    return metadataCache.needsFetch(reference.id, reference.completeness === 'full')
-      ? 'incomplete'
-      : 'satisfied';
+    const metadataNamespace = reference.namespace === 'node-type' ? 'node-type' : 'entity-type';
+    return this.kernel.getRecordSatisfaction(
+      metadataNamespace,
+      reference.id,
+      reference.completeness,
+    );
   }
 
   public async hydrateReference(reference: CacheRecordReference): Promise<boolean> {

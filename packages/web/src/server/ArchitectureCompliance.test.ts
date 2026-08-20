@@ -197,7 +197,7 @@ describe('Architecture Compliance - Phase 1', () => {
     it('should successfully ingest NODE_ENTITY_COLLECTION and create a single flat page', async () => {
       const mockEntities = [{ id: 'ent_1', name: 'Ent 1', parentNodeId: 'node_1', entityTypeId: 'test-type' }];
       vi.mocked(entityActions.listEntitiesAction).mockResolvedValue(mockEntities as unknown as never);
-      AppCache.entityTypes.inject('test-type', { id: 'test-type', typeKey: 'test_type', name: 'Test type', description: '', storageTable: 'entity_test_type', currentSchemaVersion: 1 }, false);
+      AppCache.metadata.inject('entity', { id: 'test-type', typeKey: 'test_type', name: 'Test type', description: '', storageTable: 'entity_test_type', currentSchemaVersion: 1 });
 
       const intent = { type: 'resolve', params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'node_1' }, requireComplete: true } as const;
       

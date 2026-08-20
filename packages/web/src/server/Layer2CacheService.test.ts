@@ -137,7 +137,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
   });
 
   it('requires full canonical data only when the view consumer requests it', () => {
-    AppCache.entityTypes.inject('device', { id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1 }, false);
+    AppCache.metadata.inject('entity', { id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1 });
     IngestionLayer.ingestSubtreeList(
       viewKey,
       [{
