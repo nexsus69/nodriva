@@ -6,6 +6,7 @@ vi.mock('../app/actions/entityActions', () => ({
   updateEntityAction: vi.fn(),
   deleteEntityAction: vi.fn(),
   listSubtreeEntitiesAction: vi.fn(),
+  listEntityTypesAction: vi.fn(),
 }));
 
 vi.mock('../app/actions/nodeActions', () => ({
@@ -21,6 +22,7 @@ import {
   createEntityAction,
   deleteEntityAction,
   listSubtreeEntitiesAction,
+  listEntityTypesAction,
   updateEntityAction,
 } from '../app/actions/entityActions';
 import { getNodeBreadcrumbAction, getNodeByIdAction, moveNodeAction } from '../app/actions/nodeActions';
@@ -36,6 +38,9 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     vi.clearAllMocks();
     AppCache.purgeAll();
     AppCache['entityCaches'].clear();
+    vi.mocked(listEntityTypesAction).mockResolvedValue([
+      { id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1 },
+    ] as never);
   });
 
   it('purgeAll removes entity data, views, and retention leases', () => {
@@ -132,6 +137,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
   });
 
   it('requires full canonical data only when the view consumer requests it', () => {
+    AppCache.entityTypes.inject('device', { id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1 }, false);
     IngestionLayer.ingestSubtreeList(
       viewKey,
       [{

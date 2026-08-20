@@ -11,7 +11,7 @@ export function useSemanticEntityCollection(nodeId: string) {
     'windowed'
   );
   
-  const isLoading = !viewState || viewState.status === 'loading';
+  const isLoading = !viewState || viewState.status === 'loading' || viewState.satisfactionStatus !== 'satisfied';
   const cacheRevision = useAppCacheRevision();
 
   const descriptors = useMemo(() => {

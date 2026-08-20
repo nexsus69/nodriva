@@ -43,6 +43,20 @@ type CachedEntityInput = Partial<ClientEntity> & {
   parentNodeId: string;
 };
 
+function entityTypeSatisfaction(items: readonly CachedEntityInput[]): SatisfactionStatus {
+  let partial = false;
+  for (const item of items) {
+    const status = AppCache.getReferenceSatisfaction({
+      namespace: 'entity-type',
+      id: item.entityTypeId,
+      completeness: 'full',
+    });
+    if (status === 'missing') return 'missing-records';
+    if (status !== 'satisfied') partial = true;
+  }
+  return partial ? 'partial' : 'satisfied';
+}
+
 function cursorsEqual(first: unknown, second: unknown): boolean {
   if (Object.is(first, second)) return true;
   if (
@@ -196,6 +210,10 @@ export class IngestionLayer {
           namespace: 'node',
           id: item.parentNodeId,
           completeness: 'summary',
+        }, {
+          namespace: 'entity-type',
+          id: item.entityTypeId,
+          completeness: 'full',
         }],
       });
     });
@@ -322,7 +340,7 @@ export class IngestionLayer {
       pages: updatedPages,
       status: 'success',
       error: null,
-      satisfactionStatus: 'satisfied', 
+      satisfactionStatus: entityTypeSatisfaction(items),
       updatedAt: Date.now(),
       dependencyTokens: [VIEW_DEPENDENCIES.entityMembership, VIEW_DEPENDENCIES.nodeHierarchy],
       diagnostics: {
@@ -375,7 +393,7 @@ export class IngestionLayer {
       pages: [newPage],
       status: 'success',
       error: null,
-      satisfactionStatus: 'satisfied',
+      satisfactionStatus: entityTypeSatisfaction([entity]),
       updatedAt: Date.now(),
     });
   }
@@ -456,6 +474,11 @@ export class IngestionLayer {
           id: item.id,
           completeness: 'full',
         },
+        requires: [{
+          namespace: 'entity-type',
+          id: item.entityTypeId,
+          completeness: 'full',
+        }],
       });
     });
 
@@ -472,7 +495,7 @@ export class IngestionLayer {
       pages: [newPage],
       status: 'success',
       error: null,
-      satisfactionStatus: 'satisfied',
+      satisfactionStatus: entityTypeSatisfaction(items),
       updatedAt: Date.now(),
       dependencyTokens: [VIEW_DEPENDENCIES.entityMembership],
     });

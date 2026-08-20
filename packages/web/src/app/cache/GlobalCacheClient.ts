@@ -168,8 +168,12 @@ export class GlobalCacheClient {
         reference.completeness === 'full',
       )) !== null;
     }
-    // Metadata semantic views are loaded as catalogues. If one catalogue row
-    // is missing, the authoritative operation is to reload the whole view.
+    if (reference.namespace === 'node-type' || reference.namespace === 'entity-type') {
+      const records = reference.namespace === 'node-type'
+        ? await this.metadata.list('node')
+        : await this.metadata.list('entity');
+      return records.some((record) => record.id === reference.id);
+    }
     return false;
   }
 

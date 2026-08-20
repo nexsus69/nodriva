@@ -113,7 +113,7 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
     loadMoreBackward(() => options.captureAnchorRef?.current?.('backward'));
   }, [loadMoreBackward, options.captureAnchorRef]);
 
-  const isLoading = viewState?.status === 'loading' && items.length === 0;
+  const isLoading = viewState?.status === 'loading' || viewState?.satisfactionStatus !== 'satisfied';
   const isError = viewState?.status === 'error';
   const nodeProjection = Array.from(
     new Set(items.map((item) => item.parentNodeId))
