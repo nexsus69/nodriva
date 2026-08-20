@@ -13,6 +13,7 @@ export interface ViewError {
 export type SatisfactionStatus = 
   | 'missing-view'
   | 'missing-entities'
+  | 'missing-records'
   | 'partial'
   | 'stale'
   | 'satisfied';

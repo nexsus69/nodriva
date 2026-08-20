@@ -10,6 +10,7 @@ vi.mock('../app/actions/entityActions', () => ({
 
 vi.mock('../app/actions/nodeActions', () => ({
   getNodeByIdAction: vi.fn(),
+  getNodeBreadcrumbAction: vi.fn(),
   createNodeAction: vi.fn(),
   updateNodeAction: vi.fn(),
   moveNodeAction: vi.fn(),
@@ -22,6 +23,7 @@ import {
   listSubtreeEntitiesAction,
   updateEntityAction,
 } from '../app/actions/entityActions';
+import { getNodeBreadcrumbAction, moveNodeAction } from '../app/actions/nodeActions';
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { CacheGarbageCollector } from '../app/cache/CacheGarbageCollector';
 import { AppCache } from '../app/cache/GlobalCacheClient';
@@ -51,6 +53,57 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(GlobalViewStore.get(viewKey)).toBeNull();
     expect(GlobalPolicyRegistry.shouldEvict('view', viewKey)).toBe(true);
     expect(AppCache.getEntityCache('device').get('e1')).toBeNull();
+  });
+
+  it('hydrates a cold breadcrumb view and refetches when a canonical node is missing', async () => {
+    const breadcrumbKey = 'BREADCRUMB|baseNodeId:child';
+    const nodes = [
+      { id: 'root', parentId: null, path: 'root', pathLabel: 'root', depth: 0, nodeTypeId: 'folder', name: 'Root', description: '', rowVersion: 1, payload: {} },
+      { id: 'child', parentId: 'root', path: 'root.child', pathLabel: 'child', depth: 1, nodeTypeId: 'folder', name: 'Child', description: '', rowVersion: 1, payload: {} },
+    ];
+    vi.mocked(getNodeBreadcrumbAction).mockResolvedValue(nodes);
+
+    await ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'BREADCRUMB', baseNodeId: 'child' },
+      requireComplete: true,
+    });
+
+    expect(
+      flattenViewPages(GlobalViewStore.get(breadcrumbKey)).flatMap((item) =>
+        item.type === 'row' ? [item.id] : [],
+      ),
+    ).toEqual(['root', 'child']);
+    expect(AppCache.nodes.get('root')?.name).toBe('Root');
+    expect(AppCache.nodes.get('child')?.name).toBe('Child');
+
+    AppCache.nodes.remove('root');
+    expect(SatisfiabilityEvaluator.evaluate(breadcrumbKey, true)).toBe('missing-records');
+  });
+
+  it('invalidates breadcrumb views after moving a node', async () => {
+    const breadcrumbKey = 'BREADCRUMB|baseNodeId:child';
+    GlobalViewStore.set(breadcrumbKey, {
+      viewKey: breadcrumbKey,
+      pages: [],
+      status: 'success',
+      error: null,
+      satisfactionStatus: 'satisfied',
+      updatedAt: Date.now(),
+    });
+    vi.mocked(moveNodeAction).mockResolvedValue({
+      id: 'child',
+      parentId: 'new-parent',
+      name: 'Child',
+    } as never);
+
+    await AppCache.moveNode({
+      nodeId: 'child',
+      newParentNodeId: 'new-parent',
+      expectedNodeRowVersion: 1,
+    });
+
+    expect(GlobalViewStore.get(breadcrumbKey)).toBeNull();
   });
 
   it('invalidates entity read models for structural mutations but preserves update views', async () => {

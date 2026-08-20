@@ -19,7 +19,7 @@ export function HomeBreadcrumbIcon() {
 
 function Crumb({ item, current }: { item: BreadcrumbItem; current: boolean }) {
   const content = <span className="block max-w-[min(14rem,42vw)] truncate" title={item.label}>{item.label}</span>;
-  if (!current && item.href) return <Link href={item.href} className="min-w-0 shrink truncate transition-colors hover:text-slate-900">{content}</Link>;
+  if (item.href) return <Link href={item.href} aria-current={current ? 'page' : undefined} className={`min-w-0 shrink truncate transition-colors hover:text-slate-900 ${current ? 'font-semibold text-slate-900' : ''}`}>{content}{item.suffix}</Link>;
   return <span aria-current={current ? 'page' : undefined} className={`inline-flex min-w-0 shrink items-center gap-1.5 ${current ? 'font-semibold text-slate-900' : ''}`}>{content}{item.suffix}</span>;
 }
 

@@ -59,6 +59,12 @@ semantica. `VirtualGroupedTable` compone soltanto controller UI, sentinel,
 ancoraggio e resa desktop/mobile: non conserva una seconda copia locale della
 finestra e non decide quali pagine trattenere o espellere.
 
+Il breadcrumb dei nodi è una vista semantica autoritativa, non una proiezione
+opportunistica dei soli record già in RAM. Al cold reload risolve dal backend la
+catena contigua di nodi leggibili fino al confine di scope, idrata i record
+canonici e distingue loading, errore e retry. Non deve interrogare gli antenati
+uno alla volta dal componente né mostrare identificatori tecnici come fallback.
+
 ## Regole operative
 
 - usare `AppCache` o un coordinator di dominio per ogni dato condiviso;

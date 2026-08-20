@@ -22,6 +22,7 @@ interface CanonicalOutcome {
   relationPersisted: boolean;
   lockConflictObserved: boolean;
   rowVersionConflictObserved: boolean;
+  breadcrumbReloaded: boolean;
   entityRestored: boolean;
   auditActions: string[];
 }
@@ -284,10 +285,22 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(firstOperatorPage.getByRole('heading', { name: 'Accesso al nodo negato' })).toBeVisible();
 
     const childNodeId = await createChildNode(firstOperatorPage, baseUrl, names);
+    await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
+    await firstOperatorPage.reload();
+    const nodeBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
+    await expect(nodeBreadcrumb).toContainText('Admin parity root');
+    await expect(nodeBreadcrumb).toContainText(names.childName);
+    await expect(nodeBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
+
     const firstEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName);
     const secondEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.secondEntityName, names.firstEntityName);
 
     await firstOperatorPage.goto(secondEntityUrl);
+    await firstOperatorPage.reload();
+    const entityBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
+    await expect(entityBreadcrumb).toContainText('Admin parity root');
+    await expect(entityBreadcrumb).toContainText(names.childName);
+    await expect(entityBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
     await expect(firstOperatorPage.getByText('Planned', { exact: true })).toBeVisible();
     await expect(firstOperatorPage.getByRole('link', { name: new RegExp(`^${names.firstEntityName}\\s*→$`) })).toBeVisible();
 
@@ -308,6 +321,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       relationPersisted: true,
       lockConflictObserved: concurrency.lock,
       rowVersionConflictObserved: concurrency.rowVersion,
+      breadcrumbReloaded: true,
       entityRestored: lifecycle.restored,
       auditActions: lifecycle.actions,
     };
@@ -334,6 +348,7 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       relationPersisted: true,
       lockConflictObserved: true,
       rowVersionConflictObserved: true,
+      breadcrumbReloaded: true,
       entityRestored: true,
       auditActions: ['entity.create', 'entity.delete', 'entity.restore', 'entity.update', 'node.create'],
     });

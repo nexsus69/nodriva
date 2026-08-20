@@ -234,6 +234,42 @@ describe('NodeApplicationService', () => {
     });
   });
 
+  describe('listBreadcrumb', () => {
+    const root = new Node('root', null, 'root', 'root', 0, 'type-123', 'Root', '', 1, new Date(), new Date(), null, 'user-1', 'user-1');
+    const branch = new Node('branch', root.id, 'root.branch', 'branch', 1, 'type-123', 'Branch', '', 1, new Date(), new Date(), null, 'user-1', 'user-1');
+    const leaf = new Node('leaf', branch.id, 'root.branch.leaf', 'leaf', 2, 'type-123', 'Leaf', '', 1, new Date(), new Date(), null, 'user-1', 'user-1');
+
+    beforeEach(() => {
+      mockNodeRepository.listAncestorIds = vi.fn().mockResolvedValue([leaf.id, branch.id, root.id]);
+      mockNodeRepository.findById = vi.fn().mockImplementation(async (id: string) =>
+        [root, branch, leaf].find((node) => node.id === id) ?? null);
+    });
+
+    it('returns the readable contiguous chain from root to current node', async () => {
+      await expect(service.listBreadcrumb(leaf.id, 'user-1')).resolves.toEqual([root, branch, leaf]);
+      expect(mockAccessControlPort.assertCanReadNode).toHaveBeenCalledWith('user-1', leaf.id);
+      expect(mockAccessControlPort.assertCanReadNode).toHaveBeenCalledWith('user-1', root.id);
+    });
+
+    it('stops before an unreadable ancestor without probing higher levels', async () => {
+      mockAccessControlPort.assertCanReadNode = vi.fn().mockImplementation(async (_userId: string, nodeId: string | null) => {
+        if (nodeId === branch.id) throw new ForbiddenError();
+      });
+
+      await expect(service.listBreadcrumb(leaf.id, 'user-1')).resolves.toEqual([leaf]);
+      expect(mockAccessControlPort.assertCanReadNode).not.toHaveBeenCalledWith('user-1', root.id);
+      expect(mockNodeRepository.findById).not.toHaveBeenCalledWith(branch.id);
+    });
+
+    it('propagates infrastructure failures while checking an ancestor', async () => {
+      mockAccessControlPort.assertCanReadNode = vi.fn().mockImplementation(async (_userId: string, nodeId: string | null) => {
+        if (nodeId === branch.id) throw new Error('database unavailable');
+      });
+
+      await expect(service.listBreadcrumb(leaf.id, 'user-1')).rejects.toThrow('database unavailable');
+    });
+  });
+
   describe('moveNode', () => {
     const rootNode = new Node(
       '00000000-0000-0000-0000-000000000001',

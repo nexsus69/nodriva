@@ -78,6 +78,12 @@ export class SatisfiabilityEvaluator {
     const flatItems = flattenViewPages(view);
     if (flatItems.length === 0) return 'satisfied';
 
+    if (viewKey.startsWith('BREADCRUMB|')) {
+      const hasMissingNode = flatItems.some((item) =>
+        item.type === 'row' && AppCache.nodes.get(item.id) === null);
+      if (hasMissingNode) return 'missing-records';
+    }
+
     let hasPartial = false;
 
     for (const item of flatItems) {
@@ -359,6 +365,24 @@ export class IngestionLayer {
     });
   }
 
+  static ingestBreadcrumb(viewKey: string, nodes: ClientNode[]) {
+    nodes.forEach((node) => AppCache.nodes.inject(node.id, node, false, 'view:breadcrumb'));
+    GlobalViewStore.set(viewKey, {
+      viewKey,
+      pages: [{
+        items: nodes.map((node) => ({ type: 'row' as const, id: node.id })),
+        prevCursor: null,
+        nextCursor: null,
+        hasMoreForward: false,
+        hasMoreBackward: false,
+      }],
+      status: 'success',
+      error: null,
+      satisfactionStatus: 'satisfied',
+      updatedAt: Date.now(),
+    });
+  }
+
   static ingestNodeEntityCollection(viewKey: string, items: CachedEntityInput[]) {
     const newDescriptors: ViewItemDescriptor[] = [];
     
@@ -496,6 +520,10 @@ export class FetchCoordinator {
         const res = await getEntityByIdAction(intent.params.entityId!);
         if (!res) throw new Error(`Entity ${intent.params.entityId} not found`);
         IngestionLayer.ingestEntityDetail(viewKey, res);
+      } else if (intent.params.viewType === 'BREADCRUMB') {
+        const { getNodeBreadcrumbAction } = await import('../actions/nodeActions');
+        const res = await getNodeBreadcrumbAction(intent.params.baseNodeId!);
+        IngestionLayer.ingestBreadcrumb(viewKey, res);
       } else if (intent.params.viewType === 'NODE_CHILDREN_LIST') {
         const { listChildrenAction } = await import('../actions/nodeActions');
         const res = await listChildrenAction(intent.params.baseNodeId || null);

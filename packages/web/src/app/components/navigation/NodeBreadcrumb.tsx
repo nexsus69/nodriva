@@ -1,8 +1,6 @@
 'use client';
 
-import { AppCache } from '../../cache/GlobalCacheClient';
-import { useAppCacheRevision } from '../../hooks/useAppCacheRevision';
-import { buildCachedBreadcrumbPath } from './nodeBreadcrumbPath';
+import { useSemanticNodeBreadcrumb } from '../../hooks/useSemanticNodeBreadcrumb';
 import { LockIndicator } from '../LockIndicator';
 import { HomeBreadcrumbIcon, ResponsiveBreadcrumb, type BreadcrumbItem } from './Breadcrumb';
 
@@ -13,14 +11,7 @@ export interface NodeBreadcrumbProps {
 }
 
 export function NodeBreadcrumb({ nodeId, currentNodeLinkable = false }: NodeBreadcrumbProps) {
-  const cacheRevision = useAppCacheRevision();
-  void cacheRevision;
-
-  const { nodes, isComplete } = buildCachedBreadcrumbPath(
-    nodeId,
-    (id) => AppCache.nodes.get(id),
-    AppCache.isVirtualRootNode
-  );
+  const { nodes, isLoading, error, retry } = useSemanticNodeBreadcrumb(nodeId);
 
   const items: BreadcrumbItem[] = [
     { label: 'Workspace', href: '/', icon: <HomeBreadcrumbIcon /> },
@@ -30,7 +21,17 @@ export function NodeBreadcrumb({ nodeId, currentNodeLinkable = false }: NodeBrea
       suffix: <LockIndicator resourceType="node" resourceId={node.id} className="-translate-y-px" />,
     })),
   ];
-  if (!isComplete) items.splice(1, 0, { label: 'Catena in caricamento', href: null });
-  if (nodes.length === 0) items.push({ label: nodeId, href: null });
-  return <ResponsiveBreadcrumb items={items} ariaLabel="Breadcrumb nodi" />;
+  if (isLoading && nodes.length === 0) items.push({ label: 'Catena in caricamento', href: null });
+  if (error && nodes.length === 0) items.push({ label: 'Breadcrumb non disponibile', href: null });
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <ResponsiveBreadcrumb items={items} ariaLabel="Breadcrumb nodi" />
+      {error && (
+        <button type="button" onClick={() => void retry()} className="shrink-0 text-[11px] font-semibold text-rose-600 underline">
+          Riprova
+        </button>
+      )}
+    </div>
+  );
 }

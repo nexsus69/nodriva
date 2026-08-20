@@ -114,6 +114,7 @@ Una vista è considerata **soddisfatta** (`satisfied`) se e solo se tutte le seg
 Se una qualsiasi condizione fallisce, lo stato è uno tra:
 - `missing-view` — la vista non esiste nel ViewStore.
 - `missing-entities` — almeno un descrittore referenzia un'entità assente dall'EntityStore.
+- `missing-records` — una vista non-entità referenzia un record canonico assente, per esempio un nodo del breadcrumb.
 - `partial` — le entità esistono ma alcune sono marcate `isPartial` e il chiamante richiede dati completi.
 - `stale` — la vista è presente e completa ma scaduta per TTL.
 

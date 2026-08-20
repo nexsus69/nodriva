@@ -127,6 +127,14 @@ export class GlobalCacheClient {
     }
   }
 
+  private invalidateBreadcrumbViews(): void {
+    for (const viewKey of GlobalViewStore.getKeys()) {
+      if (viewKey.startsWith('BREADCRUMB|')) {
+        GlobalViewStore.delete(viewKey);
+      }
+    }
+  }
+
   private notifyCacheSubscribers = () => {
     this.cacheRevision += 1;
     this.cacheSubscribers.forEach((subscriber) => subscriber());
@@ -343,6 +351,13 @@ export class GlobalCacheClient {
         if (id !== event.resourceId) this.nodes.invalidate(id);
       }
       this.nodes.invalidateChildren();
+      if (
+        event.changeType === 'moved' ||
+        event.changeType === 'deleted' ||
+        event.changeType === 'restored'
+      ) {
+        this.invalidateBreadcrumbViews();
+      }
       if (ids.length > 1) this.invalidateEntityViews();
     }
   }
@@ -493,6 +508,7 @@ export class GlobalCacheClient {
         const clientNode: ClientNode = moved as unknown as ClientNode;
         this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
         this.nodes.invalidateChildren();
+        this.invalidateBreadcrumbViews();
         return clientNode;
       }
       return null;

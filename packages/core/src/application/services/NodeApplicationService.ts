@@ -438,6 +438,30 @@ export class NodeApplicationService {
     return await this.nodeRepository.findById(id);
   }
 
+  async listBreadcrumb(nodeId: string, actorUserId: string): Promise<Node[]> {
+    await this.accessControlPort.assertCanReadNode(actorUserId, nodeId);
+    const ancestorIds = await this.nodeRepository.listAncestorIds(nodeId);
+    if (ancestorIds.length === 0) throw new NodeNotFoundError(nodeId);
+
+    const nearestFirst: Node[] = [];
+    for (const [index, ancestorId] of ancestorIds.entries()) {
+      if (index > 0) {
+        try {
+          await this.accessControlPort.assertCanReadNode(actorUserId, ancestorId);
+        } catch (error) {
+          if (error instanceof ForbiddenError) break;
+          throw error;
+        }
+      }
+      const ancestor = await this.nodeRepository.findById(ancestorId);
+      if (!ancestor) break;
+      nearestFirst.push(ancestor);
+    }
+
+    if (nearestFirst[0]?.id !== nodeId) throw new NodeNotFoundError(nodeId);
+    return nearestFirst.reverse();
+  }
+
   async listNodeTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; currentSchemaVersion: number }[]> {
     const types = (await this.nodeTypeRepository.listAll()).filter((type) => type.isActive);
     return types.map((t) => ({

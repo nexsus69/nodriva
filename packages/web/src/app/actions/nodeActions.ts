@@ -76,6 +76,14 @@ export async function getNodeByIdAction(id: string) {
   });
 }
 
+export async function getNodeBreadcrumbAction(nodeId: string) {
+  return withSafeActionErrors(async () => {
+    const { nodeService } = await import('../../server/db');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return (await nodeService.listBreadcrumb(nodeId, actorUserId)).map(toNodeDto);
+  });
+}
+
 export async function listNodeTypesAction() {
   return withSafeActionErrors(async () => {
   await AuthResolver.resolveActorUserId();
