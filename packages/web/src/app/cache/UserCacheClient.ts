@@ -19,16 +19,50 @@ import {
   updateUserAction,
   updateUserStatusAction,
 } from '../actions/userActions';
-import { DomainCacheClient } from './DomainCacheClient';
+import type { CacheKernel } from './CacheKernel';
 
 type CachedUser = UserDetailDto;
+
+class UserRecordCache {
+  public constructor(
+    private readonly kernel: CacheKernel,
+    private readonly onChange: () => void,
+  ) {}
+
+  public get(id: string): CachedUser | null {
+    return this.kernel.getRecord<CachedUser>('user', id);
+  }
+
+  public subscribe(id: string, callback: (user: CachedUser | null, error: Error | null) => void): () => void {
+    return this.kernel.subscribeRecord('user', id, (record) => callback(record as CachedUser | null, null));
+  }
+
+  public async fetchIfMissing(id: string, requireComplete: boolean, fetcher: (id: string) => Promise<CachedUser>): Promise<CachedUser | null> {
+    const current = this.get(id);
+    if (current && (!requireComplete || this.kernel.getRecordSatisfaction('user', id, 'full') === 'satisfied')) return current;
+    const result = await fetcher(id);
+    this.inject(result.id, result, false, 'fetch:user-detail');
+    return result;
+  }
+
+  public inject(id: string, data: Partial<CachedUser> & { id: string }, partial: boolean, source: string): void {
+    void source;
+    this.kernel.upsertRecord('user', data as CachedUser, { completeness: partial ? 'summary' : 'full' });
+    this.onChange();
+  }
+
+  public purge(): void {
+    this.kernel.purgeNamespace('user');
+    this.onChange();
+  }
+}
 
 function actionError(error: ApiErrorResponse): Error & ApiErrorResponse {
   return Object.assign(new Error(error.message), error);
 }
 
 export class UserCacheClient {
-  private readonly entities: DomainCacheClient<CachedUser>;
+  private readonly entities: UserRecordCache;
   private listIds: string[] = [];
   private listUpdatedAt = 0;
   private listLoading = false;
@@ -36,19 +70,18 @@ export class UserCacheClient {
   private readonly listSubscribers = new Set<() => void>();
   private sessionRefresh: ((userId: string) => Promise<void>) | null = null;
 
-  constructor(private readonly onChange: () => void) {
-    this.entities = new DomainCacheClient<CachedUser>(
-      'users',
-      async (id) => {
+  constructor(kernel: CacheKernel, private readonly onChange: () => void) {
+    this.entities = new UserRecordCache(kernel, onChange);
+    this.fetchUser = async (id) => {
         const result = await getUserByIdAction(id);
         if (!result.success || !result.data) {
           throw actionError(result.error ?? { code: 'NOT_FOUND', message: 'Utente non trovato.' });
         }
         return result.data;
-      },
-      onChange
-    );
+      };
   }
+
+  private readonly fetchUser: (id: string) => Promise<CachedUser>;
 
   public bindSessionRefresh(refresh: (userId: string) => Promise<void>): () => void {
     this.sessionRefresh = refresh;
@@ -66,7 +99,7 @@ export class UserCacheClient {
   }
 
   public async getUser(id: string): Promise<CachedUser> {
-    const user = await this.entities.fetchIfMissing(id, true);
+    const user = await this.entities.fetchIfMissing(id, true, this.fetchUser);
     if (!user) throw new Error(`Utente ${id} non trovato.`);
     return user;
   }

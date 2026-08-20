@@ -57,6 +57,10 @@ export class MetadataCacheClient {
     return this.load(kind);
   }
 
+  public get(kind: MetadataKind, id: string): MetadataRecord | null {
+    return this.kernel.getRecord<MetadataRecord>(RECORD_NAMESPACES[kind], id);
+  }
+
   public inject(kind: MetadataKind, record: MetadataRecord): void {
     this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record, { completeness: 'full' });
   }

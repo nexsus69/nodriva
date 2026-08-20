@@ -1,7 +1,7 @@
 import { getEntityByIdAction } from '../actions/entityActions';
 import type { ClientEntity } from '../types/models';
 import type { CacheKernel, RecordCompleteness, RecordSatisfaction } from './CacheKernel';
-import type { CacheWriteDiagnostic } from './DomainCacheClient';
+import type { CacheWriteDiagnostic } from './CacheTypes';
 
 /** Compatibility facade for one entity-type partition backed by CacheKernel. */
 export class KernelEntityCacheClient {

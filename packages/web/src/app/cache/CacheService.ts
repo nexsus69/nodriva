@@ -511,17 +511,9 @@ export class IngestionLayer {
     items.forEach(item => {
       if (metadataType === 'node') {
         AppCache.metadata.inject('node', item as NodeTypeMeta);
-        AppCache.nodeTypes.inject(item.id, {
-          id: item.id,
-          typeKey: item.typeKey,
-          name: item.name,
-          description: item.description,
-          currentSchemaVersion: item.currentSchemaVersion,
-        }, false);
       } else {
         if (!('storageTable' in item)) return;
         AppCache.metadata.inject('entity', item as EntityTypeMeta);
-        AppCache.entityTypes.inject(item.id, item, false);
       }
       newDescriptors.push({
         type: 'row',

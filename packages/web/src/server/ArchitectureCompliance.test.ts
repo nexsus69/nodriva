@@ -222,11 +222,21 @@ describe('Architecture Compliance - Phase 1', () => {
       
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
-      expect(AppCache.nodeTypes.get('type_1')).toBeDefined();
+      expect(AppCache.metadata.get('node', 'type_1')).toBeDefined();
     });
   });
 
   describe('Phase 3 Compliance (Static Analysis)', () => {
+    it('does not retain the removed parallel DomainCacheClient implementation', () => {
+      const cacheRoot = path.join(__dirname, '../app/cache');
+      expect(fs.existsSync(path.join(cacheRoot, 'DomainCacheClient.ts'))).toBe(false);
+      const sourceFiles = fs.readdirSync(cacheRoot).filter((file) => file.endsWith('.ts'));
+      for (const file of sourceFiles) {
+        const content = fs.readFileSync(path.join(cacheRoot, file), 'utf8');
+        expect(content).not.toContain('DomainCacheClient');
+      }
+    });
+
     it('should confirm ReadModelContext.tsx no longer exists', () => {
       const contextPath = path.join(__dirname, '../app/context/ReadModelContext.tsx');
       expect(fs.existsSync(contextPath)).toBe(false);

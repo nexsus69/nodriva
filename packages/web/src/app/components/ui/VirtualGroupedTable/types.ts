@@ -1,6 +1,6 @@
 import { ReactNode, RefObject } from 'react';
 import type { SatisfactionStatus, ViewError, ViewStatus } from '../../../cache/ViewStore';
-import type { CacheWriteDiagnostic } from '../../../cache/DomainCacheClient';
+import type { CacheWriteDiagnostic } from '../../../cache/CacheTypes';
 
 export interface InfiniteListDebugInfo {
   viewKey: string;

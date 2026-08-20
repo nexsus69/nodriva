@@ -3,6 +3,12 @@
 Questo documento è la fonte canonica per l'architettura di cache e fetch del frontend.
 Ogni nuova implementazione, refactoring o estensione deve rispettare questi vincoli.
 
+Le regole trasversali di reattività applicabili a tutti i componenti Web sono
+definite in [`docs/FRONTEND_DATA_FLOW_STANDARD.md`](../../../../docs/FRONTEND_DATA_FLOW_STANDARD.md),
+nella sezione **Contratto trasversale di reattività dei componenti**. Questo
+documento disciplina la cache; quello standard disciplina il percorso completo
+fino al render e ha precedenza per i contratti di aggiornamento UI.
+
 ---
 
 ## 1. Principi Fondamentali
@@ -178,7 +184,7 @@ Il GC agisce **esclusivamente sul ViewStore**. I descrittori vengono eliminati, 
 > **Regola normativa:** L'eviction di una view dal ViewStore **non comporta** l'eliminazione delle entità referenziate dall'EntityStore.
 
 Le entità canoniche sopravvivono indipendentemente dal ciclo di vita delle viste. Un'entità viene rimossa dall'EntityStore solo tramite:
-- Chiamata esplicita a `DomainCacheClient.remove()` (conseguenza di una delete confermata dal backend).
+- Chiamata esplicita alla facade tipizzata del `CacheKernel` (conseguenza di una delete confermata dal backend).
 - Reference counting a zero con GC entity-level (non ancora implementato; al momento le entità restano in memoria finché la sessione è attiva).
 
 Motivazione: la stessa entità può essere referenziata da più viste semantiche distinte. Rimuoverla perché una sola vista è stata sfrattata causerebbe inconsistenze nelle altre.
@@ -229,7 +235,7 @@ await AppCache.deleteEntity(entityId, entity.entityTypeId, entity.rowVersion);
 ```
 
 1. Il backend elimina il record.
-2. `AppCache` chiama `DomainCacheClient.remove(entityId)`, che elimina l'entry dall'EntityStore e notifica tutti i subscriber con `null`.
+2. `AppCache` chiama la facade tipizzata del `CacheKernel`, che elimina l'entry dall'EntityStore e notifica tutti i subscriber con `null`.
 
 #### Comportamento dei riferimenti dopo delete
 

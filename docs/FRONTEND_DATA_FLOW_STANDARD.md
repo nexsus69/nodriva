@@ -76,13 +76,50 @@ uno alla volta dal componente né mostrare identificatori tecnici come fallback.
 ## Regole operative
 
 - usare `AppCache` o un coordinator di dominio per ogni dato condiviso;
-- usare `DomainCacheClient` per entità normalizzate e sottoscrivibili;
+- usare le facade tipizzate del `CacheKernel` per dati normalizzati e sottoscrivibili;
 - usare `GlobalViewStore` solo per descrittori, paginazione e stato della vista;
 - invalidare le viste quando l’ordinamento o la composizione della lista può cambiare;
 - dichiarare dipendenze strutturali tramite token e dipendenze dai dati tramite riferimenti tipizzati;
 - non duplicare lo stesso oggetto in `useState` come cache parallela;
 - centralizzare mapping errori, retry, session refresh e purge;
 - aggiungere test di cache hit/miss, deduplicazione, rowVersion, evento realtime e cambio sessione.
+
+## Contratto trasversale di reattività dei componenti
+
+Queste regole valgono per **ogni componente presente e futuro**, non soltanto
+per le viste o per i componenti che usano `GlobalViewStore`.
+
+Un flusso dati asincrono è completo soltanto quando sono verificati tutti i
+passaggi seguenti:
+
+```text
+dato recuperato → dato scritto nella fonte canonica → sottoscrittori notificati
+→ componente rivalutato → valore visualizzato aggiornato
+```
+
+- Un dato presente nella cache ma non propagato al componente è considerato un
+  bug di reattività, non un caricamento ancora in corso.
+- Ogni componente che visualizza dati condivisi deve consumarli tramite una
+  fonte osservabile o un hook che ne esponga la revisione; non può leggere una
+  cache mutabile soltanto durante il render iniziale.
+- Ogni `React.memo` deve confrontare tutte le props che possono modificare il
+  risultato visivo, incluse callback, renderer di colonne, formatter e
+  configurazioni funzionali. Se il confronto non può essere dimostrato
+  corretto, il comparatore personalizzato non va introdotto.
+- Le configurazioni funzionali usate come props devono essere stabilizzate con
+  `useMemo`/`useCallback` quando serve preservare il beneficio della
+  memoizzazione senza impedire gli aggiornamenti reali.
+- Ogni componente che riceve dati dopo il mount deve avere un test di
+  regressione che verifichi: primo render senza dato, inserimento o modifica
+  del dato, notifica e aggiornamento del DOM. Per liste o tabelle il test deve
+  anche dimostrare che l'aggiornamento non ricostruisce inutilmente gli altri
+  elementi.
+- Skeleton, fallback tecnici e stato vuoto non possono mascherare una mancata
+  notifica. Un identificatore tecnico non è un sostituto del dato semantico.
+
+Prima di modificare cache, fetch o resolver per un'anomalia UI, verificare in
+ordine: persistenza/risposta, scrittura canonica, notifica, memoizzazione e
+rendering. La modifica deve fermarsi al primo livello che fallisce.
 
 ## Composizione delle route
 

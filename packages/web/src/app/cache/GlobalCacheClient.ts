@@ -1,5 +1,4 @@
-import { DomainCacheClient } from './DomainCacheClient';
-import { ClientNode, ClientEntity, NodeTypeMeta, EntityTypeMeta } from '../types/models';
+import { ClientNode, ClientEntity } from '../types/models';
 import { createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
 import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
@@ -19,6 +18,7 @@ import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
 import { KernelEntityCacheClient } from './KernelEntityCacheClient';
+import { KernelListCacheClient } from './KernelListCacheClient';
 import { reconcileMetadataBestEffort } from './metadataReconciliation';
 
 export interface CachedLockState {
@@ -411,20 +411,10 @@ export class GlobalCacheClient {
 
   public nodes = new KernelNodeCacheClient(this.kernel, this.notifyCacheSubscribers);
 
-  public lists = new DomainCacheClient<{ id: string; items: string[] }>('lists', async () => {
-    throw new Error('Dynamic full list fetch is currently orchestrated by individual hooks');
-  }, this.notifyCacheSubscribers);
-
-  public nodeTypes = new DomainCacheClient<NodeTypeMeta>('node-types', async () => {
-    throw new Error('Node types must be fetched via METADATA_LIST semantic view');
-  }, this.notifyCacheSubscribers);
-
-  public entityTypes = new DomainCacheClient<EntityTypeMeta>('entity-types', async () => {
-    throw new Error('Entity types must be fetched via METADATA_LIST semantic view');
-  }, this.notifyCacheSubscribers);
+  public lists = new KernelListCacheClient(this.kernel, this.notifyCacheSubscribers);
 
   public readonly metadata = new MetadataCacheClient(this.kernel);
-  public readonly users = new UserCacheClient(this.notifyCacheSubscribers);
+  public readonly users = new UserCacheClient(this.kernel, this.notifyCacheSubscribers);
   public readonly admin = new AdminCacheClient((kind, typeKey) => this.invalidateMetadata(kind, typeKey));
 
   /**
@@ -441,8 +431,6 @@ export class GlobalCacheClient {
     // Compatibility for a loading state created before the first catalogue
     // response has registered its dependency token.
     GlobalViewStore.delete(viewKey);
-    if (kind === 'node') this.nodeTypes.purge();
-    else this.entityTypes.purge();
     this.admin.invalidate([
       'types',
       ...(typeKey ? [`type-detail:${kind}:${typeKey}`, `type-definition:${kind}:${typeKey}`] : ['type-detail', 'type-definition']),
@@ -597,9 +585,7 @@ export class GlobalCacheClient {
   public purgeAll(): void {
     this.kernel.purge();
     this.nodes?.purge();
-    this.lists?.purge();
-    this.nodeTypes?.purge();
-    this.entityTypes?.purge();
+    this.lists.purge();
     this.users.purge();
     this.admin.invalidate();
     

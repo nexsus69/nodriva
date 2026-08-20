@@ -1,5 +1,5 @@
 import type { ClientNode } from '../types/models';
-import type { CacheWriteDiagnostic } from './DomainCacheClient';
+import type { CacheWriteDiagnostic } from './CacheTypes';
 import type { CacheKernel, CacheQuerySnapshot, RecordCompleteness, RecordSatisfaction } from './CacheKernel';
 import { getNodeByIdAction, listChildrenAction } from '../actions/nodeActions';
 
