@@ -2,6 +2,13 @@ export interface CacheRecord {
   id: string;
 }
 
+export type RecordCompleteness = 'summary' | 'full';
+export type RecordSatisfaction = 'missing' | 'incomplete' | 'stale' | 'satisfied';
+
+export interface CacheRecordWriteOptions {
+  completeness?: RecordCompleteness;
+}
+
 export interface CacheQuerySnapshot {
   readonly key: string;
   readonly recordNamespace?: string;
@@ -34,6 +41,13 @@ export interface CacheKernelOptions {
   getRecordVersion?: (record: CacheRecord) => number | undefined;
 }
 
+export class CacheEpochChangedError extends Error {
+  public constructor() {
+    super('Cache session changed while data was loading.');
+    this.name = 'CacheEpochChangedError';
+  }
+}
+
 type RecordSubscriber = (record: CacheRecord | null) => void;
 type QuerySubscriber = (query: CacheQuerySnapshot | null) => void;
 
@@ -41,6 +55,8 @@ interface StoredRecord {
   record: CacheRecord;
   version?: number;
   updatedAt: number;
+  completeness: RecordCompleteness;
+  stale: boolean;
 }
 
 interface StoredQuery extends CacheQuerySnapshot {
@@ -63,6 +79,7 @@ export class CacheKernel {
   private readonly recordSubscribers = new Map<string, Set<RecordSubscriber>>();
   private readonly querySubscribers = new Map<string, Set<QuerySubscriber>>();
   private readonly tokenGenerations = new Map<string, number>();
+  private epoch = 0;
   private readonly now: () => number;
   private readonly getRecordVersion: (record: CacheRecord) => number | undefined;
 
@@ -78,14 +95,35 @@ export class CacheKernel {
     return `${namespace}:${id}`;
   }
 
+  public getEpoch(): number {
+    return this.epoch;
+  }
+
   public getRecord<T extends CacheRecord>(namespace: string, id: string): T | null {
     return (this.records.get(this.recordKey(namespace, id))?.record as T | undefined) ?? null;
   }
 
-  public upsertRecord<T extends CacheRecord>(namespace: string, record: T): boolean {
+  public getRecordSatisfaction(
+    namespace: string,
+    id: string,
+    requiredCompleteness: RecordCompleteness = 'summary',
+  ): RecordSatisfaction {
+    const stored = this.records.get(this.recordKey(namespace, id));
+    if (!stored) return 'missing';
+    if (stored.stale) return 'stale';
+    if (requiredCompleteness === 'full' && stored.completeness !== 'full') return 'incomplete';
+    return 'satisfied';
+  }
+
+  public upsertRecord<T extends CacheRecord>(
+    namespace: string,
+    record: T,
+    options: CacheRecordWriteOptions = {},
+  ): boolean {
     const key = this.recordKey(namespace, record.id);
     const current = this.records.get(key);
     const incomingVersion = this.getRecordVersion(record);
+    const incomingCompleteness = options.completeness ?? 'full';
 
     if (
       current?.version !== undefined &&
@@ -95,10 +133,26 @@ export class CacheKernel {
       return false;
     }
 
+    const isNewerVersion =
+      incomingVersion !== undefined &&
+      (current?.version === undefined || incomingVersion > current.version);
+    const completeness = isNewerVersion
+      ? incomingCompleteness
+      : current?.completeness === 'full' || incomingCompleteness === 'full'
+        ? 'full'
+        : 'summary';
+
     const next: StoredRecord = {
-      record: { ...current?.record, ...record },
+      record:
+        current?.version !== undefined &&
+        incomingVersion === undefined &&
+        incomingCompleteness === 'summary'
+          ? { ...record, ...current.record }
+          : { ...current?.record, ...record },
       version: incomingVersion ?? current?.version,
       updatedAt: this.now(),
+      completeness,
+      stale: false,
     };
     this.records.set(key, next);
     this.recordSubscribers.get(key)?.forEach((subscriber) => subscriber(next.record));
@@ -114,7 +168,9 @@ export class CacheKernel {
   /** Notifies consumers that a record may need revalidation without deleting its value. */
   public invalidateRecord(namespace: string, id: string): void {
     const key = this.recordKey(namespace, id);
-    const record = this.records.get(key)?.record ?? null;
+    const stored = this.records.get(key);
+    if (stored) stored.stale = true;
+    const record = stored?.record ?? null;
     this.recordSubscribers.get(key)?.forEach((subscriber) => subscriber(record));
   }
 
@@ -160,10 +216,12 @@ export class CacheKernel {
     if (pending) return pending;
 
     const knownDependencies = options.dependencies ?? this.queries.get(key)?.dependencies ?? [];
+    const startingEpoch = this.epoch;
     const startingGenerations = new Map(
       knownDependencies.map((token) => [token, this.tokenGenerations.get(token) ?? 0])
     );
     const load = loader().then((result) => {
+      if (this.epoch !== startingEpoch) throw new CacheEpochChangedError();
       const dependencies = [...new Set(result.dependencies ?? knownDependencies)];
       const changedDuringLoad = dependencies.some((token) => (
         (this.tokenGenerations.get(token) ?? 0) !== (startingGenerations.get(token) ?? 0)
@@ -234,6 +292,7 @@ export class CacheKernel {
   }
 
   public purge(): void {
+    this.epoch += 1;
     for (const subscribers of this.recordSubscribers.values()) subscribers.forEach((subscriber) => subscriber(null));
     for (const subscribers of this.querySubscribers.values()) subscribers.forEach((subscriber) => subscriber(null));
     this.records.clear();

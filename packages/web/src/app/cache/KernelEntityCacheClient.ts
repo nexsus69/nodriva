@@ -1,12 +1,13 @@
 import { getEntityByIdAction } from '../actions/entityActions';
 import type { ClientEntity } from '../types/models';
-import type { CacheKernel } from './CacheKernel';
+import type { CacheKernel, RecordCompleteness, RecordSatisfaction } from './CacheKernel';
 import type { CacheWriteDiagnostic } from './DomainCacheClient';
 
 /** Compatibility facade for one entity-type partition backed by CacheKernel. */
 export class KernelEntityCacheClient {
   private readonly namespace: string;
   private readonly recentWrites: CacheWriteDiagnostic[] = [];
+  private readonly pendingRecordFetches = new Map<string, Promise<ClientEntity | null>>();
 
   public constructor(
     private readonly kernel: CacheKernel,
@@ -25,24 +26,37 @@ export class KernelEntityCacheClient {
   public release(id: string): void { void id; }
 
   public needsFetch(id: string, requireComplete: boolean): boolean {
-    void requireComplete;
-    return this.get(id) === null;
+    return this.getSatisfaction(id, requireComplete ? 'full' : 'summary') !== 'satisfied';
+  }
+
+  public getSatisfaction(
+    id: string,
+    completeness: RecordCompleteness = 'summary',
+  ): RecordSatisfaction {
+    return this.kernel.getRecordSatisfaction(this.namespace, id, completeness);
   }
 
   public fetchIfMissing(id: string, requireComplete = false): Promise<ClientEntity | null> {
-    void requireComplete;
-    const current = this.get(id);
-    if (current) return Promise.resolve(current);
-    return getEntityByIdAction(id).then((entity) => {
+    if (!this.needsFetch(id, requireComplete)) return Promise.resolve(this.get(id));
+    const pending = this.pendingRecordFetches.get(id);
+    if (pending) return pending;
+    const requestEpoch = this.kernel.getEpoch();
+    const request = getEntityByIdAction(id).then((entity) => {
       if (!entity) return null;
+      if (this.kernel.getEpoch() !== requestEpoch) return null;
       this.inject(entity.id, entity as ClientEntity, false, 'fetch:detail');
       return this.get(entity.id);
+    }).finally(() => {
+      if (this.pendingRecordFetches.get(id) === request) this.pendingRecordFetches.delete(id);
     });
+    this.pendingRecordFetches.set(id, request);
+    return request;
   }
 
   public inject(id: string, data: Partial<ClientEntity> & { id: string }, _isPartial = false, source = 'unknown'): void {
-    void _isPartial;
-    const accepted = this.kernel.upsertRecord(this.namespace, data as ClientEntity);
+    const accepted = this.kernel.upsertRecord(this.namespace, data as ClientEntity, {
+      completeness: _isPartial ? 'summary' : 'full',
+    });
     this.recentWrites.push({
       timestamp: Date.now(),
       id,
@@ -72,6 +86,7 @@ export class KernelEntityCacheClient {
 
   public purge(): void {
     this.kernel.purgeNamespace(this.namespace);
+    this.pendingRecordFetches.clear();
     this.recentWrites.length = 0;
     this.onChange();
   }

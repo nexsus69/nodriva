@@ -69,8 +69,9 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
     const flatItems = flattenViewPages(viewState);
 
     for (const desc of flatItems) {
-      if (desc.type === 'row' && desc.entityTypeId) {
-        const entity = AppCache.getEntityCache(desc.entityTypeId).get(desc.id);
+      if (desc.type === 'row' && desc.reference.namespace.startsWith('entity:')) {
+        const entityTypeId = desc.reference.namespace.slice('entity:'.length);
+        const entity = AppCache.getEntityCache(entityTypeId).get(desc.reference.id);
         if (entity) {
           const node = AppCache.nodes.get(entity.parentNodeId);
           if (node) {

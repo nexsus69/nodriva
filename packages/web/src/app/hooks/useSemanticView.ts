@@ -4,6 +4,7 @@ import { ViewResolver } from '../cache/CacheService';
 import { ViewKeyBuilder, SemanticViewKeyParams } from '../cache/SemanticViewKey';
 import { GlobalPolicyRegistry } from '../cache/PolicyRegistry';
 import type { RetentionClass } from '../cache/PolicyRegistry';
+import { subscribeSemanticViewState } from '../cache/semanticViewSubscription';
 
 export function useSemanticView(
   params: SemanticViewKeyParams,
@@ -30,21 +31,19 @@ export function useSemanticView(
   }, [params]);
 
   useEffect(() => {
-    const hadViewBeforeSubscribe = GlobalViewStore.get(viewKey) !== null;
-    const unsubscribe = GlobalViewStore.subscribe(viewKey, (newState) => {
+    const unsubscribe = subscribeSemanticViewState(viewKey, (newState) => {
       setViewState(newState);
       if (newState?.status === 'success') {
         setLastFailedAction(null);
       }
-      if (newState === null && hadViewBeforeSubscribe) {
-        void ViewResolver.resolve({
-          type: 'resolve',
-          params: paramsRef.current,
-          requireComplete,
-        }).catch(() => {
-          setLastFailedAction('initial');
-        });
-      }
+    }, () => {
+      void ViewResolver.resolve({
+        type: 'resolve',
+        params: paramsRef.current,
+        requireComplete,
+      }).catch(() => {
+        setLastFailedAction('initial');
+      });
     });
 
     const ownerId =

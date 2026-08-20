@@ -22,7 +22,8 @@ export function useSemanticEntityDetail(entityId: string, baseNodeId?: string) {
     if (!viewState) return null;
     const flatItems = flattenViewPages(viewState);
     if (flatItems.length > 0 && flatItems[0].type === 'row') {
-      return flatItems[0].entityTypeId || null;
+      const namespace = flatItems[0].reference.namespace;
+      return namespace.startsWith('entity:') ? namespace.slice('entity:'.length) : null;
     }
     return null;
   }, [viewState]);

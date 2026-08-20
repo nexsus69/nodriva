@@ -26,10 +26,11 @@ const node = (id: string, name: string) => ({
 
 describe('KernelNodeCacheClient', () => {
   let client: KernelNodeCacheClient;
+  let kernel: CacheKernel;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    const kernel = new CacheKernel();
+    kernel = new CacheKernel();
     client = new KernelNodeCacheClient(kernel, vi.fn());
     mocks.listChildrenAction.mockResolvedValue([node('node-1', 'Project')]);
   });
@@ -57,5 +58,30 @@ describe('KernelNodeCacheClient', () => {
 
     expect(mocks.listChildrenAction).toHaveBeenCalledTimes(2);
     unsubscribe();
+  });
+
+  it('deduplicates concurrent record hydration', async () => {
+    mocks.getNodeByIdAction.mockResolvedValue(node('node-1', 'Project'));
+
+    const first = client.fetchIfMissing('node-1', true);
+    const second = client.fetchIfMissing('node-1', true);
+
+    expect(first).toBe(second);
+    await expect(first).resolves.toMatchObject({ id: 'node-1' });
+    expect(mocks.getNodeByIdAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not inject a response started before a session purge', async () => {
+    let resolveRequest: ((value: ReturnType<typeof node>) => void) | undefined;
+    mocks.getNodeByIdAction.mockReturnValue(new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+
+    const pending = client.fetchIfMissing('private-node', true);
+    kernel.purge();
+    resolveRequest!(node('private-node', 'Private'));
+
+    await expect(pending).resolves.toBeNull();
+    expect(client.get('private-node')).toBeNull();
   });
 });

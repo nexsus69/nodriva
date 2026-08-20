@@ -3,7 +3,7 @@ import { ClientNode, ClientEntity, NodeTypeMeta, EntityTypeMeta } from '../types
 import { createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
 import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
-import { GlobalViewStore } from './ViewStore';
+import { GlobalViewStore, VIEW_DEPENDENCIES, type CacheRecordReference } from './ViewStore';
 import { ViewKeyBuilder } from './SemanticViewKey';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
@@ -15,7 +15,7 @@ import type {
 } from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
-import { CacheKernel } from './CacheKernel';
+import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
 import { KernelEntityCacheClient } from './KernelEntityCacheClient';
@@ -116,23 +116,15 @@ export class GlobalCacheClient {
    * authoritative without trying to patch paginated windows locally.
    */
   private invalidateEntityViews(): void {
-    for (const viewKey of GlobalViewStore.getKeys()) {
-      if (
-        viewKey.startsWith('SUBTREE_LIST|') ||
-        viewKey.startsWith('NODE_ENTITY_COLLECTION|') ||
-        viewKey.startsWith('ENTITY_DETAIL|')
-      ) {
-        GlobalViewStore.delete(viewKey);
-      }
-    }
+    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.entityMembership);
   }
 
-  private invalidateBreadcrumbViews(): void {
-    for (const viewKey of GlobalViewStore.getKeys()) {
-      if (viewKey.startsWith('BREADCRUMB|')) {
-        GlobalViewStore.delete(viewKey);
-      }
-    }
+  private invalidateNodeHierarchyViews(): void {
+    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeHierarchy);
+  }
+
+  private invalidateNodeChildrenViews(): void {
+    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeChildren);
   }
 
   private notifyCacheSubscribers = () => {
@@ -141,6 +133,45 @@ export class GlobalCacheClient {
   };
 
   public getRevision = (): number => this.cacheRevision;
+
+  public getCacheEpoch = (): number => this.kernel.getEpoch();
+
+  public getReferenceSatisfaction(reference: CacheRecordReference): RecordSatisfaction {
+    if (reference.namespace === 'node') {
+      return this.nodes.getSatisfaction(reference.id, reference.completeness);
+    }
+    if (reference.namespace.startsWith('entity:')) {
+      const entityTypeId = reference.namespace.slice('entity:'.length);
+      return this.getEntityCache(entityTypeId).getSatisfaction(
+        reference.id,
+        reference.completeness,
+      );
+    }
+    const metadataCache = reference.namespace === 'node-type' ? this.nodeTypes : this.entityTypes;
+    if (!metadataCache.get(reference.id)) return 'missing';
+    return metadataCache.needsFetch(reference.id, reference.completeness === 'full')
+      ? 'incomplete'
+      : 'satisfied';
+  }
+
+  public async hydrateReference(reference: CacheRecordReference): Promise<boolean> {
+    if (reference.namespace === 'node') {
+      return (await this.nodes.fetchIfMissing(
+        reference.id,
+        reference.completeness === 'full',
+      )) !== null;
+    }
+    if (reference.namespace.startsWith('entity:')) {
+      const entityTypeId = reference.namespace.slice('entity:'.length);
+      return (await this.getEntityCache(entityTypeId).fetchIfMissing(
+        reference.id,
+        reference.completeness === 'full',
+      )) !== null;
+    }
+    // Metadata semantic views are loaded as catalogues. If one catalogue row
+    // is missing, the authoritative operation is to reload the whole view.
+    return false;
+  }
 
   public subscribe = (subscriber: () => void): (() => void) => {
     this.cacheSubscribers.add(subscriber);
@@ -332,18 +363,17 @@ export class GlobalCacheClient {
         );
       } else if (entityTypeId && event.changeType === 'deleted') {
         this.getEntityCache(entityTypeId).remove(event.resourceId);
+        GlobalViewStore.invalidateReference({
+          namespace: `entity:${entityTypeId}`,
+          id: event.resourceId,
+        });
       }
-      if (
-        event.changeType === 'created' ||
-        event.changeType === 'deleted' ||
-        event.changeType === 'moved'
-      ) {
-        this.invalidateEntityViews();
-      }
+      this.invalidateEntityViews();
     } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
       if (event.changeType === 'deleted') {
         this.nodes.remove(event.resourceId);
+        GlobalViewStore.invalidateReference({ namespace: 'node', id: event.resourceId });
       } else if (event.data) {
         this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
       }
@@ -351,12 +381,14 @@ export class GlobalCacheClient {
         if (id !== event.resourceId) this.nodes.invalidate(id);
       }
       this.nodes.invalidateChildren();
+      this.invalidateNodeChildrenViews();
       if (
         event.changeType === 'moved' ||
+        event.changeType === 'updated' ||
         event.changeType === 'deleted' ||
         event.changeType === 'restored'
       ) {
-        this.invalidateBreadcrumbViews();
+        this.invalidateNodeHierarchyViews();
       }
       if (ids.length > 1) this.invalidateEntityViews();
     }
@@ -390,6 +422,11 @@ export class GlobalCacheClient {
   public invalidateMetadata(kind: 'node' | 'entity', typeKey?: string): void {
     this.metadata.invalidate(kind);
     const viewKey = ViewKeyBuilder.build({ viewType: 'METADATA_LIST', metadataType: kind });
+    GlobalViewStore.invalidateDependency(
+      kind === 'node' ? VIEW_DEPENDENCIES.nodeMetadata : VIEW_DEPENDENCIES.entityMetadata,
+    );
+    // Compatibility for a loading state created before the first catalogue
+    // response has registered its dependency token.
     GlobalViewStore.delete(viewKey);
     if (kind === 'node') this.nodeTypes.purge();
     else this.entityTypes.purge();
@@ -408,6 +445,8 @@ export class GlobalCacheClient {
   public reconcileResources(): void {
     this.nodes.purge();
     this.entityCaches.forEach((cache) => cache.purge());
+    GlobalViewStore.invalidateNamespace('node');
+    GlobalViewStore.invalidateNamespacePrefix('entity:');
     this.invalidateEntityViews();
     this.notifyCacheSubscribers();
   }
@@ -427,10 +466,12 @@ export class GlobalCacheClient {
   // --- Mutation Orchestrators ---
 
   public async createEntity(input: CreateEntityInput): Promise<ClientEntity> {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const result = await createEntityAction(input);
       if (!result.success) throw actionError(result.error);
       const newEntity = result.data;
+      if (this.getCacheEpoch() !== requestEpoch) return newEntity as unknown as ClientEntity;
       const entityTypeKey = newEntity.entityTypeId;
       // Inietta il nuovo dato nella cache
       this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false);
@@ -443,15 +484,18 @@ export class GlobalCacheClient {
   }
 
   public async updateEntity(input: UpdateEntityInput): Promise<ClientEntity> {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const result = await updateEntityAction(input);
       if (!result.success) throw actionError(result.error);
       const updatedEntity = result.data;
+      if (this.getCacheEpoch() !== requestEpoch) return updatedEntity as unknown as ClientEntity;
       const entityTypeKey = updatedEntity.entityTypeId;
       // Inietta il dato aggiornato nella cache
       this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false);
-      // La vista non va invalidata: il dato canonico è già stato aggiornato
-      // nella cache e i consumatori vengono notificati direttamente.
+      // The detail reads the updated canonical record, while list membership,
+      // ordering and filters must be recomputed by the authoritative query.
+      this.invalidateEntityViews();
       return updatedEntity as unknown as ClientEntity;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -460,12 +504,15 @@ export class GlobalCacheClient {
   }
 
   public async deleteEntity(entityId: string, entityTypeKey: string, expectedRowVersion: number) {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const result = await deleteEntityAction({ entityId, expectedRowVersion });
       if (!result.success) throw actionError(result.error);
+      if (this.getCacheEpoch() !== requestEpoch) return;
       // Aggiorna lo store
       const cache = this.getEntityCache(entityTypeKey);
       cache.remove(entityId);
+      GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey}`, id: entityId });
       this.invalidateEntityViews();
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -476,11 +523,14 @@ export class GlobalCacheClient {
   // --- NODE MUTATIONS ---
 
   public async createNode(input: CreateNodeInput) {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const created = await createNodeAction(input);
       const clientNode: ClientNode = created as unknown as ClientNode;
+      if (this.getCacheEpoch() !== requestEpoch) return clientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
       this.nodes.invalidateChildren();
+      this.invalidateNodeChildrenViews();
       return clientNode;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -489,11 +539,15 @@ export class GlobalCacheClient {
   }
 
   public async updateNode(input: UpdateNodeInput) {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const updated = await updateNodeAction(input);
       const clientNode: ClientNode = updated as unknown as ClientNode;
+      if (this.getCacheEpoch() !== requestEpoch) return clientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
       this.nodes.invalidateChildren();
+      this.invalidateNodeChildrenViews();
+      this.invalidateNodeHierarchyViews();
       return clientNode;
     } catch (err: unknown) {
       this.handleFetchError(err);
@@ -502,13 +556,16 @@ export class GlobalCacheClient {
   }
 
   public async moveNode(input: MoveNodeInput) {
+    const requestEpoch = this.getCacheEpoch();
     try {
       const moved = await moveNodeAction(input);
       if (moved) {
         const clientNode: ClientNode = moved as unknown as ClientNode;
+        if (this.getCacheEpoch() !== requestEpoch) return clientNode;
         this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
         this.nodes.invalidateChildren();
-        this.invalidateBreadcrumbViews();
+        this.invalidateNodeChildrenViews();
+        this.invalidateNodeHierarchyViews();
         return clientNode;
       }
       return null;

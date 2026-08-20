@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CacheKernel } from './CacheKernel';
+import { CacheEpochChangedError, CacheKernel } from './CacheKernel';
 
 interface TestRecord {
   id: string;
@@ -66,6 +66,52 @@ describe('CacheKernel', () => {
     expect(kernel.getRecord<TestRecord>('entity', '1')?.name).toBe('New');
     expect(kernel.upsertRecord<TestRecord>('entity', { id: '1', name: 'Newest', rowVersion: 3 })).toBe(true);
     expect(kernel.getRecord<TestRecord>('entity', '1')?.name).toBe('Newest');
+  });
+
+  it('distinguishes missing, partial, stale and complete canonical records', () => {
+    expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('missing');
+
+    kernel.upsertRecord<TestRecord>(
+      'entity',
+      { id: '1', name: 'Summary', rowVersion: 1 },
+      { completeness: 'summary' },
+    );
+    expect(kernel.getRecordSatisfaction('entity', '1', 'summary')).toBe('satisfied');
+    expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('incomplete');
+
+    kernel.invalidateRecord('entity', '1');
+    expect(kernel.getRecordSatisfaction('entity', '1', 'summary')).toBe('stale');
+
+    kernel.upsertRecord<TestRecord>(
+      'entity',
+      { id: '1', name: 'Complete', rowVersion: 1 },
+      { completeness: 'full' },
+    );
+    expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('satisfied');
+  });
+
+  it('does not retain full completeness when a newer partial version arrives', () => {
+    kernel.upsertRecord<TestRecord>('entity', { id: '1', name: 'Complete', rowVersion: 1 });
+    kernel.upsertRecord<TestRecord>(
+      'entity',
+      { id: '1', name: 'New summary', rowVersion: 2 },
+      { completeness: 'summary' },
+    );
+
+    expect(kernel.getRecord<TestRecord>('entity', '1')?.name).toBe('New summary');
+    expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('incomplete');
+  });
+
+  it('does not let an unversioned summary overwrite a versioned canonical record', () => {
+    kernel.upsertRecord<TestRecord>('entity', { id: '1', name: 'Canonical', rowVersion: 2 });
+    kernel.upsertRecord(
+      'entity',
+      { id: '1', name: 'Unversioned summary' },
+      { completeness: 'summary' },
+    );
+
+    expect(kernel.getRecord<TestRecord>('entity', '1')?.name).toBe('Canonical');
+    expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('satisfied');
   });
 
   it('invalidates every query that depends on a token', async () => {
@@ -150,5 +196,18 @@ describe('CacheKernel', () => {
     expect(kernel.sizes).toEqual({ records: 0, queries: 0, pendingQueries: 0 });
     expect(recordSubscriber).toHaveBeenLastCalledWith(null);
     expect(querySubscriber).toHaveBeenLastCalledWith(null);
+  });
+
+  it('rejects a query response that completes after a session purge', async () => {
+    let resolveRequest: ((value: { ids: string[] }) => void) | undefined;
+    const pending = kernel.readQuery('private-list', () => new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+
+    kernel.purge();
+    resolveRequest!({ ids: ['private-record'] });
+
+    await expect(pending).rejects.toBeInstanceOf(CacheEpochChangedError);
+    expect(kernel.getQuery('private-list')).toBeNull();
   });
 });

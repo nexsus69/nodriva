@@ -6,11 +6,16 @@ import {
   ViewItemDescriptor, 
   ViewPage,
   flattenViewPages,
+  getViewItemKey,
+  getViewRowReferences,
+  VIEW_DEPENDENCIES,
   getViewHasMoreForward,
   getViewHasMoreBackward,
   getViewNextCursor,
   getViewPrevCursor
 } from './ViewStore';
+import type { CacheRecordReference } from './ViewStore';
+import { CacheEpochChangedError } from './CacheKernel';
 import { AppCache } from './GlobalCacheClient';
 import { INFINITE_LIST_CONFIG } from './InfiniteListConfig';
 import { listSubtreeEntitiesAction } from '../actions/entityActions';
@@ -60,49 +65,77 @@ export type ViewIntent =
   | { type: 'resolve'; params: SemanticViewKeyParams; requireComplete: boolean }
   | { type: 'extend'; params: SemanticViewKeyParams; requireComplete: boolean; direction: 'forward' | 'backward'; pageSize?: number };
 
+export interface SatisfactionResult {
+  status: SatisfactionStatus;
+  references: CacheRecordReference[];
+}
+
 // -----------------------------------------------------------------------------
 // 2. SATISFIABILITY EVALUATOR (Pure)
 // -----------------------------------------------------------------------------
 export class SatisfiabilityEvaluator {
-  static evaluate(viewKey: string, requireComplete: boolean): SatisfactionStatus {
+  static inspect(viewKey: string, requireComplete: boolean): SatisfactionResult {
     const view = GlobalViewStore.get(viewKey);
-    if (!view) return 'missing-view';
+    if (!view) return { status: 'missing-view', references: [] };
 
-    if (view.status === 'error') return 'stale';
+    if (view.status === 'error') return { status: 'stale', references: [] };
+    if (view.status === 'idle' || view.status === 'loading') {
+      return { status: 'missing-view', references: [] };
+    }
 
     const STALE_TTL = 5 * 60 * 1000;
     if (Date.now() - view.updatedAt > STALE_TTL) {
-      return 'stale';
+      return { status: 'stale', references: [] };
     }
+    if (view.pages.length === 0) return { status: 'missing-view', references: [] };
 
     const flatItems = flattenViewPages(view);
-    if (flatItems.length === 0) return 'satisfied';
+    if (flatItems.length === 0) return { status: 'satisfied', references: [] };
 
-    if (viewKey.startsWith('BREADCRUMB|')) {
-      const hasMissingNode = flatItems.some((item) =>
-        item.type === 'row' && AppCache.nodes.get(item.id) === null);
-      if (hasMissingNode) return 'missing-records';
-    }
-
-    let hasPartial = false;
+    const missing = new Map<string, CacheRecordReference>();
+    const incomplete = new Map<string, CacheRecordReference>();
 
     for (const item of flatItems) {
-      if (item.type === 'row' && item.entityTypeId) {
-        const entityCache = AppCache.getEntityCache(item.entityTypeId);
-        if (entityCache.needsFetch(item.id, requireComplete)) {
-          const cachedItem = entityCache.get(item.id);
-          if (cachedItem) {
-            hasPartial = true;
-          } else {
-            return 'missing-entities';
-          }
+      if (item.type !== 'row') continue;
+      const references = getViewRowReferences(item);
+      for (const [index, reference] of references.entries()) {
+        const requiredReference = requireComplete && index === 0
+          ? { ...reference, completeness: 'full' as const }
+          : reference;
+        const satisfaction = AppCache.getReferenceSatisfaction(requiredReference);
+        const referenceKey = `${requiredReference.namespace}:${requiredReference.id}:${requiredReference.completeness}`;
+        if (satisfaction === 'missing') missing.set(referenceKey, requiredReference);
+        if (satisfaction === 'incomplete' || satisfaction === 'stale') {
+          incomplete.set(referenceKey, requiredReference);
         }
       }
     }
-    
-    if (hasPartial) return 'partial';
-    
-    return 'satisfied';
+
+    if (missing.size > 0) return { status: 'missing-records', references: [...missing.values()] };
+    if (incomplete.size > 0) return { status: 'partial', references: [...incomplete.values()] };
+    return { status: 'satisfied', references: [] };
+  }
+
+  static evaluate(viewKey: string, requireComplete: boolean): SatisfactionStatus {
+    return this.inspect(viewKey, requireComplete).status;
+  }
+}
+
+export class RecordHydrator {
+  private static readonly pending = new Map<string, Promise<boolean>>();
+
+  static async hydrate(references: readonly CacheRecordReference[]): Promise<boolean> {
+    const results = await Promise.all(references.map((reference) => {
+      const key = `${AppCache.getCacheEpoch()}:${reference.namespace}:${reference.id}:${reference.completeness}`;
+      const existing = this.pending.get(key);
+      if (existing) return existing;
+      const request = AppCache.hydrateReference(reference).finally(() => {
+        if (this.pending.get(key) === request) this.pending.delete(key);
+      });
+      this.pending.set(key, request);
+      return request;
+    }));
+    return results.every(Boolean);
   }
 }
 
@@ -154,8 +187,16 @@ export class IngestionLayer {
 
       newDescriptors.push({
         type: 'row',
-        id: item.id,
-        entityTypeId: item.entityTypeId
+        reference: {
+          namespace: `entity:${item.entityTypeId}`,
+          id: item.id,
+          completeness: 'summary',
+        },
+        requires: [{
+          namespace: 'node',
+          id: item.parentNodeId,
+          completeness: 'summary',
+        }],
       });
     });
 
@@ -175,18 +216,11 @@ export class IngestionLayer {
     // the view it is replacing. An extend must instead reject cross-page overlap.
     const seenKeys = new Set<string>(
       intentType === 'extend'
-        ? flattenViewPages(existingView).map((descriptor) =>
-            descriptor.type === 'row'
-              ? `row:${descriptor.id}`
-              : `group:${descriptor.groupId}`
-          )
+        ? flattenViewPages(existingView).map(getViewItemKey)
         : []
     );
     const filteredNew = newDescriptors.filter((descriptor) => {
-      const key =
-        descriptor.type === 'row'
-          ? `row:${descriptor.id}`
-          : `group:${descriptor.groupId}`;
+      const key = getViewItemKey(descriptor);
       if (seenKeys.has(key)) return false;
       seenKeys.add(key);
       return true;
@@ -290,6 +324,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: 'satisfied', 
       updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership, VIEW_DEPENDENCIES.nodeHierarchy],
       diagnostics: {
         forwardExtensions:
           diagnostics.forwardExtensions +
@@ -321,7 +356,14 @@ export class IngestionLayer {
     }, false); // inject as complete
 
     const newPage: ViewPage = {
-      items: [{ type: 'row', id: entity.id, entityTypeId: entity.entityTypeId }],
+      items: [{
+        type: 'row',
+        reference: {
+          namespace: `entity:${entity.entityTypeId}`,
+          id: entity.id,
+          completeness: 'full',
+        },
+      }],
       prevCursor: null,
       nextCursor: null,
       hasMoreForward: false,
@@ -334,7 +376,7 @@ export class IngestionLayer {
       status: 'success',
       error: null,
       satisfactionStatus: 'satisfied',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
     });
   }
 
@@ -344,7 +386,10 @@ export class IngestionLayer {
     items.forEach(node => {
       AppCache.nodes.inject(node.id, node, false, 'view:children');
       
-      newDescriptors.push({ type: 'row', id: node.id });
+      newDescriptors.push({
+        type: 'row',
+        reference: { namespace: 'node', id: node.id, completeness: 'full' },
+      });
     });
 
     const newPage: ViewPage = {
@@ -361,7 +406,8 @@ export class IngestionLayer {
       status: 'success',
       error: null,
       satisfactionStatus: 'satisfied',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.nodeChildren],
     });
   }
 
@@ -370,7 +416,10 @@ export class IngestionLayer {
     GlobalViewStore.set(viewKey, {
       viewKey,
       pages: [{
-        items: nodes.map((node) => ({ type: 'row' as const, id: node.id })),
+        items: nodes.map((node) => ({
+          type: 'row' as const,
+          reference: { namespace: 'node' as const, id: node.id, completeness: 'full' as const },
+        })),
         prevCursor: null,
         nextCursor: null,
         hasMoreForward: false,
@@ -380,6 +429,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.nodeHierarchy],
     });
   }
 
@@ -399,7 +449,14 @@ export class IngestionLayer {
         payload: item.payload,
       }, false);
 
-      newDescriptors.push({ type: 'row', id: item.id, entityTypeId: item.entityTypeId });
+      newDescriptors.push({
+        type: 'row',
+        reference: {
+          namespace: `entity:${item.entityTypeId}`,
+          id: item.id,
+          completeness: 'full',
+        },
+      });
     });
 
     const newPage: ViewPage = {
@@ -416,7 +473,8 @@ export class IngestionLayer {
       status: 'success',
       error: null,
       satisfactionStatus: 'satisfied',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership],
     });
   }
 
@@ -440,7 +498,14 @@ export class IngestionLayer {
         if (!('storageTable' in item)) return;
         AppCache.entityTypes.inject(item.id, item, false);
       }
-      newDescriptors.push({ type: 'row', id: item.id });
+      newDescriptors.push({
+        type: 'row',
+        reference: {
+          namespace: metadataType === 'node' ? 'node-type' : 'entity-type',
+          id: item.id,
+          completeness: 'full',
+        },
+      });
     });
 
     const newPage: ViewPage = {
@@ -457,7 +522,12 @@ export class IngestionLayer {
       status: 'success',
       error: null,
       satisfactionStatus: 'satisfied',
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      dependencyTokens: [
+        metadataType === 'node'
+          ? VIEW_DEPENDENCIES.nodeMetadata
+          : VIEW_DEPENDENCIES.entityMetadata,
+      ],
     });
   }
 }
@@ -466,8 +536,31 @@ export class IngestionLayer {
 // 4. FETCH COORDINATOR
 // -----------------------------------------------------------------------------
 export class FetchCoordinator {
+  static recordError(viewKey: string, error: unknown): void {
+    AppCache.handleFetchError(error);
+    const failedView = GlobalViewStore.get(viewKey);
+    if (!failedView) return;
+    const errorCode =
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      typeof error.code === 'string'
+        ? error.code
+        : 'FETCH_ERROR';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    GlobalViewStore.set(viewKey, {
+      ...failedView,
+      status: 'error',
+      error: { code: errorCode, message: errorMessage, timestamp: Date.now() },
+    });
+  }
+
   static async executeFetch(intent: ViewIntent, viewKey: string) {
     const existingView = GlobalViewStore.get(viewKey);
+    const requestEpoch = AppCache.getCacheEpoch();
+    const assertCurrentEpoch = () => {
+      if (AppCache.getCacheEpoch() !== requestEpoch) throw new CacheEpochChangedError();
+    };
     
     // Solo per il resolve iniziale (o se non c'è view): segnala 'loading' al ViewStore.
     // Per gli extend NON tocchiamo il ViewStore prima del fetch: evita notifiche spurie
@@ -503,6 +596,7 @@ export class FetchCoordinator {
           entityTypeId: intent.params.entityTypeId,
           filters: intent.params.filters as { name?: string; description?: string; lockState?: 'locked' | 'unlocked' } | undefined,
         });
+        assertCurrentEpoch();
 
         const newCursor = direction === 'backward' ? res.prevCursor : res.nextCursor;
 
@@ -518,56 +612,42 @@ export class FetchCoordinator {
       } else if (intent.params.viewType === 'ENTITY_DETAIL') {
         const { getEntityByIdAction } = await import('../actions/entityActions');
         const res = await getEntityByIdAction(intent.params.entityId!);
+        assertCurrentEpoch();
         if (!res) throw new Error(`Entity ${intent.params.entityId} not found`);
         IngestionLayer.ingestEntityDetail(viewKey, res);
       } else if (intent.params.viewType === 'BREADCRUMB') {
         const { getNodeBreadcrumbAction } = await import('../actions/nodeActions');
         const res = await getNodeBreadcrumbAction(intent.params.baseNodeId!);
+        assertCurrentEpoch();
         IngestionLayer.ingestBreadcrumb(viewKey, res);
       } else if (intent.params.viewType === 'NODE_CHILDREN_LIST') {
         const { listChildrenAction } = await import('../actions/nodeActions');
         const res = await listChildrenAction(intent.params.baseNodeId || null);
+        assertCurrentEpoch();
         IngestionLayer.ingestNodeChildrenList(viewKey, res);
       } else if (intent.params.viewType === 'NODE_ENTITY_COLLECTION') {
         const { listEntitiesAction } = await import('../actions/entityActions');
         const res = await listEntitiesAction(intent.params.baseNodeId!);
+        assertCurrentEpoch();
         IngestionLayer.ingestNodeEntityCollection(viewKey, res);
       } else if (intent.params.viewType === 'METADATA_LIST') {
         if (intent.params.metadataType === 'node') {
           const { listNodeTypesAction } = await import('../actions/nodeActions');
           const res = await listNodeTypesAction();
+          assertCurrentEpoch();
           IngestionLayer.ingestMetadataList(viewKey, res, 'node');
         } else {
           const { listEntityTypesAction } = await import('../actions/entityActions');
           const res = await listEntityTypesAction();
+          assertCurrentEpoch();
           IngestionLayer.ingestMetadataList(viewKey, res, 'entity');
         }
       } else {
         throw new Error(`ViewType ${intent.params.viewType} not supported yet.`);
       }
     } catch (error: unknown) {
-      AppCache.handleFetchError(error);
-
-      const failedView = GlobalViewStore.get(viewKey);
-      if (failedView) {
-        const errorCode =
-          typeof error === 'object' &&
-          error !== null &&
-          'code' in error &&
-          typeof error.code === 'string'
-            ? error.code
-            : 'FETCH_ERROR';
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        GlobalViewStore.set(viewKey, {
-          ...failedView,
-          status: 'error',
-          error: {
-            code: errorCode,
-            message: errorMessage,
-            timestamp: Date.now()
-          }
-        });
-      }
+      if (error instanceof CacheEpochChangedError) throw error;
+      this.recordError(viewKey, error);
       throw error;
     }
   }
@@ -581,7 +661,7 @@ export class ViewResolver {
 
   static resolve(intent: ViewIntent): Promise<ViewState | null> {
     const viewKey = ViewKeyBuilder.build(intent.params);
-    const requestKey = `${viewKey}|${intent.type}|${intent.type === 'extend' ? intent.direction : 'initial'}`;
+    const requestKey = `${AppCache.getCacheEpoch()}|${viewKey}|${intent.type}|${intent.type === 'extend' ? intent.direction : 'initial'}`;
     const pending = this.pendingResolutions.get(requestKey);
     if (pending) return pending;
 
@@ -595,15 +675,31 @@ export class ViewResolver {
   }
 
   private static async executeResolve(intent: ViewIntent, viewKey: string): Promise<ViewState | null> {
-    let satisfaction = SatisfiabilityEvaluator.evaluate(viewKey, intent.requireComplete);
-
-    const requiresFetch = intent.type === 'extend' || satisfaction !== 'satisfied';
-
-    if (requiresFetch) {
-        await FetchCoordinator.executeFetch(intent, viewKey);
+    let inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+    const inspectedView = GlobalViewStore.get(viewKey);
+    if (inspectedView && inspectedView.satisfactionStatus !== inspection.status) {
+      GlobalViewStore.set(viewKey, {
+        ...inspectedView,
+        satisfactionStatus: inspection.status,
+      });
     }
-    
-    satisfaction = SatisfiabilityEvaluator.evaluate(viewKey, intent.requireComplete);
+
+    if (intent.type === 'extend' || inspection.status === 'missing-view' || inspection.status === 'stale') {
+      await FetchCoordinator.executeFetch(intent, viewKey);
+    } else if (inspection.status === 'missing-records' || inspection.status === 'partial') {
+      try {
+        const hydrated = await RecordHydrator.hydrate(inspection.references);
+        inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+        if (!hydrated || inspection.status !== 'satisfied') {
+          await FetchCoordinator.executeFetch(intent, viewKey);
+        }
+      } catch (error: unknown) {
+        FetchCoordinator.recordError(viewKey, error);
+        throw error;
+      }
+    }
+
+    const satisfaction = SatisfiabilityEvaluator.evaluate(viewKey, intent.requireComplete);
     const finalView = GlobalViewStore.get(viewKey);
 
     if (finalView && finalView.satisfactionStatus !== satisfaction) {

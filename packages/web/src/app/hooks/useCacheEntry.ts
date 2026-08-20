@@ -28,6 +28,22 @@ export function useCacheEntry<T extends { id: string }>(
 
     // 1. Retain the entry (Increment RefCount)
     cacheClient.retain(id);
+    let isMounted = true;
+
+    const hydrate = () => {
+      if (!cacheClient.needsFetch(id, requireComplete)) return;
+      setIsLoading(true);
+      void cacheClient.fetchIfMissing(id, requireComplete)
+        .catch((fetchError: unknown) => {
+          if (!isMounted) return;
+          setData(null);
+          setError(fetchError instanceof Error ? fetchError : new Error(String(fetchError)));
+          setErrorId(id);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoading(false);
+        });
+    };
 
     // 2. Subscribe to changes
     const unsubscribe = cacheClient.subscribe(id, (newData, newError) => {
@@ -35,35 +51,12 @@ export function useCacheEntry<T extends { id: string }>(
       setError(newError);
       setErrorId(newError ? id : null);
       
-      // If we required complete data, we stop loading when the data is no longer partial
-      if (newData && requireComplete) {
-        // We can't access isPartial easily from here without changing the subscribe callback signature,
-        // but if data arrived and no error, we assume the fetch resolved if it was pending.
-        // Actually, checking needsFetch is safer.
-        setIsLoading(cacheClient.needsFetch(id, requireComplete));
-      } else if (newData || newError) {
-        setIsLoading(false);
-      }
+      setIsLoading(cacheClient.needsFetch(id, requireComplete));
+      if (!newError) hydrate();
     });
 
     // 3. Trigger fetch if missing or partial
-    let isMounted = true;
-    if (cacheClient.needsFetch(id, requireComplete)) {
-      cacheClient
-        .fetchIfMissing(id, requireComplete)
-        .catch((error: unknown) => {
-          if (isMounted) {
-            setData(null);
-            setError(error instanceof Error ? error : new Error(String(error)));
-            setErrorId(id);
-          }
-        })
-        .finally(() => {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-        });
-    }
+    hydrate();
 
     // 4. Release on unmount (Decrement RefCount / GC)
     return () => {

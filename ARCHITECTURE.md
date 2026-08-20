@@ -193,6 +193,13 @@ Schema reconstruction is driven by relational type definitions stored in dedicat
 
 The frontend must be configurable. Tree, list, detail, breadcrumb, and related components are not fixed architectural primitives; they are configurable consumers of a shared read model/cache.[cite:9][cite:7][cite:37]
 
+Semantic views store ordered, typed references (`namespace`, `id`, required
+completeness) to canonical records rather than untyped IDs or copied payloads.
+View satisfaction is evaluated generically from those references. Missing or
+incomplete records are hydrated through authorized backend contracts; changes
+to membership or ordering invalidate dependency tokens. No view-specific
+component may infer completeness from incidental records already in memory.
+
 App Router `page.tsx` and `layout.tsx` files are composition boundaries: they
 resolve route parameters and assemble a screen, but do not own state, effects,
 reducers or transitions. View state and orchestration belong in dedicated

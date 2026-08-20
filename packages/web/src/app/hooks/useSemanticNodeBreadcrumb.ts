@@ -17,7 +17,7 @@ export function useSemanticNodeBreadcrumb(nodeId: string) {
 
   const nodes = flattenViewPages(viewState)
     .filter((item): item is typeof item & { type: 'row' } => item.type === 'row')
-    .map((item) => AppCache.nodes.get(item.id))
+    .map((item) => AppCache.nodes.get(item.reference.id))
     .filter((node): node is ClientNode => node !== null);
 
   return {

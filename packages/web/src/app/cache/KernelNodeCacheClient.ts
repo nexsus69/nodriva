@@ -1,6 +1,6 @@
 import type { ClientNode } from '../types/models';
 import type { CacheWriteDiagnostic } from './DomainCacheClient';
-import type { CacheKernel, CacheQuerySnapshot } from './CacheKernel';
+import type { CacheKernel, CacheQuerySnapshot, RecordCompleteness, RecordSatisfaction } from './CacheKernel';
 import { getNodeByIdAction, listChildrenAction } from '../actions/nodeActions';
 
 type NodeListSubscriber = (nodes: readonly ClientNode[], error?: Error) => void;
@@ -8,6 +8,7 @@ type NodeListSubscriber = (nodes: readonly ClientNode[], error?: Error) => void;
 /** Compatibility facade for node consumers backed by the normalized kernel. */
 export class KernelNodeCacheClient {
   private readonly recentWrites: CacheWriteDiagnostic[] = [];
+  private readonly pendingRecordFetches = new Map<string, Promise<ClientNode | null>>();
 
   public constructor(
     private readonly kernel: CacheKernel,
@@ -23,19 +24,31 @@ export class KernelNodeCacheClient {
   public release(id: string): void { void id; }
 
   public needsFetch(id: string, requireComplete: boolean): boolean {
-    void requireComplete;
-    return this.get(id) === null;
+    return this.getSatisfaction(id, requireComplete ? 'full' : 'summary') !== 'satisfied';
+  }
+
+  public getSatisfaction(
+    id: string,
+    completeness: RecordCompleteness = 'summary',
+  ): RecordSatisfaction {
+    return this.kernel.getRecordSatisfaction('node', id, completeness);
   }
 
   public fetchIfMissing(id: string, requireComplete = false): Promise<ClientNode | null> {
-    void requireComplete;
-    const current = this.get(id);
-    if (current) return Promise.resolve(current);
-    return getNodeByIdAction(id).then((node) => {
+    if (!this.needsFetch(id, requireComplete)) return Promise.resolve(this.get(id));
+    const pending = this.pendingRecordFetches.get(id);
+    if (pending) return pending;
+    const requestEpoch = this.kernel.getEpoch();
+    const request = getNodeByIdAction(id).then((node) => {
       if (!node) return null;
+      if (this.kernel.getEpoch() !== requestEpoch) return null;
       this.inject(node.id, node, false, 'fetch:detail');
       return this.get(node.id);
+    }).finally(() => {
+      if (this.pendingRecordFetches.get(id) === request) this.pendingRecordFetches.delete(id);
     });
+    this.pendingRecordFetches.set(id, request);
+    return request;
   }
 
   private childrenQueryKey(parentId: string | null): string {
@@ -81,8 +94,9 @@ export class KernelNodeCacheClient {
   }
 
   public inject(id: string, data: Partial<ClientNode> & { id: string }, _isPartial = false, source = 'unknown'): void {
-    void _isPartial;
-    const accepted = this.kernel.upsertRecord('node', data as ClientNode);
+    const accepted = this.kernel.upsertRecord('node', data as ClientNode, {
+      completeness: _isPartial ? 'summary' : 'full',
+    });
     this.recentWrites.push({
       timestamp: Date.now(),
       id,
@@ -112,6 +126,7 @@ export class KernelNodeCacheClient {
 
   public purge(): void {
     this.kernel.purgeNamespace('node');
+    this.pendingRecordFetches.clear();
     this.recentWrites.length = 0;
     this.onChange();
   }

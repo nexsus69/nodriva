@@ -7,30 +7,37 @@ Ogni nuova implementazione, refactoring o estensione deve rispettare questi vinc
 
 ## 1. Principi Fondamentali
 
-1. **Single Source of Truth (EntityStore)**
-   Ogni entità esiste una sola volta, nell'EntityStore canonico (`DomainCacheClient` partizionato per `entityTypeId`). Nessun componente, hook, context o cache parallela può detenere una copia indipendente dello stesso dato.
+1. **Single Source of Truth (CacheKernel)**
+   Ogni record esiste una sola volta nel `CacheKernel`, identificato da
+   `namespace + id`; le entità sono partizionate nel namespace
+   `entity:<entityTypeId>`. Nessun componente, hook, context o cache parallela
+   può detenere una copia indipendente dello stesso dato.
 
 2. **Separazione Vista / Dato**
    - Il **ViewStore** contiene esclusivamente metadati di navigazione: array di `ViewPage`, ciascuna con descrittori opachi (`ViewItemDescriptor`), cursori bidirezionali (`prevCursor`, `nextCursor`) e flag `hasMoreForward`/`hasMoreBackward`.
-   - L'**EntityStore** contiene i payload reali delle entità.
+   - Il **CacheKernel** contiene i payload canonici.
    - Nessun payload di entità transita né viene conservato nel ViewStore.
 
 3. **Reattività Automatica**
-   Qualsiasi mutazione del dato canonico (update, delete, inject) viene propagata tramite sottoscrizioni (`DomainCacheClient.subscribe`) a tutti i consumatori registrati. Le viste che mostrano quell'entità si aggiornano istantaneamente, **senza refetch dal server**.
+   Qualsiasi mutazione del dato canonico (update, delete, inject) viene
+   propagata tramite le sottoscrizioni delle facade del kernel. Le viste
+   puntuali si aggiornano dal record canonico; le viste il cui ordinamento,
+   filtro o membership può cambiare vengono invalidate tramite dependency token.
 
 4. **UI Agnostica dal Fetch**
    I componenti React non conoscono endpoint, server actions, URL o protocolli. Dichiarano un intento semantico (`SemanticViewKey`) e consumano i risultati tramite hook adapter. L'orchestrazione del caricamento è responsabilità esclusiva del Service Layer.
 
-## 1.1 CacheKernel — nuova implementazione isolata
+## 1.1 CacheKernel e ViewStore
 
-`CacheKernel` è la nuova implementazione normalizzata sviluppata prima della
-sostituzione completa dell'engine attuale. È ora usata dal percorso dei metadati
-dei tipi (`useSemanticMetadata`); nodi, entità e viste paginated restano ancora
-sul percorso precedente durante la migrazione controllata.
+`CacheKernel` è lo store canonico normalizzato usato da nodi, entità e metadati.
+`GlobalViewStore` conserva pagine, cursori, stato e riferimenti ai record, ma
+mai i payload. I client di dominio rimasti sono facade di compatibilità e non
+costituiscono una seconda fonte autorevole.
 
 Le sue regole sono:
 
 - ogni record viene memorizzato una sola volta tramite `namespace + id`;
+- ogni record conserva completezza (`summary` o `full`) e stato stale;
 - una query conserva solo gli ID ordinati, il namespace dei record e le proprie
   dipendenze, mai una seconda copia dei payload;
 - le mutazioni passano da `mutate()`, che applica il risultato canonico e le
@@ -42,12 +49,8 @@ Le sue regole sono:
 - le versioni obsolete dei record vengono ignorate;
 - `purge()` elimina record, query e richieste pendenti per il cambio sessione o
   il logout.
-
-La sostituzione completa dell'engine attuale è consentita solo dopo il
-completamento dei test di compatibilità per viste, paginazione, realtime, ACL,
-lock e lifecycle di sessione. Fino ad allora `GlobalCacheClient` e
-`GlobalViewStore` restano il percorso di produzione per le risorse non ancora
-migrate.
+- una risposta iniziata prima di un purge di sessione non può reinserire dati
+  nella nuova epoca della cache.
 
 ---
 
@@ -96,8 +99,9 @@ Punto di ingresso unico per ogni richiesta di dati. Riceve un `ViewIntent` (`res
 ### IngestionLayer
 
 Riceve i DTO grezzi dal FetchCoordinator e li normalizza:
-1. Scompone le entità e le inietta nell'EntityStore canonico tramite `DomainCacheClient.inject()`.
-2. Costruisce i `ViewItemDescriptor` (riferimenti opachi agli ID, senza payload).
+1. Scompone i record e li inietta nello store canonico tramite le facade tipizzate di `AppCache`.
+2. Costruisce i `ViewItemDescriptor` con riferimenti tipizzati
+   (`namespace`, `id`, `completeness`) e dipendenze aggiuntive, senza payload.
 3. Assembla la `ViewPage` con cursori e flag `hasMore`.
 4. Inserisce la pagina nel ViewStore, applicando deduplica cross-chunk e Window Trimming.
 
@@ -108,17 +112,22 @@ Riceve i DTO grezzi dal FetchCoordinator e li normalizza:
 Una vista è considerata **soddisfatta** (`satisfied`) se e solo se tutte le seguenti condizioni sono vere:
 
 1. **Esistenza**: la view è presente nel `GlobalViewStore` con almeno una pagina.
-2. **Completezza entità**: ogni `ViewItemDescriptor` di tipo `row` ha un'entità corrispondente risolta nell'EntityStore canonico. Se `requireComplete = true`, l'entità non deve essere `isPartial`.
+2. **Completezza referenziale**: ogni `ViewItemDescriptor` di tipo `row` ha tutti
+   i record `primary` e `requires` presenti nel namespace canonico e al livello
+   `summary`/`full` richiesto.
 3. **Freshness**: il campo `updatedAt` della vista non supera il TTL di staleness (`STALE_TTL`, default 5 minuti).
 
 Se una qualsiasi condizione fallisce, lo stato è uno tra:
 - `missing-view` — la vista non esiste nel ViewStore.
-- `missing-entities` — almeno un descrittore referenzia un'entità assente dall'EntityStore.
-- `missing-records` — una vista non-entità referenzia un record canonico assente, per esempio un nodo del breadcrumb.
-- `partial` — le entità esistono ma alcune sono marcate `isPartial` e il chiamante richiede dati completi.
+- `missing-records` — almeno un riferimento tipizzato è assente dallo store canonico.
+- `partial` — i record esistono ma almeno uno è incompleto o stale rispetto al requisito.
 - `stale` — la vista è presente e completa ma scaduta per TTL.
 
-Il `ViewResolver` invoca il `FetchCoordinator` **solo** quando lo stato non è `satisfied`.
+Il `ViewResolver` ricarica la vista quando questa è assente o stale. Se la vista
+è ancora valida ma alcuni record sono mancanti o incompleti, il
+`RecordHydrator` recupera soltanto i riferimenti necessari e condivide la stessa
+Promise tra richieste concorrenti. Se una risorsa non supporta hydration
+puntuale, viene ricaricata la vista autorevole.
 
 ---
 
@@ -126,16 +135,20 @@ Il `ViewResolver` invoca il `FetchCoordinator` **solo** quando lo stato non è `
 
 ### GlobalCacheClient (`AppCache`)
 
-Contenitore dell'EntityStore. Espone cache isolate (`DomainCacheClient`) partizionate per dominio (nodi, entities per `entityTypeId`). Ogni `DomainCacheClient` mantiene:
-- **Reference counting** (`retain` / `release`) per tracciare i consumatori attivi.
-- **Sottoscrizioni** (`subscribe`) per la reattività push.
-- **Promise sharing** (`fetchIfMissing`) per deduplica dei fetch concorrenti sullo stesso ID.
+Contenitore e facade del `CacheKernel`. Espone accessi tipizzati per nodi,
+entità partizionate per `entityTypeId` e metadati. I client mantengono
+sottoscrizioni reattive e Promise sharing per deduplicare hydration concorrenti
+sullo stesso riferimento.
 
 `AppCache` è anche l'unico punto di ingresso per le **mutazioni** (Create, Update, Delete). Vedi §7.
 
 ### GlobalViewStore
 
-Contiene lo stato di navigazione delle viste, indicizzato per `SemanticViewKey`. Per ogni vista memorizza un array ordinato di `ViewPage`. Non contiene payload di entità.
+Contiene lo stato di navigazione delle viste, indicizzato per `SemanticViewKey`.
+Per ogni vista memorizza un array ordinato di `ViewPage`, riferimenti canonici e
+dependency token. Mantiene indici inversi riferimento→viste e token→viste per
+invalidare senza dipendere dal nome o dal prefisso del tipo di vista. Non
+contiene payload applicativi.
 
 ---
 
@@ -201,7 +214,10 @@ await AppCache.updateEntity({ entityId, name, payloadDelta, expectedRowVersion }
 
 1. Il backend aggiorna e restituisce il payload salvato.
 2. `AppCache` inietta il record aggiornato nell'EntityStore tramite `inject()`.
-3. Tutti i subscriber (liste, dettagli, form) ricevono il nuovo dato via push. Nessun refetch.
+3. Dettagli e form ricevono il nuovo dato canonico via push.
+4. Le viste di collezione vengono invalidate tramite il token di membership,
+   perché nome, payload, filtri o ordinamento possono aver cambiato la loro
+   composizione. Non vengono invece invalidate viste puntuali non coinvolte.
 
 ### Delete
 
@@ -212,13 +228,14 @@ await AppCache.deleteEntity(entityId, entity.entityTypeId, entity.rowVersion);
 1. Il backend elimina il record.
 2. `AppCache` chiama `DomainCacheClient.remove(entityId)`, che elimina l'entry dall'EntityStore e notifica tutti i subscriber con `null`.
 
-#### Comportamento dei descrittori orfani dopo delete
+#### Comportamento dei riferimenti dopo delete
 
-Dopo una delete, il ViewStore può contenere descrittori che puntano a entità eliminate (l'EntityStore restituisce `null` per quegli ID). Questi descrittori orfani sono gestiti come segue:
-
-1. **Stato transitorio tollerato**: i descrittori non vengono rimossi immediatamente dal ViewStore.
-2. **Filtro a livello di selector**: il selector `useVirtualSubtreeData` (nel `useMemo` che costruisce `items`) verifica la presenza dell'entità nell'EntityStore con `if (entity)`. Se l'entità è `null`, il descrittore viene **silenziosamente escluso** dall'array degli items renderizzati. Questa è responsabilità del selector, non della UI né del motore.
-3. **Compattazione differita**: i descrittori orfani vengono eliminati naturalmente alla successiva invalidazione, refresh o GC della vista. Non esiste un meccanismo di compattazione attiva immediata.
+Dopo una delete confermata, l'indice inverso del `GlobalViewStore` individua e
+invalida immediatamente tutte le viste che referenziano il record. I token di
+membership invalidano inoltre le collezioni la cui composizione può essere
+cambiata anche quando il record non era nella finestra attualmente caricata.
+Non sono ammessi descrittori orfani trattati silenziosamente come una lista
+valida.
 
 ---
 

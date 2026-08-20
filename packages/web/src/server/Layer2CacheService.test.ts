@@ -15,23 +15,25 @@ vi.mock('../app/actions/nodeActions', () => ({
   updateNodeAction: vi.fn(),
   moveNodeAction: vi.fn(),
 }));
-import { GlobalViewStore, flattenViewPages } from '../app/cache/ViewStore';
-import { IngestionLayer, SatisfiabilityEvaluator, ViewResolver } from '../app/cache/CacheService';
+import { GlobalViewStore, VIEW_DEPENDENCIES, flattenViewPages } from '../app/cache/ViewStore';
+import { IngestionLayer, RecordHydrator, SatisfiabilityEvaluator, ViewResolver } from '../app/cache/CacheService';
 import {
   createEntityAction,
   deleteEntityAction,
   listSubtreeEntitiesAction,
   updateEntityAction,
 } from '../app/actions/entityActions';
-import { getNodeBreadcrumbAction, moveNodeAction } from '../app/actions/nodeActions';
+import { getNodeBreadcrumbAction, getNodeByIdAction, moveNodeAction } from '../app/actions/nodeActions';
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { CacheGarbageCollector } from '../app/cache/CacheGarbageCollector';
 import { AppCache } from '../app/cache/GlobalCacheClient';
+import { CacheEpochChangedError } from '../app/cache/CacheKernel';
 
 describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
   const viewKey = 'SUBTREE_LIST|baseNodeId:test-node-1';
 
   beforeEach(() => {
+    vi.clearAllMocks();
     AppCache.purgeAll();
     AppCache['entityCaches'].clear();
   });
@@ -44,6 +46,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.nodeHierarchy],
     });
     GlobalPolicyRegistry.retain('view', viewKey, 'test-owner', 'sticky');
     AppCache.getEntityCache('device').inject('e1', { id: 'e1', name: 'Device' });
@@ -71,7 +74,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
 
     expect(
       flattenViewPages(GlobalViewStore.get(breadcrumbKey)).flatMap((item) =>
-        item.type === 'row' ? [item.id] : [],
+        item.type === 'row' ? [item.reference.id] : [],
       ),
     ).toEqual(['root', 'child']);
     expect(AppCache.nodes.get('root')?.name).toBe('Root');
@@ -79,6 +82,103 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
 
     AppCache.nodes.remove('root');
     expect(SatisfiabilityEvaluator.evaluate(breadcrumbKey, true)).toBe('missing-records');
+  });
+
+  it('hydrates only missing referenced records and deduplicates repeated references', async () => {
+    const breadcrumbKey = 'BREADCRUMB|baseNodeId:child';
+    const root = { id: 'root', parentId: null, path: 'root', pathLabel: 'root', depth: 0, nodeTypeId: 'folder', name: 'Root', description: '', rowVersion: 1, payload: {} };
+    const child = { id: 'child', parentId: 'root', path: 'root.child', pathLabel: 'child', depth: 1, nodeTypeId: 'folder', name: 'Child', description: '', rowVersion: 1, payload: {} };
+    vi.mocked(getNodeBreadcrumbAction).mockResolvedValue([root, child]);
+    vi.mocked(getNodeByIdAction).mockResolvedValue(root);
+
+    await ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'BREADCRUMB', baseNodeId: 'child' },
+      requireComplete: true,
+    });
+    AppCache.nodes.remove('root');
+
+    await Promise.all([
+      RecordHydrator.hydrate([{ namespace: 'node', id: 'root', completeness: 'full' }]),
+      ViewResolver.resolve({
+        type: 'resolve',
+        params: { viewType: 'BREADCRUMB', baseNodeId: 'child' },
+        requireComplete: true,
+      }),
+    ]);
+
+    expect(getNodeByIdAction).toHaveBeenCalledTimes(1);
+    expect(getNodeBreadcrumbAction).toHaveBeenCalledTimes(1);
+    expect(SatisfiabilityEvaluator.evaluate(breadcrumbKey, true)).toBe('satisfied');
+  });
+
+  it('does not ingest a semantic view response from a previous cache session', async () => {
+    let resolveRequest: ((nodes: never[]) => void) | undefined;
+    vi.mocked(getNodeBreadcrumbAction).mockReturnValue(new Promise((resolve) => {
+      resolveRequest = resolve;
+    }));
+    const pending = ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'BREADCRUMB', baseNodeId: 'private-node' },
+      requireComplete: true,
+    });
+
+    AppCache.purgeAll();
+    resolveRequest!([]);
+
+    await expect(pending).rejects.toBeInstanceOf(CacheEpochChangedError);
+    expect(GlobalViewStore.get('BREADCRUMB|baseNodeId:private-node')).toBeNull();
+    expect(AppCache.nodes.get('private-node')).toBeNull();
+  });
+
+  it('requires full canonical data only when the view consumer requests it', () => {
+    IngestionLayer.ingestSubtreeList(
+      viewKey,
+      [{
+        id: 'entity-summary',
+        parentNodeId: 'test-node-1',
+        entityTypeId: 'device',
+        nodeName: 'Node',
+        name: 'Summary',
+        rowVersion: 1,
+      }],
+      false,
+      undefined,
+      undefined,
+      'resolve',
+    );
+
+    expect(SatisfiabilityEvaluator.evaluate(viewKey, false)).toBe('satisfied');
+    expect(SatisfiabilityEvaluator.evaluate(viewKey, true)).toBe('partial');
+  });
+
+  it('distinguishes an unresolved loading view from an authoritative empty result', () => {
+    const childrenKey = 'NODE_CHILDREN_LIST|baseNodeId:empty';
+    GlobalViewStore.set(childrenKey, {
+      viewKey: childrenKey,
+      pages: [],
+      status: 'loading',
+      error: null,
+      satisfactionStatus: 'missing-view',
+      updatedAt: Date.now(),
+    });
+    expect(SatisfiabilityEvaluator.evaluate(childrenKey, true)).toBe('missing-view');
+
+    IngestionLayer.ingestNodeChildrenList(childrenKey, []);
+    expect(SatisfiabilityEvaluator.evaluate(childrenKey, true)).toBe('satisfied');
+  });
+
+  it('tracks reverse references so deleting one record invalidates every dependent view', () => {
+    const child = { id: 'child', parentId: 'root', path: 'root.child', pathLabel: 'child', depth: 1, nodeTypeId: 'folder', name: 'Child', description: '', rowVersion: 1, payload: {} };
+    const breadcrumbKey = 'BREADCRUMB|baseNodeId:child';
+    const childrenKey = 'NODE_CHILDREN_LIST|baseNodeId:root';
+    IngestionLayer.ingestBreadcrumb(breadcrumbKey, [child]);
+    IngestionLayer.ingestNodeChildrenList(childrenKey, [child]);
+
+    GlobalViewStore.invalidateReference({ namespace: 'node', id: 'child' });
+
+    expect(GlobalViewStore.get(breadcrumbKey)).toBeNull();
+    expect(GlobalViewStore.get(childrenKey)).toBeNull();
   });
 
   it('invalidates breadcrumb views after moving a node', async () => {
@@ -90,6 +190,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.nodeHierarchy],
     });
     vi.mocked(moveNodeAction).mockResolvedValue({
       id: 'child',
@@ -106,7 +207,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(GlobalViewStore.get(breadcrumbKey)).toBeNull();
   });
 
-  it('invalidates entity read models for structural mutations but preserves update views', async () => {
+  it('invalidates entity collections when membership, ordering or filters may change', async () => {
     const viewKeys = [
       'SUBTREE_LIST|baseNodeId:test-node-1',
       'NODE_ENTITY_COLLECTION|baseNodeId:test-node-1',
@@ -121,6 +222,11 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
         error: null,
         satisfactionStatus: 'satisfied',
         updatedAt: Date.now(),
+        dependencyTokens: key.startsWith('NODE_CHILDREN_LIST|')
+          ? [VIEW_DEPENDENCIES.nodeChildren]
+          : key.startsWith('ENTITY_DETAIL|')
+            ? []
+            : [VIEW_DEPENDENCIES.entityMembership],
       });
     }
 
@@ -142,7 +248,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     await AppCache.createEntity({ parentNodeId: entity.parentNodeId, entityTypeId: entity.entityTypeId, name: entity.name });
     expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
     expect(GlobalViewStore.get('NODE_ENTITY_COLLECTION|baseNodeId:test-node-1')).toBeNull();
-    expect(GlobalViewStore.get('ENTITY_DETAIL|entityId:e1')).toBeNull();
+    expect(GlobalViewStore.get('ENTITY_DETAIL|entityId:e1')).not.toBeNull();
     expect(GlobalViewStore.get('NODE_CHILDREN_LIST|baseNodeId:test-node-1')).not.toBeNull();
 
     GlobalViewStore.set('ENTITY_DETAIL|entityId:e1', {
@@ -153,8 +259,18 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
     });
+    GlobalViewStore.set('SUBTREE_LIST|baseNodeId:test-node-1', {
+      viewKey: 'SUBTREE_LIST|baseNodeId:test-node-1',
+      pages: [],
+      status: 'success',
+      error: null,
+      satisfactionStatus: 'satisfied',
+      updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership],
+    });
     await AppCache.updateEntity({ entityId: entity.id, name: 'Updated', expectedRowVersion: 1 });
     expect(GlobalViewStore.get('ENTITY_DETAIL|entityId:e1')).not.toBeNull();
+    expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
 
     GlobalViewStore.set('SUBTREE_LIST|baseNodeId:test-node-1', {
       viewKey: 'SUBTREE_LIST|baseNodeId:test-node-1',
@@ -163,6 +279,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
+      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership],
     });
     await AppCache.deleteEntity(entity.id, entity.entityTypeId, entity.rowVersion);
     expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();
@@ -299,7 +416,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
 
     const ids = flattenViewPages(GlobalViewStore.get(viewKey))
       .filter((item) => item.type === 'row')
-      .map((item) => item.id);
+      .map((item) => item.reference.id);
     expect(ids).toHaveLength(45);
     expect(new Set(ids).size).toBe(45);
     expect(ids).toContain('00000000-0000-0000-0000-000000000015');
@@ -357,7 +474,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     const visibleNumbers = () =>
       flattenViewPages(GlobalViewStore.get(viewKey))
         .filter((item) => item.type === 'row')
-        .map((item) => Number(item.id.replace('entity-', '')));
+        .map((item) => Number(item.reference.id.replace('entity-', '')));
     const expectContiguousWindow = (from: number, to: number) => {
       const numbers = visibleNumbers();
       expect(numbers).toEqual(

@@ -17,6 +17,14 @@ Componente React
 Il componente non importa direttamente Server Action, repository o adapter infrastrutturali.
 La vista decide quale dato serve; il coordinator verifica la cache e avvia il fetch solo quando il dato è assente, incompleto o stale.
 
+Ogni riga di una vista dichiara riferimenti canonici tipizzati tramite
+`namespace`, `id` e livello richiesto (`summary` o `full`). Il resolver valuta
+tutti i riferimenti senza conoscere il tipo concreto della vista, deduplica le
+hydration concorrenti e considera la vista soddisfatta solo quando ogni
+dipendenza obbligatoria è disponibile al livello richiesto. Una vista assente o
+strutturalmente stale viene ricaricata interamente; una vista valida con record
+mancanti idrata invece soltanto quei record.
+
 ## Percorso di mutazione
 
 ```text
@@ -71,6 +79,7 @@ uno alla volta dal componente né mostrare identificatori tecnici come fallback.
 - usare `DomainCacheClient` per entità normalizzate e sottoscrivibili;
 - usare `GlobalViewStore` solo per descrittori, paginazione e stato della vista;
 - invalidare le viste quando l’ordinamento o la composizione della lista può cambiare;
+- dichiarare dipendenze strutturali tramite token e dipendenze dai dati tramite riferimenti tipizzati;
 - non duplicare lo stesso oggetto in `useState` come cache parallela;
 - centralizzare mapping errori, retry, session refresh e purge;
 - aggiungere test di cache hit/miss, deduplicazione, rowVersion, evento realtime e cambio sessione.

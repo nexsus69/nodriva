@@ -19,15 +19,16 @@ export function useSemanticEntityCollection(nodeId: string) {
     // NODE_ENTITY_COLLECTION is a single-page view containing all direct entities of a node
     const page = viewState.pages[0];
     return page.items.filter(
-      (item): item is typeof item & { type: 'row'; entityTypeId: string } =>
-        item.type === 'row' && typeof item.entityTypeId === 'string'
+      (item): item is Extract<typeof item, { type: 'row' }> =>
+        item.type === 'row' && item.reference.namespace.startsWith('entity:')
     );
   }, [viewState]);
 
   void cacheRevision;
   const entities = descriptors
     .map((descriptor) =>
-      AppCache.getEntityCache(descriptor.entityTypeId).get(descriptor.id)
+      AppCache.getEntityCache(descriptor.reference.namespace.slice('entity:'.length))
+        .get(descriptor.reference.id)
     )
     .filter(Boolean) as ClientEntity[];
 

@@ -184,7 +184,10 @@ describe('Architecture Compliance - Phase 1', () => {
       
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
-      expect(view?.pages[0].items[0]).toMatchObject({ type: 'row', id: 'child_1' });
+      expect(view?.pages[0].items[0]).toMatchObject({
+        type: 'row',
+        reference: { namespace: 'node', id: 'child_1', completeness: 'full' },
+      });
       expect(AppCache.nodes.get('child_1')).toBeDefined();
     });
 
@@ -198,7 +201,10 @@ describe('Architecture Compliance - Phase 1', () => {
       
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
-      expect(view?.pages[0].items[0]).toMatchObject({ type: 'row', id: 'ent_1' });
+      expect(view?.pages[0].items[0]).toMatchObject({
+        type: 'row',
+        reference: { namespace: 'entity:test-type', id: 'ent_1', completeness: 'full' },
+      });
       expect(AppCache.getEntityCache('test-type').get('ent_1')).toBeDefined();
     });
 
