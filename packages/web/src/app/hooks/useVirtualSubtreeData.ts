@@ -5,7 +5,6 @@ import { useSemanticView } from './useSemanticView';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { flattenViewPages, getViewHasMoreForward, getViewHasMoreBackward, getViewNextCursor, getViewPrevCursor } from '../cache/ViewStore';
 import { RefObject } from 'react';
-import { useAppCacheRevision } from './useAppCacheRevision';
 
 export interface SubtreeEntityItem {
   id: string;
@@ -59,12 +58,11 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
     filters: options.filters,
   }, false, 'windowed');
 
-
-  const cacheRevision = useAppCacheRevision();
-
   const items = useMemo(() => {
-    // The tick invalidates this projection when a normalized entity/node changes.
-    void cacheRevision;
+    // The view owns membership and row components subscribe to their
+    // normalized entity records. Do not depend on the global cache revision:
+    // one entity update must not rebuild every loaded page and reset scroll
+    // anchoring for the whole list.
     const mapped: Array<SubtreeEntityItem & { nodeId: string }> = [];
     const flatItems = flattenViewPages(viewState);
 
@@ -105,7 +103,7 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
       }
     }
     return mapped;
-  }, [viewState, cacheRevision]);
+  }, [viewState]);
 
   const handleLoadMoreForward = useCallback(() => {
     loadMoreForward(() => options.captureAnchorRef?.current?.('forward'));
@@ -135,7 +133,7 @@ export function useVirtualSubtreeData(options: UseVirtualSubtreeDataOptions) {
       pageSizes: viewState?.pages.map((page) => page.items.length) ?? [],
       descriptorCount: flattenViewPages(viewState).length,
       visibleItemCount: items.length,
-      cacheRevision,
+      cacheRevision: AppCache.getRevision(),
       nodeProjection,
       recentNodeWrites: AppCache.nodes.getRecentWrites(),
       previousCursor: getViewPrevCursor(viewState),
