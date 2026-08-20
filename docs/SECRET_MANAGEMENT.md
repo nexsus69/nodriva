@@ -49,7 +49,9 @@ Una volta configurati i secret nel progetto, generare il file dotenv di runtime
 fuori dal repository:
 
 ```bash
-./scripts/infisical-export-env.sh
+./scripts/infisical-export-env.sh \
+  /home/marco/.config/dashboard-ultimate/dashboard-production.env \
+  .env.docker
 ```
 
 Il file predefinito è
@@ -61,5 +63,8 @@ docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-produ
   -f docker-compose.full.yml up -d --build
 ```
 
-L'export usa un token temporaneo e non stampa mai i valori. Ripeterlo dopo una
-rotazione dei secret prima del successivo deploy.
+Il secondo argomento contiene la configurazione operativa non segreta (bind
+address, porte e intervalli). I secret eventualmente presenti nello stesso
+file vengono sostituiti dai valori Infisical. L'export usa un token temporaneo
+e non stampa mai i valori. Ripeterlo dopo una rotazione dei secret prima del
+successivo deploy.
