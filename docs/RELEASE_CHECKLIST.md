@@ -6,13 +6,13 @@ gli allegati o i secret dell'ambiente di sviluppo.
 
 ## Verifiche automatiche
 
-- [ ] La CI GitHub Actions è verde sul commit da rilasciare.
+- [x] La CI GitHub Actions è verde sul commit da rilasciare (`e7effaf`).
 - [ ] Il job PostgreSQL ha applicato schema e migrazioni da zero, convertito il
       fixture legacy, riapplicato le migrazioni, verificato il ruolo ristretto
       ed eseguito integrazioni e parità adapter senza skip.
 - [ ] `pnpm install --frozen-lockfile` completa senza modificare il lockfile.
-- [ ] `pnpm check` completa con typecheck, lint, test e build production.
-- [ ] Non ci sono modifiche locali o file secret inclusi nel commit.
+- [x] `pnpm check` completa con typecheck, lint, test e build production.
+- [x] Non ci sono modifiche locali o file secret inclusi nel commit.
 - [ ] Il changelog o le note di rilascio descrivono migrazioni, breaking change
       e variabili nuove.
 
@@ -37,7 +37,7 @@ gli allegati o i secret dell'ambiente di sviluppo.
 
 ## Database, dati e sicurezza
 
-- [ ] Backup PostgreSQL creato e ripristinato con successo in un database
+- [x] Backup PostgreSQL creato e ripristinato con successo in un database
       temporaneo.
 - [ ] Se gli allegati sono abilitati, copia e restore del volume allegati
       coordinati con il dump PostgreSQL e verificati su payload reali.
@@ -46,12 +46,12 @@ gli allegati o i secret dell'ambiente di sviluppo.
       verificati, ruolo applicativo ristretto verificato.
 - [ ] Policy HTTPS, cookie, proxy e WebSocket verificate fuori dall'ambiente
       locale.
-- [ ] Retention audit, backup, log e metriche definite per il deployment.
+- [x] Retention audit, backup, log e metriche definite per il deployment.
 - [ ] Nessun lock attivo residuo creato dai test.
 
 ## Deployment e rollback
 
-- [ ] Immagine production identificata con commit o tag immutabile.
+- [x] Immagine production identificata con digest Docker (`sha256:9ec8e927...`).
 - [ ] Volumi persistenti e secret inclusi nel piano di ripristino.
 - [ ] Procedura di rollback provata o almeno verificata sullo stesso schema.
 - [ ] Operatore responsabile e finestra di manutenzione registrati.
@@ -65,3 +65,17 @@ non rende automaticamente production-ready un deployment: Compose modulare,
 secret manager, HTTPS, replica, retention e disaster recovery restano
 responsabilità dell'ambiente operativo e delle attività ancora aperte nella
 TODO architetturale.
+
+## Esito della verifica locale 2026-08-20
+
+Verificati localmente: backup/restore su database temporaneo, healthcheck dello
+stack tramite proxy, endpoint HTTPS, regole e target Prometheus, retention
+Prometheus, `pnpm check` e working tree pulito. Le integrazioni PostgreSQL
+locali non sono state considerate superate perché il Compose non espone il
+database all'host; la verifica autorizzativa resta quella del job CI dedicato
+`postgres-integration`, completato con successo sul commit `e7effaf`.
+
+Restano non verificabili in questo ambiente e quindi bloccanti per la
+certificazione production-ready: secret manager/KMS reale, consegna esterna
+degli alert, copia off-host cifrata del backup e del volume allegati, e prova
+di rollback nell'infrastruttura target.

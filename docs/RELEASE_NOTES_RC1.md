@@ -3,26 +3,26 @@
 ## Stato
 
 Questa candidata consolida la verticale project operations e i flussi di
-cache, breadcrumb e caricamento UI. Il commit sorgente è `7c883cf`.
+cache, breadcrumb e caricamento UI. Il commit sorgente è `e7effaf`.
 
 ## Verifiche concluse
 
 - backup PostgreSQL con checksum e restore strutturale in database temporaneo
-  `*_test_*`;
-- healthcheck dell'intero Compose, endpoint applicativo, backup verificato e
-  target Prometheus attivo;
+  `*_test_*` eseguito il 20 agosto 2026;
+- healthcheck dell'intero Compose sull'endpoint proxy `http://192.168.3.247`,
+  backup verificato e target Prometheus attivo;
 - bootstrap da schema vuoto, percorso di upgrade da schema legacy,
   riapplicazione idempotente delle migrazioni e ruolo applicativo ristretto;
 - `pnpm check`: typecheck, lint, test Core/Web e build production Web;
 - Prometheus con retention esplicita di 30 giorni e regole realtime caricate e
   valutate senza errori;
-- working tree ripulito preservando in uno stash separato le modifiche locali
-  preesistenti non pertinenti alla release.
+- working tree ripulito dopo aver spostato fuori repository l'artefatto di
+  backup usato per la verifica;
 
 ## Prerequisiti di deployment
 
-Questi punti non sono verificabili dal container locale e devono essere chiusi
-nell'ambiente target prima del rilascio pubblico:
+Questi punti restano prerequisiti esterni e impediscono di dichiarare la
+release formalmente production-ready finché non vengono verificati nel target:
 
 - terminazione HTTPS con certificati, cookie e WebSocket verificati;
 - segreti forniti da secret manager/KMS, senza valori operativi nei file
