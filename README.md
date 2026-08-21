@@ -1,81 +1,80 @@
-# Dashboard Ultimate
+# Nodriva
 
 [![CI](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml)
 
-Dashboard Ultimate è una piattaforma open source per definire e gestire
-strutture di dati collegate tra loro senza imporre un dominio applicativo
-specifico. Il sistema fornisce primitive generiche — nodi, tipi, entità,
-campi, riferimenti e allegati — sulle quali costruire applicazioni operative,
-amministrative o di back office.
+Nodriva is an open-source platform for defining and managing connected data
+structures without imposing a specific application domain. It provides generic
+primitives—nodes, types, entities, fields, references, and attachments—from
+which operational, administrative, or back-office applications can be built.
 
-## Caratteristiche principali
+## Main capabilities
 
-- struttura gerarchica di nodi e risorse collegate;
-- tipi e campi configurabili dal pannello amministrativo;
-- form generati da uno schema comune con renderer specializzati;
-- protezione delle modifiche non salvate nei form operativi e amministrativi;
-- ACL, ruoli, scope e audit delle operazioni;
-- lock ottimistici e realtime per evitare modifiche concorrenti;
-- soft delete, cestino e ripristino di sottoalberi;
-- allegati con scansione antivirus configurabile;
-- cifratura configurabile per campi e allegati;
-- cache applicativa con invalidazione tramite eventi realtime;
-- backup PostgreSQL con restore verificato;
-- stack Docker replicabile per sviluppo e staging.
+- Hierarchical nodes and connected resources.
+- Types and fields configurable from the administration panel.
+- Schema-driven forms with specialized renderers.
+- Protection against losing unsaved operational and administrative changes.
+- ACLs, roles, scopes, and operation auditing.
+- Optimistic locks and realtime updates for concurrent changes.
+- Soft deletion, trash, and subtree restoration.
+- Attachments with optional antivirus scanning.
+- Configurable encryption for fields and attachments.
+- Application cache invalidation driven by realtime events.
+- PostgreSQL backups with verified restore.
+- Reproducible Docker stack for development and staging.
 
-Il progetto non è un CRM, ERP o ITSM preconfezionato: è un’infrastruttura
-generica per modellare dati e relazioni, lasciando al dominio applicativo la
-definizione dei casi d’uso.
+Nodriva is not a ready-made CRM, ERP, or ITSM product. It is a generic
+infrastructure for modelling data and relationships while leaving use cases to
+the application domain.
 
-## Architettura
+## Architecture
 
-Il monorepo contiene:
+The monorepo contains:
 
-- `packages/core`: dominio, servizi applicativi, porte e adattatori;
-- `packages/web`: interfaccia Next.js, Server Actions, API e pannello admin;
-- `db`: migrazioni e bootstrap PostgreSQL;
-- `docker-compose.full.yml`: stack completo replicabile;
-- `e2e`: verifiche end-to-end browser;
-- `docs`: documentazione architetturale e operativa.
+- `packages/core`: domain, application services, ports, and adapters;
+- `packages/web`: Next.js interface, Server Actions, APIs, and admin panel;
+- `db`: PostgreSQL migrations and bootstrap;
+- `docker-compose.full.yml`: reproducible full stack;
+- `e2e`: browser end-to-end checks;
+- `docs`: architecture and operations documentation.
 
-PostgreSQL e SQLite sono i due profili di persistenza selezionabili dal
-composition root Web. Il realtime comunica mutazioni e invalidazioni, ma non
-sostituisce la persistenza né la verifica ACL lato server. Le mutation
-amministrative applicano lock e controllo `rowVersion`. Il Compose completo è
-solo uno dei profili di deployment.
+PostgreSQL and SQLite are selectable persistence profiles. Realtime communicates
+mutations and invalidations, but never replaces persistence or server-side ACL
+checks. Administrative mutations enforce locks and `rowVersion`. The full
+Compose stack is one deployment profile, not the only supported runtime.
 
-Entrambi i profili condividono lo stesso bootstrap amministrativo configurato
-da `SEED_ADMIN_EMAIL` e `SEED_ADMIN_PASSWORD`. Il bootstrap è transazionale,
-additivo e idempotente: inizializza account, ruoli, permessi, capability e
-impostazioni mancanti senza cancellare o ripristinare dati applicativi.
+Both profiles share the administrative bootstrap configured by
+`SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`. Bootstrap is transactional,
+additive, and idempotent: it initializes missing accounts, roles, permissions,
+capabilities, and settings without deleting application data.
 
-## Avvio rapido
+## Quick start
 
-Creare un file `.env.docker` con i secret richiesti e avviare:
+Create a protected `.env.docker` file with the required values and start the
+full profile:
 
 ```bash
 docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
 ```
 
-La configurazione dettagliata, le porte e i volumi sono descritti in
+Detailed ports, volumes, and configuration are documented in
 [`docs/DOCKER_COMPOSE_FULL.md`](docs/DOCKER_COMPOSE_FULL.md).
 
-## Verifiche
+## Verification
 
 ```bash
 pnpm check
 pnpm ops:health
 ```
 
-Test browser autenticati, quando sono disponibili le variabili necessarie:
+Authenticated browser checks require temporary test credentials:
 
 ```bash
-E2E_RUN=true E2E_EMAIL='utente@example.com' E2E_PASSWORD='password' E2E_USER_ID='user-id' E2E_BASE_URL='http://127.0.0.1:3001' pnpm e2e
+E2E_RUN=true E2E_EMAIL='user@example.com' E2E_PASSWORD='password' \
+E2E_USER_ID='user-id' E2E_BASE_URL='http://127.0.0.1:3001' pnpm e2e
 ```
 
-La parità osservabile del pannello amministrativo fra SQLite e PostgreSQL si
-verifica invece con un database PostgreSQL temporaneo derivato da
-`dashboard_test`, un file SQLite temporaneo e due server production isolati:
+Administrative parity between SQLite and PostgreSQL is verified with an isolated
+test PostgreSQL database and a temporary SQLite file:
 
 ```bash
 pnpm e2e:admin-parity
@@ -83,72 +82,51 @@ pnpm e2e:canonical
 pnpm e2e:parity
 ```
 
-Il primo scenario visita tutte le sezioni amministrative. Il secondo esegue la
-verticale canonica completa: configura tipi, enum e relazioni, crea utente,
-ruolo e scope, verifica il diniego fuori perimetro, usa due sessioni dello
-stesso utente per lock e `rowVersion`, quindi controlla cancellazione,
-ripristino e audit. `e2e:parity` esegue entrambi in sequenza contro gli stessi
-profili isolati. Il realtime distribuito e gli allegati restano verifiche
-separate perché sono capability deliberatamente escluse dal profilo SQLite.
+The canonical scenario configures types, enums, and relationships, creates a
+user with a role and scope, verifies denial outside that scope, exercises locks
+and `rowVersion` with two sessions, and checks deletion, restoration, and audit.
 
-La pipeline GitHub Actions esegue automaticamente installazione riproducibile,
-typecheck, lint, suite Core/Web e build production. Un job separato inizializza
-PostgreSQL 17 in un database `dashboard_ci_test`, applica schema e migrazioni,
-verifica il ruolo applicativo ristretto ed esegue integrazioni Core/Web e
-contract test di parità SQLite/PostgreSQL. Gli E2E browser autenticati restano
-verifiche operative con dati temporanei, mai con secret del repository.
+GitHub Actions runs reproducible installation, typecheck, lint, Core/Web tests,
+and the production build. A separate job initializes PostgreSQL 17 in a
+`dashboard_ci_test` database, applies schema and migrations, verifies the
+restricted application role, and runs integration and adapter-parity tests.
 
-Per la checklist di rilascio consultare
-[`docs/OPERATIONS_READINESS.md`](docs/OPERATIONS_READINESS.md).
-La checklist completa di release è in
-[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+## Documentation
 
-## Documentazione
+- [Architecture](ARCHITECTURE.md)
+- [Full Docker stack](docs/DOCKER_COMPOSE_FULL.md)
+- [Administrative locks](docs/ADMIN_LOCKS.md)
+- [Realtime mutation lifecycle](docs/REALTIME_MUTATION_LIFECYCLE.md)
+- [Cache and frontend data flow](packages/web/src/app/cache/ARCHITECTURE.md)
+- [Backup and restore](docs/BACKUP_RESTORE.md)
+- [Encryption rotation](docs/ENCRYPTION_ROTATION.md)
+- [Security operations](docs/SECURITY_OPERATIONS.md)
+- [Documentation governance](docs/DOCUMENTATION_GOVERNANCE.md)
+- [Service and deployment configuration](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
+- [Documentation migration](docs/DOCUMENTATION_MIGRATION.md)
+- [Source documentation inventory](docs/SOURCE_DOCUMENTATION_INVENTORY.md)
 
-- [Architettura](ARCHITECTURE.md)
-- [Stack Docker completo](docs/DOCKER_COMPOSE_FULL.md)
-- [Lock amministrativi](docs/ADMIN_LOCKS.md)
-- [Ciclo di vita realtime](docs/REALTIME_MUTATION_LIFECYCLE.md)
-- [Cache e flusso dati frontend](packages/web/src/app/cache/ARCHITECTURE.md)
-- [Backup e restore](docs/BACKUP_RESTORE.md)
-- [Rotazione della cifratura](docs/ENCRYPTION_ROTATION.md)
-- [Sicurezza operativa](docs/SECURITY_OPERATIONS.md)
-- [Governance della documentazione](docs/DOCUMENTATION_GOVERNANCE.md)
-- [Configurazione dei servizi e dei deployment](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
+## License
 
-## Sviluppo assistito da IA
+The code is distributed under the [Apache License 2.0](LICENSE). Third-party
+dependencies retain their respective licenses. The product name and logo are
+covered by the [name and logo policy](docs/TRADEMARK_POLICY.md).
 
-Lo sviluppo di questo progetto è stato realizzato con l'ausilio di sistemi di
-intelligenza artificiale, utilizzati come supporto per analisi, progettazione,
-scrittura e revisione del codice, dei test e della documentazione.
+## Project status
 
-Le decisioni architetturali, la verifica dei risultati, l'integrazione delle
-modifiche e la responsabilità del progetto restano in capo al maintainer.
+Nodriva is under active development. PostgreSQL is the primary complete profile;
+SQLite provides standalone execution with Node.js and a local file. Runtime
+providers, optional deployment profiles, disaster recovery, and other
+enterprise capabilities remain deliberately incremental.
 
-## Licenza
-
-Il codice del progetto è distribuito con [Apache License 2.0](LICENSE).
-Le dipendenze di terze parti mantengono le rispettive licenze. Attualmente il
-nome e il logo del progetto non sono marchi registrati; il loro uso è descritto
-nella [policy sul nome e sul logo](docs/TRADEMARK_POLICY.md). La licenza non
-impone branding, telemetria o diciture “Powered by”.
-
-## Stato del progetto
-
-Il progetto è in sviluppo attivo. Sono disponibili i profili PostgreSQL e
-SQLite; il primo è il profilo principale per Compose, il secondo consente
-l'esecuzione standalone con il solo Node.js e un file locale. Restano attività
-di maturazione su registry centralizzato dei provider, profili Compose
-opzionali, secret manager, HTTPS, retention, replica, monitoraggio e disaster
-recovery.
-
-### Persistenza selezionabile
+### Selectable persistence
 
 ```bash
-DATABASE_ADAPTER=sqlite SQLITE_DATABASE_PATH=./data/dashboard.sqlite SEED_ADMIN_PASSWORD='change-me' pnpm --filter @dashboard/web build
+DATABASE_ADAPTER=sqlite SQLITE_DATABASE_PATH=./data/nodriva.sqlite \
+SEED_ADMIN_PASSWORD='change-me' pnpm --filter @dashboard/web build
 ```
 
-Il valore predefinito resta PostgreSQL. SQLite usa `parent_id` e closure table
-al posto di `ltree`, mantenendo i port applicativi per transazioni, ACL, lock,
-audit, revisioni, tipi, sessioni, cifratura e outbox. Il timeout di inattività
-predefinito è 1800 secondi (30 minuti) in entrambi i profili.
+The default remains PostgreSQL. SQLite uses `parent_id` and a closure table
+instead of `ltree` while preserving application ports for transactions, ACLs,
+locks, audit, revisions, types, sessions, encryption, and outbox behavior. The
+default inactivity timeout is 1,800 seconds (30 minutes) in both profiles.

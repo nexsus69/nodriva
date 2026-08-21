@@ -1,10 +1,12 @@
+/** Defines the root document metadata and providers for the Next.js application. */
+
 import type { Metadata } from "next";
 import "./globals.css";
 import { CacheInitializer } from "./components/CacheInitializer";
 import { RealtimeDebugOverlayHost } from "./components/realtime/RealtimeDebugOverlayHost";
 
 export const metadata: Metadata = {
-  title: "Dashboard Ultimate - Piattaforma gerarchica dinamica",
+  title: "Nodriva - Dynamic data platform",
   description: "Piattaforma per la gestione gerarchica di entità, con tipi dinamici e archiviazione transazionale.",
 };
 

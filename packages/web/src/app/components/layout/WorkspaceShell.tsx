@@ -1,3 +1,5 @@
+/** Composes the authenticated workspace shell and its responsive navigation. */
+
 'use client';
 
 import Link from '@/app/components/navigation/GuardedLink';
@@ -74,7 +76,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <MobileDrawer open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} title="Dashboard Ultimate">
+        <MobileDrawer open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} title="Nodriva">
           <WorkspaceNavigation pathname={pathname} onNavigate={() => setIsSidebarOpen(false)} />
           <LogoutButton className="mt-6 w-full justify-center border-slate-200 bg-slate-50 text-slate-600" />
         </MobileDrawer>

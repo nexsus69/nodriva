@@ -19,6 +19,7 @@ coverage/
 .cache/
 test-results/
 playwright-report/
+docs-italiano/
 
 # OS/editor files
 .DS_Store

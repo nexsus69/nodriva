@@ -1,14 +1,20 @@
+/** Identifies the minimum shape required for every canonical cached record. */
 export interface CacheRecord {
   id: string;
 }
 
+/** Describes whether a cached record contains summary or complete data. */
 export type RecordCompleteness = 'summary' | 'full';
+
+/** Describes whether a record can be safely consumed by a view. */
 export type RecordSatisfaction = 'missing' | 'incomplete' | 'stale' | 'satisfied';
 
+/** Controls the completeness level written into the canonical record store. */
 export interface CacheRecordWriteOptions {
   completeness?: RecordCompleteness;
 }
 
+/** Immutable list projection stored by the cache without duplicating records. */
 export interface CacheQuerySnapshot {
   readonly key: string;
   readonly recordNamespace?: string;
@@ -18,29 +24,34 @@ export interface CacheQuerySnapshot {
   readonly fetchedAt: number;
 }
 
+/** Result returned by a query loader before the cache adds generation metadata. */
 export interface CacheQueryLoaderResult {
   ids: readonly string[];
   recordNamespace?: string;
   dependencies?: readonly string[];
 }
 
+/** Optional policy used when loading or validating a query projection. */
 export interface CacheQueryOptions {
   recordNamespace?: string;
   dependencies?: readonly string[];
   ttlMs?: number;
 }
 
+/** Describes the cache effects that follow a successful domain mutation. */
 export interface CacheMutationOptions<TResult> {
   commit?: (result: TResult, kernel: CacheKernel) => void;
   invalidateTokens?: readonly string[];
   invalidateQueries?: readonly string[];
 }
 
+/** Provides injectable clock and row-version behavior for deterministic tests. */
 export interface CacheKernelOptions {
   now?: () => number;
   getRecordVersion?: (record: CacheRecord) => number | undefined;
 }
 
+/** Signals that a session reset invalidated an in-flight cache read. */
 export class CacheEpochChangedError extends Error {
   public constructor() {
     super('Cache session changed while data was loading.');
@@ -48,9 +59,13 @@ export class CacheEpochChangedError extends Error {
   }
 }
 
+/** Receives changes to one canonical record; `null` means removed or purged. */
 type RecordSubscriber = (record: CacheRecord | null) => void;
+
+/** Receives query snapshots; `null` means the projection is invalid. */
 type QuerySubscriber = (query: CacheQuerySnapshot | null) => void;
 
+/** Stores a canonical record together with freshness and completeness metadata. */
 interface StoredRecord {
   record: CacheRecord;
   version?: number;
@@ -59,6 +74,7 @@ interface StoredRecord {
   stale: boolean;
 }
 
+/** Stores an ordered query projection and its dependency invalidation policy. */
 interface StoredQuery extends CacheQuerySnapshot {
   stale: boolean;
   ttlMs?: number;
@@ -72,17 +88,28 @@ interface StoredQuery extends CacheQuerySnapshot {
  * truth for the records they display.
  */
 export class CacheKernel {
+  /** Canonical records, keyed by namespace and stable identifier. */
   private readonly records = new Map<string, StoredRecord>();
+  /** Query projections containing ids and dependencies, never duplicate records. */
   private readonly queries = new Map<string, StoredQuery>();
+  /** De-duplicates concurrent loads for the same query key. */
   private readonly queryLoads = new Map<string, Promise<CacheQuerySnapshot>>();
+  /** Records queries invalidated while their loader is still running. */
   private readonly invalidatedQueriesDuringLoad = new Set<string>();
+  /** Subscribers notified when canonical records change or become stale. */
   private readonly recordSubscribers = new Map<string, Set<RecordSubscriber>>();
+  /** Subscribers notified when a query projection is ready or invalidated. */
   private readonly querySubscribers = new Map<string, Set<QuerySubscriber>>();
+  /** Monotonic generations used to detect dependency changes during loads. */
   private readonly tokenGenerations = new Map<string, number>();
+  /** Session generation incremented when all cached state is purged. */
   private epoch = 0;
+  /** Clock used for TTL and update timestamps. */
   private readonly now: () => number;
+  /** Extracts optimistic row versions without coupling the kernel to a model. */
   private readonly getRecordVersion: (record: CacheRecord) => number | undefined;
 
+  /** Creates an isolated cache kernel with production defaults or test policies. */
   public constructor(options: CacheKernelOptions = {}) {
     this.now = options.now ?? (() => Date.now());
     this.getRecordVersion = options.getRecordVersion ?? ((record) => {
@@ -91,18 +118,22 @@ export class CacheKernel {
     });
   }
 
+  /** Builds the single key used by all canonical record operations. */
   private recordKey(namespace: string, id: string): string {
     return `${namespace}:${id}`;
   }
 
+  /** Returns the current session epoch for in-flight load validation. */
   public getEpoch(): number {
     return this.epoch;
   }
 
+  /** Reads one canonical record without exposing the internal storage wrapper. */
   public getRecord<T extends CacheRecord>(namespace: string, id: string): T | null {
     return (this.records.get(this.recordKey(namespace, id))?.record as T | undefined) ?? null;
   }
 
+  /** Reports whether a record satisfies the completeness requested by a view. */
   public getRecordSatisfaction(
     namespace: string,
     id: string,
@@ -115,6 +146,7 @@ export class CacheKernel {
     return 'satisfied';
   }
 
+  /** Merges a newer record into canonical storage and notifies its subscribers. */
   public upsertRecord<T extends CacheRecord>(
     namespace: string,
     record: T,
@@ -159,12 +191,14 @@ export class CacheKernel {
     return true;
   }
 
+  /** Removes a canonical record and notifies consumers that it disappeared. */
   public removeRecord(namespace: string, id: string): void {
     const key = this.recordKey(namespace, id);
     this.records.delete(key);
     this.recordSubscribers.get(key)?.forEach((subscriber) => subscriber(null));
   }
 
+  /** Marks a record stale while retaining its last known value for rendering. */
   /** Notifies consumers that a record may need revalidation without deleting its value. */
   public invalidateRecord(namespace: string, id: string): void {
     const key = this.recordKey(namespace, id);
@@ -174,6 +208,7 @@ export class CacheKernel {
     this.recordSubscribers.get(key)?.forEach((subscriber) => subscriber(record));
   }
 
+  /** Subscribes to one record and immediately emits its current value. */
   public subscribeRecord(namespace: string, id: string, subscriber: RecordSubscriber): () => void {
     const key = this.recordKey(namespace, id);
     const subscribers = this.recordSubscribers.get(key) ?? new Set<RecordSubscriber>();
@@ -186,6 +221,7 @@ export class CacheKernel {
     };
   }
 
+  /** Returns a fresh query projection, or null when it must be reloaded. */
   public getQuery(key: string): CacheQuerySnapshot | null {
     const query = this.queries.get(key);
     if (!query || query.stale || (query.ttlMs !== undefined && this.now() - query.fetchedAt >= query.ttlMs)) {
@@ -194,6 +230,7 @@ export class CacheKernel {
     return query;
   }
 
+  /** Resolves query ids through the canonical store for complete row data. */
   /** Resolves a query projection back to the single canonical record store. */
   public resolveQueryRecords<T extends CacheRecord>(snapshot: CacheQuerySnapshot): T[] {
     if (!snapshot.recordNamespace) {
@@ -204,6 +241,7 @@ export class CacheKernel {
       .filter((record): record is T => record !== null);
   }
 
+  /** Loads, validates, stores, and publishes a dependency-aware query projection. */
   public readQuery(
     key: string,
     loader: () => Promise<CacheQueryLoaderResult>,
@@ -254,6 +292,7 @@ export class CacheKernel {
     return load;
   }
 
+  /** Subscribes to one query projection and immediately emits its current value. */
   public subscribeQuery(key: string, subscriber: QuerySubscriber): () => void {
     const subscribers = this.querySubscribers.get(key) ?? new Set<QuerySubscriber>();
     subscribers.add(subscriber);
@@ -265,6 +304,7 @@ export class CacheKernel {
     };
   }
 
+  /** Invalidates one projection and reschedules it if a load is in progress. */
   public invalidateQuery(key: string): void {
     if (this.queryLoads.has(key)) this.invalidatedQueriesDuringLoad.add(key);
     const query = this.queries.get(key);
@@ -273,6 +313,7 @@ export class CacheKernel {
     this.querySubscribers.get(key)?.forEach((subscriber) => subscriber(null));
   }
 
+  /** Invalidates every query depending on a token generation. */
   public invalidateToken(token: string): void {
     this.tokenGenerations.set(token, (this.tokenGenerations.get(token) ?? 0) + 1);
     for (const query of this.queries.values()) {
@@ -283,6 +324,7 @@ export class CacheKernel {
     }
   }
 
+  /** Runs a mutation and applies its canonical writes and invalidations atomically. */
   public async mutate<TResult>(operation: () => Promise<TResult>, options: CacheMutationOptions<TResult>): Promise<TResult> {
     const result = await operation();
     options.commit?.(result, this);
@@ -291,6 +333,7 @@ export class CacheKernel {
     return result;
   }
 
+  /** Clears all records, projections, subscriptions, and in-flight state. */
   public purge(): void {
     this.epoch += 1;
     for (const subscribers of this.recordSubscribers.values()) subscribers.forEach((subscriber) => subscriber(null));
@@ -302,6 +345,7 @@ export class CacheKernel {
     this.tokenGenerations.clear();
   }
 
+  /** Clears records in one namespace while preserving unrelated cache state. */
   public purgeNamespace(namespace: string): void {
     const prefix = `${namespace}:`;
     for (const key of [...this.records.keys()]) {
@@ -311,6 +355,7 @@ export class CacheKernel {
     }
   }
 
+  /** Exposes cache cardinalities for diagnostics without exposing record contents. */
   public get sizes(): { records: number; queries: number; pendingQueries: number } {
     return {
       records: this.records.size,

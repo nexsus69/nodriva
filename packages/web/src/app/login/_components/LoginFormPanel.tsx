@@ -1,3 +1,5 @@
+/** Renders the login form panel and its protected-access context. */
+
 'use client';
 
 import { Suspense } from 'react';
@@ -17,7 +19,7 @@ export function LoginFormPanel() {
       {controller.error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{controller.error}</div>}
       <button type="submit" disabled={controller.isLoading} className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-semibold text-white shadow-lg disabled:opacity-50">{controller.isLoading ? 'Accesso in corso...' : <>Accedi <span aria-hidden="true">→</span></>}</button>
     </form>
-    <p className="mt-10 text-center text-xs text-slate-400">Accesso protetto · Dashboard Ultimate V2</p>
+    <p className="mt-10 text-center text-xs text-slate-400">Protected access · Nodriva</p>
   </div></section>;
 }
 
