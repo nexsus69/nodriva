@@ -65,3 +65,12 @@ export function findAdminModule(modules: readonly AdminModule[], key: string): A
   }
   return null;
 }
+
+/** Finds the deepest navigable module whose route matches the current pathname. */
+export function findAdminModuleByRoute(modules: readonly AdminModule[], pathname: string): AdminModule | null {
+  const candidates = modules.flatMap((node) => [
+    ...(node.route && (node.route === '/admin' ? pathname === node.route : pathname.startsWith(node.route)) ? [node] : []),
+    ...(node.children ? [findAdminModuleByRoute(node.children, pathname)].filter((child): child is AdminModule => child !== null) : []),
+  ]);
+  return candidates.sort((left, right) => (right.route?.length ?? 0) - (left.route?.length ?? 0))[0] ?? null;
+}

@@ -32,6 +32,7 @@ export interface AdminWorkspacePersistedState {
 export interface AdminWorkspaceState extends AdminWorkspacePersistedState {
   setUserContext: (userId: string | null) => void;
   setActiveModule: (moduleKey: string) => void;
+  expandModule: (moduleKey: string) => void;
   toggleModule: (moduleKey: string) => void;
   selectResource: (selection: { moduleKey: string; resourceId?: string } | null) => void;
   openSurface: (surface: AdminSurfaceState) => void;
@@ -75,6 +76,11 @@ export const useAdminWorkspaceStore = create<AdminWorkspaceState>()(
           : { ...DEFAULT_ADMIN_WORKSPACE_STATE, userId }
       )),
       setActiveModule: (activeModuleKey) => set({ activeModuleKey }),
+      expandModule: (moduleKey) => set((state) => ({
+        expandedModuleKeys: state.expandedModuleKeys.includes(moduleKey)
+          ? state.expandedModuleKeys
+          : [...state.expandedModuleKeys, moduleKey],
+      })),
       toggleModule: (moduleKey) => set((state) => ({
         expandedModuleKeys: state.expandedModuleKeys.includes(moduleKey)
           ? state.expandedModuleKeys.filter((key) => key !== moduleKey)
