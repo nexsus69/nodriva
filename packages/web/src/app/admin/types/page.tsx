@@ -1,5 +1,8 @@
-import { AdminTypesScreen } from './_components/AdminTypesScreen';
+"use client";
 
-export default function AdminTypesListPage() {
-  return <AdminTypesScreen />;
+/** Composes the Types module route from its dedicated screen component. */
+import TypesModuleScreen from "./_components/TypesModuleScreen";
+
+export default function AdminTypesPage() {
+  return <TypesModuleScreen />;
 }
