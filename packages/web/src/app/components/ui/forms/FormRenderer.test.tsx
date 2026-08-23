@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FormRenderer } from "./FormRenderer";
+import { defineForm } from "./FormDefinition";
 
 describe("FormRenderer", () => {
   it("renders schema-driven text and boolean fields", () => {
@@ -124,5 +125,89 @@ describe("FormRenderer", () => {
 
     expect(markup).toContain("✕");
     expect(markup).toContain("Cancel");
+  });
+
+  it("marks every declared rule invalid while its value is empty", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[
+          {
+            name: "key",
+            type: "text",
+            label: "Key",
+            validation: { pattern: "^[a-z]+$" },
+          },
+        ]}
+        values={{ key: "" }}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("✕");
+    expect(markup).toContain("text-rose-400");
+    expect(markup).not.toContain("○");
+  });
+
+  it("marks every rule invalid while a required field is empty", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[
+          {
+            name: "roleKey",
+            type: "text",
+            label: "Role key",
+            required: true,
+            validation: { pattern: "^[a-z0-9_]+$", minLength: 2 },
+          },
+        ]}
+        values={{ roleKey: "" }}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect((markup.match(/✕/g) ?? []).length).toBe(3);
+    expect(markup).not.toContain("○");
+  });
+
+  it("rejects legacy required declarations inside validation", () => {
+    expect(() =>
+      defineForm({
+        key: "invalid",
+        version: "1",
+        fields: [
+          {
+            name: "value",
+            type: "text",
+            label: "Value",
+            required: true,
+            validation: { required: true } as never,
+          },
+        ],
+      }),
+    ).toThrow("must declare required on the field itself");
+  });
+
+  it("renders relation fields through the shared relation control", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[{
+          name: "owner",
+          type: "relation",
+          label: "Owner",
+          required: true,
+          resourceType: "entity",
+          typeKey: "user",
+        }]}
+        values={{ owner: "" }}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('id="relation-search-owner"');
+    expect(markup).toContain('required=""');
+    expect(markup.match(/Owner/g)?.length).toBe(1);
   });
 });

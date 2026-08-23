@@ -28,7 +28,7 @@ describe('buildResourceFormSchema', () => {
       { name: 'active', type: 'boolean', label: 'Attivo' },
       { name: 'amount', type: 'number', label: 'Importo', required: true },
       { name: 'status', type: 'select', label: 'Stato', required: true, options: [{ value: 'open', label: 'Aperto' }] },
-      { name: 'owner', type: 'select', label: 'Proprietario', required: false, options: [{ value: '1', label: 'Mario' }] },
+      { name: 'owner', type: 'relation', label: 'Proprietario', required: false, resourceType: 'entity', typeKey: 'user' },
       { name: 'document', type: 'attachment', label: 'Documento', required: false, kind: 'file' },
       { name: 'photo', type: 'attachment', label: 'Foto', required: false, kind: 'image' },
     ]);

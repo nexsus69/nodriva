@@ -32,7 +32,8 @@ Before considering a feature complete, verify:
 - Is the consumer mostly configuration rather than copied implementation?
 - Is the reusable contract documented in English and covered by tests?
 
-The Admin Panel applies this rule through `AdminModuleDefinition`,
-`AdminSurfaceDefinition`, shared form/table objects, and module-specific
-adapters. `AdminSurfaceHost` owns the common modal, drawer, and inline surface
-layout so modules provide configuration and content rather than layout logic.
+The Admin Panel applies this rule through `AdminModule`,
+`AdminResourceDefinition`, `AdminSurfaceDefinition`, shared form/table objects,
+and module-specific adapters. `AdminSurfaceHost` owns the common modal, drawer,
+and inline surface layout so modules provide configuration and content rather
+than layout logic.

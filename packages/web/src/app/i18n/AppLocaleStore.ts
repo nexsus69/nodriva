@@ -1,7 +1,7 @@
 "use client";
 
 /** Provides the persistent frontend locale and the shared UI translation lookup. */
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { SupportedLocale } from "@dashboard/core";
@@ -50,6 +50,22 @@ const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
     "admin.storageTableHelp": "Lowercase letters, numbers, and underscores.",
     "admin.name": "Name",
     "admin.description": "Description",
+    "admin.roles": "Roles",
+    "admin.rolesDescription": "Manage reusable permission roles.",
+    "admin.roleKey": "Role key",
+    "admin.roleKeyHelp": "Lowercase letters, numbers, and underscores.",
+    "admin.permissions": "Permissions",
+    "admin.permissionsDescription": "Select the permissions granted by this role.",
+    "admin.createRole": "Create role",
+    "admin.noRoles": "No roles found",
+    "admin.loadingRoles": "Loading roles…",
+    "admin.roleDetail": "Role detail",
+    "admin.backToRoles": "Back to roles",
+    "admin.systemRoleReadOnly": "System roles are protected and cannot be modified.",
+    "admin.roleNotFound": "Role not found.",
+    "admin.noDescription": "No description.",
+    "admin.saving": "Saving…",
+    "admin.savePermissions": "Save permissions",
     "admin.storageTable": "Storage table",
     "admin.active": "Active",
     "admin.disabled": "Disabled",
@@ -66,6 +82,13 @@ const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
     "admin.validationRequired": "This value is required.",
     "admin.validationTooLong": "This value is too long.",
     "admin.validationInvalid": "This value has an invalid format.",
+    "admin.validationMin2": "At least 2 characters.",
+    "admin.validationMinLength": "At least",
+    "admin.validationMaxLength": "At most",
+    "admin.validationEmail": "Valid email",
+    "admin.validationMin": "Minimum",
+    "admin.validationMax": "Maximum",
+    "admin.validationStep": "Step",
     "admin.validationMax100": "Maximum 100 characters.",
     "admin.validationMax150": "Maximum 150 characters.",
     "admin.next": "Next",
@@ -156,6 +179,22 @@ const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
     "admin.storageTableHelp": "Lettere minuscole, numeri e underscore.",
     "admin.name": "Nome",
     "admin.description": "Descrizione",
+    "admin.roles": "Ruoli",
+    "admin.rolesDescription": "Gestisci i ruoli riutilizzabili e i relativi permessi.",
+    "admin.roleKey": "Chiave ruolo",
+    "admin.roleKeyHelp": "Lettere minuscole, numeri e underscore.",
+    "admin.permissions": "Permessi",
+    "admin.permissionsDescription": "Seleziona i permessi assegnati a questo ruolo.",
+    "admin.createRole": "Crea ruolo",
+    "admin.noRoles": "Nessun ruolo trovato",
+    "admin.loadingRoles": "Caricamento ruoli…",
+    "admin.roleDetail": "Dettaglio ruolo",
+    "admin.backToRoles": "Torna ai ruoli",
+    "admin.systemRoleReadOnly": "I ruoli di sistema sono protetti e non possono essere modificati.",
+    "admin.roleNotFound": "Ruolo non trovato.",
+    "admin.noDescription": "Nessuna descrizione.",
+    "admin.saving": "Salvataggio…",
+    "admin.savePermissions": "Salva permessi",
     "admin.storageTable": "Tabella storage",
     "admin.active": "Attivo",
     "admin.disabled": "Disabilitato",
@@ -172,6 +211,13 @@ const MESSAGES: Record<SupportedLocale, Record<string, string>> = {
     "admin.validationRequired": "Questo valore è obbligatorio.",
     "admin.validationTooLong": "Questo valore è troppo lungo.",
     "admin.validationInvalid": "Il formato del valore non è valido.",
+    "admin.validationMin2": "Almeno 2 caratteri.",
+    "admin.validationMinLength": "Almeno",
+    "admin.validationMaxLength": "Massimo",
+    "admin.validationEmail": "Email valida",
+    "admin.validationMin": "Minimo",
+    "admin.validationMax": "Massimo",
+    "admin.validationStep": "Passo",
     "admin.validationMax100": "Massimo 100 caratteri.",
     "admin.validationMax150": "Massimo 150 caratteri.",
     "admin.next": "Avanti",
@@ -244,12 +290,16 @@ export const useAppLocaleStore = create<AppLocaleState>()(
 export function useAppLocale() {
   const locale = useAppLocaleStore((state) => state.locale);
   const setLocale = useAppLocaleStore((state) => state.setLocale);
+  const t = useCallback(
+    (key: string, fallback = key) => MESSAGES[locale][key] ?? fallback,
+    [locale],
+  );
   useEffect(() => {
     if (typeof document !== "undefined") document.documentElement.lang = locale;
   }, [locale]);
   return {
     locale,
     setLocale,
-    t: (key: string, fallback = key) => MESSAGES[locale][key] ?? fallback,
+    t,
   };
 }

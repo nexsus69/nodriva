@@ -51,7 +51,9 @@ export function useAdminFormSurface<T extends object>({
     [draft?.values, initialValues],
   );
   const isOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
-  const isDirty = draft !== undefined;
+  // A draft is dirty only when its values differ from the initial form state.
+  // This lets a user type, clear the field, and close without a false warning.
+  const isDirty = draft !== undefined && !areValuesEqual(values, initialValues);
 
   /** Opens the configured modal or drawer without changing its draft. */
   const open = useCallback(
@@ -123,4 +125,19 @@ export function useAdminFormSurface<T extends object>({
     complete,
     draftKey,
   };
+}
+
+function areValuesEqual(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== typeof right || left === null || right === null) return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    return left.every((value, index) => areValuesEqual(value, right[index]));
+  }
+  if (typeof left !== "object" || typeof right !== "object") return false;
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const keys = Object.keys(leftRecord);
+  return keys.length === Object.keys(rightRecord).length &&
+    keys.every((key) => Object.hasOwn(rightRecord, key) && areValuesEqual(leftRecord[key], rightRecord[key]));
 }

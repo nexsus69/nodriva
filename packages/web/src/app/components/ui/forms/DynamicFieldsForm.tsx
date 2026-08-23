@@ -1,12 +1,14 @@
-import type { Dispatch, SetStateAction } from 'react';
+'use client';
+
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { ClientEntity, EntityTypeMeta } from '../../../types/models';
 import { AppCache } from '../../../cache/GlobalCacheClient';
-import { RelationPicker } from './RelationPicker';
+import { FormRenderer, type FormFieldSchema } from './FormRenderer';
+import { createValidationMessages } from './FormDefinition';
+import { useAppLocale } from '../../../i18n/AppLocaleStore';
 
 export type DynamicField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 type EnumOption = { value: string; label: string; isActive: boolean };
-
-const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
 function getEnumOptions(field: DynamicField): readonly EnumOption[] {
   if (field.enumOptions && field.enumOptions.length > 0) return field.enumOptions;
@@ -28,6 +30,7 @@ export interface DynamicFieldsFormProps {
   tone?: 'dark' | 'light';
 }
 
+/** Adapts persisted dynamic metadata to the shared definition-driven renderer. */
 export function DynamicFieldsForm({
   fields,
   payload,
@@ -38,51 +41,86 @@ export function DynamicFieldsForm({
   title = 'Campi dinamici',
   tone = 'dark',
 }: DynamicFieldsFormProps) {
+  const { t } = useAppLocale();
   if (fields.length === 0) return null;
 
-  const updateValue = (fieldKey: string, value: unknown) => {
-    setPayload((current) => ({ ...current, [fieldKey]: value }));
+  const schema: FormFieldSchema[] = fields
+    .filter((field) => field.dataType.toLowerCase() !== 'file' && field.dataType.toLowerCase() !== 'image')
+    .map((field) => {
+      const dataType = field.dataType.toLowerCase();
+      const base = {
+        name: field.fieldKey,
+        label: field.label ?? field.fieldKey,
+        required: field.isRequired,
+      };
+      if (dataType === 'boolean') return { ...base, type: 'boolean' as const };
+      if (dataType === 'enum') {
+        return {
+          ...base,
+          type: 'select' as const,
+          options: getEnumOptions(field).filter((option) => option.isActive),
+        };
+      }
+      if (dataType === 'relation' && field.relationTargetDomain && field.relationTargetTypeKey) {
+        return {
+          ...base,
+          type: 'relation' as const,
+          resourceType: field.relationTargetDomain,
+          typeKey: field.relationTargetTypeKey,
+        };
+      }
+      if (dataType === 'json' || dataType === 'array') return { ...base, type: 'textarea' as const, rows: 4 };
+      if (dataType === 'date' || dataType === 'datetime' || dataType === 'timestamp') {
+        return { ...base, type: dataType === 'date' ? 'date' as const : 'datetime-local' as const };
+      }
+      if (['number', 'integer', 'decimal', 'numeric', 'float', 'double'].includes(dataType)) {
+        return { ...base, type: 'number' as const, step: dataType === 'integer' ? 1 : 'any' as never };
+      }
+      return { ...base, type: 'text' as const };
+    });
+
+  const fieldByKey = new Map(fields.map((field) => [field.fieldKey, field]));
+  const setValue = (name: string, value: unknown) => {
+    setPayload((current) => ({ ...current, [name]: value }));
   };
 
   return (
     <div className={`space-y-3 border-t pt-4 ${tone === 'light' ? 'border-slate-200' : 'border-slate-800'}`}>
-      <h3 className={`text-xs font-bold uppercase tracking-wider ${tone === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>{title}{title === 'Campi dinamici' && ` (${fields.length})`}</h3>
-      {fields.map((field) => {
-        const dataType = field.dataType.toLowerCase();
-        if (dataType === 'file' || dataType === 'image') return null;
-        const targetType = entityTypes?.find((type) => type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey);
-
-        if (dataType === 'boolean') {
+      <h3 className={`text-xs font-bold uppercase tracking-wider ${tone === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+        {title}{title === 'Campi dinamici' && ` (${fields.length})`}
+      </h3>
+      <FormRenderer
+        definition={{
+          key: 'dynamic-fields',
+          version: '1',
+          fields: schema,
+          validationMessages: createValidationMessages(t),
+        }}
+        values={payload}
+        onChange={setValue}
+        onSubmit={(event) => event.preventDefault()}
+        theme={tone}
+        showActions={false}
+        renderFieldAddon={(schemaField): ReactNode => {
+          const field = fieldByKey.get(schemaField.name);
+          if (!field) return null;
+          const targetType = entityTypes?.find((type) => type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey);
           return (
-            <label key={field.fieldKey} className={`flex items-center gap-2 text-xs ${tone === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-              <input type="checkbox" checked={Boolean(payload[field.fieldKey])} onChange={(event) => updateValue(field.fieldKey, event.target.checked)} className={`rounded text-indigo-600 ${tone === 'light' ? 'border-slate-300 bg-white' : 'border-slate-800 bg-slate-900'}`} />
-              {field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}
-            </label>
+            <div className="space-y-1">
+              {field.enumMode === 'managed' && onAddEnumOption && (
+                <button type="button" onClick={() => onAddEnumOption(field)} className="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                  + Aggiungi opzione
+                </button>
+              )}
+              {schemaField.type === 'relation' && field.relationTargetDomain === 'entity' && targetType && onCreateRelation && (
+                <button type="button" onClick={() => onCreateRelation(field)} className="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
+                  + Crea nuova istanza di {targetType.name}
+                </button>
+              )}
+            </div>
           );
-        }
-
-        return (
-          <div key={field.fieldKey}>
-            <label className={`mb-1 block text-xs font-medium ${tone === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>{field.label ?? field.fieldKey} {field.isRequired ? '*' : ''}</label>
-            {dataType === 'enum' ? (
-              <>
-                <select required={field.isRequired} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className={`w-full rounded-lg border px-3 py-2 text-xs ${tone === 'light' ? 'border-slate-200 bg-slate-50 text-slate-800' : 'border-slate-800 bg-slate-900 text-slate-100'}`}>
-                  <option value="">Seleziona un valore</option>
-                  {getEnumOptions(field).filter((option) => option.isActive).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-                {field.enumMode === 'managed' && onAddEnumOption && <button type="button" onClick={() => onAddEnumOption(field)} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">+ Aggiungi opzione</button>}
-              </>
-            ) : dataType === 'relation' && field.relationTargetDomain && field.relationTargetTypeKey ? (
-              <>
-                <RelationPicker fieldKey={field.fieldKey} label={field.label ?? field.fieldKey} value={payload[field.fieldKey]} required={field.isRequired} resourceType={field.relationTargetDomain} typeKey={field.relationTargetTypeKey} tone={tone} onChange={(value) => updateValue(field.fieldKey, value)} />
-                {field.relationTargetDomain === 'entity' && targetType && onCreateRelation && <button type="button" onClick={() => onCreateRelation(field)} className="mt-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300">+ Crea nuova istanza di {targetType.name}</button>}
-              </>
-            ) : (
-              <input required={field.isRequired} type={NUMBER_TYPES.has(dataType) ? 'number' : ['date', 'datetime', 'timestamp'].includes(dataType) ? 'date' : 'text'} step={dataType !== 'integer' ? 'any' : undefined} value={String(payload[field.fieldKey] ?? '')} onChange={(event) => updateValue(field.fieldKey, event.target.value)} className={`w-full rounded-lg border px-3 py-2 font-mono text-xs ${tone === 'light' ? 'border-slate-200 bg-slate-50 text-slate-800' : 'border-slate-800 bg-slate-900 text-slate-100'}`} />
-            )}
-          </div>
-        );
-      })}
+        }}
+      />
     </div>
   );
 }

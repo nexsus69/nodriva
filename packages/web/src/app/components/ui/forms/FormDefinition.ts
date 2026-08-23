@@ -13,7 +13,6 @@ export interface FormFieldLayout {
 /** Defines one independently visible validation requirement for a form field. */
 export interface FormFieldRule {
   kind:
-    | "required"
     | "pattern"
     | "minLength"
     | "maxLength"
@@ -22,13 +21,13 @@ export interface FormFieldRule {
     | "max"
     | "step";
   value?: string | number;
-  message: string;
+  /** Optional override for a domain-specific message. */
+  message?: string;
 }
 
 /** Defines the shared declarative validation rules for every form control. */
 export interface FormFieldValidation {
   rules?: readonly FormFieldRule[];
-  required?: boolean;
   pattern?: string;
   minLength?: number;
   maxLength?: number;
@@ -36,6 +35,32 @@ export interface FormFieldValidation {
   max?: number;
   step?: number;
   email?: boolean;
+}
+
+/** Localized templates used when the renderer generates standard rule messages. */
+export interface FormValidationMessages {
+  required: string;
+  pattern: string;
+  minLength: (count: number) => string;
+  maxLength: (count: number) => string;
+  email: string;
+  min: (value: number) => string;
+  max: (value: number) => string;
+  step: (value: number) => string;
+}
+
+/** Creates the standard localized messages shared by every definition-driven form. */
+export function createValidationMessages(t: (key: string) => string): FormValidationMessages {
+  return {
+    required: t("admin.validationRequired"),
+    pattern: t("admin.validationInvalid"),
+    minLength: (count) => `${t("admin.validationMinLength")} ${count}`,
+    maxLength: (count) => `${t("admin.validationMaxLength")} ${count}`,
+    email: t("admin.validationEmail"),
+    min: (value) => `${t("admin.validationMin")} ${value}`,
+    max: (value) => `${t("admin.validationMax")} ${value}`,
+    step: (value) => `${t("admin.validationStep")} ${value}`,
+  };
 }
 
 /** Defines a named visual group of fields inside a form. */
@@ -61,6 +86,7 @@ export interface FormDefinition<TValues = Record<string, unknown>> {
   fields: readonly FormFieldSchema[];
   sections?: readonly FormSectionDefinition[];
   layout?: FormLayoutDefinition;
+  validationMessages?: FormValidationMessages;
   valueType?: TValues;
 }
 
@@ -68,6 +94,21 @@ export interface FormDefinition<TValues = Record<string, unknown>> {
 export function defineForm<TValues = Record<string, unknown>>(
   definition: FormDefinition<TValues>,
 ): FormDefinition<TValues> {
+  for (const field of definition.fields) {
+    const validation = field.validation as
+      | (FormFieldValidation & { required?: unknown })
+      | undefined;
+    if (validation && Object.hasOwn(validation, "required")) {
+      throw new Error(
+        `Field "${field.name}" must declare required on the field itself.`,
+      );
+    }
+    if (validation?.rules?.some((rule) => (rule as { kind: string }).kind === "required")) {
+      throw new Error(
+        `Field "${field.name}" must not declare required as a validation rule.`,
+      );
+    }
+  }
   return definition;
 }
 
@@ -92,6 +133,12 @@ export type FormFieldSchema = FormFieldBase &
         autoComplete?: string;
       }
     | { type: "select"; options: readonly FormOption[] }
+    | {
+        type: "relation";
+        resourceType: "node" | "entity";
+        typeKey: string;
+        placeholder?: string;
+      }
     | { type: "textarea"; placeholder?: string; rows?: number }
     | {
         type: "date" | "datetime-local";

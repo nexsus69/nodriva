@@ -54,6 +54,16 @@ export function buildResourceFormSchema(
         layout: options[field.fieldKey]?.layout,
         ...options[field.fieldKey]?.attachment,
       };
+    if (dataType === "relation" && field.relationTarget)
+      return {
+        name: field.fieldKey,
+        type: "relation",
+        label: field.label,
+        required: field.isRequired,
+        resourceType: field.relationTarget.resourceType,
+        typeKey: field.relationTarget.typeKey,
+        layout: options[field.fieldKey]?.layout,
+      };
     if (dataType === "enum" || dataType === "relation")
       return {
         name: field.fieldKey,

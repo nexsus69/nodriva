@@ -32,6 +32,7 @@ import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import {
   FormRenderer,
+  createValidationMessages,
   type FormDefinition,
   type FormFieldSchema,
 } from "@/app/components/ui/forms";
@@ -305,9 +306,7 @@ function buildTypeFormDefinition(
       placeholder: "project_task",
       layout: { row: "identity", colSpan: 1, order: 1 },
       validation: {
-        rules: [
-          { kind: "required", message: t("admin.validationRequired") },
-          {
+        rules: [{
             kind: "pattern",
             value: "^[a-z][a-z0-9_]*$",
             message: t("admin.typeKeyHelp"),
@@ -327,9 +326,7 @@ function buildTypeFormDefinition(
       required: true,
       placeholder: "Project task",
       layout: { row: "identity", colSpan: 1, order: 2 },
-      validation: {
-        rules: [{ kind: "required", message: t("admin.validationRequired") }],
-      },
+        validation: {},
     },
     {
       name: "description",
@@ -344,6 +341,7 @@ function buildTypeFormDefinition(
     return {
       key: `admin.types.create.${kind}.basics`,
       version: "1",
+      validationMessages: createValidationMessages(t),
       layout: { columns: 2, gap: "normal" },
       sections: [
         {
@@ -366,9 +364,7 @@ function buildTypeFormDefinition(
             label: t("admin.storageTable"),
             description: t("admin.storageTableHelp"),
             validation: {
-              rules: [
-                { kind: "required", message: t("admin.validationRequired") },
-                {
+              rules: [{
                   kind: "pattern",
                   value: "^[a-z][a-z0-9_]*$",
                   message: t("admin.storageTableHelp"),
@@ -389,8 +385,9 @@ function buildTypeFormDefinition(
   ];
 
   return {
-    key: `admin.types.create.${kind}.configuration`,
-    version: "1",
+      key: `admin.types.create.${kind}.configuration`,
+      version: "1",
+      validationMessages: createValidationMessages(t),
     layout: { columns: 2, gap: "normal" },
     sections: [
       {

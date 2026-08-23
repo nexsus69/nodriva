@@ -1,5 +1,8 @@
 import type { FieldDataType } from "@dashboard/core";
-import type { FormDefinition } from "@/app/components/ui/forms";
+import {
+  createValidationMessages,
+  type FormDefinition,
+} from "@/app/components/ui/forms";
 
 /** Represents the editable values shared by create and update field surfaces. */
 export type FieldForm = {
@@ -57,15 +60,13 @@ export function buildMetadataDefinition(
   return {
     key: "admin.types.detail.metadata",
     version: "1",
+    validationMessages: createValidationMessages(t),
     fields: [
       {
         name: "name",
         type: "text",
         label: t("admin.name"),
         required: true,
-        validation: {
-          rules: [{ kind: "required", message: t("admin.validationRequired") }],
-        },
       },
       {
         name: "description",
@@ -84,6 +85,7 @@ export function buildFieldDefinition(
   return {
     key: "admin.types.detail.field",
     version: "1",
+    validationMessages: createValidationMessages(t),
     layout: { columns: 2, gap: "normal" },
     sections: [
       {
@@ -110,9 +112,7 @@ export function buildFieldDefinition(
         description: t("admin.typeKeyHelp"),
         layout: { row: "identity", colSpan: 1, order: 1 },
         validation: {
-          rules: [
-            { kind: "required", message: t("admin.validationRequired") },
-            {
+          rules: [{
               kind: "pattern",
               value: "^[a-z][a-z0-9_]*$",
               message: t("admin.typeKeyHelp"),
@@ -128,9 +128,7 @@ export function buildFieldDefinition(
         description: t("admin.typeKeyHelp"),
         layout: { row: "identity", colSpan: 1, order: 2 },
         validation: {
-          rules: [
-            { kind: "required", message: t("admin.validationRequired") },
-            {
+          rules: [{
               kind: "pattern",
               value: "^[a-z][a-z0-9_]*$",
               message: t("admin.typeKeyHelp"),
@@ -144,9 +142,6 @@ export function buildFieldDefinition(
         label: t("admin.label"),
         required: true,
         layout: { row: "identity", colSpan: 2, order: 3 },
-        validation: {
-          rules: [{ kind: "required", message: t("admin.validationRequired") }],
-        },
       },
       {
         name: "dataType",

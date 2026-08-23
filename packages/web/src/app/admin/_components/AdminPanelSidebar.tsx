@@ -101,12 +101,17 @@ export function AdminPanelSidebar({
 }) {
   const { t } = useAppLocale();
   const modules = adminModuleRegistry.all();
+  const activeModuleKey = useAdminWorkspaceStore(
+    (state) => state.activeModuleKey,
+  );
   const setActiveModule = useAdminWorkspaceStore(
     (state) => state.setActiveModule,
   );
   const expandModule = useAdminWorkspaceStore((state) => state.expandModule);
   const activeRoot = useMemo(() => {
-    const active = findAdminModuleByRoute(modules, pathname);
+    const active =
+      adminModuleRegistry.find(activeModuleKey) ??
+      findAdminModuleByRoute(modules, pathname);
     return (
       modules.find(
         (module) =>
@@ -114,7 +119,7 @@ export function AdminPanelSidebar({
           active?.key.startsWith(`${module.key}.`),
       ) ?? modules[0]
     );
-  }, [modules, pathname]);
+  }, [activeModuleKey, modules, pathname]);
   useEffect(() => {
     const active = findAdminModuleByRoute(modules, pathname);
     if (!active) return;

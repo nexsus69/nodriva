@@ -3,6 +3,20 @@
 /** Provides the generic modal shell for any definition-driven administrative form. */
 import type { FormEvent } from "react";
 import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
+import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
+import { AdminSurfaceHost } from "./AdminSurfaceHost";
+
+/** Default surface configuration used by form dialogs without a custom layout. */
+export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
+  key: "form-dialog",
+  moduleKey: "admin",
+  tabs: [],
+  initialTab: "",
+  presentation: "modal",
+  placement: "center",
+  appearance: "light",
+  initialState: {},
+};
 
 export function AdminFormDialog({
   title,
@@ -14,6 +28,7 @@ export function AdminFormDialog({
   onChange,
   onSubmit,
   onClose,
+  surface = ADMIN_FORM_DIALOG_SURFACE,
 }: {
   title: string;
   definition: FormDefinition;
@@ -24,18 +39,14 @@ export function AdminFormDialog({
   onChange: (name: string, value: unknown) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
+  surface?: AdminSurfaceDefinition;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4"
-      role="presentation"
+    <AdminSurfaceHost
+      definition={surface}
+      onClose={onClose}
+      labelledBy="admin-form-dialog-title"
     >
-      <div
-        className="max-h-[90vh] w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="admin-form-dialog-title"
-      >
         <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
           <h2
             id="admin-form-dialog-title"
@@ -58,11 +69,11 @@ export function AdminFormDialog({
           onChange={onChange}
           onSubmit={onSubmit}
           isPending={pending}
+          theme={surface.appearance === "light" ? "light" : "dark"}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
           onCancel={onClose}
         />
-      </div>
-    </div>
+    </AdminSurfaceHost>
   );
 }

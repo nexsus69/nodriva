@@ -8,7 +8,7 @@ export type {
   ManagedEnumOption,
 } from "./EnumOptionModal";
 export { FormRenderer } from "./FormRenderer";
-export { defineForm } from "./FormDefinition";
+export { createValidationMessages, defineForm } from "./FormDefinition";
 export type {
   FormDefinition,
   FormFieldLayout,
@@ -19,6 +19,7 @@ export type {
   FormOption,
   FormSectionDefinition,
   FormLayoutDefinition,
+  FormValidationMessages,
 } from "./FormRenderer";
 export type { FormRendererProps } from "./FormRenderer";
 export {

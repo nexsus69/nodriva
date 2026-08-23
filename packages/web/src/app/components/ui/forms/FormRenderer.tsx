@@ -1,11 +1,13 @@
 import type { FormEvent, ReactNode } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { AttachmentInput } from "./AttachmentInput";
+import { RelationPicker } from "./RelationPicker";
 import type {
   FormDefinition,
   FormFieldLayout,
   FormFieldSchema,
   FormFieldRule,
+  FormValidationMessages,
   FormLabelPosition,
 } from "./FormDefinition";
 
@@ -19,6 +21,7 @@ export type {
   FormSectionDefinition,
   FormFieldValidation,
   FormFieldRule,
+  FormValidationMessages,
 } from "./FormDefinition";
 
 /** Provides the values and callbacks required to render a definition-driven form. */
@@ -35,10 +38,27 @@ export interface FormRendererProps {
   cancelLabel?: string;
   onCancel?: () => void;
   children?: ReactNode;
+  theme?: "dark" | "light";
+  renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
+  showActions?: boolean;
 }
 
-const fieldClassName =
-  "w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500";
+const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
+  required: "Required",
+  pattern: "Valid format",
+  minLength: (count) => `At least ${count} characters`,
+  maxLength: (count) => `At most ${count} characters`,
+  email: "Valid email",
+  min: (value) => `Minimum ${value}`,
+  max: (value) => `Maximum ${value}`,
+  step: (value) => `Step ${value}`,
+};
+
+function fieldClassName(theme: "dark" | "light"): string {
+  return theme === "light"
+    ? "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
+    : "w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500";
+}
 const gridColumns: Record<number, string> = {
   1: "grid-cols-1",
   2: "grid-cols-2",
@@ -63,17 +83,19 @@ function labelLayoutClass(position: FormLabelPosition | undefined): string {
   return position === "inline" ? "flex items-center gap-3" : "block";
 }
 
-/** Evaluates the serializable rules declared by a field definition. */
-function evaluateRule(rule: FormFieldRule, value: unknown): boolean {
+/** Evaluates a rule; every declared rule is invalid until its requirement is met. */
+type ResolvedFormRule = FormFieldRule | { kind: "required"; message: string };
+
+function evaluateRule(rule: ResolvedFormRule, value: unknown): boolean {
   const text = String(value ?? "");
   if (rule.kind === "required") return text.length > 0;
-  if (!text) return true;
+  if (!text) return false;
   switch (rule.kind) {
     case "pattern":
       try {
         return new RegExp(String(rule.value ?? "")).test(text);
       } catch {
-        return true;
+        return false;
       }
     case "minLength":
       return text.length >= Number(rule.value);
@@ -88,55 +110,58 @@ function evaluateRule(rule: FormFieldRule, value: unknown): boolean {
     case "step":
       return Number(value) % Number(rule.value) === 0;
     default:
-      return true;
+      return false;
   }
 }
 
 /** Normalizes shorthand validation into independently renderable requirements. */
-function fieldRules(field: FormFieldSchema): FormFieldRule[] {
+function fieldRules(
+  field: FormFieldSchema,
+  messages: FormValidationMessages,
+): ResolvedFormRule[] {
   const validation = field.validation;
   if (!validation)
-    return field.required ? [{ kind: "required", message: "Required" }] : [];
-  if (validation.rules) return [...validation.rules];
-  const rules: FormFieldRule[] = [];
-  if (validation.required || field.required)
-    rules.push({ kind: "required", message: "Required" });
+    return field.required ? [{ kind: "required", message: messages.required }] : [];
+  const rules: ResolvedFormRule[] = [];
+  if (field.required)
+    rules.push({ kind: "required", message: messages.required });
+  if (validation.rules) rules.push(...validation.rules);
   if (validation.pattern)
     rules.push({
       kind: "pattern",
       value: validation.pattern,
-      message: "Valid format",
+      message: messages.pattern,
     });
   if (validation.minLength !== undefined)
     rules.push({
       kind: "minLength",
       value: validation.minLength,
-      message: `At least ${validation.minLength} characters`,
+      message: messages.minLength(validation.minLength),
     });
   if (validation.maxLength !== undefined)
     rules.push({
       kind: "maxLength",
       value: validation.maxLength,
-      message: `At most ${validation.maxLength} characters`,
+      message: messages.maxLength(validation.maxLength),
     });
-  if (validation.email) rules.push({ kind: "email", message: "Valid email" });
+  if (validation.email) rules.push({ kind: "email", message: messages.email });
   if (validation.min !== undefined)
     rules.push({
       kind: "min",
       value: validation.min,
-      message: `Minimum ${validation.min}`,
+      message: messages.min(validation.min),
     });
   if (validation.max !== undefined)
     rules.push({
       kind: "max",
       value: validation.max,
-      message: `Maximum ${validation.max}`,
+      message: messages.max(validation.max),
     });
   if (validation.step !== undefined)
     rules.push({
       kind: "step",
       value: validation.step,
-      message: `Step ${validation.step}`,
+      message: messages.step(validation.step),
     });
   return rules;
 }
@@ -146,18 +171,27 @@ function FormField({
   field,
   value,
   onChange,
+  theme,
+  validationMessages,
+  renderFieldAddon,
 }: {
   field: FormFieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
+  theme: "dark" | "light";
+  validationMessages: FormValidationMessages;
+  renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
 }) {
   const fieldId = `form-field-${field.name}`;
   const labelPosition = field.layout?.labelPosition ?? "top";
+  const rules = fieldRules(field, validationMessages);
+  const isRequired = Boolean(field.required) ||
+    rules.some((rule) => rule.kind === "required");
   if (field.type === "boolean") {
     return (
       <label
         htmlFor={fieldId}
-        className={`flex items-center gap-2 pt-2 text-xs text-slate-300 ${field.layout?.className ?? ""}`}
+        className={`flex items-center gap-2 pt-2 text-xs ${theme === "light" ? "text-slate-700" : "text-slate-300"} ${field.layout?.className ?? ""}`}
       >
         <input
           id={fieldId}
@@ -165,9 +199,9 @@ function FormField({
           type="checkbox"
           checked={Boolean(value)}
           onChange={(event) => onChange(event.target.checked)}
-          className="rounded bg-slate-900 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+          className={`rounded text-indigo-600 focus:ring-indigo-500 ${theme === "light" ? "border-slate-300 bg-white" : "border-slate-800 bg-slate-900"}`}
         />
-        {field.label}
+        {field.label}{isRequired ? " *" : ""}
       </label>
     );
   }
@@ -176,10 +210,10 @@ function FormField({
     labelPosition === "hidden" ? null : (
       <label
         htmlFor={field.type === "attachment" ? undefined : fieldId}
-        className="block shrink-0 text-xs font-medium text-slate-300"
+        className={`block shrink-0 text-xs font-medium ${theme === "light" ? "text-slate-700" : "text-slate-300"}`}
       >
         {field.label}
-        {field.required ? " *" : ""}
+        {isRequired ? " *" : ""}
       </label>
     );
   const control =
@@ -192,14 +226,26 @@ function FormField({
         value={Array.isArray(value) ? (value as File[]) : []}
         onChange={onChange}
       />
+    ) : field.type === "relation" ? (
+      <RelationPicker
+        fieldKey={field.name}
+        label={field.label}
+        value={value}
+        required={isRequired}
+        resourceType={field.resourceType}
+        typeKey={field.typeKey}
+        tone={theme}
+        showLabel={false}
+        onChange={onChange}
+      />
     ) : field.type === "select" ? (
       <select
         id={fieldId}
         name={field.name}
-        required={field.required}
+        required={isRequired}
         value={String(value ?? "")}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
+        className={fieldClassName(theme)}
       >
         <option value="">Seleziona un valore</option>
         {field.options.map((option) => (
@@ -212,28 +258,29 @@ function FormField({
       <PasswordInput
         id={fieldId}
         name={field.name}
-        required={field.required}
+        required={isRequired}
         autoComplete={field.autoComplete}
         value={String(value ?? "")}
         onChange={onChange}
         placeholder={field.placeholder}
+        className={fieldClassName(theme)}
       />
     ) : field.type === "textarea" ? (
       <textarea
         id={fieldId}
         name={field.name}
-        required={field.required}
+        required={isRequired}
         rows={field.rows ?? 3}
         value={String(value ?? "")}
         placeholder={field.placeholder}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
+        className={fieldClassName(theme)}
       />
     ) : (
       <input
         id={fieldId}
         name={field.name}
-        required={field.required}
+        required={isRequired}
         type={field.type}
         min={field.type === "number" ? field.min : undefined}
         step={field.type === "number" ? field.step : undefined}
@@ -241,11 +288,9 @@ function FormField({
         placeholder={field.placeholder}
         autoComplete={field.autoComplete}
         onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName}
+        className={fieldClassName(theme)}
       />
     );
-  const rules = fieldRules(field);
-
   return (
     <div
       className={`${labelLayoutClass(labelPosition)} ${field.layout?.className ?? ""}`}
@@ -253,7 +298,7 @@ function FormField({
       <div>{label}</div>
       {control}
       {field.description && (
-        <p className="mt-1 text-[11px] leading-4 text-slate-400">
+        <p className={`mt-1 text-[11px] leading-4 ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
           {field.description}
         </p>
       )}
@@ -278,6 +323,7 @@ function FormField({
           })}
         </ul>
       )}
+      {renderFieldAddon?.(field)}
     </div>
   );
 }
@@ -305,12 +351,18 @@ function FormFieldGroup({
   onChange,
   columns,
   gap,
+  theme,
+  validationMessages,
+  renderFieldAddon,
 }: {
   fields: readonly FormFieldSchema[];
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
   columns: number;
   gap: string;
+  theme: "dark" | "light";
+  validationMessages: FormValidationMessages;
+  renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
 }) {
   return (
     <div
@@ -325,6 +377,9 @@ function FormFieldGroup({
             field={field}
             value={values[field.name]}
             onChange={(value) => onChange(field.name, value)}
+            theme={theme}
+            validationMessages={validationMessages}
+            renderFieldAddon={renderFieldAddon}
           />
         </div>
       ))}
@@ -340,6 +395,9 @@ function FormSection({
   onChange,
   defaultColumns,
   gap,
+  theme,
+  validationMessages,
+  renderFieldAddon,
 }: {
   section?: {
     label?: string;
@@ -353,6 +411,9 @@ function FormSection({
   onChange: (name: string, value: unknown) => void;
   defaultColumns: number;
   gap: string;
+  theme: "dark" | "light";
+  validationMessages: FormValidationMessages;
+  renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
 }) {
   const selected = section?.fieldNames
     ? fields.filter((field) => section.fieldNames?.includes(field.name))
@@ -361,12 +422,14 @@ function FormSection({
   return (
     <section className={section?.className}>
       {section?.label && (
-        <h3 className="mb-1 text-sm font-semibold text-slate-200">
+        <h3 className={`mb-1 text-sm font-semibold ${theme === "light" ? "text-slate-800" : "text-slate-200"}`}>
           {section.label}
         </h3>
       )}
       {section?.description && (
-        <p className="mb-4 text-xs text-slate-400">{section.description}</p>
+        <p className={`mb-4 text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+          {section.description}
+        </p>
       )}
       <div className="space-y-4">
         {groupFields(selected).map((group, index) => (
@@ -377,6 +440,9 @@ function FormSection({
             onChange={onChange}
             columns={section?.columns ?? defaultColumns}
             gap={gap}
+            theme={theme}
+            validationMessages={validationMessages}
+            renderFieldAddon={renderFieldAddon}
           />
         ))}
       </div>
@@ -398,9 +464,14 @@ export function FormRenderer({
   cancelLabel,
   onCancel,
   children,
+  theme = "dark",
+  renderFieldAddon,
+  showActions = true,
 }: FormRendererProps) {
   const resolvedFields = definition?.fields ?? fields ?? [];
   const layout = definition?.layout;
+  const validationMessages =
+    definition?.validationMessages ?? DEFAULT_VALIDATION_MESSAGES;
   const sections = definition?.sections ?? [
     { key: "default", fieldNames: resolvedFields.map((field) => field.name) },
   ];
@@ -419,6 +490,9 @@ export function FormRenderer({
           onChange={onChange}
           defaultColumns={layout?.columns ?? 1}
           gap={layout?.gap ?? "normal"}
+          theme={theme}
+          validationMessages={validationMessages}
+          renderFieldAddon={renderFieldAddon}
         />
       ))}
       {unassigned.length > 0 && (
@@ -428,16 +502,19 @@ export function FormRenderer({
           onChange={onChange}
           defaultColumns={layout?.columns ?? 1}
           gap={layout?.gap ?? "normal"}
+          theme={theme}
+          validationMessages={validationMessages}
+          renderFieldAddon={renderFieldAddon}
         />
       )}{" "}
       {children}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800/80">
+      {showActions && <div className={`flex items-center justify-end gap-3 border-t pt-4 ${theme === "light" ? "border-slate-200" : "border-slate-800/80"}`}>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
+            className={`px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
           >
             {cancelLabel ?? "Annulla"}
           </button>
@@ -449,7 +526,7 @@ export function FormRenderer({
         >
           {isPending ? pendingLabel : submitLabel}
         </button>
-      </div>
+      </div>}
     </form>
   );
 }
