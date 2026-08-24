@@ -1,3 +1,4 @@
+/** Verifies administrative read caching, invalidation, and retry semantics. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
