@@ -1,3 +1,4 @@
+/** Exposes the public Core API consumed by composition roots and external packages. */
 // ─── Domain Models ───────────────────────────────────────────────────────────
 export { PasswordHasher } from "./domain/policies/PasswordHasher.js";
 export { Node } from "./domain/models/Node.js";
@@ -415,6 +416,8 @@ export {
   RealtimeScopeAssignmentDto,
   CreateRoleUiCommand,
   UpdateRolePermissionsUiCommand,
+  UpdateRoleMetadataUiCommand,
+  UpdateRoleUiCommand,
   CreateScopeAssignmentUiCommand,
   DeleteScopeAssignmentUiCommand,
   UpdateScopeAssignmentUiCommand,
@@ -443,6 +446,10 @@ export {
   CreateRoleCommandSchema,
   UpdateRolePermissionsCommand,
   UpdateRolePermissionsCommandSchema,
+  UpdateRoleMetadataCommand,
+  UpdateRoleMetadataCommandSchema,
+  UpdateRoleCommand,
+  UpdateRoleCommandSchema,
   CreateScopeAssignmentCommand,
   CreateScopeAssignmentCommandSchema,
   DeleteScopeAssignmentCommand,

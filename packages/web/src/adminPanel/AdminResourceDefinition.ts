@@ -86,3 +86,22 @@ export function defineAdminResource<
 
   return definition;
 }
+
+/** Evaluates a declared resource operation against the verified UI projection. */
+export function canUseAdminResourceOperation<
+  TRow extends { id: string },
+  TDetail,
+  TForm extends Record<string, unknown>,
+  TContext,
+  TId,
+>(
+  definition: AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId>,
+  operation: keyof Omit<AdminResourcePermissions, "mode">,
+  permissions: ReadonlySet<string>,
+): boolean {
+  const required = definition.permissions?.[operation] ?? [];
+  if (required.length === 0) return true;
+  return definition.permissions?.mode === "any"
+    ? required.some((permission) => permissions.has(permission))
+    : required.every((permission) => permissions.has(permission));
+}

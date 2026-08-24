@@ -1,3 +1,4 @@
+/** Verifies scoped user administration and its authorization boundaries. */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UserAdminApplicationService } from './UserAdminApplicationService.js';
 import type { UserRepository } from '../ports/UserRepository.js';
@@ -7,7 +8,6 @@ import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { User } from '../../domain/models/User.js';
 import {
-  UserEmailAlreadyExistsError,
   UserAdminValidationError,
 } from '../../domain/errors/UserAdminErrors.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
@@ -89,33 +89,19 @@ describe('UserAdminApplicationService', () => {
     );
   });
 
-  it('should create a new user successfully and record audit', async () => {
+  it('rejects ordinary user creation without an initial scope', async () => {
     vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(null);
     vi.mocked(mockUserRepository.findById).mockResolvedValue(
       User.create(ACTOR_ID, 'admin@mate.com', 'hash', true)
     );
 
-    const user = await service.createUser({
+    await expect(service.createUser({
       email: 'new.user@mate.com',
       password: 'StrongPassword!123',
       isSuperAdmin: false,
       actorUserId: ACTOR_ID,
-    });
-
-    expect(user.id).toBe(USER_ID);
-    expect(user.email).toBe('new.user@mate.com');
-    expect(user.passwordHash).not.toBe('StrongPassword!123');
-    expect(PasswordHasher.verify('StrongPassword!123', user.passwordHash)).toBe(true);
-    expect(mockUserRepository.createUser).toHaveBeenCalled();
-    expect(mockAuditPort.record).toHaveBeenCalledWith(
-      ACTOR_ID,
-      'user.create',
-      'user',
-      USER_ID,
-      null,
-      null,
-      expect.any(Object)
-    );
+    })).rejects.toThrow(ForbiddenError);
+    expect(mockUserRepository.createUser).not.toHaveBeenCalled();
   });
 
   it('should authorize user list and detail reads', async () => {
@@ -129,21 +115,17 @@ describe('UserAdminApplicationService', () => {
     expect(mockUserRepository.getUserDetailManageableBy).toHaveBeenCalledWith(ACTOR_ID, USER_ID);
   });
 
-  it('should throw UserEmailAlreadyExistsError if email is taken', async () => {
+  it('rejects legacy creation even when the email already exists', async () => {
     vi.mocked(mockUserRepository.findById).mockResolvedValue(
       User.create(ACTOR_ID, 'admin@mate.com', 'hash', true)
     );
-    vi.mocked(mockUserRepository.findByEmail).mockResolvedValue(
-      User.create(USER_ID, 'taken@mate.com', 'hash')
-    );
-
     await expect(
       service.createUser({
         email: 'taken@mate.com',
         password: 'StrongPassword!123',
         actorUserId: ACTOR_ID,
       })
-    ).rejects.toThrow(UserEmailAlreadyExistsError);
+    ).rejects.toThrow(ForbiddenError);
   });
 
   it('should throw ForbiddenError if user does not have permission', async () => {

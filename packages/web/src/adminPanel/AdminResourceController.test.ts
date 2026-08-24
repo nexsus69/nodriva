@@ -1,3 +1,4 @@
+/** Verifies the shared administrative resource controller lifecycle. */
 import { describe, expect, it, vi } from "vitest";
 import { AdminResourceController } from "./AdminResourceController";
 import { defineAdminResource } from "./AdminResourceDefinition";

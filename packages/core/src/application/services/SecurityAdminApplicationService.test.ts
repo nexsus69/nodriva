@@ -1,3 +1,4 @@
+/** Verifies atomic role, permission, and scope administration behavior. */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SecurityAdminApplicationService } from './SecurityAdminApplicationService.js';
 import type { SecurityRepository } from '../ports/SecurityRepository.js';
@@ -142,6 +143,39 @@ describe('SecurityAdminApplicationService', () => {
         actorUserId: ACTOR_ID,
       })
     ).rejects.toThrow(SystemRoleForbiddenError);
+  });
+
+  it('updates role metadata and permissions in one transaction', async () => {
+    const role = Role.create(ROLE_ID, 'custom_role', 'Custom Role', 'Before');
+    vi.mocked(mockSecurityRepository.findRoleByKey).mockResolvedValue(role);
+    vi.mocked(mockSecurityRepository.listRolePermissionKeys).mockResolvedValue(['node.read']);
+
+    await service.updateRole({
+      roleKey: role.roleKey,
+      name: 'Updated role',
+      description: 'After',
+      permissionIds: [PERM_ID_1],
+      expectedRowVersion: role.rowVersion,
+      actorUserId: ACTOR_ID,
+    });
+
+    expect(mockTransactionPort.runInTransaction).toHaveBeenCalledTimes(1);
+    expect(mockSecurityRepository.updateRole).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Updated role', rowVersion: 2 }),
+    );
+    expect(mockSecurityRepository.updateRolePermissions).toHaveBeenCalledWith(
+      ROLE_ID,
+      [PERM_ID_1],
+    );
+    expect(mockAuditPort.record).toHaveBeenCalledWith(
+      ACTOR_ID,
+      'security.update_role',
+      'role',
+      ROLE_ID,
+      null,
+      expect.objectContaining({ name: 'Custom Role', permissionKeys: ['node.read'] }),
+      expect.objectContaining({ name: 'Updated role', permissionIds: [PERM_ID_1] }),
+    );
   });
 
   it('should create scope assignment successfully', async () => {

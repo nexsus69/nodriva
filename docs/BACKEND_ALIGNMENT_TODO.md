@@ -59,6 +59,12 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
   administrators.
 - [x] Add integration tests for cross-scope create/update/revoke attempts,
   nested descendants, explicit deny and concurrent role/scope changes.
+- [x] Use the atomic scoped-provisioning flow from the Admin Panel: ordinary
+  users cannot be created through the legacy global-role path and the creation
+  form requires an initial role and node scope.
+- [x] Keep SQLite aligned with PostgreSQL for delegated-user visibility and
+  the baseline type-reader role; scope selectors traverse the full visible
+  hierarchy rather than only root nodes.
 
 ## P1 — ACL consistency and lifecycle
 

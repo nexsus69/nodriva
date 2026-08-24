@@ -50,20 +50,21 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await login(page, baseUrl);
 
     await page.goto(`${baseUrl}/admin`);
-    await expect(page.getByRole('heading', { name: /Administration at a glance|Centro di Controllo Amministrativo/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Administration at a glance|Amministrazione in sintesi/i })).toBeVisible();
     const overviewModules = await page.locator('a[href^="/admin/"]').evaluateAll((links) =>
       [...new Set(links.map((link) => link.getAttribute('href')).filter((href): href is string => Boolean(href)))].sort(),
     );
 
     const sections: Array<[string, RegExp]> = [
-      ['/admin/users', /Users/i],
-      ['/admin/security/roles', /Roles/i],
-      ['/admin/security/scopes', /Scopes/i],
+      ['/admin/users', /Users|Utenti/i],
+      ['/admin/security/roles', /Roles|Ruoli/i],
+      ['/admin/security/scopes', /Scopes|Ambiti/i],
       ['/admin/types', /Tipi/i],
-      ['/admin/system/config', /Capabilities/i],
-      ['/admin/system/placement-policies', /Placement policies/i],
-      ['/admin/audit', /Audit log/i],
-      ['/admin/recycle-bin', /Recycle bin/i],
+      ['/admin/system/config', /Capabilities|Capability/i],
+      ['/admin/system/settings', /System settings|Impostazioni di sistema/i],
+      ['/admin/system/placement-policies', /Placement policies|Politiche di posizionamento/i],
+      ['/admin/audit', /Audit log|Log audit/i],
+      ['/admin/recycle-bin', /Recycle bin|Cestino/i],
     ];
     const loadedSections: string[] = [];
     for (const [path, heading] of sections) {
@@ -86,17 +87,22 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     const createdRoleVisible = await page.getByText(roleKey, { exact: true }).isVisible();
     await page.getByRole('row').filter({ hasText: roleKey }).getByRole('button', { name: /Apri|Open/i }).click();
     await expect(page.getByRole('heading', { name: roleName })).toBeVisible();
+    await expect(page.getByRole('checkbox').first()).toBeVisible();
     loadedDetailViews.push('role');
 
     await page.goto(`${baseUrl}/admin/types`);
     await page.getByRole('button', { name: /^\+?\s*Crea tipo$|^\+?\s*Create type$/i }).click();
-    await page.getByLabel(/Chiave tipo \*/i).fill(nodeTypeKey);
-    await page.getByLabel('Nome *').fill(nodeTypeName);
+    const nodeTypeKeyInput = page.getByLabel(/Chiave tipo \*/i);
+    const nodeTypeNameInput = page.getByLabel('Nome *');
+    await nodeTypeKeyInput.fill(nodeTypeKey);
+    await nodeTypeNameInput.fill(nodeTypeName);
+    await expect(nodeTypeKeyInput).toHaveValue(nodeTypeKey);
+    await expect(nodeTypeNameInput).toHaveValue(nodeTypeName);
     await page.getByRole('button', { name: /Avanti|Next/i }).click();
     await page.getByRole('dialog').getByRole('button', { name: /^Crea tipo$|^Create type$/i }).click();
     await expect(page.getByText(nodeTypeKey, { exact: true })).toBeVisible();
     const createdNodeTypeVisible = await page.getByText(nodeTypeKey, { exact: true }).isVisible();
-    await page.getByRole('row').filter({ hasText: nodeTypeKey }).getByRole('link', { name: /Apri|Open/i }).click();
+    await page.getByRole('row').filter({ hasText: nodeTypeKey }).getByRole('button', { name: /Apri|Open/i }).click();
     await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
     loadedDetailViews.push('node-type');
 
@@ -116,7 +122,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await page.getByRole('dialog').getByRole('button', { name: /^Crea tipo$|^Create type$/i }).click();
     await expect(page.getByText(entityTypeKey, { exact: true })).toBeVisible();
     const createdEntityTypeVisible = await page.getByText(entityTypeKey, { exact: true }).isVisible();
-    await page.getByRole('row').filter({ hasText: entityTypeKey }).getByRole('link', { name: /Apri|Open/i }).click();
+    await page.getByRole('row').filter({ hasText: entityTypeKey }).getByRole('button', { name: /Apri|Open/i }).click();
     await expect(page.getByRole('heading', { name: entityTypeName })).toBeVisible();
     loadedDetailViews.push('entity-type');
 
@@ -164,6 +170,7 @@ test.describe('admin panel SQLite/PostgreSQL parity', () => {
         '/admin/security/scopes',
         '/admin/types',
         '/admin/system/config',
+        '/admin/system/settings',
         '/admin/system/placement-policies',
         '/admin/audit',
         '/admin/recycle-bin',

@@ -63,26 +63,38 @@ async function login(page: Page, baseUrl: string, email: string, password: strin
   await expect(page).toHaveURL(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`));
 }
 
+/** Selects one option from the application-owned combobox used by admin forms. */
+async function selectAdminOption(
+  page: Page,
+  label: string | RegExp,
+  option: string | RegExp,
+): Promise<void> {
+  await page.getByRole('combobox', { name: label }).click();
+  await page.getByRole('option', { name: option, exact: typeof option === 'string' }).click();
+}
+
 async function createType(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
   await page.goto(`${baseUrl}/admin/types`);
   await expect(page.getByRole('row').filter({ hasText: 'admin_parity_root' })).toBeVisible();
-  await page.getByRole('button', { name: /Crea Nuovo Nodo/i }).click();
-  await page.getByLabel('Type Key *').fill(names.nodeTypeKey);
+  await page.getByRole('button', { name: /^\+?\s*Crea tipo$/i }).click();
+  await page.getByLabel('Chiave tipo *').fill(names.nodeTypeKey);
   await page.getByLabel('Nome *').fill(names.nodeTypeName);
   await expect(page.getByLabel('Nome *')).toHaveValue(names.nodeTypeName);
-  await page.getByRole('button', { name: 'Crea Tipo' }).click();
+  await page.getByRole('button', { name: 'Avanti' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
   await expect(page.getByText(names.nodeTypeKey, { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: /Entity Types/i }).click();
-  await page.getByRole('button', { name: /Crea Nuovo Entità/i }).click();
-  await page.getByLabel('Type Key *').fill(names.entityTypeKey);
+  await page.getByRole('button', { name: /Tipi entità|Entity types/i }).click();
+  await page.getByRole('button', { name: /^\+?\s*Crea tipo$/i }).click();
+  await page.getByLabel('Chiave tipo *').fill(names.entityTypeKey);
   await page.getByLabel('Nome *').fill(names.entityTypeName);
-  await page.getByLabel('Storage Table (Fisica) *').fill(`entity_${names.entityTypeKey}`);
-  await expect(page.getByLabel('Nome *')).toHaveValue(names.entityTypeName);
-  await expect(page.getByLabel('Storage Table (Fisica) *')).toHaveValue(`entity_${names.entityTypeKey}`);
-  await page.getByRole('button', { name: 'Crea Tipo' }).click();
-  await page.getByRole('row').filter({ hasText: names.entityTypeKey }).getByRole('link', { name: /Dettaglio & Campi/i }).click();
+  await page.getByRole('button', { name: 'Avanti' }).click();
+  await page.getByLabel('Tabella storage *').fill(`entity_${names.entityTypeKey}`);
+  await expect(page.getByLabel('Tabella storage *')).toHaveValue(`entity_${names.entityTypeKey}`);
+  await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
+  await page.getByRole('row').filter({ hasText: names.entityTypeKey }).getByRole('button', { name: /Apri/i }).click();
   await expect(page.getByRole('heading', { name: names.entityTypeName })).toBeVisible();
+  await page.getByRole('button', { name: /Campi/ }).click();
 
   await addField(page, { key: 'status', label: 'Status', dataType: 'enum' });
   await addField(page, {
@@ -99,19 +111,18 @@ async function addField(page: Page, options: {
   dataType: 'enum' | 'relation';
   relationTargetTypeKey?: string;
 }): Promise<void> {
-  await page.getByRole('button', { name: /Aggiungi Campo/i }).click();
-  await page.getByLabel('Field Key *').fill(options.key);
-  await page.getByLabel('Nome Colonna Fisica (DB) *').fill(options.key);
-  await page.getByLabel('Tipo di Dato *').selectOption(options.dataType);
+  await page.getByRole('button', { name: /Aggiungi campo/i }).click();
+  await page.getByLabel('Chiave campo *').fill(options.key);
+  await page.getByLabel('Nome colonna *').fill(options.key);
+  await selectAdminOption(page, /Tipo dato/, options.dataType);
   if (options.dataType === 'enum') {
-    await page.getByLabel('Gestione opzioni').selectOption('managed');
+    await selectAdminOption(page, /Modalità enum/, /Opzioni gestite/);
   } else {
-    await page.getByLabel('Dominio di destinazione *').selectOption('entity');
-    await expect(page.getByLabel('Chiave del tipo di destinazione *')).toBeEnabled();
-    await page.getByLabel('Chiave del tipo di destinazione *').selectOption(options.relationTargetTypeKey!);
+    await selectAdminOption(page, /Dominio relazione/, /Tipi entità/);
+    await page.getByLabel(/Chiave tipo relazione/).fill(options.relationTargetTypeKey!);
   }
-  await page.getByLabel('Label (UI) *').fill(options.label);
-  await page.getByRole('button', { name: 'Crea Campo' }).click();
+  await page.getByLabel('Etichetta *').fill(options.label);
+  await page.getByRole('button', { name: 'Aggiungi campo', exact: true }).click();
   await expect(page.getByText(options.key, { exact: true }).first()).toBeVisible();
 }
 
@@ -123,48 +134,36 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
   await page.getByPlaceholder(/Valore tecnico/).fill('planned');
   await page.getByPlaceholder(/Etichetta/).fill('Planned');
   await page.getByRole('button', { name: 'Salva opzione' }).click();
-  await expect(page.locator('option[value="planned"]')).toHaveCount(1);
+  await page.getByRole('combobox', { name: 'Status' }).click();
+  await expect(page.getByRole('option', { name: 'Planned', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   const release = page.getByRole('button', { name: 'Esci dalla modifica' });
   if (await release.isVisible()) await release.click();
 }
 
 async function createOperatorAccess(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
-  await page.goto(`${baseUrl}/admin/users`);
-  await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
-  await expect(page.getByRole('button', { name: 'Crea Account' })).toBeEnabled();
-  await page.getByLabel('Email Utente').fill(names.operatorEmail);
-  const passwordInput = page.getByLabel('Password Iniziale');
-  await passwordInput.fill(OPERATOR_PASSWORD);
-  await expect(passwordInput).toHaveValue(OPERATOR_PASSWORD);
-  await page.getByRole('button', { name: 'Crea Account' }).click();
-  await expect(page.getByText(names.operatorEmail, { exact: true })).toBeVisible();
-  await page.getByRole('row').filter({ hasText: names.operatorEmail }).getByRole('link', { name: /Dettaglio/i }).click();
-  await page.locator('label').filter({ hasText: 'default_reader' }).getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Salva Ruoli' }).click();
-  await expect(page.getByText('Ruoli utente aggiornati con successo.')).toBeVisible();
-
   await page.goto(`${baseUrl}/admin/security/roles`);
-  await page.getByRole('button', { name: /Nuovo Ruolo/i }).click();
-  await page.getByLabel('Nome Ruolo *').fill(names.roleName);
-  await page.getByLabel('Chiave Ruolo (snake_case) *').fill(names.roleKey);
-  await page.getByRole('button', { name: 'Crea Ruolo' }).click();
-  await page.getByRole('row').filter({ hasText: names.roleKey }).getByRole('link', { name: /Permessi/i }).click();
+  await page.getByRole('button', { name: /^\+?\s*Crea ruolo$/i }).click();
+  await page.getByLabel('Nome *').fill(names.roleName);
+  await page.getByLabel('Chiave ruolo *').fill(names.roleKey);
+  await page.getByRole('dialog').getByRole('button', { name: 'Crea ruolo' }).click();
+  await page.getByRole('row').filter({ hasText: names.roleKey }).getByRole('button', { name: /Apri/i }).click();
   for (const permission of OPERATOR_PERMISSIONS) {
     await page.locator('label').filter({ hasText: permission }).getByRole('checkbox').check();
   }
-  await page.getByRole('button', { name: 'Salva Permessi' }).click();
-  await expect(page.getByText('Matrice permessi aggiornata con successo.')).toBeVisible();
+  await page.getByRole('button', { name: 'Salva permessi' }).click();
 
-  await page.goto(`${baseUrl}/admin/security/scopes`);
-  await page.getByRole('button', { name: /Nuova assegnazione/i }).click();
-  await page.getByLabel('Utente *').selectOption({ label: names.operatorEmail });
-  await page.getByLabel('Nodo *').selectOption(ROOT_NODE_ID);
-  await page.getByLabel('Ruolo associato allo scope *').selectOption({ label: `${names.roleName} (${names.roleKey})` });
-  await page.getByLabel('Effetto *').selectOption('allow');
-  await page.getByLabel('Propagazione *').selectOption('subtree');
-  await page.getByRole('button', { name: 'Crea assegnazione' }).click();
-  await expect(page.getByRole('row').filter({ hasText: names.operatorEmail })).toContainText('Admin parity root');
+  await page.goto(`${baseUrl}/admin/users`);
+  await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^\+?\s*Crea utente$/i }).click();
+  await page.getByLabel('Email *').fill(names.operatorEmail);
+  const passwordInput = page.getByLabel('Password *');
+  await passwordInput.fill(OPERATOR_PASSWORD);
+  await expect(passwordInput).toHaveValue(OPERATOR_PASSWORD);
+  await selectAdminOption(page, /Ruolo \*/, names.roleName);
+  await page.locator('[data-node-tree-field="assignment.1.nodeId"] [data-node-id]').filter({ hasText: 'Admin parity root' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Crea utente' }).click();
+  await expect(page.getByText(names.operatorEmail, { exact: true })).toBeVisible();
 }
 
 async function ensureEditMode(page: Page): Promise<void> {
@@ -199,7 +198,7 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   await expect(page.getByText('Modalità modifica')).toBeVisible();
   await page.getByLabel('Tipo Entità *').selectOption(names.entityTypeKey);
   await page.getByLabel('Nome Entità *').fill(entityName);
-  await page.locator('select').filter({ has: page.locator('option[value="planned"]') }).selectOption('planned');
+  await selectAdminOption(page, 'Status', 'Planned');
   if (relationName) {
     await page.locator('#relation-search-depends_on').fill(relationName);
     const relationSelect = page.locator('#relation-search-depends_on + select');
@@ -238,19 +237,19 @@ async function exerciseConcurrency(firstPage: Page, secondPage: Page, entityUrl:
 
 async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: string): Promise<{ restored: boolean; actions: string[] }> {
   await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
-  const deletedItem = adminPage.getByText(entityName, { exact: true }).locator('..').locator('..');
+  const deletedItem = adminPage.getByRole('row').filter({ hasText: entityName });
   await expect(deletedItem).toBeVisible();
   await deletedItem.getByRole('button', { name: 'Ripristina' }).click();
-  await adminPage.getByRole('dialog').getByRole('button', { name: 'Ripristina' }).click();
+  await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina' }).click();
   await expect(adminPage.getByText(entityName, { exact: true })).toHaveCount(0);
 
   await adminPage.goto(`${baseUrl}/admin/audit`);
   const expected = ['node.create', 'entity.create', 'entity.update', 'entity.delete', 'entity.restore'];
   const actions: string[] = [];
   for (const action of expected) {
-    await adminPage.getByLabel('Azione (action_key)').fill(action);
+    await adminPage.getByRole('textbox', { name: 'Azione', exact: true }).fill(action);
     await adminPage.getByRole('button', { name: /Applica Filtri/i }).click();
-    await expect(adminPage.locator('td[data-label="Azione"]').filter({ hasText: action }).first()).toBeVisible();
+    await expect(adminPage.getByRole('row').filter({ hasText: action }).first()).toBeVisible();
     actions.push(action);
   }
   return { restored: true, actions: actions.sort() };

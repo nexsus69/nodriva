@@ -1,5 +1,6 @@
 'use client';
 
+/** Renders attachment selection with shared validation and presentation behavior. */
 import { useState } from 'react';
 import { validateAttachmentSelection, type ResourceAttachmentConstraints, type ResourceAttachmentKind } from '@dashboard/core/browser';
 
@@ -8,9 +9,10 @@ export interface AttachmentInputProps extends ResourceAttachmentConstraints {
   tone?: 'dark' | 'light';
   value?: readonly File[];
   onChange: (files: readonly File[]) => void;
+  disabled?: boolean;
 }
 
-export function AttachmentInput({ kind, tone = 'dark', value = [], onChange, maxFiles, maxSizeBytes, acceptedMimeTypes }: AttachmentInputProps) {
+export function AttachmentInput({ kind, tone = 'dark', value = [], onChange, maxFiles, maxSizeBytes, acceptedMimeTypes, disabled = false }: AttachmentInputProps) {
   const [errors, setErrors] = useState<string[]>([]);
   const multiple = maxFiles === undefined || maxFiles > 1;
   const accept = acceptedMimeTypes?.join(',') ?? (kind === 'image' ? 'image/*' : undefined);
@@ -21,6 +23,7 @@ export function AttachmentInput({ kind, tone = 'dark', value = [], onChange, max
         type="file"
         accept={accept}
         multiple={multiple}
+        disabled={disabled}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []);
           const nextErrors = validateAttachmentSelection(files, { maxFiles, maxSizeBytes, acceptedMimeTypes });

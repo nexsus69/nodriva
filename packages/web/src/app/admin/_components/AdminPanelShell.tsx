@@ -1,7 +1,7 @@
 "use client";
 
 /** Composes access checks, persistent workspace state, navigation, and content. */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "@/app/components/navigation/GuardedLink";
@@ -13,6 +13,7 @@ import { AdminPanelHeader } from "./AdminPanelHeader";
 import { AdminPanelSidebar } from "./AdminPanelSidebar";
 import { ConfirmDialogHost } from "@/app/components/ui/feedback/ConfirmDialog";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { AdminAuthorizationProvider } from "@/adminPanel/AdminAuthorizationContext";
 
 /** Hosts the rebuilt Admin Panel while preserving the existing backend access contract. */
 export function AdminPanelShell({ children }: { children: React.ReactNode }) {
@@ -29,9 +30,13 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
   const [access, setAccess] = useState<
     "checking" | "allowed" | "denied" | "unavailable"
   >("checking");
+  const [permissions, setPermissions] = useState<readonly string[]>([]);
   const activeModule = useMemo(
-    () => findAdminModuleByRoute(adminModuleRegistry.all(), pathname),
-    [pathname],
+    () => findAdminModuleByRoute(
+      adminModuleRegistry.visible({ permissions: new Set(permissions) }),
+      pathname,
+    ),
+    [pathname, permissions],
   );
   useEffect(() => {
     if (sessionStatus === "loading") return;
@@ -43,11 +48,13 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
         : (session?.user?.email ?? null);
     setUserContext(userId);
   }, [session?.user, sessionStatus, setUserContext]);
-  useEffect(() => {
+  const loadAccess = useCallback(() => {
     let cancelled = false;
     void checkAdminAccessAction()
-      .then((allowed) => {
-        if (!cancelled) setAccess(allowed ? "allowed" : "denied");
+      .then((result) => {
+        if (cancelled) return;
+        setPermissions(result.permissions);
+        setAccess(result.allowed ? "allowed" : "denied");
       })
       .catch(() => {
         if (!cancelled) setAccess("unavailable");
@@ -56,10 +63,17 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, []);
+  useEffect(() => {
+    return loadAccess();
+  }, [loadAccess]);
+  const retryAccess = () => {
+    setAccess("checking");
+    loadAccess();
+  };
   if (access === "checking")
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-300">
-        Checking administrative access…
+        {t("admin.checkingAccess")}
       </div>
     );
   if (access === "denied")
@@ -67,16 +81,16 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
           <h1 className="text-xl font-semibold">
-            Administrative access denied
+            {t("admin.accessDenied")}
           </h1>
           <p className="text-sm text-slate-400">
-            Your account does not have a global administrative capability.
+            {t("admin.accessDeniedDescription")}
           </p>
           <Link
             href="/"
             className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
           >
-            Return to workspace
+            {t("admin.returnToWorkspace")}
           </Link>
         </div>
       </div>
@@ -86,23 +100,24 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
         <div className="max-w-md space-y-4 rounded-2xl border border-amber-500/30 bg-slate-900 p-8 text-center">
           <h1 className="text-xl font-semibold">
-            Administrative verification unavailable
+            {t("admin.accessUnavailable")}
           </h1>
           <p className="text-sm text-slate-400">
-            The service could not verify administrative access.
+            {t("admin.accessUnavailableDescription")}
           </p>
           <button
             type="button"
-            onClick={() => setAccess("checking")}
+            onClick={retryAccess}
             className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
           >
-            Retry
+            {t("admin.retry")}
           </button>
         </div>
       </div>
     );
   return (
-    <div className="admin-page flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
+    <AdminAuthorizationProvider permissions={permissions}>
+      <div className="admin-page flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
       <AdminPanelSidebar
         pathname={pathname}
         open={sidebarOpen}
@@ -123,6 +138,7 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <ConfirmDialogHost />
-    </div>
+      </div>
+    </AdminAuthorizationProvider>
   );
 }

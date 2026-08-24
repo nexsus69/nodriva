@@ -1,7 +1,7 @@
 "use client";
 
 /** Renders any administrative collection from typed column and row-action definitions. */
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
 export interface AdminTableColumn<TRow> {
   key: string;
@@ -17,6 +17,45 @@ export interface AdminTableAction<TRow> {
   hidden?: (row: TRow) => boolean;
   onClick: (row: TRow) => void;
 }
+
+/** Renders one stable row so pagination and sibling state changes do not repaint unchanged rows. */
+function AdminTableRowBase<TRow extends { id: string }>({
+  row,
+  columns,
+  actions,
+}: {
+  row: TRow;
+  columns: readonly AdminTableColumn<TRow>[];
+  actions?: readonly AdminTableAction<TRow>[];
+}) {
+  return (
+    <tr className="hover:bg-slate-50">
+      {columns.map((column) => (
+        <td key={column.key} className={`px-4 py-3 ${column.className ?? ""}`}>
+          {column.render(row)}
+        </td>
+      ))}
+      {actions && actions.length > 0 && (
+        <td className="px-4 py-3 text-right">
+          {actions
+            .filter((action) => !action.hidden?.(row))
+            .map((action) => (
+              <button
+                key={action.key}
+                type="button"
+                onClick={() => action.onClick(row)}
+                className={`mr-3 font-semibold ${action.tone === "danger" ? "text-rose-600" : action.tone === "primary" ? "text-indigo-600" : "text-slate-500"}`}
+              >
+                {action.label}
+              </button>
+            ))}
+        </td>
+      )}
+    </tr>
+  );
+}
+
+const AdminTableRow = memo(AdminTableRowBase) as typeof AdminTableRowBase;
 
 export function AdminTable<TRow extends { id: string }>({
   rows,
@@ -44,29 +83,12 @@ export function AdminTable<TRow extends { id: string }>({
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((row) => (
-            <tr key={row.id} className="hover:bg-slate-50">
-              {columns.map((column) => (
-                <td key={column.key} className={`px-4 py-3 ${column.className ?? ""}`}>
-                  {column.render(row)}
-                </td>
-              ))}
-              {actions && actions.length > 0 && (
-                <td className="px-4 py-3 text-right">
-                  {actions
-                    .filter((action) => !action.hidden?.(row))
-                    .map((action) => (
-                      <button
-                        key={action.key}
-                        type="button"
-                        onClick={() => action.onClick(row)}
-                        className={`mr-3 font-semibold ${action.tone === "danger" ? "text-rose-600" : action.tone === "primary" ? "text-indigo-600" : "text-slate-500"}`}
-                      >
-                        {action.label}
-                      </button>
-                    ))}
-                </td>
-              )}
-            </tr>
+            <AdminTableRow
+              key={row.id}
+              row={row}
+              columns={columns}
+              actions={actions}
+            />
           ))}
         </tbody>
       </table>

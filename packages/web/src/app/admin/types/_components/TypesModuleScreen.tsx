@@ -17,7 +17,6 @@ import type {
   TypeKind,
   TypeListItemDto,
 } from "@dashboard/core";
-import Link from "@/app/components/navigation/GuardedLink";
 import {
   Alert,
   EmptyState,
@@ -29,6 +28,9 @@ import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
+import { AdminPagination } from "@/adminPanel/components/AdminPagination";
+import { AdminTable, type AdminTableColumn } from "@/adminPanel/components/AdminTable";
+import { useAdminPagination } from "@/adminPanel/useAdminPagination";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import {
   FormRenderer,
@@ -38,6 +40,7 @@ import {
 } from "@/app/components/ui/forms";
 import { TYPE_DETAIL_SURFACE, TypeDetailDrawer } from "./TypeDetailDrawer";
 import { CREATE_TYPE_SURFACE } from "./typesSurfaceDefinitions";
+import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 
 type TypeForm = {
   typeKey: string;
@@ -75,6 +78,9 @@ function useTypesModule() {
   const kind: TypeKind = moduleState?.kind === "entity" ? "entity" : "node";
   const search =
     typeof moduleState?.search === "string" ? moduleState.search : "";
+  const createStep: "basics" | "configuration" = moduleState?.createStep === "configuration"
+    ? "configuration"
+    : "basics";
   const draftKey = `${moduleKey}:type-create:${kind}`;
   const formSurface = useAdminFormSurface<TypeForm>({
     moduleKey,
@@ -126,10 +132,12 @@ function useTypesModule() {
   }, [formSurface]);
 
   /** Closes the creation surface and discards its local draft. */
-  const closeCreate = useCallback(() => {
-    formSurface.close();
-    setFormError(null);
-  }, [formSurface]);
+  const closeCreate = useCallback(async () => {
+    if (await formSurface.close()) {
+      setFormError(null);
+      setModuleState(moduleKey, { createStep: "basics" });
+    }
+  }, [formSurface, setModuleState]);
 
   /** Validates and submits a new type using the canonical cache mutation path. */
   const submit = useCallback(
@@ -149,11 +157,12 @@ function useTypesModule() {
         });
         if (result.success) {
           formSurface.complete();
+          setModuleState(moduleKey, { createStep: "basics" });
           await load();
         } else setFormError(result.error ?? null);
       });
     },
-    [form, formSurface, kind, load],
+    [form, formSurface, kind, load, setModuleState],
   );
 
   return {
@@ -173,6 +182,9 @@ function useTypesModule() {
     formError,
     isPending,
     submit,
+    createStep,
+    setCreateStep: (step: "basics" | "configuration") =>
+      setModuleState(moduleKey, { createStep: step }),
   };
 }
 
@@ -209,7 +221,7 @@ function TypeTable({
   onOpen: (type: TypeListItemDto) => void;
 }) {
   const { t } = useAppLocale();
-  if (loading) return <TypeTableSkeleton />;
+  if (loading && types.length === 0) return <TypeTableSkeleton />;
   if (types.length === 0)
     return (
       <EmptyState
@@ -217,77 +229,27 @@ function TypeTable({
         description={t("admin.noTypesDescription")}
       />
     );
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] text-left text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <tr>
-            <th className="px-5 py-3">{t("admin.name")}</th>
-            <th className="px-5 py-3">{t("admin.typeKey")}</th>
-            {kind === "entity" && (
-              <th className="px-5 py-3">{t("admin.storageTable")}</th>
-            )}
-            <th className="px-5 py-3">{t("admin.fields")}</th>
-            <th className="px-5 py-3">{t("admin.version")}</th>
-            <th className="px-5 py-3">{t("admin.status")}</th>
-            <th className="px-5 py-3 text-right"> </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {types.map((type) => (
-            <tr key={type.id} className="transition hover:bg-slate-50">
-              <td className="px-5 py-4">
-                <p className="font-semibold text-slate-800">
-                  {type.name}
-                  {type.isSystem && (
-                    <span className="ml-2">
-                      <StatusBadge tone="warning">
-                        {t("admin.system")}
-                      </StatusBadge>
-                    </span>
-                  )}
-                </p>
-                {type.description && (
-                  <p className="mt-1 max-w-xs truncate text-xs text-slate-500">
-                    {type.description}
-                  </p>
-                )}
-              </td>
-              <td className="px-5 py-4 font-mono text-xs text-indigo-600">
-                {type.typeKey}
-              </td>
-              {kind === "entity" && (
-                <td className="px-5 py-4 font-mono text-xs text-slate-500">
-                  {type.storageTable ?? "—"}
-                </td>
-              )}
-              <td className="px-5 py-4 text-slate-600">{type.fieldCount}</td>
-              <td className="px-5 py-4 font-mono text-xs text-slate-500">
-                schema {type.currentSchemaVersion} · row {type.rowVersion}
-              </td>
-              <td className="px-5 py-4">
-                <StatusBadge tone={type.isActive ? "success" : "danger"}>
-                  {type.isActive ? t("admin.active") : t("admin.disabled")}
-                </StatusBadge>
-              </td>
-              <td className="px-5 py-4 text-right">
-                <Link
-                  href={`/admin/types/${kind}/${type.typeKey}`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onOpen(type);
-                  }}
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
-                >
-                  {t("admin.open")}
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const columns: AdminTableColumn<TypeListItemDto>[] = [
+    {
+      key: "name",
+      label: t("admin.name"),
+      render: (type: TypeListItemDto) => (
+        <div>
+          <p className="font-semibold text-slate-800">
+            {type.name}
+            {type.isSystem && <span className="ml-2"><StatusBadge tone="warning">{t("admin.system")}</StatusBadge></span>}
+          </p>
+          {type.description && <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{type.description}</p>}
+        </div>
+      ),
+    },
+    { key: "typeKey", label: t("admin.typeKey"), render: (type: TypeListItemDto) => type.typeKey },
+    ...(kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—" }] : []),
+    { key: "fields", label: t("admin.fields"), render: (type: TypeListItemDto) => type.fieldCount },
+    { key: "version", label: t("admin.version"), render: (type: TypeListItemDto) => `${type.currentSchemaVersion} · ${type.rowVersion}` },
+    { key: "status", label: t("admin.status"), render: (type: TypeListItemDto) => <StatusBadge tone={type.isActive ? "success" : "danger"}>{type.isActive ? t("admin.active") : t("admin.disabled")}</StatusBadge> },
+  ];
+  return <AdminTable rows={types} columns={columns} emptyLabel={t("admin.noTypes")} actions={[{ key: "open", label: t("admin.open"), tone: "primary", onClick: onOpen }]} />;
 }
 
 /** Builds the visual contract for creating either a node or an entity type. */
@@ -446,6 +408,8 @@ function CreateTypeDrawer({
   pending,
   onClose,
   onSubmit,
+  step,
+  onStepChange,
 }: {
   kind: TypeKind;
   form: TypeForm;
@@ -454,9 +418,10 @@ function CreateTypeDrawer({
   pending: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  step: "basics" | "configuration";
+  onStepChange: (step: "basics" | "configuration") => void;
 }) {
   const { t } = useAppLocale();
-  const [step, setStep] = useState<"basics" | "configuration">("basics");
   const definition = useMemo(
     () => buildTypeFormDefinition(kind, t, step),
     [kind, step, t],
@@ -464,7 +429,7 @@ function CreateTypeDrawer({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (step === "basics") {
       event.preventDefault();
-      setStep("configuration");
+      onStepChange("configuration");
       return;
     }
     onSubmit(event);
@@ -563,6 +528,8 @@ function CreateTypeDrawer({
 export default function AdminTypesPage() {
   const controller = useTypesModule();
   const { t } = useAppLocale();
+  const authorization = useAdminAuthorization();
+  const canCreate = authorization.permissions.has(`${controller.kind}_type.create`);
   const selectedResource = useAdminWorkspaceStore(
     (state) => state.selectedResource,
   );
@@ -581,10 +548,14 @@ export default function AdminTypesPage() {
       ].some((value) => value.toLowerCase().includes(needle)),
     );
   }, [controller.search, controller.types]);
+  const pagination = useAdminPagination({ total: filteredTypes.length, stateKey: `model.types.${controller.kind}` });
+  const visibleTypes = filteredTypes.slice(pagination.visibleRange.start, pagination.visibleRange.end);
   const countLabel = useMemo(
     () =>
-      `${filteredTypes.length} of ${controller.types.length} ${controller.kind} ${controller.types.length === 1 ? "type" : "types"}`,
-    [controller.kind, controller.types.length, filteredTypes.length],
+      t("admin.typeCount")
+        .replace("{visible}", String(filteredTypes.length))
+        .replace("{total}", String(controller.types.length)),
+    [controller.types.length, filteredTypes.length, t],
   );
   const selectedTypeResource =
     selectedResource?.moduleKey === "model.types" && selectedResource.resourceId
@@ -604,13 +575,15 @@ export default function AdminTypesPage() {
             {t("admin.typesPageDescription")}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={controller.openCreate}
-          className="bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-        >
-          {t("admin.createType")}
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={controller.openCreate}
+            className="bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+          >
+            {t("admin.createType")}
+          </button>
+        )}
       </header>
       {selectedTypeResource ? (
         <TypeDetailDrawer
@@ -688,7 +661,7 @@ export default function AdminTypesPage() {
           )}
           <TypeTable
             kind={controller.kind}
-            types={filteredTypes}
+            types={visibleTypes}
             loading={controller.loading}
             onOpen={(type) =>
               selectResource({
@@ -697,6 +670,7 @@ export default function AdminTypesPage() {
               })
             }
           />
+          {filteredTypes.length > pagination.pageSize && <AdminPagination page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />}
         </section>
       )}
       {controller.modalOpen && (
@@ -708,6 +682,8 @@ export default function AdminTypesPage() {
           pending={controller.isPending}
           onClose={controller.closeCreate}
           onSubmit={controller.submit}
+          step={controller.createStep}
+          onStepChange={controller.setCreateStep}
         />
       )}
     </div>

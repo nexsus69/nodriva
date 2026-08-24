@@ -1,3 +1,4 @@
+/** Implements user persistence and scoped projections for PostgreSQL deployments. */
 import type { UserRepository } from '../../application/ports/UserRepository.js';
 import { User } from '../../domain/models/User.js';
 import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
@@ -80,13 +81,14 @@ export class UserRepositoryPostgres implements UserRepository {
         u.created_at AS "createdAt",
         u.updated_at AS "updatedAt",
         COALESCE(
-          json_agg(
-            json_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name)
+          jsonb_agg(DISTINCT
+            jsonb_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name)
           ) FILTER (WHERE r.id IS NOT NULL), '[]'
         ) AS roles
       FROM users u
       LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id AND r.deleted_at IS NULL
+      LEFT JOIN node_scope_assignments sa ON sa.user_id = u.id AND sa.assignment_effect = 'allow'
+      LEFT JOIN roles r ON r.id IN (ur.role_id, sa.role_id) AND r.deleted_at IS NULL
       WHERE u.deleted_at IS NULL
       GROUP BY u.id
       ORDER BY u.email ASC
@@ -110,11 +112,12 @@ export class UserRepositoryPostgres implements UserRepository {
       )
       SELECT u.id, u.email, u.is_active AS "isActive", u.is_super_admin AS "isSuperAdmin",
              u.created_at AS "createdAt", u.updated_at AS "updatedAt",
-             COALESCE(json_agg(json_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name))
+             COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name))
                FILTER (WHERE r.id IS NOT NULL), '[]') AS roles
       FROM users u
       LEFT JOIN user_roles ur ON ur.user_id = u.id
-      LEFT JOIN roles r ON r.id = ur.role_id AND r.deleted_at IS NULL
+      LEFT JOIN node_scope_assignments sa ON sa.user_id = u.id AND sa.assignment_effect = 'allow'
+      LEFT JOIN roles r ON r.id IN (ur.role_id, sa.role_id) AND r.deleted_at IS NULL
       WHERE u.deleted_at IS NULL
         AND (
           (SELECT is_super_admin FROM actor) = true
@@ -177,10 +180,12 @@ export class UserRepositoryPostgres implements UserRepository {
     }
 
     const rolesQuery = `
-      SELECT r.id, r.role_key AS "roleKey", r.name
+      SELECT DISTINCT r.id, r.role_key AS "roleKey", r.name
       FROM roles r
-      INNER JOIN user_roles ur ON ur.role_id = r.id
-      WHERE ur.user_id = $1 AND r.deleted_at IS NULL
+      LEFT JOIN user_roles ur ON ur.role_id = r.id AND ur.user_id = $1
+      LEFT JOIN node_scope_assignments sa
+        ON sa.role_id = r.id AND sa.user_id = $1 AND sa.assignment_effect = 'allow'
+      WHERE r.deleted_at IS NULL AND (ur.user_id IS NOT NULL OR sa.user_id IS NOT NULL)
       ORDER BY r.name ASC
     `;
     const rolesRes = await this.executor.query<UserRoleRow>(rolesQuery, [id]);

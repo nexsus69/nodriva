@@ -5,6 +5,7 @@ import {
   type AdminSurfaceState,
 } from "./AdminWorkspaceStore";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
+import { useUnsavedChanges } from "@/app/navigation/NavigationBlocker";
 
 /** Defines how a form surface treats an unsaved draft when it is closed. */
 export type AdminFormClosePolicy = "preserve" | "discard";
@@ -23,6 +24,12 @@ export interface AdminFormSurfaceOptions<T extends object> {
   confirmDescription?: string;
   confirmConfirmLabel?: string;
   confirmCancelLabel?: string;
+}
+
+/** Identifies the operation restored together with a form surface. */
+export interface AdminFormSurfaceIdentity {
+  mode?: "create" | "edit";
+  resourceId?: string;
 }
 
 /** Exposes a reload-safe form surface with configurable draft cleanup semantics. */
@@ -50,48 +57,81 @@ export function useAdminFormSurface<T extends object>({
     () => ({ ...initialValues, ...(draft?.values as Partial<T> | undefined) }),
     [draft?.values, initialValues],
   );
+  const baseline = draft?.baseline ?? (initialValues as Record<string, unknown>);
   const isOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
   // A draft is dirty only when its values differ from the initial form state.
   // This lets a user type, clear the field, and close without a false warning.
-  const isDirty = draft !== undefined && !areValuesEqual(values, initialValues);
+  const isDirty = draft !== undefined && !areValuesEqual(values, baseline);
+  useUnsavedChanges(isDirty);
 
   /** Opens the configured modal or drawer without changing its draft. */
   const open = useCallback(
-    () => openSurface({ kind: surfaceKind, key: surfaceKey, moduleKey }),
+    (identity: AdminFormSurfaceIdentity = {}) =>
+      openSurface({
+        kind: surfaceKind,
+        key: surfaceKey,
+        moduleKey,
+        ...identity,
+      }),
     [moduleKey, openSurface, surfaceKey, surfaceKind],
   );
 
   /** Persists one or more form changes through the shared workspace store. */
   const setValues = useCallback(
     (updater: SetStateAction<T>) => {
+      const currentDraft = useAdminWorkspaceStore.getState().drafts[draftKey];
+      const currentValues = {
+        ...initialValues,
+        ...(currentDraft?.values as Partial<T> | undefined),
+      };
+      const currentBaseline = currentDraft?.baseline ??
+        (initialValues as Record<string, unknown>);
       const nextValues =
         typeof updater === "function"
-          ? (updater as (current: T) => T)(values)
+          ? (updater as (current: T) => T)(currentValues)
           : updater;
       saveDraft({
         key: draftKey,
         values: nextValues as Record<string, unknown>,
+        baseline: currentBaseline,
         formVersion,
         updatedAt: Date.now(),
       });
     },
-    [draftKey, formVersion, saveDraft, values],
+    [draftKey, formVersion, initialValues, saveDraft],
+  );
+
+  /** Starts an edit draft with an explicit record baseline. */
+  const initialize = useCallback(
+    (nextValues: T) => {
+      saveDraft({
+        key: draftKey,
+        values: nextValues as Record<string, unknown>,
+        baseline: nextValues as Record<string, unknown>,
+        formVersion,
+        updatedAt: Date.now(),
+      });
+    },
+    [draftKey, formVersion, saveDraft],
   );
 
   /** Closes the surface and applies the configured draft cleanup policy. */
   const close = useCallback(async () => {
-    if (closePolicy === "discard" && isDirty) {
-      if (
-        confirmOnDiscard &&
-        !(await requestConfirmation({
-          title: confirmTitle,
-          description: confirmDescription,
-          confirmLabel: confirmConfirmLabel,
-          cancelLabel: confirmCancelLabel,
-          tone: "danger",
-        }))
-      )
-        return false;
+    if (closePolicy === "discard") {
+      if (isDirty) {
+        if (
+          confirmOnDiscard &&
+          !(await requestConfirmation({
+            title: confirmTitle,
+            description: confirmDescription,
+            confirmLabel: confirmConfirmLabel,
+            cancelLabel: confirmCancelLabel,
+            tone: "danger",
+          }))
+        ) {
+          return false;
+        }
+      }
       removeDraft(draftKey);
     }
     closeSurface();
@@ -118,7 +158,10 @@ export function useAdminFormSurface<T extends object>({
   return {
     values,
     setValues,
+    initialize,
     isOpen,
+    mode: isOpen ? surface?.mode : undefined,
+    resourceId: isOpen ? surface?.resourceId : undefined,
     isDirty,
     open,
     close,

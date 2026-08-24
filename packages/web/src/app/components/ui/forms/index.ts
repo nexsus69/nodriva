@@ -1,6 +1,10 @@
+/** Exposes the reusable form controls and definition contracts. */
 export { DynamicFieldsForm } from "./DynamicFieldsForm";
 export type { DynamicField, DynamicFieldsFormProps } from "./DynamicFieldsForm";
 export { RelationPicker } from "./RelationPicker";
+export { CustomSelect } from "./CustomSelect";
+export { NodeTreeSelect, buildFormTree } from "./NodeTreeSelect";
+export type { FormTreeBranch } from "./NodeTreeSelect";
 export { RelationValue } from "./RelationValue";
 export { EnumOptionModal } from "./EnumOptionModal";
 export type {
@@ -16,9 +20,11 @@ export type {
   FormFieldRule,
   FormFieldSchema,
   FormLabelPosition,
+  FormNodeTreeLabels,
   FormOption,
   FormSectionDefinition,
   FormLayoutDefinition,
+  FormTreeNodeOption,
   FormValidationMessages,
 } from "./FormRenderer";
 export type { FormRendererProps } from "./FormRenderer";

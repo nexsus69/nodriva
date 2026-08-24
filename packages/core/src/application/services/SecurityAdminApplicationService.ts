@@ -1,3 +1,4 @@
+/** Orchestrates role and scope administration while preserving authorization and audit invariants. */
 import type { SecurityRepository } from '../ports/SecurityRepository.js';
 import type { AuditPort } from '../ports/AuditPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
@@ -14,11 +15,13 @@ import type {
 } from '../dto/SecurityAdminDtos.js';
 import type {
   CreateRoleCommand,
+  UpdateRoleMetadataCommand,
   UpdateRolePermissionsCommand,
+  UpdateRoleCommand,
   CreateScopeAssignmentCommand,
   DeleteScopeAssignmentCommand,
   UpdateScopeAssignmentCommand} from '../commands/SecurityAdminCommands.js';
-import { CreateRoleCommandSchema, UpdateRolePermissionsCommandSchema, CreateScopeAssignmentCommandSchema, DeleteScopeAssignmentCommandSchema, UpdateScopeAssignmentCommandSchema,
+import { CreateRoleCommandSchema, UpdateRoleCommandSchema, UpdateRoleMetadataCommandSchema, UpdateRolePermissionsCommandSchema, CreateScopeAssignmentCommandSchema, DeleteScopeAssignmentCommandSchema, UpdateScopeAssignmentCommandSchema,
 } from '../commands/SecurityAdminCommands.js';
 import {
   RoleNotFoundError,
@@ -128,6 +131,72 @@ export class SecurityAdminApplicationService {
         null,
         null,
         { permissionIds: v.permissionIds }
+      );
+    });
+  }
+
+  async updateRoleMetadata(cmd: UpdateRoleMetadataCommand): Promise<void> {
+    const v = this.validateCommand(UpdateRoleMetadataCommandSchema, cmd, 'updating role metadata');
+    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
+    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
+    return await this.transactionPort.runInTransaction(async () => {
+      const role = await this.securityRepository.findRoleByKey(v.roleKey);
+      if (!role) throw new RoleNotFoundError(v.roleKey);
+      if (role.isSystem) throw new SystemRoleForbiddenError(role.roleKey);
+      if (role.rowVersion !== v.expectedRowVersion) throw new RowVersionMismatchError(v.expectedRowVersion, role.rowVersion);
+      await this.securityRepository.updateRole(new Role(role.id, role.roleKey, v.name, v.description ?? '', role.isSystem, role.rowVersion + 1, role.createdAt, new Date(), role.deletedAt));
+      await this.auditPort.record(v.actorUserId, 'security.update_role', 'role', role.id, null, { name: role.name, description: role.description }, { name: v.name, description: v.description ?? '' });
+    });
+  }
+
+  /** Updates role metadata and permissions in the same transaction and audit event. */
+  async updateRole(cmd: UpdateRoleCommand): Promise<void> {
+    const v = this.validateCommand(UpdateRoleCommandSchema, cmd, 'updating role');
+    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
+    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
+
+    return await this.transactionPort.runInTransaction(async () => {
+      const role = await this.securityRepository.findRoleByKey(v.roleKey);
+      if (!role) throw new RoleNotFoundError(v.roleKey);
+      if (role.isSystem) throw new SystemRoleForbiddenError(role.roleKey);
+      if (role.rowVersion !== v.expectedRowVersion) {
+        throw new RowVersionMismatchError(v.expectedRowVersion, role.rowVersion);
+      }
+      const previousPermissionKeys = await this.securityRepository.listRolePermissionKeys(role.id);
+      const updated = new Role(
+        role.id,
+        role.roleKey,
+        v.name,
+        v.description ?? '',
+        role.isSystem,
+        role.rowVersion + 1,
+        role.createdAt,
+        new Date(),
+        role.deletedAt,
+      );
+      await this.securityRepository.updateRole(updated);
+      await this.securityRepository.updateRolePermissions(role.id, v.permissionIds);
+      await this.reconcileDelegatedScopes(v.actorUserId, 'role changed');
+      await this.auditPort.record(
+        v.actorUserId,
+        'security.update_role',
+        'role',
+        role.id,
+        null,
+        {
+          roleKey: role.roleKey,
+          name: role.name,
+          description: role.description,
+          permissionKeys: previousPermissionKeys,
+          rowVersion: role.rowVersion,
+        },
+        {
+          roleKey: updated.roleKey,
+          name: updated.name,
+          description: updated.description,
+          permissionIds: v.permissionIds,
+          rowVersion: updated.rowVersion,
+        },
       );
     });
   }

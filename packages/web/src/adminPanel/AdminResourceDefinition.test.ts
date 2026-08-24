@@ -1,5 +1,6 @@
+/** Verifies reusable administrative resource definitions and validation. */
 import { describe, expect, it, vi } from "vitest";
-import { defineAdminResource } from "./AdminResourceDefinition";
+import { canUseAdminResourceOperation, defineAdminResource } from "./AdminResourceDefinition";
 
 type Row = { id: string; name: string };
 
@@ -50,5 +51,25 @@ describe("AdminResourceDefinition", () => {
         },
       }),
     ).toThrow("duplicate list columns");
+  });
+
+  it("enforces declared operation permissions through one evaluator", () => {
+    const resource = defineAdminResource<Row>({
+      key: "secured",
+      moduleKey: "secured.module",
+      label: "Secured",
+      description: "Secured resource",
+      permissions: { read: ["resource.read"], update: ["resource.update"] },
+      list: {
+        load: async () => [],
+        columns: [],
+        emptyLabel: "Empty",
+        loadingLabel: "Loading",
+      },
+    });
+
+    expect(canUseAdminResourceOperation(resource, "read", new Set(["resource.read"]))).toBe(true);
+    expect(canUseAdminResourceOperation(resource, "update", new Set(["resource.read"]))).toBe(false);
+    expect(canUseAdminResourceOperation(resource, "create", new Set())).toBe(true);
   });
 });

@@ -12,6 +12,8 @@ const changedFiles = process.argv.slice(2).length > 0
 const missing = [];
 for (const file of changedFiles) {
   if (!sourcePattern.test(file)) continue;
+  // Deleted or renamed sources may still appear in a commit-range comparison.
+  if (!fs.existsSync(file)) continue;
   const source = fs.readFileSync(file, 'utf8');
   const header = source.split('\n').slice(0, 40).join('\n');
   if (!header.includes('/**') && !header.includes('// Purpose:')) missing.push(file);

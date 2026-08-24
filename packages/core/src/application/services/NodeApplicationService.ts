@@ -16,6 +16,27 @@ import { CreateNodeCommandSchema, UpdateNodeCommandSchema, MoveNodeCommandSchema
 import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError, NodeTypeNotFoundError, NodePathCollisionError, NodeCyclicMoveError } from '../../domain/errors/DomainErrors.js';
 
+/** Serializes the complete node state used by before/after audit snapshots. */
+function nodeAuditSnapshot(node: Node): Record<string, unknown> {
+  return {
+    id: node.id,
+    parentId: node.parentId,
+    path: node.path,
+    pathLabel: node.pathLabel,
+    depth: node.depth,
+    nodeTypeId: node.nodeTypeId,
+    name: node.name,
+    description: node.description,
+    rowVersion: node.rowVersion,
+    createdAt: node.createdAt.toISOString(),
+    updatedAt: node.updatedAt.toISOString(),
+    deletedAt: node.deletedAt?.toISOString() ?? null,
+    createdBy: node.createdBy,
+    updatedBy: node.updatedBy,
+    payload: node.payload,
+  };
+}
+
 export class NodeApplicationService {
   constructor(
     private readonly nodeRepository: NodeRepository,
@@ -133,16 +154,7 @@ export class NodeApplicationService {
         node.id,
         node.id,
         null,
-        {
-          id: node.id,
-          name: node.name,
-          nodeTypeId: node.nodeTypeId,
-          nodeTypeKey: validatedCmd.nodeTypeKey,
-          parentId: node.parentId,
-          path: node.path,
-          pathLabel: node.pathLabel,
-          depth: node.depth,
-        }
+        nodeAuditSnapshot(node)
       );
 
       return node;
@@ -343,8 +355,8 @@ export class NodeApplicationService {
         'node',
         node.id,
         node.id,
-        { name: node.name, description: node.description },
-        { name: updated.name, description: updated.description }
+        nodeAuditSnapshot(node),
+        nodeAuditSnapshot(updatedWithPayload)
       );
 
       return updatedWithPayload;

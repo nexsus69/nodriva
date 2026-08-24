@@ -1,7 +1,7 @@
 "use client";
 
 /** Composes the reusable type workspace from independent tabs and surfaces. */
-import { type FormEvent } from "react";
+import { useMemo, type FormEvent } from "react";
 import type { FieldDto, TypeKind } from "@dashboard/core";
 import { Alert, Skeleton } from "@/app/components/ui/feedback";
 import { FormRenderer } from "@/app/components/ui/forms";
@@ -9,8 +9,9 @@ import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
 import { useAdminSurface } from "@/adminPanel/useAdminSurface";
+import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { buildMetadataDefinition, EMPTY_FIELD } from "./typeDetailModel";
+import { buildMetadataDefinition, EMPTY_FIELD, type FieldForm } from "./typeDetailModel";
 import { useTypeDetailController } from "./useTypeDetailController";
 import { TypeFieldDialog } from "./TypeFieldDialog";
 import { TypeFieldTable } from "./TypeFieldTable";
@@ -46,19 +47,58 @@ export function TypeDetailDrawer({
   const controller = useTypeDetailController(kind, typeKey, t);
   const surface = useAdminSurface(TYPE_DETAIL_SURFACE);
   const activeTab = surface.activeTab;
-  const fieldDialogOpen = surface.isDialogOpen;
+  const metadataInitialValues = useMemo(
+    () => ({
+      name: controller.detail?.name ?? "",
+      description: controller.detail?.description ?? "",
+    }),
+    [controller.detail?.description, controller.detail?.name],
+  );
+  const metadataForm = useAdminFormSurface<{ name: string; description: string }>({
+    moduleKey: "model.types",
+    surfaceKey: `type-metadata:${kind}:${typeKey}`,
+    surfaceKind: "drawer",
+    draftKey: `admin.types.metadata:${kind}:${typeKey}`,
+    formVersion: "1",
+    initialValues: metadataInitialValues,
+    closePolicy: "discard",
+    confirmOnDiscard: true,
+    confirmTitle: t("admin.discardTitle"),
+    confirmDescription: t("admin.discardDescription"),
+    confirmConfirmLabel: t("admin.discardChanges"),
+    confirmCancelLabel: t("admin.keepEditing"),
+  });
+  const fieldForm = useAdminFormSurface<FieldForm>({
+    moduleKey: "model.types",
+    surfaceKey: `type-field:${kind}:${typeKey}`,
+    surfaceKind: "modal",
+    draftKey: `admin.types.field:${kind}:${typeKey}`,
+    formVersion: "1",
+    initialValues: EMPTY_FIELD,
+    closePolicy: "discard",
+    confirmOnDiscard: true,
+    confirmTitle: t("admin.discardTitle"),
+    confirmDescription: t("admin.discardDescription"),
+    confirmConfirmLabel: t("admin.discardChanges"),
+    confirmCancelLabel: t("admin.keepEditing"),
+  });
+  const fieldDialogOpen = surface.isDialogOpen && fieldForm.isOpen;
   const editingFieldId = surface.editingFieldId;
-  const field = surface.draft;
+  const field = fieldForm.values;
   const selectResource = useAdminWorkspaceStore(
     (state) => state.selectResource,
   );
   const setActiveTab = (tab: "settings" | "fields") => surface.setTab(tab);
 
-  const close = () => {
+  const close = async () => {
+    if (!(await metadataForm.close())) return;
+    if (!(await fieldForm.close())) return;
     selectResource(null);
     onClose();
   };
   const openAddField = () => {
+    fieldForm.initialize(EMPTY_FIELD);
+    fieldForm.open();
     surface.update({
       editingFieldId: null,
       draft: EMPTY_FIELD,
@@ -66,34 +106,48 @@ export function TypeDetailDrawer({
     });
   };
   const openEditField = (item: FieldDto) => {
+    const nextField: FieldForm = {
+      fieldKey: item.fieldKey,
+      label: item.label,
+      columnName: item.columnName,
+      dataType: item.dataType,
+      isRequired: item.isRequired,
+      isUnique: item.isUnique,
+      isIndexed: item.isIndexed,
+      relationTargetDomain: (item.relationTargetDomain ?? "") as FieldForm["relationTargetDomain"],
+      relationTargetTypeKey: item.relationTargetTypeKey ?? "",
+      enumMode: (item.enumMode ?? "") as FieldForm["enumMode"],
+      encryptionMode: item.encryptionMode,
+      defaultValueText: item.defaultValueText ?? "",
+    };
+    fieldForm.initialize(nextField);
+    fieldForm.open();
     surface.update({
       editingFieldId: item.id,
-      draft: {
-        fieldKey: item.fieldKey,
-        label: item.label,
-        columnName: item.columnName,
-        dataType: item.dataType,
-        isRequired: item.isRequired,
-        isUnique: item.isUnique,
-        isIndexed: item.isIndexed,
-        relationTargetDomain: item.relationTargetDomain ?? "",
-        relationTargetTypeKey: item.relationTargetTypeKey ?? "",
-        enumMode: item.enumMode ?? "",
-        encryptionMode: item.encryptionMode,
-        defaultValueText: item.defaultValueText ?? "",
-      },
+      draft: nextField,
       isDialogOpen: true,
     });
   };
   const submitField = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (await controller.saveField(field, editingFieldId)) {
+      fieldForm.complete();
       surface.update({
         isDialogOpen: false,
         editingFieldId: null,
         draft: EMPTY_FIELD,
       });
     }
+  };
+
+  /** Closes the nested field form through the same confirmation lifecycle as every form. */
+  const closeField = async () => {
+    if (!(await fieldForm.close())) return;
+    surface.update({
+      isDialogOpen: false,
+      editingFieldId: null,
+      draft: EMPTY_FIELD,
+    });
   };
 
   const surfaceDefinition = {
@@ -169,18 +223,22 @@ export function TypeDetailDrawer({
             activeTab === "settings" && (
               <FormRenderer
                 definition={buildMetadataDefinition(t)}
-                values={controller.metadata}
+                values={metadataForm.values}
                 onChange={(name, value) =>
-                  controller.setMetadata((current) => ({
+                  metadataForm.setValues((current) => ({
                     ...current,
                     [name]: String(value),
                   }))
                 }
-                onSubmit={controller.saveMetadata}
+                onSubmit={(event) => {
+                  void controller.saveMetadata(event, metadataForm.values).then((saved) => {
+                    if (saved) metadataForm.complete();
+                  });
+                }}
                 isPending={controller.pending}
                 submitLabel={t("admin.saveChanges")}
                 cancelLabel={t("admin.cancel")}
-                onCancel={close}
+                onCancel={() => void close()}
               />
             )}
           {!controller.loading &&
@@ -205,16 +263,10 @@ export function TypeDetailDrawer({
           pending={controller.pending}
           t={t}
           onChange={(name, value) =>
-            surface.update({ draft: { ...field, [name]: value } })
+            fieldForm.setValues((current) => ({ ...current, [name]: value }))
           }
           onSubmit={submitField}
-          onClose={() => {
-            surface.update({
-              isDialogOpen: false,
-              editingFieldId: null,
-              draft: EMPTY_FIELD,
-            });
-          }}
+          onClose={() => void closeField()}
         />
       )}
     </AdminSurfaceHost>

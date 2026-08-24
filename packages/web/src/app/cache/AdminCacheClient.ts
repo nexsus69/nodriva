@@ -134,6 +134,10 @@ export class AdminCacheClient {
     this.write(['roles', 'role'], () => securityActions.createRoleAction(cmd));
   public updateRolePermissions = (cmd: Parameters<typeof securityActions.updateRolePermissionsAction>[0]) =>
     this.write(['roles', 'role'], () => securityActions.updateRolePermissionsAction(cmd));
+  public updateRoleMetadata = (cmd: Parameters<typeof securityActions.updateRoleMetadataAction>[0]) =>
+    this.write(['roles', 'role'], () => securityActions.updateRoleMetadataAction(cmd));
+  public updateRole = (cmd: Parameters<typeof securityActions.updateRoleAction>[0]) =>
+    this.write(['roles', 'role'], () => securityActions.updateRoleAction(cmd));
   public listPermissions = () => this.read('permissions', securityActions.listPermissionsAction);
   public listScopeAssignments = () => this.read('scope-assignments', securityActions.listScopeAssignmentsAction);
   public createScopeAssignment = (cmd: Parameters<typeof securityActions.createScopeAssignmentAction>[0]) =>

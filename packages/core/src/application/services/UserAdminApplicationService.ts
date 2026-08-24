@@ -1,3 +1,4 @@
+/** Orchestrates user lifecycle operations within the actor's manageable scopes. */
 import type { UserRepository } from '../ports/UserRepository.js';
 import type { AuditPort } from '../ports/AuditPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
@@ -49,10 +50,15 @@ export class UserAdminApplicationService {
   async createUser(cmd: CreateUserCommand): Promise<User> {
     const v = this.validateCommand(CreateUserCommandSchema, cmd, 'creating user');
     await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.create', null);
-    // An identity has no intrinsic node scope in the current data model.
-    // Until scoped ownership is modelled explicitly, creating identities is a
-    // global operation and must fail closed for non-super-admins.
+    // This legacy path is reserved for the exceptional superadmin identity.
+    // Every ordinary identity must be created with its first scoped grant by
+    // ScopedUserProvisioningService, so no active user can lack a perimeter.
     await this.assertActorIsSuperAdmin(v.actorUserId, 'create users');
+    if (!v.isSuperAdmin) {
+      throw new ForbiddenError('Ordinary users must be created together with at least one role scope.', {
+        actorUserId: v.actorUserId,
+      });
+    }
 
     // user_roles grants global administrative capabilities. Local data access
     // must instead be granted through node_scope_assignments, where delegation

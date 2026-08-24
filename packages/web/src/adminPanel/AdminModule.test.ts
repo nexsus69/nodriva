@@ -67,4 +67,30 @@ describe("AdminModuleRegistry", () => {
       registry.visible({ permissions: new Set(["entity_type.read"]) }),
     ).toHaveLength(1);
   });
+
+  it("uses unique routes and permission keys from the bootstrap catalogue", () => {
+    const permissionKeys = new Set([
+      "audit.access",
+      "node.restore",
+      "entity.restore",
+      "node_type.read",
+      "entity_type.read",
+      "user.read",
+      "role.read",
+      "scope.read",
+      "system.config.read",
+    ]);
+    const visit = (modules: typeof ADMIN_MODULES): string[] =>
+      modules.flatMap((module) => [
+        ...(module.route ? [module.route] : []),
+        ...(module.requiredPermissions ?? []).map((permission) => {
+          expect(permissionKeys.has(permission), permission).toBe(true);
+          return "";
+        }),
+        ...(module.children ? visit(module.children as typeof ADMIN_MODULES) : []),
+      ]).filter(Boolean);
+    const routes = visit(ADMIN_MODULES);
+
+    expect(new Set(routes).size).toBe(routes.length);
+  });
 });

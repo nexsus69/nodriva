@@ -1,3 +1,4 @@
+/** Defines transport-safe projections returned by the security administration use cases. */
 export interface PermissionDto {
   id: string;
   permissionKey: string;
@@ -64,6 +65,22 @@ export interface CreateRoleUiCommand {
 
 export interface UpdateRolePermissionsUiCommand {
   roleKey: string;
+  permissionIds: string[];
+  expectedRowVersion: number;
+}
+
+export interface UpdateRoleMetadataUiCommand {
+  roleKey: string;
+  name: string;
+  description?: string;
+  expectedRowVersion: number;
+}
+
+/** Updates all editable role state through one atomic application command. */
+export interface UpdateRoleUiCommand {
+  roleKey: string;
+  name: string;
+  description?: string;
   permissionIds: string[];
   expectedRowVersion: number;
 }

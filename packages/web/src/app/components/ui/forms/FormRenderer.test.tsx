@@ -1,3 +1,4 @@
+/** Verifies the shared form renderer and its validation presentation. */
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { FormRenderer } from "./FormRenderer";
@@ -26,6 +27,29 @@ describe("FormRenderer", () => {
     expect(markup).toContain('id="form-field-email"');
     expect(markup).toContain('for="form-field-isAdmin"');
     expect(markup).toContain('id="form-field-isAdmin"');
+  });
+
+  it("renders boolean descriptions and preserves read-only state", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[
+          {
+            name: "permission:read",
+            type: "boolean",
+            label: "Read data",
+            description: "entity.read",
+            disabled: true,
+          },
+        ]}
+        values={{ "permission:read": true }}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Read data");
+    expect(markup).toContain("entity.read");
+    expect(markup).toContain('disabled=""');
   });
 
   it("renders custom children and pending submit state", () => {
@@ -209,5 +233,61 @@ describe("FormRenderer", () => {
     expect(markup).toContain('id="relation-search-owner"');
     expect(markup).toContain('required=""');
     expect(markup.match(/Owner/g)?.length).toBe(1);
+  });
+
+  it("renders node selection from the shared form definition", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[{
+          name: "nodeId",
+          type: "nodeTree",
+          label: "Node",
+          required: true,
+          nodes: [{
+            id: "root",
+            parentId: null,
+            name: "Root",
+            pathLabel: "Root",
+          }],
+          labels: {
+            instruction: "Choose a node",
+            empty: "No nodes",
+            dropPlaceholder: "Drop here",
+            expand: "Expand",
+            collapse: "Collapse",
+          },
+        }]}
+        values={{ nodeId: "root" }}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain('data-node-tree-field="nodeId"');
+    expect(markup).toContain('data-selected-node-id="root"');
+    expect(markup).toContain("Root");
+  });
+
+  it("rejects duplicate node IDs in a tree field definition", () => {
+    expect(() => defineForm({
+      key: "invalid-tree",
+      version: "1",
+      fields: [{
+        name: "nodeId",
+        type: "nodeTree",
+        label: "Node",
+        nodes: [
+          { id: "same", parentId: null, name: "One", pathLabel: "One" },
+          { id: "same", parentId: null, name: "Two", pathLabel: "Two" },
+        ],
+        labels: {
+          instruction: "Choose",
+          empty: "Empty",
+          dropPlaceholder: "Drop",
+          expand: "Expand",
+          collapse: "Collapse",
+        },
+      }],
+    })).toThrow("must declare unique node IDs");
   });
 });

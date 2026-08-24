@@ -3,7 +3,6 @@
 /** Composes the role collection from the reusable resource definition and controller. */
 import type { FormEvent } from "react";
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
@@ -15,6 +14,10 @@ import {
   ROLE_CREATE_SURFACE,
   type RoleForm,
 } from "./roleResource";
+import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
+import { RoleDetailScreen } from "./RoleDetailScreen";
+import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { canUseAdminResourceOperation } from "@/adminPanel/AdminResourceDefinition";
 
 const EMPTY_ROLE: RoleForm = {
   roleKey: "",
@@ -25,11 +28,14 @@ const EMPTY_ROLE: RoleForm = {
 
 /** Renders the complete role list and create flow without owning resource lifecycle state. */
 export function RolesModuleScreen() {
-  const router = useRouter();
   const { t } = useAppLocale();
+  const selectedResource = useAdminWorkspaceStore((state) => state.selectedResource);
+  const selectResource = useAdminWorkspaceStore((state) => state.selectResource);
+  const authorization = useAdminAuthorization();
   const resource = useMemo(() => createRoleResource(t), [t]);
   const formDefinition = useMemo(() => createRoleForm(t), [t]);
   const controller = useAdminResourceController(resource, undefined);
+  const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const formSurface = useAdminFormSurface<RoleForm>({
     moduleKey: resource.moduleKey,
     surfaceKey: ROLE_CREATE_SURFACE.key,
@@ -60,17 +66,22 @@ export function RolesModuleScreen() {
     rows: controller.rows,
     loading: controller.loading,
     error: controller.error,
-    createLabel: t("admin.createRole"),
-    onCreate: formSurface.open,
+    createLabel: canCreate ? t("admin.createRole") : undefined,
+    onCreate: canCreate ? () => formSurface.open({ mode: "create" }) : undefined,
+    pagination: { stateKey: resource.moduleKey },
     actions: [
       {
         key: "open",
         label: t("admin.open"),
         tone: "primary",
-        onClick: (row) => router.push(`/admin/security/roles/${row.roleKey}`),
+        onClick: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.roleKey }),
       },
     ],
   };
+
+  if (selectedResource?.moduleKey === resource.moduleKey && selectedResource.resourceId) {
+    return <RoleDetailScreen roleKey={selectedResource.resourceId} onClose={() => selectResource(null)} />;
+  }
 
   return (
     <>

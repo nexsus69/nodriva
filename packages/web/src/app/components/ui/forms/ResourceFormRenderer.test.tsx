@@ -1,3 +1,4 @@
+/** Verifies resource metadata to shared form-definition conversion. */
 import { describe, expect, it } from 'vitest';
 import { buildResourceFormSchema } from './ResourceFormRenderer';
 

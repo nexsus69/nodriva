@@ -1,3 +1,4 @@
+/** Verifies entity use-case invariants independently from persistence adapters. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { EntityApplicationService } from './EntityApplicationService.js';
@@ -290,6 +291,21 @@ describe('EntityApplicationService', () => {
       });
       expect(mockEntityRepository.update).toHaveBeenCalledWith(updated);
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalledWith(updated, 'updated', cmd.actorUserId);
+      expect(mockAuditPort.record).toHaveBeenCalledWith(
+        cmd.actorUserId,
+        'entity.update',
+        'entity',
+        existingEntity.id,
+        existingEntity.parentNodeId,
+        expect.objectContaining({
+          name: existingEntity.name,
+          payload: existingEntity.payload,
+        }),
+        expect.objectContaining({
+          name: updated.name,
+          payload: updated.payload,
+        }),
+      );
       expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
         { resourceType: 'entity', resourceId: existingEntity.id },
         cmd.actorUserId,

@@ -79,6 +79,23 @@ export interface FormLayoutDefinition {
   gap?: "compact" | "normal" | "spacious";
 }
 
+/** Describes one node in a definition-driven hierarchical selector. */
+export interface FormTreeNodeOption {
+  id: string;
+  parentId: string | null;
+  name: string;
+  pathLabel: string;
+}
+
+/** Provides localized copy required by the reusable node tree control. */
+export interface FormNodeTreeLabels {
+  instruction: string;
+  empty: string;
+  dropPlaceholder: string;
+  expand: string;
+  collapse: string;
+}
+
 /** Describes a complete form independently from the component that renders it. */
 export interface FormDefinition<TValues = Record<string, unknown>> {
   key: string;
@@ -108,6 +125,14 @@ export function defineForm<TValues = Record<string, unknown>>(
         `Field "${field.name}" must not declare required as a validation rule.`,
       );
     }
+    if (field.type === "nodeTree") {
+      const nodeIds = field.nodes.map((node) => node.id);
+      if (new Set(nodeIds).size !== nodeIds.length) {
+        throw new Error(
+          `Field "${field.name}" must declare unique node IDs.`,
+        );
+      }
+    }
   }
   return definition;
 }
@@ -120,6 +145,8 @@ interface FormFieldBase {
   label: string;
   description?: string;
   required?: boolean;
+  /** Prevents editing while preserving the field's value in a read-only form. */
+  disabled?: boolean;
   validation?: FormFieldValidation;
   layout?: FormFieldLayout;
 }
@@ -133,6 +160,12 @@ export type FormFieldSchema = FormFieldBase &
         autoComplete?: string;
       }
     | { type: "select"; options: readonly FormOption[] }
+    | {
+        type: "nodeTree";
+        nodes: readonly FormTreeNodeOption[];
+        labels: FormNodeTreeLabels;
+        interaction?: "drag-drop" | "direct" | "both";
+      }
     | {
         type: "relation";
         resourceType: "node" | "entity";

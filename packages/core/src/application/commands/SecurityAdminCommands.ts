@@ -17,6 +17,26 @@ export const UpdateRolePermissionsCommandSchema = z.object({
 });
 export type UpdateRolePermissionsCommand = z.infer<typeof UpdateRolePermissionsCommandSchema>;
 
+export const UpdateRoleMetadataCommandSchema = z.object({
+  roleKey: z.string().min(2).max(100),
+  name: z.string().min(2).max(150),
+  description: z.string().max(500).optional(),
+  expectedRowVersion: z.number().int().min(1),
+  actorUserId: z.string().uuid(),
+});
+export type UpdateRoleMetadataCommand = z.infer<typeof UpdateRoleMetadataCommandSchema>;
+
+/** Validates the atomic metadata and permission update for one role. */
+export const UpdateRoleCommandSchema = z.object({
+  roleKey: z.string().min(2).max(100),
+  name: z.string().min(2).max(150),
+  description: z.string().max(500).optional(),
+  permissionIds: z.array(z.string().uuid()),
+  expectedRowVersion: z.number().int().min(1),
+  actorUserId: z.string().uuid(),
+});
+export type UpdateRoleCommand = z.infer<typeof UpdateRoleCommandSchema>;
+
 export const CreateScopeAssignmentCommandSchema = z.object({
   userId: z.string().uuid(),
   nodeId: z.string().uuid(),

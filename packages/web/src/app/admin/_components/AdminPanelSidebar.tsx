@@ -10,6 +10,7 @@ import {
 } from "@/adminPanel/AdminModule";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 
 function ModuleTree({
   modules,
@@ -100,7 +101,11 @@ export function AdminPanelSidebar({
   onClose: () => void;
 }) {
   const { t } = useAppLocale();
-  const modules = adminModuleRegistry.all();
+  const authorization = useAdminAuthorization();
+  const modules = useMemo(
+    () => adminModuleRegistry.visible(authorization),
+    [authorization],
+  );
   const activeModuleKey = useAdminWorkspaceStore(
     (state) => state.activeModuleKey,
   );
@@ -136,7 +141,7 @@ export function AdminPanelSidebar({
       {open && (
         <button
           type="button"
-          aria-label="Close administration menu"
+          aria-label={t("admin.closeMenu")}
           onClick={onClose}
           className="fixed inset-0 z-30 bg-slate-950/25 lg:hidden"
         />
@@ -145,7 +150,7 @@ export function AdminPanelSidebar({
         className={`fixed inset-y-0 left-0 z-40 flex w-[21rem] -translate-x-full border-r border-slate-200 bg-white shadow-xl transition-transform lg:static lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : ""}`}
       >
         <nav
-          aria-label="Administration modules"
+          aria-label={t("admin.navigation")}
           className="flex w-16 shrink-0 flex-col items-center bg-slate-950 py-4 text-slate-400"
         >
           <Link
@@ -162,7 +167,7 @@ export function AdminPanelSidebar({
               const content = (
                 <span
                   className={`flex h-10 w-10 items-center justify-center text-lg transition ${selected ? "bg-indigo-500 text-white" : "hover:bg-white/10 hover:text-white"}`}
-                  title={module.label}
+                  title={t(module.labelKey ?? module.label)}
                 >
                   {module.icon === "dashboard"
                     ? "⌂"
@@ -239,7 +244,7 @@ export function AdminPanelSidebar({
             </p>
           </div>
           <nav
-            aria-label={`${activeRoot ? t(activeRoot.labelKey ?? activeRoot.label) : t("admin.panel")} sections`}
+            aria-label={`${activeRoot ? t(activeRoot.labelKey ?? activeRoot.label) : t("admin.panel")} · ${t("admin.sections")}`}
             className="flex-1 overflow-y-auto p-4"
           >
             <ModuleTree

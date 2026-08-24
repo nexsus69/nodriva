@@ -4,6 +4,8 @@
 import type { ReactNode } from "react";
 import { Alert, EmptyState, Skeleton, SkeletonState } from "@/app/components/ui/feedback";
 import { AdminTable, type AdminTableAction, type AdminTableColumn } from "./AdminTable";
+import { AdminPagination } from "./AdminPagination";
+import { useAdminPagination } from "../useAdminPagination";
 
 export interface AdminCollectionDefinition<TRow extends { id: string }> {
   title: string;
@@ -18,12 +20,29 @@ export interface AdminCollectionDefinition<TRow extends { id: string }> {
   rows: readonly TRow[];
   toolbar?: ReactNode;
   onCreate?: () => void;
+  /** Configures the shared client-side page window for collection rows. */
+  pagination?: {
+    stateKey?: string;
+    pageSize?: number;
+    previousLabel?: string;
+    nextLabel?: string;
+    pageLabel?: (page: number, pageCount: number) => string;
+  };
 }
 
 /** Presents any admin collection while keeping loading and error behavior consistent. */
 export function AdminCollectionScreen<TRow extends { id: string }>(
   { definition }: { definition: AdminCollectionDefinition<TRow> },
 ) {
+  const pagination = useAdminPagination({
+    total: definition.rows.length,
+    pageSize: definition.pagination?.pageSize,
+    stateKey: definition.pagination?.stateKey,
+  });
+  const visibleRows = definition.rows.slice(
+    pagination.visibleRange.start,
+    pagination.visibleRange.end,
+  );
   return (
     <section className="space-y-6">
       <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -52,7 +71,7 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
       {definition.error && (
         <Alert tone="danger">{definition.error.message}</Alert>
       )}
-      {definition.loading ? (
+      {definition.loading && definition.rows.length === 0 ? (
         <SkeletonState label={definition.loadingLabel} className="space-y-3">
           {Array.from({ length: 5 }, (_, index) => (
             <div key={index} className="border border-slate-200 bg-white p-5">
@@ -67,12 +86,22 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
         />
       ) : (
         <AdminTable
-          rows={definition.rows}
+          rows={visibleRows}
           columns={definition.columns}
           actions={definition.actions}
           emptyLabel={definition.emptyLabel}
         />
       )}
+      {definition.loading && definition.rows.length > 0 && <p className="text-xs text-slate-400" aria-live="polite">{definition.loadingLabel}…</p>}
+      {!definition.loading &&
+        !definition.error &&
+        definition.rows.length > pagination.pageSize && (
+          <AdminPagination
+            page={pagination.page}
+            pageCount={pagination.pageCount}
+            onPageChange={pagination.setPage}
+          />
+        )}
     </section>
   );
 }

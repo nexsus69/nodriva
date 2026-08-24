@@ -1,3 +1,4 @@
+/** Verifies the permission projection used to compose the visible administration panel. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenError, UnauthorizedError } from '@dashboard/core';
 
@@ -28,21 +29,29 @@ describe('checkAdminAccessAction', () => {
       .mockRejectedValueOnce(new ForbiddenError())
       .mockResolvedValueOnce(undefined);
 
-    await expect(checkAdminAccessAction()).resolves.toBe(true);
-    expect(mocks.assertHasPermission).toHaveBeenCalledTimes(2);
+    const result = await checkAdminAccessAction();
+    expect(result.allowed).toBe(true);
+    expect(result.permissions).toContain("node_type.create");
+    expect(mocks.assertHasPermission.mock.calls.length).toBeGreaterThan(2);
   });
 
   it('denies access when every administrative permission is refused', async () => {
     mocks.assertHasPermission.mockRejectedValue(new ForbiddenError());
 
-    await expect(checkAdminAccessAction()).resolves.toBe(false);
-    expect(mocks.assertHasPermission).toHaveBeenCalledTimes(5);
+    await expect(checkAdminAccessAction()).resolves.toEqual({
+      allowed: false,
+      permissions: [],
+    });
+    expect(mocks.assertHasPermission.mock.calls.length).toBeGreaterThan(5);
   });
 
   it('denies access when the session is not authenticated', async () => {
     mocks.resolveActorUserId.mockRejectedValue(new UnauthorizedError());
 
-    await expect(checkAdminAccessAction()).resolves.toBe(false);
+    await expect(checkAdminAccessAction()).resolves.toEqual({
+      allowed: false,
+      permissions: [],
+    });
     expect(mocks.assertHasPermission).not.toHaveBeenCalled();
   });
 

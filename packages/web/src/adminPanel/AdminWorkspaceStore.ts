@@ -6,6 +6,7 @@ export interface AdminSurfaceState {
   kind: "modal" | "drawer";
   key: string;
   moduleKey: string;
+  mode?: "create" | "edit" | "detail";
   resourceId?: string;
 }
 
@@ -15,6 +16,8 @@ export interface AdminFormDraft {
   values: Record<string, unknown>;
   formVersion: string;
   updatedAt: number;
+  /** Captures the record values used as the dirty-state baseline. */
+  baseline?: Record<string, unknown>;
   rowVersion?: number;
 }
 

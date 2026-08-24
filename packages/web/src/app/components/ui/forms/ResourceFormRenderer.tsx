@@ -1,3 +1,4 @@
+/** Converts resource metadata into the shared form renderer contract. */
 import type { FormEvent, ReactNode } from "react";
 import type { ResourceFieldDefinition } from "@dashboard/core";
 import {

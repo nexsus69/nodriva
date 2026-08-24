@@ -1,5 +1,6 @@
 'use server';
 
+/** Provides validated server actions for resource editing locks. */
 import { ApiErrorResponse, resourceReference } from '@dashboard/core';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
@@ -15,7 +16,7 @@ async function resolveAuthorizedActor(
   const validatedType = validateLockResource(resourceType, resourceId);
   const identity = await AuthResolver.resolveActorIdentity();
   const actorUserId = identity.userId;
-  const { accessControlPort, entityRepository } = await import('../../server/db');
+  const { accessControlPort, entityRepository, securityRepository } = await import('../../server/db');
 
   if (validatedType === 'node') {
     await accessControlPort.assertHasPermission(actorUserId, 'node.edit', resourceId);
@@ -25,10 +26,14 @@ async function resolveAuthorizedActor(
     if (!entity || entity.deletedAt) throw new Error('Entità non trovata.');
     await accessControlPort.assertHasPermission(actorUserId, 'entity.edit', entity.parentNodeId);
     return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: entity.parentNodeId };
+  } else if (validatedType === 'scope_assignment') {
+    const assignment = await securityRepository.getScopeAssignmentManageableBy(actorUserId, resourceId);
+    if (!assignment) throw new Error('Scope assignment not found.');
+    await accessControlPort.assertHasPermissionCoverage(actorUserId, 'scope.assign', assignment.nodeId, assignment.propagation);
+    return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: assignment.nodeId };
   } else {
     const permission = validatedType === 'user' ? 'user.update'
       : validatedType === 'role' ? 'role.update'
-      : validatedType === 'scope_assignment' ? 'scope.update'
       : validatedType === 'node_type' ? 'node_type.update'
       : validatedType === 'entity_type' ? 'entity_type.update'
       : 'system.config';
@@ -97,7 +102,7 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
     const validatedType = validateLockResource(resourceType, resourceId);
     const identity = await AuthResolver.resolveActorIdentity();
     const actorUserId = identity.userId;
-    const { accessControlPort, lockService, entityRepository } = await import('../../server/db');
+    const { accessControlPort, lockService, entityRepository, securityRepository } = await import('../../server/db');
 
     if (validatedType === 'node') {
       await accessControlPort.assertCanReadNode(actorUserId, resourceId);
@@ -107,10 +112,12 @@ export async function getLockStateAction(resourceType: string, resourceId: strin
         return { locked: false as const };
       }
       await accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
+    } else if (validatedType === 'scope_assignment') {
+      const assignment = await securityRepository.getScopeAssignmentManageableBy(actorUserId, resourceId);
+      if (!assignment) return { locked: false as const };
     } else {
       const permission = validatedType === 'user' ? 'user.read'
         : validatedType === 'role' ? 'role.read'
-        : validatedType === 'scope_assignment' ? 'scope.read'
         : validatedType === 'node_type' ? 'node_type.read'
         : validatedType === 'entity_type' ? 'entity_type.read'
         : 'system.config.read';

@@ -2,6 +2,8 @@ import type { FormEvent, ReactNode } from "react";
 import { PasswordInput } from "./PasswordInput";
 import { AttachmentInput } from "./AttachmentInput";
 import { RelationPicker } from "./RelationPicker";
+import { CustomSelect } from "./CustomSelect";
+import { NodeTreeSelect } from "./NodeTreeSelect";
 import type {
   FormDefinition,
   FormFieldLayout,
@@ -21,6 +23,8 @@ export type {
   FormSectionDefinition,
   FormFieldValidation,
   FormFieldRule,
+  FormNodeTreeLabels,
+  FormTreeNodeOption,
   FormValidationMessages,
 } from "./FormDefinition";
 
@@ -198,10 +202,18 @@ function FormField({
           name={field.name}
           type="checkbox"
           checked={Boolean(value)}
+          disabled={field.disabled}
           onChange={(event) => onChange(event.target.checked)}
           className={`rounded text-indigo-600 focus:ring-indigo-500 ${theme === "light" ? "border-slate-300 bg-white" : "border-slate-800 bg-slate-900"}`}
         />
-        {field.label}{isRequired ? " *" : ""}
+        <span>
+          {field.label}{isRequired ? " *" : ""}
+          {field.description && (
+            <span className={`ml-2 text-[11px] font-normal ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+              {field.description}
+            </span>
+          )}
+        </span>
       </label>
     );
   }
@@ -223,6 +235,7 @@ function FormField({
         maxFiles={field.maxFiles}
         maxSizeBytes={field.maxSizeBytes}
         acceptedMimeTypes={field.acceptedMimeTypes}
+        disabled={field.disabled}
         value={Array.isArray(value) ? (value as File[]) : []}
         onChange={onChange}
       />
@@ -237,28 +250,36 @@ function FormField({
         tone={theme}
         showLabel={false}
         onChange={onChange}
+        disabled={field.disabled}
       />
-    ) : field.type === "select" ? (
-      <select
+    ) : field.type === "nodeTree" ? (
+      <NodeTreeSelect
         id={fieldId}
         name={field.name}
-        required={isRequired}
         value={String(value ?? "")}
-        onChange={(event) => onChange(event.target.value)}
-        className={fieldClassName(theme)}
-      >
-        <option value="">Seleziona un valore</option>
-        {field.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        nodes={field.nodes}
+        labels={field.labels}
+        interaction={field.interaction}
+        disabled={field.disabled}
+        required={isRequired}
+        onChange={(nodeId) => onChange(nodeId)}
+      />
+  ) : field.type === "select" ? (
+      <CustomSelect
+        id={fieldId}
+        value={String(value ?? "")}
+        options={field.options}
+        required={isRequired}
+        disabled={field.disabled}
+        tone={theme}
+        onChange={onChange}
+      />
     ) : field.type === "password" ? (
       <PasswordInput
         id={fieldId}
         name={field.name}
         required={isRequired}
+        disabled={field.disabled}
         autoComplete={field.autoComplete}
         value={String(value ?? "")}
         onChange={onChange}
@@ -271,6 +292,7 @@ function FormField({
         name={field.name}
         required={isRequired}
         rows={field.rows ?? 3}
+        disabled={field.disabled}
         value={String(value ?? "")}
         placeholder={field.placeholder}
         onChange={(event) => onChange(event.target.value)}
@@ -287,6 +309,7 @@ function FormField({
         value={String(value ?? "")}
         placeholder={field.placeholder}
         autoComplete={field.autoComplete}
+        disabled={field.disabled}
         onChange={(event) => onChange(event.target.value)}
         className={fieldClassName(theme)}
       />

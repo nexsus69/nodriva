@@ -1,11 +1,14 @@
 'use server';
 
+/** Adapts security administration UI commands to authenticated application services. */
 import { securityAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
   CreateRoleUiCommand,
   UpdateRolePermissionsUiCommand,
+  UpdateRoleMetadataUiCommand,
+  UpdateRoleUiCommand,
   CreateScopeAssignmentUiCommand,
   DeleteScopeAssignmentUiCommand,
   UpdateScopeAssignmentUiCommand,
@@ -99,6 +102,54 @@ export async function updateRolePermissionsAction(cmd: UpdateRolePermissionsUiCo
   }
 }
 
+export async function updateRoleMetadataAction(cmd: UpdateRoleMetadataUiCommand): Promise<{
+  success: boolean;
+  data?: RoleDetailDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await withAdministrativeMutationLock({ resourceType: 'role', resourceId: cmd.roleKey, permission: 'role.update', work: async () => securityAdminService.updateRoleMetadata({ ...cmd, actorUserId }) });
+    const data = await securityAdminService.getRoleByKey(actorUserId, cmd.roleKey);
+    await publishAdministrativeChange({ resourceType: 'role', resourceId: data?.id ?? cmd.roleKey, changeType: 'updated', actorUserId, data: data ?? undefined });
+    return { success: true, data: data ?? undefined };
+  } catch (err) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Updates all editable role fields through one transaction and one realtime event. */
+export async function updateRoleAction(cmd: UpdateRoleUiCommand): Promise<{
+  success: boolean;
+  data?: RoleDetailDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const current = await securityAdminService.getRoleByKey(actorUserId, cmd.roleKey);
+    if (!current) {
+      return { success: false, error: { code: 'NOT_FOUND', message: 'Role not found.' } };
+    }
+    await withAdministrativeMutationLock({
+      resourceType: 'role',
+      resourceId: current.id,
+      permission: 'role.update',
+      work: async () => securityAdminService.updateRole({ ...cmd, actorUserId }),
+    });
+    const data = await securityAdminService.getRoleByKey(actorUserId, cmd.roleKey);
+    await publishAdministrativeChange({
+      resourceType: 'role',
+      resourceId: current.id,
+      changeType: 'updated',
+      actorUserId,
+      data: data ?? undefined,
+    });
+    return { success: true, data: data ?? undefined };
+  } catch (err) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(err) };
+  }
+}
+
 export async function listPermissionsAction(): Promise<{
   success: boolean;
   data?: PermissionDto[];
@@ -133,7 +184,7 @@ export async function createScopeAssignmentAction(cmd: CreateScopeAssignmentUiCo
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: `${cmd.userId}:${cmd.nodeId}:${cmd.roleId}`, permission: 'scope.create', work: async () => securityAdminService.createScopeAssignment({
+    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: `${cmd.userId}:${cmd.nodeId}:${cmd.roleId}`, permission: 'scope.assign', work: async () => securityAdminService.createScopeAssignment({
       userId: cmd.userId,
       nodeId: cmd.nodeId,
       roleId: cmd.roleId,
@@ -171,7 +222,7 @@ export async function updateScopeAssignmentAction(cmd: UpdateScopeAssignmentUiCo
 }> {
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
-    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: cmd.assignmentId, permission: 'scope.update', work: async () => securityAdminService.updateScopeAssignment({
+    await withAdministrativeMutationLock({ resourceType: 'scope_assignment', resourceId: cmd.assignmentId, permission: 'scope.assign', work: async () => securityAdminService.updateScopeAssignment({
       assignmentId: cmd.assignmentId,
       roleId: cmd.roleId,
       assignmentEffect: cmd.assignmentEffect,

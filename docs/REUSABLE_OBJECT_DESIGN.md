@@ -37,3 +37,34 @@ The Admin Panel applies this rule through `AdminModule`,
 and module-specific adapters. `AdminSurfaceHost` owns the common modal, drawer,
 and inline surface layout so modules provide configuration and content rather
 than layout logic.
+
+Node selection follows the same rule. A form declares a `nodeTree` field with
+its authorized node catalogue, localized labels, interaction mode and form
+value. `FormRenderer` owns hierarchical rendering, direct selection,
+drag-and-drop, validation presentation and draft integration. Administrative
+modules must not mount a separate node picker or manually synchronize a hidden
+node identifier alongside a form definition.
+
+## Admin Panel invariants
+
+The Admin Panel has one implementation path for each shared behavior:
+
+- `AdminModuleRegistry` is the canonical navigation and route catalogue;
+  visible navigation is projected from backend-verified permissions.
+- `AdminWorkspaceStore` persists module navigation, filters, pagination,
+  selected resources, surface mode, surface resource identity and drafts.
+- `AdminResourceDefinition` declares operation permissions and
+  `AdminResourceController` owns loading, pending, error and mutation refresh
+  transitions. Backend authorization remains authoritative.
+- `AdminCollectionScreen`, `AdminTable` and `AdminPagination` render every
+  ordinary administrative collection. A specialized table is allowed only
+  when it owns a distinct interaction such as field reordering.
+- `AdminSurfaceHost` is the only modal/drawer host and the application
+  confirmation service is the only confirmation path.
+- Forms use `FormDefinition` and `FormRenderer`; a field type, required rule or
+  validation rule must not acquire a module-specific interpretation.
+- All user-visible Admin Panel text is defined for both supported locales.
+
+Static architecture tests enforce the single confirmation, table, surface and
+translation paths. A new module must extend these contracts instead of adding
+another route map or local implementation.

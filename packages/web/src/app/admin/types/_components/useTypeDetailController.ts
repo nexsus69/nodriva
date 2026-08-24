@@ -22,7 +22,6 @@ export function useTypeDetailController(
   const [error, setError] = useState<ApiErrorResponse | null>(null);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [pending, setPending] = useState(false);
-  const [metadata, setMetadata] = useState({ name: "", description: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,15 +29,11 @@ export function useTypeDetailController(
     const result = await AppCache.admin.getTypeDetail(kind, typeKey);
     if (result.success && result.data) {
       setDetail(result.data);
-      setMetadata({
-        name: result.data.name,
-        description: result.data.description,
-      });
     } else setError(result.error ?? null);
     setLoading(false);
   }, [kind, typeKey]);
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   const mutate = useCallback(
@@ -54,10 +49,6 @@ export function useTypeDetailController(
       const result = await operation();
       if (result.success && result.data) {
         setDetail(result.data);
-        setMetadata({
-          name: result.data.name,
-          description: result.data.description,
-        });
       } else setFormError(result.error ?? null);
       setPending(false);
       return result.success;
@@ -66,17 +57,20 @@ export function useTypeDetailController(
   );
 
   const saveMetadata = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
+    async (
+      event: React.FormEvent<HTMLFormElement>,
+      metadata: { name: string; description: string },
+    ) => {
       event.preventDefault();
-      if (!detail) return;
-      void mutate(() =>
+      if (!detail) return false;
+      return mutate(() =>
         AppCache.admin.updateType(kind, typeKey, {
           ...metadata,
           expectedRowVersion: detail.rowVersion,
         }),
       );
     },
-    [detail, kind, metadata, mutate, typeKey],
+    [detail, kind, mutate, typeKey],
   );
 
   const saveField = useCallback(
@@ -155,8 +149,6 @@ export function useTypeDetailController(
     error,
     formError,
     pending,
-    metadata,
-    setMetadata,
     load,
     saveMetadata,
     saveField,

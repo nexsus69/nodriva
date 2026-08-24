@@ -17,6 +17,73 @@ export type RoleForm = {
   permissionIds: string[];
 };
 
+/** Stores one boolean per permission so the shared renderer can own every control. */
+export type RolePermissionForm = Record<string, unknown>;
+
+/** Bumps persisted role-permission drafts when the form shape changes. */
+export const ROLE_PERMISSION_FORM_VERSION = "2";
+
+/** Produces a stable form field name without exposing storage-specific details. */
+const permissionFieldName = (permissionId: string) => `permission:${permissionId}`;
+
+/** Builds the shared definition for the dynamic permission checklist. */
+export function createRolePermissionForm(
+  t: AdminTranslator,
+  permissions: readonly RoleDetailDto["allAvailablePermissions"][number][],
+  readOnly = false,
+): FormDefinition<RolePermissionForm> {
+  return defineForm({
+    key: "admin.roles.permissions.form",
+    version: ROLE_PERMISSION_FORM_VERSION,
+    validationMessages: createValidationMessages(t),
+    fields: [
+      { name: "name", type: "text" as const, label: t("admin.name"), required: true, disabled: readOnly, validation: { minLength: 2 }, layout: { row: "metadata", colSpan: 1 as const, order: 1 } },
+      { name: "description", type: "textarea" as const, label: t("admin.description"), disabled: readOnly, rows: 3, layout: { row: "metadata", colSpan: 1 as const, order: 2 } },
+      ...permissions.map((permission, index) => ({
+      name: permissionFieldName(permission.id),
+      type: "boolean" as const,
+      label: permission.name,
+      description: permission.permissionKey,
+      disabled: readOnly,
+      layout: {
+        row: `permission-row-${Math.floor(index / 2)}`,
+        colSpan: 1 as const,
+        order: index % 2,
+      },
+      })),
+    ],
+    sections: [{
+      key: "metadata",
+      label: t("admin.roleDetail"),
+      fieldNames: ["name", "description"],
+      columns: 2,
+    }, {
+      key: "permissions",
+      label: t("admin.permissions"),
+      description: t("admin.permissionsDescription"),
+      fieldNames: permissions.map((permission) => permissionFieldName(permission.id)),
+      columns: 2,
+    }],
+    layout: { columns: 2, gap: "normal" },
+  });
+}
+
+/** Creates an empty boolean value map for every permission in the detail payload. */
+export function rolePermissionValues(
+  permissions: readonly RoleDetailDto["allAvailablePermissions"][number][],
+): RolePermissionForm {
+  return Object.fromEntries(
+    [["name", ""], ["description", ""], ...permissions.map((permission) => [permissionFieldName(permission.id), false])],
+  );
+}
+
+/** Converts the renderer-owned boolean map back to the API permission id list. */
+export function selectedRolePermissionIds(values: RolePermissionForm): string[] {
+  return Object.entries(values)
+    .filter(([fieldName, selected]) => fieldName.startsWith("permission:") && Boolean(selected))
+    .map(([fieldName]) => fieldName.slice("permission:".length));
+}
+
 export type AdminTranslator = (key: string) => string;
 
 export const ROLE_CREATE_SURFACE = defineAdminSurface({
@@ -143,8 +210,10 @@ export function createRoleResource(
         ),
       update: async (roleKey, input, expectedRowVersion) =>
         unwrap(
-          AppCache.admin.updateRolePermissions({
+          AppCache.admin.updateRole({
             roleKey,
+            name: input.name.trim(),
+            description: input.description.trim() || undefined,
             permissionIds: input.permissionIds,
             expectedRowVersion: expectedRowVersion ?? 0,
           }),

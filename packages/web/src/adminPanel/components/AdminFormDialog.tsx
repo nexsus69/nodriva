@@ -1,7 +1,7 @@
 "use client";
 
 /** Provides the generic modal shell for any definition-driven administrative form. */
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
 import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "./AdminSurfaceHost";
@@ -29,6 +29,7 @@ export function AdminFormDialog({
   onSubmit,
   onClose,
   surface = ADMIN_FORM_DIALOG_SURFACE,
+  children,
 }: {
   title: string;
   definition: FormDefinition;
@@ -40,6 +41,7 @@ export function AdminFormDialog({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
   surface?: AdminSurfaceDefinition;
+  children?: ReactNode;
 }) {
   return (
     <AdminSurfaceHost
@@ -73,7 +75,9 @@ export function AdminFormDialog({
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
           onCancel={onClose}
-        />
+        >
+          {children}
+        </FormRenderer>
     </AdminSurfaceHost>
   );
 }

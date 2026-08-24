@@ -23,6 +23,7 @@ describe("Admin workspace store", () => {
       kind: "drawer",
       key: "type-detail",
       moduleKey: "model.types",
+      mode: "edit",
       resourceId: "entity_type",
     });
     store.saveDraft({
@@ -37,6 +38,10 @@ describe("Admin workspace store", () => {
     expect(restored.activeModuleKey).toBe("model.types");
     expect(restored.expandedModuleKeys).toEqual(["model"]);
     expect(restored.surface?.key).toBe("type-detail");
+    expect(restored.surface).toMatchObject({
+      mode: "edit",
+      resourceId: "entity_type",
+    });
     expect(restored.drafts["model.types:entity_type"]?.values.label).toBe(
       "Draft",
     );

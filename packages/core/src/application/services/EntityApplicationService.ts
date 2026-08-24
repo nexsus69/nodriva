@@ -31,6 +31,24 @@ import {
 } from '../../domain/errors/EntityErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 
+/** Serializes the complete entity state used by before/after audit snapshots. */
+function entityAuditSnapshot(entity: Entity): Record<string, unknown> {
+  return {
+    id: entity.id,
+    entityTypeId: entity.entityTypeId,
+    parentNodeId: entity.parentNodeId,
+    name: entity.name,
+    description: entity.description,
+    rowVersion: entity.rowVersion,
+    createdAt: entity.createdAt.toISOString(),
+    updatedAt: entity.updatedAt.toISOString(),
+    deletedAt: entity.deletedAt?.toISOString() ?? null,
+    createdBy: entity.createdBy,
+    updatedBy: entity.updatedBy,
+    payload: entity.payload,
+  };
+}
+
 export class EntityApplicationService {
   constructor(
     private readonly entityRepository: EntityRepository,
@@ -152,13 +170,7 @@ export class EntityApplicationService {
         entity.id,
         parentNode.id,
         null,
-        {
-          id: entity.id,
-          entityTypeId: entity.entityTypeId,
-          parentNodeId: entity.parentNodeId,
-          name: entity.name,
-          payload: entity.payload,
-        }
+        entityAuditSnapshot(entity)
       );
 
       return entity;
@@ -272,8 +284,8 @@ export class EntityApplicationService {
         'entity',
         updatedEntity.id,
         updatedEntity.parentNodeId,
-        entity.payload,
-        updatedEntity.payload
+        entityAuditSnapshot(entity),
+        entityAuditSnapshot(updatedEntity),
       );
 
       return updatedEntity;

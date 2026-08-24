@@ -7,6 +7,8 @@ import {
   type AdminModule,
 } from "@/adminPanel/AdminModule";
 import { adminModuleRegistry } from "@/adminPanel/AdminModuleRegistry";
+import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 
 function navigableModules(modules: readonly AdminModule[]): AdminModule[] {
   return modules.flatMap((module) =>
@@ -20,28 +22,31 @@ function navigableModules(modules: readonly AdminModule[]): AdminModule[] {
 
 /** Presents the overview cards and the contextual module heading. */
 export function AdminOverviewScreen({ pathname }: { pathname: string }) {
+  const { t } = useAppLocale();
+  const authorization = useAdminAuthorization();
+  const visibleModules = adminModuleRegistry.visible(authorization);
   const selectedModule = findAdminModuleByRoute(
-    adminModuleRegistry.all(),
+    visibleModules,
     pathname,
   );
   const isOverview = pathname === "/admin";
-  const modules = navigableModules(adminModuleRegistry.all());
+  const modules = navigableModules(visibleModules);
 
   return (
     <div className="space-y-8">
       <section className="border border-slate-200 bg-white p-6 sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-          Nodriva Admin Panel
+          {t("admin.panel")}
         </p>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
           {isOverview
-            ? "Administration at a glance"
-            : selectedModule?.label ?? "Module"}
+            ? t("admin.overviewTitle")
+            : t(selectedModule?.labelKey ?? selectedModule?.label ?? "admin.module")}
         </h2>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
           {isOverview
-            ? "Manage the model, access, activity, and system configuration from one workspace."
-            : selectedModule?.description ?? "Select an administrative module."}
+            ? t("admin.overviewDescription")
+            : t(selectedModule?.descriptionKey ?? selectedModule?.description ?? "admin.selectModule")}
         </p>
       </section>
       {isOverview && (
@@ -54,10 +59,10 @@ export function AdminOverviewScreen({ pathname }: { pathname: string }) {
             >
               <span className="text-2xl">{module.icon ?? "•"}</span>
               <h3 className="mt-4 font-semibold text-slate-900">
-                {module.label}
+                {t(module.labelKey ?? module.label)}
               </h3>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                {module.description}
+                {t(module.descriptionKey ?? module.description ?? "")}
               </p>
             </Link>
           ))}
