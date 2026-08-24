@@ -3,9 +3,28 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 
 const sourcePattern = /^(packages\/(?:core|web)\/src\/.*\.(?:ts|tsx))$/;
+
+/** Returns the files introduced or changed by the checked-out commit. */
+function committedSourceCandidates() {
+  try {
+    execFileSync('git', ['rev-parse', '--verify', 'HEAD^'], { stdio: 'ignore' });
+    return execFileSync(
+      'git',
+      ['diff', '--name-only', '--diff-filter=AM', 'HEAD^', 'HEAD'],
+      { encoding: 'utf8' },
+    );
+  } catch {
+    return execFileSync(
+      'git',
+      ['diff-tree', '--root', '--no-commit-id', '--name-only', '-r', '--diff-filter=AM', 'HEAD'],
+      { encoding: 'utf8' },
+    );
+  }
+}
+
 const changedFiles = process.argv.slice(2).length > 0
   ? process.argv.slice(2)
-  : execFileSync('git', ['diff', '--name-only', '--diff-filter=AM', 'HEAD^', 'HEAD'], { encoding: 'utf8' })
+  : committedSourceCandidates()
     .split('\n')
     .filter(Boolean);
 
