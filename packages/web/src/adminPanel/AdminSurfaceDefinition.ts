@@ -8,6 +8,7 @@ export interface AdminSurfaceDefinition<
   initialTab: string;
   presentation: "inline" | "drawer" | "modal";
   placement?: "left" | "right" | "center";
+  size?: "sm" | "md" | "lg" | "xl" | "full";
   appearance?: "light" | "dark";
   initialState: TState;
 }

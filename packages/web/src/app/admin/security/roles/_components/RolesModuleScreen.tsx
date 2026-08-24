@@ -60,6 +60,7 @@ export function RolesModuleScreen() {
   const definition: AdminCollectionDefinition<(typeof controller.rows)[number]> = {
     title: resource.label,
     description: resource.description,
+    icon: "roles",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
@@ -68,15 +69,12 @@ export function RolesModuleScreen() {
     error: controller.error,
     createLabel: canCreate ? t("admin.createRole") : undefined,
     onCreate: canCreate ? () => formSurface.open({ mode: "create" }) : undefined,
+    onOpen: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.roleKey }),
+    rowLabel: (row) => row.name,
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void controller.reload(),
     pagination: { stateKey: resource.moduleKey },
-    actions: [
-      {
-        key: "open",
-        label: t("admin.open"),
-        tone: "primary",
-        onClick: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.roleKey }),
-      },
-    ],
   };
 
   if (selectedResource?.moduleKey === resource.moduleKey && selectedResource.resourceId) {

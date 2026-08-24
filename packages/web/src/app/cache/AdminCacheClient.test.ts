@@ -13,6 +13,7 @@ vi.mock('../actions/seedAction', () => ({}));
 vi.mock('../actions/systemActions', () => ({}));
 vi.mock('../actions/typeActions', () => ({}));
 vi.mock('../actions/recycleActions', () => ({}));
+vi.mock('../actions/entityActions', () => ({}));
 
 import { AdminCacheClient } from './AdminCacheClient';
 

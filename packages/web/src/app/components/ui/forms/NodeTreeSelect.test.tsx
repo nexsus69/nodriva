@@ -16,6 +16,7 @@ const labels = {
   dropPlaceholder: "Drop here",
   expand: "Expand",
   collapse: "Collapse",
+  loading: "Loading nodes",
 };
 
 describe("NodeTreeSelect", () => {
@@ -44,5 +45,23 @@ describe("NodeTreeSelect", () => {
     expect(markup).toContain('role="tree"');
     expect(markup).toContain('data-node-id="root"');
     expect(markup).toContain("data-node-tree-drop-target");
+  });
+
+  it("keeps the empty state hidden while the authorized catalogue is loading", () => {
+    const markup = renderToStaticMarkup(
+      <NodeTreeSelect
+        id="node"
+        name="nodeId"
+        value=""
+        nodes={[]}
+        labels={labels}
+        loading
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('aria-busy="true"');
+    expect(markup).toContain("Loading nodes");
+    expect(markup).not.toContain(">No nodes<");
   });
 });

@@ -5,6 +5,7 @@ import * as securityActions from '../actions/securityActions';
 import * as systemActions from '../actions/systemActions';
 import * as typeActions from '../actions/typeActions';
 import * as recycleActions from '../actions/recycleActions';
+import * as entityActions from '../actions/entityActions';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
@@ -161,6 +162,8 @@ export class AdminCacheClient {
 
   public listChildren = (parentId: string | null) =>
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));
+  public listSubtreeEntities = (input: Parameters<typeof entityActions.listSubtreeEntitiesAction>[0]) =>
+    this.read(`subtree-entities:${JSON.stringify(input)}`, () => entityActions.listSubtreeEntitiesAction(input));
   public listNodeTypes = () => this.read('node-types', nodeActions.listNodeTypesAction);
 
   public checkDatabaseSeeded = () => this.read('seed-status', seedActions.checkDatabaseSeededAction);

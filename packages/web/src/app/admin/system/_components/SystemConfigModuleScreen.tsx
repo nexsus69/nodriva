@@ -140,12 +140,20 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
   const definitionForScreen: AdminCollectionDefinition<SystemRow> = {
     title: resource.label,
     description: resource.description,
+    icon: "settings",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
     rows: collection.rows,
     loading: collection.loading,
     error: collection.error,
+    onOpen: canUpdate ? openEdit : undefined,
+    rowLabel: (row) => kind === "capabilities"
+      ? (row as RuntimeCapabilityDto).name
+      : (row as SystemSettingDto).displayName,
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void collection.reload(),
     actions: [{ key: "edit", label: t("admin.edit"), tone: "primary", onClick: (row) => openEdit(row), hidden: () => !canUpdate }],
     pagination: { stateKey: resource.moduleKey },
   };

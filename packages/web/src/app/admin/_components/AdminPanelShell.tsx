@@ -14,6 +14,57 @@ import { AdminPanelSidebar } from "./AdminPanelSidebar";
 import { ConfirmDialogHost } from "@/app/components/ui/feedback/ConfirmDialog";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { AdminAuthorizationProvider } from "@/adminPanel/AdminAuthorizationContext";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminIcon } from "@/adminPanel/components/AdminIcon";
+import { Skeleton } from "@/app/components/ui/feedback";
+
+/** Renders a stable Admin shell while access is resolved without flashing content. */
+function AdminShellSkeleton() {
+  return (
+    <div className="flex h-screen overflow-hidden bg-slate-50" aria-busy="true">
+      <div className="hidden w-[19.5rem] shrink-0 border-r border-slate-200 bg-white lg:flex">
+        <div className="w-14 bg-slate-950" />
+        <div className="flex-1 space-y-3 p-4">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-4/5" />
+        </div>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="h-14 border-b border-slate-200 bg-white" />
+        <div className="space-y-6 p-6 lg:p-8">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Renders one consistent full-page status for denied or unavailable access. */
+function AdminAccessState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description: string;
+  action: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 text-slate-900">
+      <div className="w-full max-w-md border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <span className="mx-auto flex size-11 items-center justify-center bg-amber-50 text-amber-700">
+          <AdminIcon name="shield" className="size-5" />
+        </span>
+        <h1 className="mt-5 text-xl font-semibold">{title}</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+        <div className="mt-6 flex justify-center">{action}</div>
+      </div>
+    </div>
+  );
+}
 
 /** Hosts the rebuilt Admin Panel while preserving the existing backend access contract. */
 export function AdminPanelShell({ children }: { children: React.ReactNode }) {
@@ -71,49 +122,33 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
     loadAccess();
   };
   if (access === "checking")
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-300">
-        {t("admin.checkingAccess")}
-      </div>
-    );
+    return <AdminShellSkeleton />;
   if (access === "denied")
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
-        <div className="max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
-          <h1 className="text-xl font-semibold">
-            {t("admin.accessDenied")}
-          </h1>
-          <p className="text-sm text-slate-400">
-            {t("admin.accessDeniedDescription")}
-          </p>
+      <AdminAccessState
+        title={t("admin.accessDenied")}
+        description={t("admin.accessDeniedDescription")}
+        action={
           <Link
             href="/"
-            className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex min-h-10 items-center bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2"
           >
             {t("admin.returnToWorkspace")}
           </Link>
-        </div>
-      </div>
+        }
+      />
     );
   if (access === "unavailable")
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 text-slate-100">
-        <div className="max-w-md space-y-4 rounded-2xl border border-amber-500/30 bg-slate-900 p-8 text-center">
-          <h1 className="text-xl font-semibold">
-            {t("admin.accessUnavailable")}
-          </h1>
-          <p className="text-sm text-slate-400">
-            {t("admin.accessUnavailableDescription")}
-          </p>
-          <button
-            type="button"
-            onClick={retryAccess}
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white"
-          >
+      <AdminAccessState
+        title={t("admin.accessUnavailable")}
+        description={t("admin.accessUnavailableDescription")}
+        action={
+          <AdminButton tone="secondary" icon="refresh" onClick={retryAccess}>
             {t("admin.retry")}
-          </button>
-        </div>
-      </div>
+          </AdminButton>
+        }
+      />
     );
   return (
     <AdminAuthorizationProvider permissions={permissions}>
@@ -134,7 +169,7 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
           onOpenSidebar={() => setSidebarOpen(true)}
         />
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-[90rem]">{children}</div>
         </main>
       </div>
       <ConfirmDialogHost />

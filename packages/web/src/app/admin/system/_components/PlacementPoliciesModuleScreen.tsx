@@ -17,6 +17,8 @@ import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { useAdminModuleState } from "@/adminPanel/useAdminModuleState";
 import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 
 type PolicyForm = { policyKey: string; name: string; description: string; policyMode: string };
 type RuleForm = { ruleType: RuleType; targetNodeId: string; targetNodeTypeId: string; comparator: string; valueText: string };
@@ -59,7 +61,7 @@ function createPolicyForm(t: (key: string) => string, editing: boolean): FormDef
 }
 
 /** Builds the rule editor with the same hierarchical node selector used by scope forms. */
-function createRuleForm(t: (key: string) => string, nodes: readonly ScopeNodeOption[], typeOptions: Array<{ value: string; label: string }>): FormDefinition<RuleForm> {
+function createRuleForm(t: (key: string) => string, nodes: readonly ScopeNodeOption[], typeOptions: Array<{ value: string; label: string }>, nodesLoading: boolean): FormDefinition<RuleForm> {
   return defineForm({
     key: "admin.system.placement-policy.rule-form",
     version: "2",
@@ -67,7 +69,7 @@ function createRuleForm(t: (key: string) => string, nodes: readonly ScopeNodeOpt
     fields: [
       { name: "ruleType", type: "select", label: t("admin.ruleType"), required: true, options: RULE_TYPES.map((value) => ({ value, label: t(`admin.ruleType.${value}`) })) },
       { name: "targetNodeTypeId", type: "select", label: t("admin.targetNodeType"), options: [{ value: "", label: "—" }, ...typeOptions] },
-      { name: "targetNodeId", type: "nodeTree", label: t("admin.targetNode"), nodes, interaction: "both", labels: { instruction: t("admin.scopeTreeInstruction"), empty: t("admin.scopeTreeEmpty"), dropPlaceholder: t("admin.scopeTreeDropPlaceholder"), expand: t("admin.scopeTreeExpand"), collapse: t("admin.scopeTreeCollapse") } },
+      { name: "targetNodeId", type: "nodeTree", label: t("admin.targetNode"), nodes, loading: nodesLoading, interaction: "both", labels: { instruction: t("admin.scopeTreeInstruction"), empty: t("admin.scopeTreeEmpty"), loading: t("admin.scopeTreeLoading"), dropPlaceholder: t("admin.scopeTreeDropPlaceholder"), expand: t("admin.scopeTreeExpand"), collapse: t("admin.scopeTreeCollapse") } },
       { name: "comparator", type: "text", label: t("admin.comparator") },
       { name: "valueText", type: "text", label: t("admin.valueText") },
     ],
@@ -81,6 +83,7 @@ export function PlacementPoliciesModuleScreen() {
   const authorization = useAdminAuthorization();
   const [detail, setDetail] = useState<PlacementPolicyDetailDto | null>(null);
   const [nodes, setNodes] = useState<readonly ScopeNodeOption[]>([]);
+  const [nodesLoading, setNodesLoading] = useState(true);
   const [typeOptions, setTypeOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [moduleState, updateModuleState] = useAdminModuleState("system.placement-policies", { detailPolicyKey: "" });
   const resource = useMemo(() => defineAdminResource<PlacementPolicyListItemDto>({
@@ -113,12 +116,15 @@ export function PlacementPoliciesModuleScreen() {
   const ruleSurface = useAdminFormSurface<RuleForm>({ moduleKey: resource.moduleKey, surfaceKey: "rule-form", surfaceKind: "modal", draftKey: "admin.system.placement-policy.rule-form", formVersion: "2", initialValues: EMPTY_RULE, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
   const editing = policySurface.mode === "edit" && policySurface.resourceId ? controller.rows.find((row) => row.id === policySurface.resourceId) ?? null : null;
   const policyDefinition = useMemo(() => createPolicyForm(t, policySurface.mode === "edit"), [policySurface.mode, t]);
-  const ruleDefinition = useMemo(() => createRuleForm(t, nodes, typeOptions), [nodes, t, typeOptions]);
+  const ruleDefinition = useMemo(() => createRuleForm(t, nodes, typeOptions, nodesLoading), [nodes, nodesLoading, t, typeOptions]);
 
   useEffect(() => {
     void Promise.all([AppCache.admin.listNodeTypes(), loadVisibleScopeNodes()]).then(([types, visibleNodes]) => {
       setTypeOptions((types as Array<{ id: string; name?: string; typeKey?: string }>).map((item) => ({ value: item.id, label: item.name ?? item.typeKey ?? item.id })));
       setNodes(visibleNodes);
+      setNodesLoading(false);
+    }).catch(() => {
+      setNodesLoading(false);
     });
   }, []);
 
@@ -196,6 +202,7 @@ export function PlacementPoliciesModuleScreen() {
   const screen: AdminCollectionDefinition<PlacementPolicyListItemDto> = {
     title: resource.label,
     description: resource.description,
+    icon: "settings",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
@@ -204,9 +211,13 @@ export function PlacementPoliciesModuleScreen() {
     error: controller.error,
     createLabel: canCreate ? t("admin.createPolicy") : undefined,
     onCreate: canCreate ? openCreate : undefined,
+    onOpen: (row) => updateModuleState({ detailPolicyKey: row.policyKey }),
+    rowLabel: (row) => row.name,
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void controller.reload(),
     pagination: { stateKey: resource.moduleKey },
     actions: [
-      { key: "open", label: t("admin.open"), tone: "primary", onClick: (row) => updateModuleState({ detailPolicyKey: row.policyKey }) },
       { key: "edit", label: t("admin.edit"), tone: "primary", onClick: openEdit, hidden: () => !canUpdate },
       { key: "delete", label: t("admin.delete"), tone: "danger", onClick: (row) => void deletePolicy(row), hidden: () => !canDelete },
     ],
@@ -216,35 +227,86 @@ export function PlacementPoliciesModuleScreen() {
     <>
       <AdminCollectionScreen definition={screen} />
       {policySurface.isOpen && (
-        <AdminFormDialog title={editing ? t("admin.editPolicy") : t("admin.createPolicy")} definition={policyDefinition} values={policySurface.values} pending={controller.pending} submitLabel={t("admin.saveChanges")} cancelLabel={t("admin.cancel")} onChange={(name, value) => policySurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void submitPolicy(event)} onClose={() => void policySurface.close()} />
+        <AdminFormDialog
+          title={editing ? t("admin.editPolicy") : t("admin.createPolicy")}
+          definition={policyDefinition}
+          values={policySurface.values}
+          pending={controller.pending}
+          submitLabel={t("admin.saveChanges")}
+          cancelLabel={t("admin.cancel")}
+          onChange={(name, value) => policySurface.setValues((current) => ({
+            ...current,
+            [name]: value,
+          }))}
+          onSubmit={(event) => void submitPolicy(event)}
+          onClose={() => void policySurface.close()}
+        />
       )}
       {visibleDetail && (
         <AdminSurfaceHost definition={POLICY_DETAIL_SURFACE} onClose={() => updateModuleState({ detailPolicyKey: "" })} labelledBy="placement-policy-detail-title">
-          <header className="flex items-start justify-between border-b border-slate-200 pb-4">
-            <div>
-              <h2 id="placement-policy-detail-title" className="text-lg font-semibold text-slate-900">{visibleDetail.name}</h2>
-              <p className="text-sm text-slate-500">{visibleDetail.policyKey}</p>
+          <AdminSurfaceHeader
+            title={visibleDetail.name}
+            titleId="placement-policy-detail-title"
+            subtitle={visibleDetail.policyKey}
+            closeLabel={t("admin.close")}
+            onClose={() => updateModuleState({ detailPolicyKey: "" })}
+          />
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="font-semibold text-slate-900">{t("admin.rules")}</h3>
+              {canUpdate && (
+                <AdminButton
+                  tone="primary"
+                  icon="plus"
+                  onClick={() => ruleSurface.open({
+                    mode: "create",
+                    resourceId: visibleDetail.policyKey,
+                  })}
+                >
+                  {t("admin.addRule")}
+                </AdminButton>
+              )}
             </div>
-            <button type="button" onClick={() => updateModuleState({ detailPolicyKey: "" })} aria-label={t("admin.close")} className="text-xl text-slate-400">×</button>
-          </header>
-          <div className="mt-5 flex items-center justify-between gap-4">
-            <h3 className="font-semibold text-slate-900">{t("admin.rules")}</h3>
-            {canUpdate && <button type="button" className="bg-indigo-600 px-3 py-2 text-sm font-semibold text-white" onClick={() => ruleSurface.open({ mode: "create", resourceId: visibleDetail.policyKey })}>+ {t("admin.addRule")}</button>}
+            {visibleDetail.rules.length === 0 ? (
+              <p className="mt-4 text-sm text-slate-500">{t("admin.noRules")}</p>
+            ) : (
+              <div className="mt-4 divide-y divide-slate-100 border border-slate-200">
+                {visibleDetail.rules.map((rule) => (
+                  <div key={rule.id} className="flex items-center justify-between gap-4 p-3 text-sm">
+                    <span>
+                      {t(`admin.ruleType.${rule.ruleType}`)} · {rule.targetNodeName ?? rule.targetNodeTypeName ?? rule.valueText ?? "—"}
+                    </span>
+                    {canUpdate && (
+                      <button
+                        type="button"
+                        className="text-xs font-semibold text-rose-700 hover:underline"
+                        onClick={() => void deleteRule(rule.id)}
+                      >
+                        {t("admin.deleteRule")}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {visibleDetail.rules.length === 0 ? <p className="mt-4 text-sm text-slate-500">{t("admin.noRules")}</p> : (
-            <div className="mt-4 space-y-2">
-              {visibleDetail.rules.map((rule) => (
-                <div key={rule.id} className="flex items-center justify-between gap-4 border border-slate-200 p-3 text-sm">
-                  <span>{t(`admin.ruleType.${rule.ruleType}`)} · {rule.targetNodeName ?? rule.targetNodeTypeName ?? rule.valueText ?? "—"}</span>
-                  {canUpdate && <button type="button" className="text-red-600" onClick={() => void deleteRule(rule.id)}>{t("admin.deleteRule")}</button>}
-                </div>
-              ))}
-            </div>
-          )}
         </AdminSurfaceHost>
       )}
       {ruleSurface.isOpen && (
-        <AdminFormDialog title={t("admin.addRule")} definition={ruleDefinition} values={ruleSurface.values} pending={controller.pending} submitLabel={t("admin.saveChanges")} cancelLabel={t("admin.cancel")} onChange={(name, value) => ruleSurface.setValues((current) => ({ ...current, [name]: value } as RuleForm))} onSubmit={(event) => void createRule(event)} onClose={() => void ruleSurface.close()} />
+        <AdminFormDialog
+          title={t("admin.addRule")}
+          definition={ruleDefinition}
+          values={ruleSurface.values}
+          pending={controller.pending}
+          submitLabel={t("admin.saveChanges")}
+          cancelLabel={t("admin.cancel")}
+          onChange={(name, value) => ruleSurface.setValues((current) => ({
+            ...current,
+            [name]: value,
+          } as RuleForm))}
+          onSubmit={(event) => void createRule(event)}
+          onClose={() => void ruleSurface.close()}
+        />
       )}
     </>
   );

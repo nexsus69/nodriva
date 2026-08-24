@@ -5,10 +5,16 @@ import { ForbiddenError, UnauthorizedError } from '@dashboard/core';
 const mocks = vi.hoisted(() => ({
   resolveActorUserId: vi.fn(),
   assertHasPermission: vi.fn(),
+  listRealtimeVirtualRootNodeIds: vi.fn(),
+  listRealtimeScopeAssignments: vi.fn(),
 }));
 
 vi.mock('../../server/db', () => ({
   accessControlPort: { assertHasPermission: mocks.assertHasPermission },
+  securityRepository: {
+    listRealtimeVirtualRootNodeIds: mocks.listRealtimeVirtualRootNodeIds,
+    listRealtimeScopeAssignments: mocks.listRealtimeScopeAssignments,
+  },
 }));
 
 vi.mock('./auth/AuthResolver', () => ({
@@ -21,7 +27,27 @@ describe('checkAdminAccessAction', () => {
   beforeEach(() => {
     mocks.resolveActorUserId.mockReset();
     mocks.assertHasPermission.mockReset();
+    mocks.listRealtimeVirtualRootNodeIds.mockReset();
+    mocks.listRealtimeScopeAssignments.mockReset();
     mocks.resolveActorUserId.mockResolvedValue('actor-1');
+    mocks.listRealtimeVirtualRootNodeIds.mockResolvedValue([]);
+    mocks.listRealtimeScopeAssignments.mockResolvedValue([]);
+  });
+
+  it('projects scoped content permissions against readable virtual roots', async () => {
+    mocks.assertHasPermission.mockRejectedValue(new ForbiddenError());
+    mocks.listRealtimeVirtualRootNodeIds.mockResolvedValue(['node-1']);
+    mocks.assertHasPermission.mockImplementation(
+      (_userId: string, permission: string, nodeId: string | null) =>
+        permission === 'node.read' && nodeId === 'node-1'
+          ? Promise.resolve()
+          : Promise.reject(new ForbiddenError()),
+    );
+
+    await expect(checkAdminAccessAction()).resolves.toMatchObject({
+      allowed: true,
+      permissions: ['node.read'],
+    });
   });
 
   it('allows access when any administrative permission is granted', async () => {

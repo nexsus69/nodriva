@@ -169,7 +169,7 @@ describe("FormRenderer", () => {
     );
 
     expect(markup).toContain("✕");
-    expect(markup).toContain("text-rose-400");
+    expect(markup).toContain("text-rose-600");
     expect(markup).not.toContain("○");
   });
 

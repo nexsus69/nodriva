@@ -9,6 +9,8 @@ import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { useRouter } from "next/navigation";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
 
 type ProfileForm = Record<string, unknown>;
 type PasswordForm = { password: string };
@@ -108,9 +110,53 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
   };
   return (
     <section className="space-y-6">
-      <header className="border border-slate-200 bg-white p-6"><button type="button" onClick={() => void returnToList()} className="text-xs font-semibold text-indigo-600">← {t("admin.backToUsers")}</button><h1 className="mt-3 text-2xl font-semibold text-slate-900">{detail.email}</h1><p className="mt-1 font-mono text-xs text-slate-500">{detail.id}</p></header>
-      {profileForm && <section className="border border-slate-200 bg-white p-6"><FormRenderer definition={profileForm} values={profileSurface.values} onChange={(name, value) => profileSurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void saveProfile(event)} isPending={pending} submitDisabled={!profileSurface.isDirty} submitLabel={t("admin.saveChanges")} pendingLabel={t("admin.saving")} theme="light" /></section>}
-      <section className="border border-slate-200 bg-white p-6"><h2 className="mb-4 font-semibold text-slate-900">{t("admin.resetPassword")}</h2><FormRenderer definition={passwordForm} values={passwordSurface.values} onChange={(name, value) => passwordSurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void savePassword(event)} isPending={pending} submitLabel={t("admin.resetPassword")} pendingLabel={t("admin.saving")} theme="light" /></section>
+      <AdminPageHeader
+        title={detail.email}
+        description={detail.id}
+        icon="users"
+        breadcrumbs={[{ label: t("admin.users"), onClick: () => void returnToList() }]}
+        actions={(
+          <AdminButton tone="secondary" icon="arrow-left" onClick={() => void returnToList()}>
+            {t("admin.backToUsers")}
+          </AdminButton>
+        )}
+      />
+      {profileForm && (
+        <section className="border border-slate-200 bg-white p-6 shadow-sm">
+          <FormRenderer
+            definition={profileForm}
+            values={profileSurface.values}
+            onChange={(name, value) => profileSurface.setValues((current) => ({
+              ...current,
+              [name]: value,
+            }))}
+            onSubmit={(event) => void saveProfile(event)}
+            isPending={pending}
+            submitDisabled={!profileSurface.isDirty}
+            submitLabel={t("admin.saveChanges")}
+            pendingLabel={t("admin.saving")}
+            theme="light"
+          />
+        </section>
+      )}
+      <section className="border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-4 font-semibold text-slate-900">
+          {t("admin.resetPassword")}
+        </h2>
+        <FormRenderer
+          definition={passwordForm}
+          values={passwordSurface.values}
+          onChange={(name, value) => passwordSurface.setValues((current) => ({
+            ...current,
+            [name]: value,
+          }))}
+          onSubmit={(event) => void savePassword(event)}
+          isPending={pending}
+          submitLabel={t("admin.resetPassword")}
+          pendingLabel={t("admin.saving")}
+          theme="light"
+        />
+      </section>
     </section>
   );
 }

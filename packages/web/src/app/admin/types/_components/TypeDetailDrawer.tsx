@@ -8,6 +8,7 @@ import { FormRenderer } from "@/app/components/ui/forms";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
+import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { useAdminSurface } from "@/adminPanel/useAdminSurface";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
@@ -161,50 +162,21 @@ export function TypeDetailDrawer({
       onClose={close}
       labelledBy="type-detail-title"
     >
-        <header className="sticky top-0 z-10 border-b border-slate-200 bg-white px-6 py-5">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[.16em] text-indigo-600">
-                {kind === "node"
-                  ? t("admin.nodeTypes")
-                  : t("admin.entityTypes")}
-              </p>
-              <h2
-                id="type-detail-title"
-                className="mt-1 text-xl font-semibold text-slate-900"
-              >
-                {controller.detail?.name ?? typeKey}
-              </h2>
-              <p className="mt-1 font-mono text-xs text-slate-500">{typeKey}</p>
-            </div>
-            <button
-              type="button"
-              onClick={close}
-              className="text-2xl text-slate-400 hover:text-slate-800"
-              aria-label={
-                presentation === "inline"
-                  ? t("admin.backToList")
-                  : t("admin.cancel")
-              }
-            >
-              {presentation === "inline" ? `← ${t("admin.backToList")}` : "×"}
-            </button>
-          </div>
-          <nav className="mt-5 flex gap-5 text-sm font-semibold">
-            {(["settings", "fields"] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`border-b-2 pb-2 ${activeTab === tab ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400"}`}
-              >
-                {tab === "settings"
-                  ? t("admin.settings")
-                  : `${t("admin.fields")} (${controller.detail?.fields.length ?? 0})`}
-              </button>
-            ))}
-          </nav>
-        </header>
+        <AdminSurfaceHeader
+          title={controller.detail?.name ?? typeKey}
+          titleId="type-detail-title"
+          eyebrow={kind === "node" ? t("admin.nodeTypes") : t("admin.entityTypes")}
+          subtitle={typeKey}
+          closeLabel={presentation === "inline" ? t("admin.backToList") : t("admin.cancel")}
+          closeIcon={presentation === "inline" ? "arrow-left" : "close"}
+          onClose={close}
+          tabs={[
+            { key: "settings", label: t("admin.settings") },
+            { key: "fields", label: `${t("admin.fields")} (${controller.detail?.fields.length ?? 0})` },
+          ]}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as "settings" | "fields")}
+        />
         <main className="space-y-6 p-6">
           {controller.loading && (
             <>

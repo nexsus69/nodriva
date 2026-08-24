@@ -11,6 +11,7 @@ export function CustomSelect({
   disabled = false,
   required = false,
   tone = "dark",
+  placeholder = "Select a value",
   onChange,
 }: {
   id: string;
@@ -19,6 +20,7 @@ export function CustomSelect({
   disabled?: boolean;
   required?: boolean;
   tone?: "dark" | "light";
+  placeholder?: string;
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -102,28 +104,37 @@ export function CustomSelect({
           setOpen((current) => !current);
         }}
         onKeyDown={handleKeyDown}
-        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 ${tone === "light" ? "border-slate-300 bg-white text-slate-900" : "border-slate-800 bg-slate-900 text-slate-100"}`}
+        className={`flex min-h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${tone === "light" ? "border-slate-300 bg-white text-slate-900" : "border-slate-700 bg-slate-900 text-slate-100"}`}
       >
         <span className={selected ? undefined : "text-slate-400"}>
-          {selected?.label ?? "Seleziona un valore"}
+          {selected?.label ?? placeholder}
         </span>
-        <span aria-hidden="true" className="ml-3 text-slate-400">▾</span>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          aria-hidden="true"
+          className={`ml-3 size-4 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`}
+        >
+          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
         <ul
           id={listboxId}
           role="listbox"
           aria-labelledby={id}
-          className={`absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border p-1 text-xs shadow-xl ${tone === "light" ? "border-slate-200 bg-white" : "border-slate-700 bg-slate-900"}`}
+          className={`absolute z-50 mt-1 max-h-60 w-full overflow-auto border p-1.5 text-sm shadow-xl shadow-slate-950/10 ${tone === "light" ? "border-slate-200 bg-white" : "border-slate-700 bg-slate-900"}`}
         >
           <li
             role="option"
             aria-selected={!value}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => select("")}
-            className={`cursor-pointer rounded px-3 py-2 ${!value ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-100/10"}`}
+            className={`cursor-pointer px-3 py-2 ${!value ? "bg-violet-50 font-medium text-violet-700" : "text-slate-400 hover:bg-slate-100/10"}`}
           >
-            Seleziona un valore
+            {placeholder}
           </li>
           {options.map((option, index) => (
             <li
@@ -133,7 +144,7 @@ export function CustomSelect({
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => select(option.value)}
-              className={`cursor-pointer rounded px-3 py-2 ${index === activeIndex ? "bg-indigo-600 text-white" : tone === "light" ? "text-slate-800 hover:bg-slate-100" : "text-slate-100 hover:bg-slate-800"}`}
+              className={`cursor-pointer px-3 py-2 ${index === activeIndex ? "bg-violet-50 font-medium text-violet-700" : tone === "light" ? "text-slate-800 hover:bg-slate-100" : "text-slate-100 hover:bg-slate-800"}`}
             >
               {option.label}
             </li>

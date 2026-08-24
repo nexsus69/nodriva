@@ -149,6 +149,7 @@ export function RecycleBinModuleScreen() {
   const definition: AdminCollectionDefinition<RecycleRow> = {
     title: resource.label,
     description: resource.description,
+    icon: "recycle",
     columns: resource.list.columns,
     rows: controller.rows,
     loading: controller.loading,
@@ -156,6 +157,9 @@ export function RecycleBinModuleScreen() {
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
     pagination: { stateKey: resource.moduleKey },
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void controller.reload(),
     actions: [
       {
         key: "restore",

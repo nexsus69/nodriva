@@ -41,6 +41,7 @@ export interface FormFieldValidation {
 export interface FormValidationMessages {
   required: string;
   pattern: string;
+  selectPlaceholder: string;
   minLength: (count: number) => string;
   maxLength: (count: number) => string;
   email: string;
@@ -54,8 +55,9 @@ export function createValidationMessages(t: (key: string) => string): FormValida
   return {
     required: t("admin.validationRequired"),
     pattern: t("admin.validationInvalid"),
-    minLength: (count) => `${t("admin.validationMinLength")} ${count}`,
-    maxLength: (count) => `${t("admin.validationMaxLength")} ${count}`,
+    selectPlaceholder: t("admin.selectValue"),
+    minLength: (count) => t("admin.validationMinLength").replace("{count}", String(count)),
+    maxLength: (count) => t("admin.validationMaxLength").replace("{count}", String(count)),
     email: t("admin.validationEmail"),
     min: (value) => `${t("admin.validationMin")} ${value}`,
     max: (value) => `${t("admin.validationMax")} ${value}`,
@@ -91,6 +93,7 @@ export interface FormTreeNodeOption {
 export interface FormNodeTreeLabels {
   instruction: string;
   empty: string;
+  loading?: string;
   dropPlaceholder: string;
   expand: string;
   collapse: string;
@@ -159,11 +162,12 @@ export type FormFieldSchema = FormFieldBase &
         placeholder?: string;
         autoComplete?: string;
       }
-    | { type: "select"; options: readonly FormOption[] }
+    | { type: "select"; options: readonly FormOption[]; placeholder?: string }
     | {
         type: "nodeTree";
         nodes: readonly FormTreeNodeOption[];
         labels: FormNodeTreeLabels;
+        loading?: boolean;
         interaction?: "drag-drop" | "direct" | "both";
       }
     | {

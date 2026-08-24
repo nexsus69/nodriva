@@ -60,6 +60,8 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
       ['/admin/security/roles', /Roles|Ruoli/i],
       ['/admin/security/scopes', /Scopes|Ambiti/i],
       ['/admin/types', /Tipi/i],
+      ['/admin/content/nodes', /Nodes|Nodi/i],
+      ['/admin/content/entities', /Entities|Entità/i],
       ['/admin/system/config', /Capabilities|Capability/i],
       ['/admin/system/settings', /System settings|Impostazioni di sistema/i],
       ['/admin/system/placement-policies', /Placement policies|Politiche di posizionamento/i],
@@ -82,10 +84,10 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await roleKeyInput.fill(roleKey);
     await expect(roleNameInput).toHaveValue(roleName);
     await expect(roleKeyInput).toHaveValue(roleKey);
-    await page.getByRole('button', { name: /^Crea ruolo$|^Create role$/i }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /^Crea ruolo$|^Create role$/i }).click();
     await expect(page.getByText(roleKey, { exact: true })).toBeVisible();
     const createdRoleVisible = await page.getByText(roleKey, { exact: true }).isVisible();
-    await page.getByRole('row').filter({ hasText: roleKey }).getByRole('button', { name: /Apri|Open/i }).click();
+    await page.getByRole('row', { name: roleName }).click();
     await expect(page.getByRole('heading', { name: roleName })).toBeVisible();
     await expect(page.getByRole('checkbox').first()).toBeVisible();
     loadedDetailViews.push('role');
@@ -102,13 +104,13 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await page.getByRole('dialog').getByRole('button', { name: /^Crea tipo$|^Create type$/i }).click();
     await expect(page.getByText(nodeTypeKey, { exact: true })).toBeVisible();
     const createdNodeTypeVisible = await page.getByText(nodeTypeKey, { exact: true }).isVisible();
-    await page.getByRole('row').filter({ hasText: nodeTypeKey }).getByRole('button', { name: /Apri|Open/i }).click();
+    await page.getByRole('row', { name: nodeTypeName }).click();
     await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
     loadedDetailViews.push('node-type');
 
     await page.goto(`${baseUrl}/admin/types`);
     await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
-    const backToTypeList = page.locator("button").filter({ hasText: /Torna alla lista|Back to list/i }).first();
+    const backToTypeList = page.getByRole('button', { name: /Torna alla lista|Back to list/i }).first();
     if (await backToTypeList.isVisible()) {
       await backToTypeList.click({ force: true });
       await expect(page.getByRole('button', { name: /Tipi entità|Entity types/i })).toBeVisible();
@@ -122,7 +124,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await page.getByRole('dialog').getByRole('button', { name: /^Crea tipo$|^Create type$/i }).click();
     await expect(page.getByText(entityTypeKey, { exact: true })).toBeVisible();
     const createdEntityTypeVisible = await page.getByText(entityTypeKey, { exact: true }).isVisible();
-    await page.getByRole('row').filter({ hasText: entityTypeKey }).getByRole('button', { name: /Apri|Open/i }).click();
+    await page.getByRole('row', { name: entityTypeName }).click();
     await expect(page.getByRole('heading', { name: entityTypeName })).toBeVisible();
     loadedDetailViews.push('entity-type');
 
@@ -169,6 +171,8 @@ test.describe('admin panel SQLite/PostgreSQL parity', () => {
         '/admin/security/roles',
         '/admin/security/scopes',
         '/admin/types',
+        '/admin/content/nodes',
+        '/admin/content/entities',
         '/admin/system/config',
         '/admin/system/settings',
         '/admin/system/placement-policies',

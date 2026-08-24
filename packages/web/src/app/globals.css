@@ -76,50 +76,9 @@ body {
 .workspace-page .hover\:bg-slate-800:hover,
 .workspace-page .hover\:bg-slate-800\/50:hover { background-color: #f1f5f9; }
 
-/* Administrative pages share the light visual language with the workspace,
-   while keeping their own navigation and surface hierarchy. */
-.admin-page .glass-panel {
-  background: rgba(255, 255, 255, 0.88);
-  border-color: #e2e8f0;
-}
-.admin-page .text-slate-100 { color: #0f172a; }
-.admin-page .text-slate-200 { color: #1e293b; }
-.admin-page .text-slate-300 { color: #334155; }
-.admin-page .text-slate-400 { color: #475569; }
-.admin-page .text-slate-500 { color: #64748b; }
-.admin-page .text-slate-600 { color: #475569; }
-.admin-page .text-indigo-300,
-.admin-page .text-indigo-400 { color: #4338ca; }
-.admin-page .text-purple-300,
-.admin-page .text-purple-400 { color: #7e22ce; }
-.admin-page .text-rose-300 { color: #be123c; }
-.admin-page .bg-slate-950,
-.admin-page .bg-slate-950\/60,
-.admin-page .bg-slate-900,
-.admin-page .bg-slate-900\/30,
-.admin-page .bg-slate-900\/40,
-.admin-page .bg-slate-900\/60,
-.admin-page .bg-slate-900\/80 { background-color: #f8fafc; }
-.admin-page .bg-slate-800,
-.admin-page .bg-slate-800\/20,
-.admin-page .bg-slate-800\/30,
-.admin-page .bg-slate-800\/50,
-.admin-page .bg-slate-800\/60,
-.admin-page .bg-slate-800\/80 { background-color: #f1f5f9; }
-.admin-page .border-slate-800,
-.admin-page .border-slate-800\/80 { border-color: #e2e8f0; }
-.admin-page .border-slate-700,
-.admin-page .border-slate-700\/60 { border-color: #cbd5e1; }
-.admin-page .hover\:text-slate-200:hover { color: #1e293b; }
-.admin-page .hover\:bg-slate-700:hover,
-.admin-page .hover\:bg-slate-800:hover,
-.admin-page .hover\:bg-slate-800\/50:hover { background-color: #e2e8f0; }
-.admin-page h1.text-white,
-.admin-page h2.text-white,
-.admin-page h3.text-white,
-.admin-page input.text-white,
-.admin-page textarea.text-white,
-.admin-page select.text-white { color: #0f172a; }
+/* Admin components declare their own light or dark appearance. Global color
+   remapping is intentionally forbidden because it makes surface contracts
+   ambiguous and changes nested components as an unrelated side effect. */
 
 /* Static administration tables become labelled record cards on narrow screens.
    VirtualGroupedTable has its own mobile renderer. */

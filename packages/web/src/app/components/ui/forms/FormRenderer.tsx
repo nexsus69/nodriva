@@ -45,11 +45,13 @@ export interface FormRendererProps {
   theme?: "dark" | "light";
   renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
   showActions?: boolean;
+  actionPlacement?: "flow" | "sticky";
 }
 
 const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
   required: "Required",
   pattern: "Valid format",
+  selectPlaceholder: "Select a value",
   minLength: (count) => `At least ${count} characters`,
   maxLength: (count) => `At most ${count} characters`,
   email: "Valid email",
@@ -60,16 +62,16 @@ const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
 
 function fieldClassName(theme: "dark" | "light"): string {
   return theme === "light"
-    ? "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
-    : "w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500";
+    ? "min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+    : "min-h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60";
 }
 const gridColumns: Record<number, string> = {
   1: "grid-cols-1",
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  6: "grid-cols-6",
-  12: "grid-cols-12",
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+  6: "grid-cols-1 sm:grid-cols-3 lg:grid-cols-6",
+  12: "grid-cols-1 sm:grid-cols-6 lg:grid-cols-12",
 };
 const gridGaps: Record<string, string> = {
   compact: "gap-2",
@@ -79,7 +81,21 @@ const gridGaps: Record<string, string> = {
 
 /** Converts a field span into a Tailwind grid column class. */
 function columnSpanClass(span: FormFieldLayout["colSpan"]): string {
-  return span ? `col-span-${span}` : "col-span-full";
+  const spans: Record<NonNullable<FormFieldLayout["colSpan"]>, string> = {
+    1: "col-span-full sm:col-span-1",
+    2: "col-span-full sm:col-span-2",
+    3: "col-span-full sm:col-span-3",
+    4: "col-span-full sm:col-span-4",
+    5: "col-span-full sm:col-span-5",
+    6: "col-span-full sm:col-span-6",
+    7: "col-span-full sm:col-span-6 lg:col-span-7",
+    8: "col-span-full sm:col-span-6 lg:col-span-8",
+    9: "col-span-full sm:col-span-6 lg:col-span-9",
+    10: "col-span-full sm:col-span-6 lg:col-span-10",
+    11: "col-span-full sm:col-span-6 lg:col-span-11",
+    12: "col-span-full sm:col-span-6 lg:col-span-12",
+  };
+  return span ? spans[span] : "col-span-full";
 }
 
 /** Resolves the label and control wrapper classes for the requested label position. */
@@ -222,7 +238,7 @@ function FormField({
     labelPosition === "hidden" ? null : (
       <label
         htmlFor={field.type === "attachment" ? undefined : fieldId}
-        className={`block shrink-0 text-xs font-medium ${theme === "light" ? "text-slate-700" : "text-slate-300"}`}
+        className={`mb-1.5 block shrink-0 text-xs font-semibold ${theme === "light" ? "text-slate-700" : "text-slate-300"}`}
       >
         {field.label}
         {isRequired ? " *" : ""}
@@ -259,6 +275,7 @@ function FormField({
         value={String(value ?? "")}
         nodes={field.nodes}
         labels={field.labels}
+        loading={field.loading}
         interaction={field.interaction}
         disabled={field.disabled}
         required={isRequired}
@@ -272,6 +289,7 @@ function FormField({
         required={isRequired}
         disabled={field.disabled}
         tone={theme}
+        placeholder={field.placeholder ?? validationMessages.selectPlaceholder}
         onChange={onChange}
       />
     ) : field.type === "password" ? (
@@ -335,7 +353,7 @@ function FormField({
             return (
               <li
                 key={`${rule.kind}-${index}`}
-                className={valid ? "text-emerald-400" : "text-rose-400"}
+                className={valid ? "text-emerald-600" : "text-rose-600"}
               >
                 <span className="mr-1" aria-hidden="true">
                   {valid ? "✓" : "✕"}
@@ -443,13 +461,20 @@ function FormSection({
     : fields;
   if (selected.length === 0) return null;
   return (
-    <section className={section?.className}>
+    <section className={`space-y-4 ${section?.className ?? ""}`}>
       {section?.label && (
-        <h3 className={`mb-1 text-sm font-semibold ${theme === "light" ? "text-slate-800" : "text-slate-200"}`}>
-          {section.label}
-        </h3>
+        <div className="border-b border-slate-200 pb-3">
+          <h3 className={`text-sm font-semibold ${theme === "light" ? "text-slate-900" : "text-slate-200"}`}>
+            {section.label}
+          </h3>
+          {section?.description && (
+            <p className={`mt-1 text-xs leading-5 ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+              {section.description}
+            </p>
+          )}
+        </div>
       )}
-      {section?.description && (
+      {!section?.label && section?.description && (
         <p className={`mb-4 text-xs ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
           {section.description}
         </p>
@@ -490,6 +515,7 @@ export function FormRenderer({
   theme = "dark",
   renderFieldAddon,
   showActions = true,
+  actionPlacement = "flow",
 }: FormRendererProps) {
   const resolvedFields = definition?.fields ?? fields ?? [];
   const layout = definition?.layout;
@@ -529,15 +555,15 @@ export function FormRenderer({
           validationMessages={validationMessages}
           renderFieldAddon={renderFieldAddon}
         />
-      )}{" "}
+      )}
       {children}
-      {showActions && <div className={`flex items-center justify-end gap-3 border-t pt-4 ${theme === "light" ? "border-slate-200" : "border-slate-800/80"}`}>
+      {showActions && <div className={`flex items-center justify-end gap-3 border-t pt-4 ${actionPlacement === "sticky" ? "sticky -bottom-6 z-10 -mx-6 -mb-6 mt-6 bg-white px-6 py-4 shadow-[0_-8px_16px_-16px_rgba(15,23,42,0.35)]" : ""} ${theme === "light" ? "border-slate-200" : "border-slate-800/80"}`}>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
+            className={`min-h-9 border border-transparent px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
           >
             {cancelLabel ?? "Annulla"}
           </button>
@@ -545,7 +571,7 @@ export function FormRenderer({
         <button
           type="submit"
           disabled={isPending || submitDisabled}
-          className="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 disabled:opacity-50"
+          className="min-h-9 border border-violet-600 bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:border-violet-700 hover:bg-violet-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
         >
           {isPending ? pendingLabel : submitLabel}
         </button>

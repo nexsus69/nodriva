@@ -11,6 +11,7 @@ import type {
   FormNodeTreeLabels,
   FormTreeNodeOption,
 } from "./FormDefinition";
+import { Skeleton } from "../feedback";
 
 /** Represents one node with its recursively nested visible children. */
 export interface FormTreeBranch extends FormTreeNodeOption {
@@ -70,6 +71,7 @@ export function NodeTreeSelect({
   interaction = "both",
   disabled = false,
   required = false,
+  loading = false,
   onChange,
 }: {
   id: string;
@@ -80,6 +82,7 @@ export function NodeTreeSelect({
   interaction?: "drag-drop" | "direct" | "both";
   disabled?: boolean;
   required?: boolean;
+  loading?: boolean;
   onChange: (nodeId: string) => void;
 }) {
   const tree = useMemo(() => buildFormTree(nodes), [nodes]);
@@ -196,8 +199,9 @@ export function NodeTreeSelect({
 
   return (
     <div
-      className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
+      className="space-y-3 border border-slate-200 bg-slate-50 p-3"
       data-node-tree-field={name}
+      aria-busy={loading}
       onPointerCancel={() => {
         pointerNodeId.current = null;
         setDragActive(false);
@@ -216,10 +220,16 @@ export function NodeTreeSelect({
       <ul
         role="tree"
         aria-label={labels.instruction}
-        className="max-h-64 overflow-auto rounded border border-slate-200 bg-white p-2"
+        className="max-h-64 overflow-auto border border-slate-200 bg-white p-2"
       >
-        {tree.map(renderBranch)}
-        {tree.length === 0 && (
+        {loading ? (
+          <li className="space-y-2 p-2" aria-label={labels.loading}>
+            <Skeleton className="h-7 w-4/5" />
+            <Skeleton className="ml-5 h-7 w-3/5" />
+            <Skeleton className="h-7 w-2/3" />
+          </li>
+        ) : tree.map(renderBranch)}
+        {!loading && tree.length === 0 && (
           <li className="p-2 text-xs text-slate-500">{labels.empty}</li>
         )}
       </ul>
@@ -247,9 +257,9 @@ export function NodeTreeSelect({
         data-node-tree-drop-target
         data-selected-node-id={selectedNode?.id}
         aria-live="polite"
-        className={`min-h-14 rounded border-2 border-dashed p-3 text-xs ${dragActive ? "border-indigo-500 bg-indigo-50 text-indigo-800" : "border-indigo-200 bg-white text-slate-600"}`}
+        className={`min-h-14 border-2 border-dashed p-3 text-xs ${dragActive ? "border-violet-500 bg-violet-50 text-violet-800" : "border-violet-200 bg-white text-slate-600"}`}
       >
-        {selectedNode?.pathLabel ?? labels.dropPlaceholder}
+        {loading ? (labels.loading ?? labels.instruction) : (selectedNode?.pathLabel ?? labels.dropPlaceholder)}
       </div>
     </div>
   );

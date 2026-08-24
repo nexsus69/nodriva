@@ -92,7 +92,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await page.getByLabel('Tabella storage *').fill(`entity_${names.entityTypeKey}`);
   await expect(page.getByLabel('Tabella storage *')).toHaveValue(`entity_${names.entityTypeKey}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
-  await page.getByRole('row').filter({ hasText: names.entityTypeKey }).getByRole('button', { name: /Apri/i }).click();
+  await page.getByRole('row', { name: names.entityTypeName }).click();
   await expect(page.getByRole('heading', { name: names.entityTypeName })).toBeVisible();
   await page.getByRole('button', { name: /Campi/ }).click();
 
@@ -147,7 +147,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await page.getByLabel('Nome *').fill(names.roleName);
   await page.getByLabel('Chiave ruolo *').fill(names.roleKey);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea ruolo' }).click();
-  await page.getByRole('row').filter({ hasText: names.roleKey }).getByRole('button', { name: /Apri/i }).click();
+  await page.getByRole('row', { name: names.roleName }).click();
   for (const permission of OPERATOR_PERMISSIONS) {
     await page.locator('label').filter({ hasText: permission }).getByRole('checkbox').check();
   }
@@ -239,7 +239,8 @@ async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: str
   await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
   const deletedItem = adminPage.getByRole('row').filter({ hasText: entityName });
   await expect(deletedItem).toBeVisible();
-  await deletedItem.getByRole('button', { name: 'Ripristina' }).click();
+  await deletedItem.getByRole('button', { name: /Azioni|Actions/i }).click();
+  await adminPage.getByRole('menuitem', { name: 'Ripristina' }).click();
   await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina' }).click();
   await expect(adminPage.getByText(entityName, { exact: true })).toHaveCount(0);
 

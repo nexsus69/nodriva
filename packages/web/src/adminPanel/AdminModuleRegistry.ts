@@ -41,13 +41,46 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     ],
   },
   {
+    key: "content",
+    label: "Content",
+    labelKey: "admin.content",
+    description: "Browse the operational records visible in your scopes.",
+    descriptionKey: "admin.contentDescription",
+    icon: "database",
+    order: 20,
+    children: [
+      {
+        key: "content.nodes",
+        label: "Nodes",
+        labelKey: "admin.nodes",
+        description: "Browse and manage the visible node hierarchy.",
+        descriptionKey: "admin.nodesDescription",
+        icon: "nodes",
+        order: 10,
+        route: "/admin/content/nodes",
+        requiredPermissions: ["node.read"],
+      },
+      {
+        key: "content.entities",
+        label: "Entities",
+        labelKey: "admin.entities",
+        description: "Browse and manage entities in visible scopes.",
+        descriptionKey: "admin.entitiesDescription",
+        icon: "entities",
+        order: 20,
+        route: "/admin/content/entities",
+        requiredPermissions: ["node.read", "entity.read"],
+      },
+    ],
+  },
+  {
     key: "access",
     label: "Access",
     labelKey: "admin.access",
     description: "Manage identities, roles, and scope assignments.",
     descriptionKey: "admin.accessDescription",
     icon: "shield",
-    order: 20,
+    order: 30,
     children: [
       {
         key: "access.users",
@@ -88,7 +121,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     description: "Review audit history and recover deleted resources.",
     descriptionKey: "admin.activityDescription",
     icon: "activity",
-    order: 30,
+    order: 40,
     children: [
       {
         key: "activity.audit",
@@ -120,7 +153,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     description: "Configure runtime capabilities and placement policies.",
     descriptionKey: "admin.systemDescription",
     icon: "settings",
-    order: 40,
+    order: 50,
     children: [
       {
         key: "system.capabilities",

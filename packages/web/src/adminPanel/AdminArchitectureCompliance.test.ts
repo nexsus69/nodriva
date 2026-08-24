@@ -43,6 +43,26 @@ describe("Admin Panel architecture", () => {
     }
   });
 
+  it("renders module page and surface chrome only through shared headers", () => {
+    const allowedHeaders = new Set([
+      "adminPanel/components/AdminPageHeader.tsx",
+      "adminPanel/components/AdminSurfaceHeader.tsx",
+      "app/admin/_components/AdminPanelHeader.tsx",
+    ]);
+    for (const file of files) {
+      const relative = path.relative(WEB_ROOT, file);
+      if (allowedHeaders.has(relative)) continue;
+      expect(fs.readFileSync(file, "utf8"), relative).not.toMatch(/<header\b/);
+    }
+  });
+
+  it("does not mount native select controls in Admin modules", () => {
+    for (const file of files) {
+      expect(fs.readFileSync(file, "utf8"), path.relative(WEB_ROOT, file))
+        .not.toMatch(/<select\b/);
+    }
+  });
+
   it("defines every literal admin translation in both supported locales", () => {
     const literalKeys = new Set<string>();
     for (const file of files) {

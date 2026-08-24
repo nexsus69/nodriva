@@ -15,10 +15,13 @@ import { PlacementPoliciesModuleScreen } from "../system/_components/PlacementPo
 import { SystemConfigModuleScreen } from "../system/_components/SystemConfigModuleScreen";
 import AdminTypesPage from "../types/_components/TypesModuleScreen";
 import { AdminOverviewScreen } from "./AdminOverviewScreen";
+import { AdminContentModuleScreen } from "../content/_components/AdminContentModuleScreen";
 
 const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
   overview: () => <AdminOverviewScreen pathname="/admin" />,
   "model.types": () => <AdminTypesPage />,
+  "content.nodes": () => <AdminContentModuleScreen kind="node" />,
+  "content.entities": () => <AdminContentModuleScreen kind="entity" />,
   "access.users": () => <UsersModuleScreen />,
   "access.roles": () => <RolesModuleScreen />,
   "access.scopes": () => <ScopesModuleScreen />,

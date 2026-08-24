@@ -18,6 +18,8 @@ import {
 } from "./roleResource";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { canUseAdminResourceOperation } from "@/adminPanel/AdminResourceDefinition";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
 
 /** Provides a reload-safe permission editor for one role. */
 export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClose?: () => void }) {
@@ -103,30 +105,19 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
 
   return (
     <section className="space-y-6">
-      <header className="border border-slate-200 bg-white p-6">
-        <div className="flex items-start justify-between gap-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
-            {t("admin.roleDetail")}
-          </p>
-          <button
-            type="button"
-    onClick={() => void returnToList()}
-            className="border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-          >
+      <AdminPageHeader
+        title={detail.name}
+        description={detail.description || t("admin.noDescription")}
+        icon="roles"
+        breadcrumbs={[{ label: t("admin.roles"), onClick: () => void returnToList() }]}
+        actions={(
+          <AdminButton tone="secondary" icon="arrow-left" onClick={() => void returnToList()}>
             {t("admin.backToRoles")}
-          </button>
-        </div>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">
-          {detail.name}
-        </h1>
-        <p className="mt-1 font-mono text-xs text-slate-500">{detail.roleKey}</p>
-        <p className="mt-3 text-sm text-slate-600">
-          {detail.description || t("admin.noDescription")}
-        </p>
-        {isReadOnly && (
-          <Alert tone="info">{t("admin.systemRoleReadOnly")}</Alert>
+          </AdminButton>
         )}
-      </header>
+      />
+      <p className="font-mono text-xs text-slate-500">{detail.roleKey}</p>
+      {isReadOnly && <Alert tone="info">{t("admin.systemRoleReadOnly")}</Alert>}
       {controller.detailError && (
         <Alert tone="danger">{controller.detailError.message}</Alert>
       )}

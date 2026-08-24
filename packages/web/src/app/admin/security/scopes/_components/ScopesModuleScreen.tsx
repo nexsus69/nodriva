@@ -28,6 +28,7 @@ function createScopeForm(
   users: readonly UserListItemDto[],
   roles: readonly RoleListItemDto[],
   nodes: readonly ScopeNodeOption[],
+  nodesLoading: boolean,
 ): FormDefinition<ScopeForm> {
   return defineForm({
     key: "admin.scopes.create",
@@ -42,10 +43,12 @@ function createScopeForm(
         label: t("admin.node"),
         required: true,
         nodes,
+        loading: nodesLoading,
         interaction: "both",
         labels: {
           instruction: t("admin.scopeTreeInstruction"),
           empty: t("admin.scopeTreeEmpty"),
+          loading: t("admin.scopeTreeLoading"),
           dropPlaceholder: t("admin.scopeTreeDropPlaceholder"),
           expand: t("admin.scopeTreeExpand"),
           collapse: t("admin.scopeTreeCollapse"),
@@ -75,6 +78,7 @@ export function ScopesModuleScreen() {
   const [users, setUsers] = useState<readonly UserListItemDto[]>([]);
   const [roles, setRoles] = useState<readonly RoleListItemDto[]>([]);
   const [nodes, setNodes] = useState<readonly ScopeNodeOption[]>([]);
+  const [nodesLoading, setNodesLoading] = useState(true);
   const resource = useMemo(() => defineAdminResource<ScopeAssignmentDto>({
     key: "scopes",
     moduleKey: "access.scopes",
@@ -93,10 +97,10 @@ export function ScopesModuleScreen() {
         return result.data;
       },
       columns: [
-        { key: "user", label: t("admin.user"), render: (row) => row.userEmail },
-        { key: "node", label: t("admin.node"), render: (row) => row.nodeName },
-        { key: "role", label: t("admin.role"), render: (row) => row.roleName },
-        { key: "propagation", label: t("admin.propagation"), render: (row) => row.propagation },
+        { key: "user", label: t("admin.user"), render: (row) => row.userEmail, sortValue: (row) => row.userEmail },
+        { key: "node", label: t("admin.node"), render: (row) => row.nodeName, sortValue: (row) => row.nodeName },
+        { key: "role", label: t("admin.role"), render: (row) => row.roleName, sortValue: (row) => row.roleName },
+        { key: "propagation", label: t("admin.propagation"), render: (row) => row.propagation, sortValue: (row) => row.propagation },
       ],
       emptyLabel: t("admin.noScopes"),
       loadingLabel: t("admin.loadingScopes"),
@@ -104,8 +108,8 @@ export function ScopesModuleScreen() {
   }), [t]);
   const collection = useAdminResourceController(resource, undefined);
   const definition = useMemo(
-    () => createScopeForm(t, users, roles, nodes),
-    [nodes, roles, t, users],
+    () => createScopeForm(t, users, roles, nodes, nodesLoading),
+    [nodes, nodesLoading, roles, t, users],
   );
   const formSurface = useAdminFormSurface<ScopeForm>({
     moduleKey: resource.moduleKey,
@@ -134,6 +138,9 @@ export function ScopesModuleScreen() {
       setUsers(userRows);
       if (roleResult.success && roleResult.data) setRoles(roleResult.data);
       setNodes(nodeResult);
+      setNodesLoading(false);
+    }).catch(() => {
+      setNodesLoading(false);
     });
   }, []);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -193,6 +200,7 @@ export function ScopesModuleScreen() {
   const collectionDefinition: AdminCollectionDefinition<ScopeAssignmentDto> = {
     title: resource.label,
     description: resource.description,
+    icon: "scope",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
@@ -201,6 +209,11 @@ export function ScopesModuleScreen() {
     error: collection.error,
     createLabel: canCreate ? t("admin.createScope") : undefined,
     onCreate: canCreate ? openCreate : undefined,
+    onOpen: canUpdate ? openEdit : undefined,
+    rowLabel: (row) => `${row.userEmail} · ${row.nodeName}`,
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void collection.reload(),
     pagination: { stateKey: resource.moduleKey },
     actions: [
       { key: "edit", label: t("admin.edit"), tone: "primary", onClick: openEdit, hidden: () => !canUpdate },

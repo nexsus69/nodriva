@@ -68,3 +68,44 @@ The Admin Panel has one implementation path for each shared behavior:
 Static architecture tests enforce the single confirmation, table, surface and
 translation paths. A new module must extend these contracts instead of adding
 another route map or local implementation.
+
+## Admin experience design system
+
+The Admin experience is a presentation concern inside the Administration and
+Frontend Read Model bounded contexts. It may depend on React, the Admin module
+and resource definitions, localized messages, application actions, and the
+normalized frontend cache. It must not depend on SQL, persistence adapters, or
+database-specific behavior.
+
+Shared Admin visual behavior is owned by reusable components and tokens:
+
+- `AdminIcon` owns the application icon vocabulary and accessible SVG output;
+- `AdminPageHeader` owns title hierarchy, breadcrumbs, description, and primary
+  actions;
+- `AdminToolbar` owns search, filters, result metadata, and refresh actions;
+- `AdminTable` owns row navigation, stable rows, action menus, loading
+  geometry, empty states, and density;
+- `AdminSurfaceHost` owns modal, drawer, and replacement-surface geometry,
+  focus, backdrop, and sticky action areas;
+- `FormDefinition` and `FormRenderer` own form grouping and responsive column
+  layout;
+- feedback, badges, buttons, and skeletons use semantic Admin design tokens.
+
+Modules configure these objects. They must not recreate page headers, table
+toolbars, action placement, loading placeholders, or surface chrome locally.
+
+## Operational resource administration
+
+Node and entity administration belongs to the Hierarchy and Entity bounded
+contexts, exposed through the Administration presentation layer. The modules
+may read through existing authorized application actions and the normalized
+cache. Mutations continue to use `NodeApplicationService` and
+`EntityApplicationService`; therefore authorization, validation, locks,
+`rowVersion`, audit, transactions, and realtime remain backend-owned.
+
+These modules run outside database transactions. Their server actions invoke
+existing application services whose mutations define the transaction and
+post-commit boundaries. They require no new persistence port and must never
+load unrestricted records directly from an adapter. Lists are projections of
+the actor's readable roots and subtrees, so a local administrator sees only the
+same operational perimeter available in the workspace.

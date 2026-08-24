@@ -20,6 +20,7 @@ import { loadVisibleScopeNodes, type ScopeNodeOption } from "@/app/admin/securit
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { UserDetailScreen } from "./UserDetailScreen";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { AdminStatusBadge } from "@/adminPanel/components/AdminStatusBadge";
 
 /** Stores the identity fields and mandatory initial scope fields. */
 type UserCreateForm = Record<string, unknown>;
@@ -47,6 +48,7 @@ function createUserForm(
   roles: readonly RoleOption[],
   nodes: readonly ScopeNodeOption[],
   assignmentRowIds: readonly string[],
+  nodesLoading: boolean,
 ): FormDefinition<UserCreateForm> {
   const assignmentFields = assignmentRowIds.flatMap((rowId, index) => {
     const rowKey = `assignment-${rowId}`;
@@ -65,10 +67,12 @@ function createUserForm(
         label: t("admin.node"),
         required: index === 0,
         nodes,
+        loading: nodesLoading,
         interaction: "both" as const,
         labels: {
           instruction: t("admin.scopeTreeInstruction"),
           empty: t("admin.scopeTreeEmpty"),
+          loading: t("admin.scopeTreeLoading"),
           dropPlaceholder: t("admin.scopeTreeDropPlaceholder"),
           expand: t("admin.scopeTreeExpand"),
           collapse: t("admin.scopeTreeCollapse"),
@@ -146,6 +150,7 @@ export function UsersModuleScreen() {
   const authorization = useAdminAuthorization();
   const [roles, setRoles] = useState<readonly RoleOption[]>([]);
   const [nodes, setNodes] = useState<readonly ScopeNodeOption[]>([]);
+  const [nodesLoading, setNodesLoading] = useState(true);
   const assignmentRows = useAdminRepeatableRows({
     moduleKey: "access.users",
     stateKey: "createAssignmentRowIds",
@@ -164,16 +169,22 @@ export function UsersModuleScreen() {
     list: {
       load: async () => AppCache.users.listUsers(),
       columns: [
-        { key: "email", label: t("admin.email"), render: (row) => row.email },
+        { key: "email", label: t("admin.email"), render: (row) => row.email, sortValue: (row) => row.email },
         {
           key: "status",
           label: t("admin.status"),
-          render: (row) => row.isActive ? t("admin.active") : t("admin.disabled"),
+          render: (row) => (
+            <AdminStatusBadge tone={row.isActive ? "success" : "neutral"}>
+              {row.isActive ? t("admin.active") : t("admin.disabled")}
+            </AdminStatusBadge>
+          ),
+          sortValue: (row) => row.isActive,
         },
         {
           key: "roles",
           label: t("admin.roles"),
           render: (row) => row.roles.map((role) => role.name).join(", ") || "—",
+          sortValue: (row) => row.roles.map((role) => role.name).join(", "),
         },
       ],
       emptyLabel: t("admin.noUsers"),
@@ -184,8 +195,8 @@ export function UsersModuleScreen() {
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const definition = useMemo(
-    () => createUserForm(t, roles, nodes, assignmentRows.rowIds),
-    [assignmentRows.rowIds, nodes, roles, t],
+    () => createUserForm(t, roles, nodes, assignmentRows.rowIds, nodesLoading),
+    [assignmentRows.rowIds, nodes, nodesLoading, roles, t],
   );
   const formSurface = useAdminFormSurface<UserCreateForm>({
     moduleKey: resource.moduleKey,
@@ -236,6 +247,9 @@ export function UsersModuleScreen() {
         setRoles([...roleOptions.values()]);
       }
       setNodes(nodeResult);
+      setNodesLoading(false);
+    }).catch(() => {
+      setNodesLoading(false);
     });
   }, []);
 
@@ -276,6 +290,7 @@ export function UsersModuleScreen() {
   const collectionDefinition: AdminCollectionDefinition<UserListItemDto> = {
     title: resource.label,
     description: resource.description,
+    icon: "users",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
@@ -284,14 +299,13 @@ export function UsersModuleScreen() {
     error: collection.error,
     createLabel: canCreate ? t("admin.createUser") : undefined,
     onCreate: canCreate ? () => formSurface.open({ mode: "create" }) : undefined,
+    onOpen: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.id }),
+    rowLabel: (row) => row.email,
+    actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void collection.reload(),
     pagination: { stateKey: resource.moduleKey },
     actions: [
-      {
-        key: "open",
-        label: t("admin.open"),
-        tone: "primary",
-        onClick: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.id }),
-      },
       {
         key: "toggle-status",
         label: t("admin.toggleStatus"),

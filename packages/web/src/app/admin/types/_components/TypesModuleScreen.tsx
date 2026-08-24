@@ -41,6 +41,10 @@ import {
 import { TYPE_DETAIL_SURFACE, TypeDetailDrawer } from "./TypeDetailDrawer";
 import { CREATE_TYPE_SURFACE } from "./typesSurfaceDefinitions";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { AdminToolbar } from "@/adminPanel/components/AdminToolbar";
+import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 
 type TypeForm = {
   typeKey: string;
@@ -242,14 +246,24 @@ function TypeTable({
           {type.description && <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{type.description}</p>}
         </div>
       ),
+      sortValue: (type: TypeListItemDto) => type.name,
     },
-    { key: "typeKey", label: t("admin.typeKey"), render: (type: TypeListItemDto) => type.typeKey },
-    ...(kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—" }] : []),
-    { key: "fields", label: t("admin.fields"), render: (type: TypeListItemDto) => type.fieldCount },
-    { key: "version", label: t("admin.version"), render: (type: TypeListItemDto) => `${type.currentSchemaVersion} · ${type.rowVersion}` },
+    { key: "typeKey", label: t("admin.typeKey"), render: (type: TypeListItemDto) => type.typeKey, sortValue: (type: TypeListItemDto) => type.typeKey },
+    ...(kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—", sortValue: (type: TypeListItemDto) => type.storageTable }] : []),
+    { key: "fields", label: t("admin.fields"), render: (type: TypeListItemDto) => type.fieldCount, sortValue: (type: TypeListItemDto) => type.fieldCount },
+    { key: "version", label: t("admin.version"), render: (type: TypeListItemDto) => `${type.currentSchemaVersion} · ${type.rowVersion}`, sortValue: (type: TypeListItemDto) => type.currentSchemaVersion },
     { key: "status", label: t("admin.status"), render: (type: TypeListItemDto) => <StatusBadge tone={type.isActive ? "success" : "danger"}>{type.isActive ? t("admin.active") : t("admin.disabled")}</StatusBadge> },
   ];
-  return <AdminTable rows={types} columns={columns} emptyLabel={t("admin.noTypes")} actions={[{ key: "open", label: t("admin.open"), tone: "primary", onClick: onOpen }]} />;
+  return (
+    <AdminTable
+      rows={types}
+      columns={columns}
+      emptyLabel={t("admin.noTypes")}
+      onOpen={onOpen}
+      rowLabel={(type) => type.name}
+      actionMenuLabel={t("admin.actions")}
+    />
+  );
 }
 
 /** Builds the visual contract for creating either a node or an entity type. */
@@ -442,34 +456,19 @@ function CreateTypeDrawer({
       labelledBy="create-type-title"
     >
       <div className="p-0">
-        <div className="flex items-start justify-between border-b border-slate-800 pb-5">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-400">
-              {t("admin.modelTypes")}
-            </p>
-            <h2
-              id="create-type-title"
-              className="mt-2 text-xl font-semibold text-white"
-            >
-              {kind === "node"
-                ? t("admin.createNodeType")
-                : t("admin.createEntityType")}
-            </h2>
-            <p className="mt-2 text-xs text-slate-400">
-              {step === "basics"
-                ? t("admin.typeStepBasics")
-                : t("admin.typeStepConfiguration")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("admin.cancel")}
-            className="text-xl text-slate-400 hover:text-white"
-          >
-            ×
-          </button>
-        </div>
+        <AdminSurfaceHeader
+          title={kind === "node"
+            ? t("admin.createNodeType")
+            : t("admin.createEntityType")}
+          titleId="create-type-title"
+          eyebrow={t("admin.modelTypes")}
+          subtitle={step === "basics"
+            ? t("admin.typeStepBasics")
+            : t("admin.typeStepConfiguration")}
+          closeLabel={t("admin.cancel")}
+          onClose={onClose}
+          appearance="dark"
+        />
         {error && (
           <Alert tone="danger" className="mt-5">
             <div className="space-y-2">
@@ -487,7 +486,7 @@ function CreateTypeDrawer({
             </div>
           </Alert>
         )}
-        <div className="mt-6">
+        <div className="p-6">
           {step === "configuration" && (
             <div className="mb-5 border border-slate-800 bg-slate-900/60 p-4 text-xs text-slate-300">
               <p className="font-semibold text-slate-100">
@@ -546,7 +545,7 @@ export default function AdminTypesPage() {
         type.description ?? "",
         type.storageTable ?? "",
       ].some((value) => value.toLowerCase().includes(needle)),
-    );
+    ).sort((left, right) => left.name.localeCompare(right.name));
   }, [controller.search, controller.types]);
   const pagination = useAdminPagination({ total: filteredTypes.length, stateKey: `model.types.${controller.kind}` });
   const visibleTypes = filteredTypes.slice(pagination.visibleRange.start, pagination.visibleRange.end);
@@ -563,28 +562,17 @@ export default function AdminTypesPage() {
       : null;
   return (
     <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-600">
-            {t("admin.modelTypes")}
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
-            {t("admin.typesTitle")}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            {t("admin.typesPageDescription")}
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            type="button"
-            onClick={controller.openCreate}
-            className="bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
-          >
+      <AdminPageHeader
+        title={t("admin.typesTitle")}
+        description={t("admin.typesPageDescription")}
+        icon="schema"
+        breadcrumbs={[{ label: t("admin.model") }]}
+        actions={canCreate ? (
+          <AdminButton tone="primary" icon="plus" onClick={controller.openCreate}>
             {t("admin.createType")}
-          </button>
-        )}
-      </header>
+          </AdminButton>
+        ) : undefined}
+      />
       {selectedTypeResource ? (
         <TypeDetailDrawer
           kind={selectedTypeResource[0] as TypeKind}
@@ -593,8 +581,18 @@ export default function AdminTypesPage() {
           onClose={() => selectResource(null)}
         />
       ) : (
-        <section className="overflow-hidden border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="space-y-4">
+          <AdminToolbar
+            search={{
+              value: controller.search,
+              label: t("admin.searchTypes"),
+              placeholder: t("admin.searchTypes"),
+              onChange: controller.setSearch,
+            }}
+            meta={controller.loading ? t("admin.loading") : countLabel}
+            refreshLabel={t("admin.refreshTypes")}
+            onRefresh={() => void controller.load()}
+          >
             <div className="flex gap-1 bg-slate-100 p-1">
               {(["node", "entity"] as const).map((value) => (
                 <button
@@ -612,37 +610,7 @@ export default function AdminTypesPage() {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2">
-              <label className="relative">
-                <span className="sr-only">{t("admin.searchTypes")}</span>
-                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-                  ⌕
-                </span>
-                <input
-                  value={controller.search}
-                  onChange={(event) => controller.setSearch(event.target.value)}
-                  placeholder={t("admin.searchTypes")}
-                  className="w-full border border-slate-200 bg-slate-50 py-2 pl-8 pr-3 text-xs text-slate-700 outline-none focus:border-indigo-400 focus:bg-white sm:w-56"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => void controller.load()}
-                className="border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                aria-label={t("admin.refreshTypes")}
-              >
-                ↻
-              </button>
-            </div>
-          </div>
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-            <span className="text-xs text-slate-500">
-              {controller.loading ? t("admin.loading") : countLabel}
-            </span>
-            <span className="text-[11px] text-slate-400">
-              {t("admin.sortedByName")}
-            </span>
-          </div>
+          </AdminToolbar>
           {controller.error && (
             <div className="p-4">
               <Alert tone="danger">

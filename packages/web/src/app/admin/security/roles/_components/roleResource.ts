@@ -116,7 +116,7 @@ export function createRoleForm(t: AdminTranslator): FormDefinition<RoleForm> {
               value: "^[a-z0-9_]+$",
               message: t("admin.validationInvalid"),
             },
-            { kind: "minLength", value: 2, message: t("admin.validationMin2") },
+            { kind: "minLength", value: 2 },
           ],
         },
         layout: { row: "identity", colSpan: 1, order: 1 },
@@ -127,7 +127,7 @@ export function createRoleForm(t: AdminTranslator): FormDefinition<RoleForm> {
         type: "text",
         validation: {
           rules: [
-            { kind: "minLength", value: 2, message: t("admin.validationMin2") },
+            { kind: "minLength", value: 2 },
           ],
         },
         required: true,
@@ -172,12 +172,13 @@ export function createRoleResource(
 ): ReturnType<typeof defineAdminResource<RoleListItemDto, RoleDetailDto, RoleForm, undefined, string>> {
   const form = createRoleForm(t);
   const columns: readonly AdminTableColumn<RoleListItemDto>[] = [
-    { key: "name", label: t("admin.name"), render: (row) => row.name },
-    { key: "roleKey", label: t("admin.roleKey"), render: (row) => row.roleKey },
+    { key: "name", label: t("admin.name"), render: (row) => row.name, sortValue: (row) => row.name },
+    { key: "roleKey", label: t("admin.roleKey"), render: (row) => row.roleKey, sortValue: (row) => row.roleKey },
     {
       key: "permissions",
       label: t("admin.permissions"),
       render: (row) => row.permissionCount,
+      sortValue: (row) => row.permissionCount,
     },
   ];
   return defineAdminResource({

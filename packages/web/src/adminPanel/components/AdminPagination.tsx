@@ -2,6 +2,7 @@
 
 /** Renders the shared collection pagination controls for every Admin Panel list. */
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { AdminIcon } from "./AdminIcon";
 
 export function AdminPagination({
   page,
@@ -21,16 +22,17 @@ export function AdminPagination({
   const pages = Array.from({ length: windowSize }, (_, index) => firstPage + index);
   return (
     <nav
-      className="flex items-center justify-between gap-4 border border-slate-200 bg-white px-4 py-3 text-sm"
+      className="flex flex-wrap items-center justify-between gap-3 border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
       aria-label={t("admin.pagination")}
     >
       <button
         type="button"
         disabled={page <= 1}
         onClick={() => onPageChange(Math.max(1, page - 1))}
-        className="font-semibold text-indigo-600 disabled:text-slate-300"
+        aria-label={t("admin.previous")}
+        className="inline-flex size-8 items-center justify-center border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       >
-        {t("admin.previous")}
+        <AdminIcon name="chevron-left" className="size-4" />
       </button>
       <div
         className="flex items-center gap-1"
@@ -44,10 +46,10 @@ export function AdminPagination({
             type="button"
             aria-current={pageNumber === page ? "page" : undefined}
             onClick={() => onPageChange(pageNumber)}
-            className={`min-w-8 px-2 py-1 font-semibold ${
+            className={`size-8 border text-xs font-semibold tabular-nums transition ${
               pageNumber === page
-                ? "bg-indigo-600 text-white"
-                : "text-indigo-600 hover:bg-indigo-50"
+                ? "border-violet-600 bg-violet-600 text-white"
+                : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
             }`}
           >
             {pageNumber}
@@ -58,9 +60,10 @@ export function AdminPagination({
         type="button"
         disabled={page >= pageCount}
         onClick={() => onPageChange(Math.min(pageCount, page + 1))}
-        className="font-semibold text-indigo-600 disabled:text-slate-300"
+        aria-label={t("admin.next")}
+        className="inline-flex size-8 items-center justify-center border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
       >
-        {t("admin.next")}
+        <AdminIcon name="chevron-right" className="size-4" />
       </button>
     </nav>
   );

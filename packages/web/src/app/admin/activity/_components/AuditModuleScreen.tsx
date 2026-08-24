@@ -21,6 +21,22 @@ import { AdminPagination } from "@/adminPanel/components/AdminPagination";
 import { AdminTable } from "@/adminPanel/components/AdminTable";
 import { useAdminPagination } from "@/adminPanel/useAdminPagination";
 import { useAdminModuleState } from "@/adminPanel/useAdminModuleState";
+import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
+import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
+import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
+
+const AUDIT_DETAIL_SURFACE = defineAdminSurface({
+  key: "audit-detail",
+  moduleKey: "activity.audit",
+  tabs: [],
+  initialTab: "",
+  presentation: "drawer",
+  placement: "right",
+  size: "xl",
+  appearance: "light",
+  initialState: {},
+});
 
 type AuditFilterForm = Record<string, unknown>;
 
@@ -63,26 +79,31 @@ function AuditDetail({
   onClose: () => void;
 }) {
   return (
-    <aside className="border border-slate-200 bg-white p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {t("admin.auditDetail")}
-        </h2>
-        <button type="button" onClick={onClose} className="text-sm text-indigo-600">
-          {t("admin.close")}
-        </button>
+    <AdminSurfaceHost
+      definition={AUDIT_DETAIL_SURFACE}
+      onClose={onClose}
+      labelledBy="audit-detail-title"
+    >
+      <AdminSurfaceHeader
+        title={t("admin.auditDetail")}
+        titleId="audit-detail-title"
+        subtitle={`${detail.resourceKind}:${detail.resourceId}`}
+        closeLabel={t("admin.close")}
+        onClose={onClose}
+      />
+      <div className="p-6">
+        <dl className="grid gap-3 text-xs sm:grid-cols-2">
+          <div><dt className="text-slate-500">{t("admin.action")}</dt><dd className="font-mono">{detail.actionKey}</dd></div>
+          <div><dt className="text-slate-500">{t("admin.resourceKind")}</dt><dd>{detail.resourceKind}:{detail.resourceId}</dd></div>
+          <div><dt className="text-slate-500">{t("admin.actor")}</dt><dd>{detail.actorEmail ?? detail.actorUserId ?? "—"}</dd></div>
+          <div><dt className="text-slate-500">{t("admin.createdAt")}</dt><dd>{detail.createdAt}</dd></div>
+        </dl>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <pre className="overflow-auto border border-slate-200 bg-slate-50 p-4 text-[11px]">{JSON.stringify(detail.beforePayload, null, 2)}</pre>
+          <pre className="overflow-auto border border-slate-200 bg-slate-50 p-4 text-[11px]">{JSON.stringify(detail.afterPayload, null, 2)}</pre>
+        </div>
       </div>
-      <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2">
-        <div><dt className="text-slate-500">{t("admin.action")}</dt><dd className="font-mono">{detail.actionKey}</dd></div>
-        <div><dt className="text-slate-500">{t("admin.resourceKind")}</dt><dd>{detail.resourceKind}:{detail.resourceId}</dd></div>
-        <div><dt className="text-slate-500">{t("admin.actor")}</dt><dd>{detail.actorEmail ?? detail.actorUserId ?? "—"}</dd></div>
-        <div><dt className="text-slate-500">{t("admin.createdAt")}</dt><dd>{detail.createdAt}</dd></div>
-      </dl>
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <pre className="overflow-auto border border-slate-200 bg-slate-50 p-4 text-[11px]">{JSON.stringify(detail.beforePayload, null, 2)}</pre>
-        <pre className="overflow-auto border border-slate-200 bg-slate-50 p-4 text-[11px]">{JSON.stringify(detail.afterPayload, null, 2)}</pre>
-      </div>
-    </aside>
+    </AdminSurfaceHost>
   );
 }
 
@@ -162,7 +183,7 @@ export function AuditModuleScreen() {
 
   const columns = useMemo(
     () => [
-      { key: "action", label: t("admin.action"), render: (row: AuditLogListItemDto) => row.actionKey },
+      { key: "action", label: t("admin.action"), render: (row: AuditLogListItemDto) => row.actionKey, sortValue: (row: AuditLogListItemDto) => row.actionKey },
       { key: "resource", label: t("admin.resourceKind"), render: (row: AuditLogListItemDto) => `${row.resourceKind}:${row.resourceId}` },
       { key: "actor", label: t("admin.actor"), render: (row: AuditLogListItemDto) => row.actorEmail ?? row.actorUserId ?? "—" },
       { key: "createdAt", label: t("admin.createdAt"), render: (row: AuditLogListItemDto) => row.createdAt },
@@ -172,11 +193,12 @@ export function AuditModuleScreen() {
 
   return (
     <section className="space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">{t("admin.activity")}</p>
-        <h1 className="mt-2 text-2xl font-semibold text-slate-900">{t("admin.auditLog")}</h1>
-        <p className="mt-2 text-sm text-slate-500">{t("admin.auditDescription")}</p>
-      </header>
+      <AdminPageHeader
+        title={t("admin.auditLog")}
+        description={t("admin.auditDescription")}
+        icon="activity"
+        breadcrumbs={[{ label: t("admin.activity") }]}
+      />
       <section className="border border-slate-200 bg-white p-6">
         <FormRenderer
           definition={definition}
@@ -198,12 +220,9 @@ export function AuditModuleScreen() {
             rows={rows}
             columns={columns}
             emptyLabel={t("admin.noRecords")}
-            actions={[{
-              key: "open",
-              label: t("admin.open"),
-              tone: "primary",
-              onClick: (row) => void openDetail(row),
-            }]}
+            onOpen={(row) => void openDetail(row)}
+            rowLabel={(row) => `${row.actionKey} · ${row.resourceKind}`}
+            actionMenuLabel={t("admin.actions")}
           />
           {pagination.pageCount > 1 && <AdminPagination page={pagination.page} pageCount={pagination.pageCount} onPageChange={(nextPage) => void load(filters, nextPage)} />}
         </div>

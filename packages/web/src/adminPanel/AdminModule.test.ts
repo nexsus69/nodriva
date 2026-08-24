@@ -75,6 +75,8 @@ describe("AdminModuleRegistry", () => {
       "entity.restore",
       "node_type.read",
       "entity_type.read",
+      "node.read",
+      "entity.read",
       "user.read",
       "role.read",
       "scope.read",

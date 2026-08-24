@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
 import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "./AdminSurfaceHost";
+import { AdminSurfaceHeader } from "./AdminSurfaceHeader";
 
 /** Default surface configuration used by form dialogs without a custom layout. */
 export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
@@ -14,6 +15,7 @@ export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
   initialTab: "",
   presentation: "modal",
   placement: "center",
+  size: "md",
   appearance: "light",
   initialState: {},
 };
@@ -49,22 +51,15 @@ export function AdminFormDialog({
       onClose={onClose}
       labelledBy="admin-form-dialog-title"
     >
-        <div className="mb-5 flex items-start justify-between border-b border-slate-200 pb-4">
-          <h2
-            id="admin-form-dialog-title"
-            className="text-lg font-semibold text-slate-900"
-          >
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xl text-slate-400"
-            aria-label={cancelLabel}
-          >
-            ×
-          </button>
-        </div>
+      <div className="min-h-full">
+        <AdminSurfaceHeader
+          title={title}
+          titleId="admin-form-dialog-title"
+          closeLabel={cancelLabel}
+          onClose={onClose}
+          appearance={surface.appearance}
+        />
+        <div className="p-6">
         <FormRenderer
           definition={definition}
           values={values}
@@ -75,9 +70,12 @@ export function AdminFormDialog({
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
           onCancel={onClose}
+          actionPlacement="sticky"
         >
           {children}
         </FormRenderer>
+        </div>
+      </div>
     </AdminSurfaceHost>
   );
 }

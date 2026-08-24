@@ -1,6 +1,7 @@
 /** Renders the compact header shared by all Admin Panel modules. */
 import { LocaleSwitcher } from "@/app/components/ui/feedback/LocaleSwitcher";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { AdminIcon } from "@/adminPanel/components/AdminIcon";
 
 export function AdminPanelHeader({
   email,
@@ -13,25 +14,28 @@ export function AdminPanelHeader({
 }) {
   const { t } = useAppLocale();
   return (
-    <header className="flex h-16 shrink-0 items-center gap-4 border-b border-slate-200 bg-white px-4 sm:px-6">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-5">
       <button
         type="button"
         onClick={onOpenSidebar}
         aria-label={t("admin.openMenu")}
-        className="rounded-lg border border-slate-200 px-2 py-1.5 text-slate-600 lg:hidden"
+        className="flex size-9 items-center justify-center border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 lg:hidden"
       >
-        ☰
+        <AdminIcon name="menu" className="size-4" />
       </button>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-600">
-          {t("admin.panel")}
-        </p>
-        <h1 className="truncate text-sm font-semibold text-slate-900">
-          {activeModuleLabel}
-        </h1>
-      </div>
+      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
+        {activeModuleLabel}
+      </p>
       <LocaleSwitcher />
-      <div className="ml-auto truncate text-xs text-slate-500">{email}</div>
+      <div className="hidden h-6 w-px bg-slate-200 sm:block" />
+      <div className="flex min-w-0 items-center gap-2" title={email}>
+        <span className="flex size-7 shrink-0 items-center justify-center bg-violet-100 text-[11px] font-bold uppercase text-violet-700">
+          {email.slice(0, 1)}
+        </span>
+        <span className="hidden max-w-48 truncate text-xs text-slate-500 md:block">
+          {email}
+        </span>
+      </div>
     </header>
   );
 }
