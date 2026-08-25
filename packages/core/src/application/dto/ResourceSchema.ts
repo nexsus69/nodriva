@@ -14,6 +14,9 @@ export interface ResourceFieldDefinition {
   isRequired: boolean;
   constraints: readonly unknown[];
   relationTarget: ResourceTypeReference | null;
+  relationSourceCardinality?: 'one' | 'many';
+  relationTargetIsUnique?: boolean;
+  relationInverseLabel?: string | null;
 }
 
 export function resourceTypeReference(resourceType: TypeDomain, typeKey: string): ResourceTypeReference {

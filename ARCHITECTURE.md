@@ -26,6 +26,7 @@ A section is considered truly closed only when its cross-cutting placement is al
 | Hierarchy | Nodes, parent/child structure, movement in the tree, subtree semantics |
 | Type System | NodeType, EntityType, fields, constraints, runtime schema reconstruction, type administration |
 | Entity Domain | Entity instances, typed payload validation, CRUD orchestration |
+| Relationships | Typed resource edges, cardinality, inverse projections and deletion policy |
 | Identity & Access | Users, roles, scopes, sessions, authorization |
 | Governance | Audit, revisions, locking, optimistic concurrency |
 | Frontend Read Model | Normalized client store, page-based cache, view composition data |
@@ -111,6 +112,8 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 | `EntitySchemaRegistryBridge` | Infrastructure | `SchemaRegistry` | new business logic |
 | `StorageTableManagementPort` | Application port | — | becoming a generic migration framework |
 | `StorageTableManagementPostgres` / `StorageTableManagementSqlite` | Infrastructure | DDL port, metadata, identifier validation | arbitrary identifier interpolation |
+| `ResourceRelationshipService` | Application | resource/type/ACL ports and transaction | SQL, UI state, adapter-specific logic |
+| `ResourceRelationshipRepositoryPostgres` / `ResourceRelationshipRepositorySqlite` | Infrastructure | relationship persistence port | authorization or cardinality policy |
 | Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |
 

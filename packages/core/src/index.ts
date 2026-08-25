@@ -64,12 +64,24 @@ export type {
   ServiceHealthCheckResult,
 } from "./application/ports/ServiceHealthCheckPort.js";
 export { ServiceHealthCheckService } from "./application/services/ServiceHealthCheckService.js";
+export { ResourceRelationshipService } from "./application/services/ResourceRelationshipService.js";
+export { ResourceRelationshipMutationService } from "./application/services/ResourceRelationshipMutationService.js";
+export type {
+  RelationshipMutationResource,
+  RelationshipMutationResult,
+} from "./application/services/ResourceRelationshipMutationService.js";
+export type {
+  IncomingResourceRelationshipDefinition,
+  ResourceRelationshipDefinitionReader,
+} from "./application/ports/ResourceRelationshipDefinitionReader.js";
 export { ServiceConfigurationRepositoryPostgres } from "./infrastructure/postgres/ServiceConfigurationRepositoryPostgres.js";
 export { ServiceConfigurationRepositorySqlite } from "./infrastructure/sqlite/ServiceConfigurationRepositorySqlite.js";
 export { AuditQueryPortSqlite } from "./infrastructure/sqlite/AuditQueryPortSqlite.js";
 export { SecurityRepositorySqlite } from "./infrastructure/sqlite/SecurityRepositorySqlite.js";
 export { SystemConfigRepositorySqlite } from "./infrastructure/sqlite/SystemConfigRepositorySqlite.js";
 export { TypeDefinitionAdminRepositorySqlite } from "./infrastructure/sqlite/TypeDefinitionAdminRepositorySqlite.js";
+export { ResourceRelationshipRepositorySqlite } from "./infrastructure/sqlite/ResourceRelationshipRepositorySqlite.js";
+export { ResourceRelationshipDefinitionReaderSqlite } from "./infrastructure/sqlite/ResourceRelationshipDefinitionReaderSqlite.js";
 export { EntitySubtreeQueryPortSqlite } from "./infrastructure/sqlite/EntitySubtreeQueryPortSqlite.js";
 export { RealtimeScopeResolverSqlite } from "./infrastructure/sqlite/RealtimeScopeResolverSqlite.js";
 export { FieldEncryptionServiceSqlite } from "./infrastructure/sqlite/FieldEncryptionServiceSqlite.js";
@@ -83,6 +95,8 @@ export type { SessionTimingPolicy } from "./application/services/ConfigService.j
 export type { SessionTimingPolicyPort } from "./application/ports/SessionTimingPolicyPort.js";
 export { ConfigurationRepositoryPostgres } from "./infrastructure/postgres/ConfigurationRepositoryPostgres.js";
 export { FieldEncryptionService } from "./infrastructure/postgres/FieldEncryptionService.js";
+export { ResourceRelationshipRepositoryPostgres } from "./infrastructure/postgres/ResourceRelationshipRepositoryPostgres.js";
+export { ResourceRelationshipDefinitionReaderPostgres } from "./infrastructure/postgres/ResourceRelationshipDefinitionReaderPostgres.js";
 export { EncryptionKeyring } from "./infrastructure/crypto/EncryptionKeyring.js";
 export { NodeType } from "./domain/models/NodeType.js";
 export { EntityType } from "./domain/models/EntityType.js";
@@ -194,6 +208,12 @@ export {
   TypeFieldDefinition,
   TypeDefinition,
 } from "./application/dto/TypeFieldDefinition.js";
+export {
+  MutateResourceRelationshipCommandSchema,
+} from "./application/commands/ResourceRelationshipCommands.js";
+export type {
+  MutateResourceRelationshipCommand,
+} from "./application/commands/ResourceRelationshipCommands.js";
 export type {
   RealtimeOutboxPort,
   RealtimeOutboxOperationalStats,
@@ -309,6 +329,11 @@ export { SchemaRegistry } from "./application/ports/SchemaRegistry.js";
 export { TypeDefinitionReader } from "./application/ports/TypeDefinitionReader.js";
 export { TypeDefinitionAdminRepository } from "./application/ports/TypeDefinitionAdminRepository.js";
 export { StorageTableManagementPort } from "./application/ports/StorageTableManagementPort.js";
+export type {
+  ResourceRelationshipRepository,
+  ResourceRelationshipEdge,
+  ReplaceResourceRelationshipValues,
+} from "./application/ports/ResourceRelationshipRepository.js";
 export { SchemaInvalidationPort } from "./application/ports/SchemaInvalidationPort.js";
 export { SystemSeedPort } from "./application/ports/SystemSeedPort.js";
 export {

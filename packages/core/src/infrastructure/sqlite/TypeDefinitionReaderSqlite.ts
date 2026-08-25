@@ -26,6 +26,9 @@ interface FieldRow {
   is_required: number;
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
+  relation_source_cardinality: 'one' | 'many';
+  relation_target_is_unique: number;
+  relation_inverse_label: string | null;
   encryption_mode: 'plaintext' | 'encrypted';
   enum_mode: 'static' | 'managed';
 }
@@ -59,7 +62,8 @@ export class TypeDefinitionReaderSqlite implements TypeDefinitionReader {
     if (!type || type.is_active !== 1) return null;
 
     const rows = this.database.all<FieldRow>(
-      `SELECT id,field_key,label,data_type,is_required,relation_target_domain,relation_target_type_key,encryption_mode,enum_mode
+      `SELECT id,field_key,label,data_type,is_required,relation_target_domain,relation_target_type_key,
+              relation_source_cardinality,relation_target_is_unique,relation_inverse_label,encryption_mode,enum_mode
        FROM ${fields} WHERE ${foreignKey}=? ORDER BY position, id`,
       [type.id],
     );
@@ -105,6 +109,9 @@ export class TypeDefinitionReaderSqlite implements TypeDefinitionReader {
         row.id,
         row.label || row.field_key,
         row.encryption_mode,
+        row.relation_source_cardinality ?? 'one',
+        row.relation_target_is_unique === 1,
+        row.relation_inverse_label,
       )),
     );
   }

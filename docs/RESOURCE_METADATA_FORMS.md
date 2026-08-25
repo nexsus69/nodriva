@@ -38,16 +38,21 @@ presenti nel sistema.
 ## Relazioni tra risorse
 
 Un campo `relation` dichiara esplicitamente il dominio (`node` oppure
-`entity`) e il `typeKey` del tipo target. Il frontend usa il resolver comune
+`entity`) e il `typeKey` del tipo target. Dichiara inoltre se una sorgente può
+avere uno o più destinatari e, facoltativamente, se una destinazione può essere
+usata una sola volta. Il frontend usa il resolver comune
 per cercare risorse in tutti i nodi leggibili, mostrando anche il percorso del
 nodo; non limita più la scelta ai fratelli della risorsa corrente. Il backend
 verifica nuovamente che il target esista, appartenga al tipo dichiarato e sia
 leggibile dall’utente, sia in creazione sia in modifica. Un riferimento non
 autorizzato viene quindi rifiutato anche se inviato direttamente all’API.
 
-La relazione conserva solo l’identificativo della risorsa. Il valore mostrato
-nel dettaglio viene risolto con lo stesso controllo ACL e può collegare alla
-pagina dell’entità target anche quando questa appartiene a un altro nodo.
+Le relazioni sono conservate come edge canonici; le colonne dinamiche esistenti
+restano una proiezione di compatibilità durante la migrazione. Il valore
+mostrato nel dettaglio viene risolto con lo stesso controllo ACL e può
+collegare alla pagina dell’entità target anche quando questa appartiene a un
+altro nodo. Il contratto completo, incluse le relazioni inverse e le operazioni
+massive, è in [RESOURCE_RELATIONSHIP_ARCHITECTURE.md](RESOURCE_RELATIONSHIP_ARCHITECTURE.md).
 
 ## Allegati
 

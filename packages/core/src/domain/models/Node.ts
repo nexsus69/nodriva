@@ -54,7 +54,13 @@ export class Node {
     );
   }
 
-  public update(name: string, description: string, actorUserId: string): Node {
+  /** Returns the next immutable node state after an ordinary content update. */
+  public update(
+    name: string,
+    description: string,
+    actorUserId: string,
+    payload: Record<string, unknown> = this.payload,
+  ): Node {
     return new Node(
       this.id,
       this.parentId,
@@ -70,7 +76,7 @@ export class Node {
       this.deletedAt,
       this.createdBy,
       actorUserId,
-      this.payload
+      payload
     );
   }
 }

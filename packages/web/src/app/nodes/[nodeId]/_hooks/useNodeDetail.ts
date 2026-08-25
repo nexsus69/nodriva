@@ -146,7 +146,7 @@ export function useNodeDetail(nodeId: string) {
     || nodeError?.message.includes('does not have permission');
 
   return {
-    nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, entityDefinitions,
+    nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, nodeTypes, entityDefinitions,
     isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,

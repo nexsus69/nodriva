@@ -4,6 +4,7 @@ import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
 import { Alert } from '../../components/ui/feedback';
 import { PageShell, Panel } from '../../components/ui/layout';
+import { RelationPanel } from '../../components/ui/relations';
 import { ChildNodesSection } from './_components/ChildNodesSection';
 import { NodeContextOverview } from './_components/NodeContextOverview';
 import { NodeAccessUnavailable } from './_components/NodeAccessUnavailable';
@@ -42,6 +43,13 @@ export default function NodeDetailPage() {
       {controller.displayedError && <Alert tone="danger"><span className="font-bold">Errore:</span> {controller.displayedError}</Alert>}
       {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
+      {controller.currentNode && controller.nodeTypes[controller.currentNode.nodeTypeId]?.typeKey && (
+        <RelationPanel
+          resourceDomain="node"
+          resourceTypeKey={controller.nodeTypes[controller.currentNode.nodeTypeId].typeKey}
+          resourceId={controller.currentNode.id}
+        />
+      )}
       <NodeEntitiesSection nodeId={nodeId} controller={controller} />
       <ChildNodesSection nodeId={nodeId} childNodes={controller.childNodes} loading={controller.isChildrenLoading} readOnly={readOnly} />
       <SubtreeEntitiesTableSection nodeId={nodeId} />

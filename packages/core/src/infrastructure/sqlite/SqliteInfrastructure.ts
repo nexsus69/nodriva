@@ -31,6 +31,8 @@ import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js'
 import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
 import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.js';
+import { ResourceRelationshipRepositorySqlite } from './ResourceRelationshipRepositorySqlite.js';
+import { ResourceRelationshipDefinitionReaderSqlite } from './ResourceRelationshipDefinitionReaderSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -66,6 +68,8 @@ export class SqliteInfrastructure {
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
   readonly systemSeedService: SystemSeedSqlite;
   readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
+  readonly resourceRelationshipRepository: ResourceRelationshipRepositorySqlite;
+  readonly resourceRelationshipDefinitionReader: ResourceRelationshipDefinitionReaderSqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -89,6 +93,8 @@ export class SqliteInfrastructure {
     this.storageTableManagement = new StorageTableManagementSqlite(this.database);
     this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
     this.attachmentRateLimitPort = new AttachmentRateLimitPortSqlite(this.database);
+    this.resourceRelationshipRepository = new ResourceRelationshipRepositorySqlite(this.database);
+    this.resourceRelationshipDefinitionReader = new ResourceRelationshipDefinitionReaderSqlite(this.database);
     this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
     this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
     this.typeDefinitionReader = new TypeDefinitionReaderSqlite(this.database);

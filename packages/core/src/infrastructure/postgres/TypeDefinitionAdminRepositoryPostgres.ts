@@ -75,6 +75,9 @@ interface FieldRow {
   is_system: boolean;
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
+  relation_source_cardinality: 'one' | 'many';
+  relation_target_is_unique: boolean;
+  relation_inverse_label: string | null;
   enum_mode: 'static' | 'managed';
   encryption_mode: 'plaintext' | 'encrypted';
   created_at: Date;
@@ -132,6 +135,9 @@ interface FieldDetailRow {
   isSystem: boolean;
   relationTargetDomain: TypeDomain | null;
   relationTargetTypeKey: string | null;
+  relationSourceCardinality: 'one' | 'many';
+  relationTargetIsUnique: boolean;
+  relationInverseLabel: string | null;
   enumMode: 'static' | 'managed';
   encryptionMode: 'plaintext' | 'encrypted';
   updatedAt: Date;
@@ -254,6 +260,9 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
         is_system AS "isSystem",
         relation_target_domain AS "relationTargetDomain",
         relation_target_type_key AS "relationTargetTypeKey",
+        relation_source_cardinality AS "relationSourceCardinality",
+        relation_target_is_unique AS "relationTargetIsUnique",
+        relation_inverse_label AS "relationInverseLabel",
         enum_mode AS "enumMode", encryption_mode AS "encryptionMode",
         updated_at AS "updatedAt"
       FROM ${cfg.fieldsTable}
@@ -318,6 +327,9 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       isSystem: Boolean(f.isSystem),
       relationTargetDomain: f.relationTargetDomain ?? null,
       relationTargetTypeKey: f.relationTargetTypeKey ?? null,
+      relationSourceCardinality: f.relationSourceCardinality ?? 'one',
+      relationTargetIsUnique: Boolean(f.relationTargetIsUnique),
+      relationInverseLabel: f.relationInverseLabel ?? null,
       enumMode: f.enumMode ?? 'static',
       encryptionMode: f.encryptionMode ?? 'plaintext',
       enumOptions: enumOptionsByField[f.id] ?? [],
@@ -403,7 +415,9 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     const query = `
       SELECT id, ${cfg.fieldForeignKey} AS type_fk_id, field_key, label, column_name, data_type,
              is_required, is_unique, is_indexed, default_value_text, position, is_system,
-             relation_target_domain, relation_target_type_key, enum_mode, encryption_mode,
+             relation_target_domain, relation_target_type_key,
+             relation_source_cardinality, relation_target_is_unique, relation_inverse_label,
+             enum_mode, encryption_mode,
              created_at, updated_at
       FROM ${cfg.fieldsTable}
       WHERE id = $1
@@ -419,12 +433,16 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       `INSERT INTO ${cfg.fieldsTable}
          (id, ${cfg.fieldForeignKey}, field_key, label, column_name, data_type,
           is_required, is_unique, is_indexed, default_value_text, position, is_system,
-          relation_target_domain, relation_target_type_key, enum_mode, encryption_mode, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+          relation_target_domain, relation_target_type_key,
+          relation_source_cardinality, relation_target_is_unique, relation_inverse_label,
+          enum_mode, encryption_mode, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`,
       [field.id, field.typeDefinitionId, field.fieldKey, field.label, field.columnName,
        field.dataType, field.isRequired, field.isUnique, field.isIndexed,
        field.defaultValueText, field.position, field.isSystem,
-       field.relationTargetDomain, field.relationTargetTypeKey, field.enumMode, field.encryptionMode,
+       field.relationTargetDomain, field.relationTargetTypeKey,
+       field.relationSourceCardinality, field.relationTargetIsUnique, field.relationInverseLabel,
+       field.enumMode, field.encryptionMode,
        field.createdAt, field.updatedAt]
     );
   }
@@ -622,7 +640,8 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       row.data_type, row.is_required, row.is_unique, row.is_indexed,
       row.default_value_text, row.position, row.is_system,
       row.created_at, row.updated_at,
-      row.relation_target_domain, row.relation_target_type_key, row.enum_mode, row.encryption_mode
+      row.relation_target_domain, row.relation_target_type_key, row.enum_mode, row.encryption_mode,
+      row.relation_source_cardinality, row.relation_target_is_unique, row.relation_inverse_label
     );
   }
 

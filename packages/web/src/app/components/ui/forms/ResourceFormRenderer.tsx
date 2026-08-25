@@ -93,7 +93,7 @@ export function buildResourceFormSchema(
   fields: readonly ResourceFormFieldDefinition[],
   options: ResourceFieldOptionsMap = {},
 ): FormFieldSchema[] {
-  return fields.map((field) => {
+  const schema: FormFieldSchema[] = fields.map((field): FormFieldSchema => {
     const dataType = field.dataType.toLowerCase();
     const relationTarget = resolveRelationTarget(field);
     if (dataType === "boolean")
@@ -121,6 +121,7 @@ export function buildResourceFormSchema(
         required: field.isRequired,
         resourceType: relationTarget.resourceType,
         typeKey: relationTarget.typeKey,
+        ...(field.relationSourceCardinality === "many" ? { multiple: true } : {}),
         layout: options[field.fieldKey]?.layout,
       };
     if (dataType === "enum" || dataType === "relation")
@@ -193,6 +194,16 @@ export function buildResourceFormSchema(
       layout: options[field.fieldKey]?.layout,
     };
   });
+
+  return schema.map(withoutUndefinedLayout);
+}
+
+/** Keeps generated schemas structurally stable when a caller has no layout override. */
+function withoutUndefinedLayout(field: FormFieldSchema): FormFieldSchema {
+  if (field.layout !== undefined) return field;
+  const schema = { ...field } as { layout?: FormFieldLayout } & FormFieldSchema;
+  delete schema.layout;
+  return schema as FormFieldSchema;
 }
 
 /**

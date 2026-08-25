@@ -87,7 +87,10 @@ export class FieldSchemaCompiler {
       return this.compileStringField(field);
     }
     if (RELATION_TYPES.has(dt)) {
-      return z.string().uuid();
+      const identifier = z.string().uuid();
+      return field.relationSourceCardinality === 'many'
+        ? z.array(identifier).min(field.isRequired ? 1 : 0)
+        : identifier;
     }
     if (ATTACHMENT_TYPES.has(dt)) {
       // File content is stored in resource_attachments, not in the resource payload.

@@ -21,6 +21,7 @@ export type FieldDataType =
   | "file"
   | "image";
 export type RelationTargetDomain = "node" | "entity";
+export type RelationSourceCardinality = "one" | "many";
 export type EnumMode = "static" | "managed";
 export type FieldEncryptionMode = "plaintext" | "encrypted";
 
@@ -58,6 +59,9 @@ export interface FieldDto {
   dataType: FieldDataType;
   relationTargetDomain?: RelationTargetDomain | null;
   relationTargetTypeKey?: string | null;
+  relationSourceCardinality?: RelationSourceCardinality;
+  relationTargetIsUnique?: boolean;
+  relationInverseLabel?: string | null;
   enumMode?: EnumMode | null;
   encryptionMode: FieldEncryptionMode;
   enumOptions?: EnumOptionDto[];
@@ -219,6 +223,9 @@ export const CreateFieldCommandSchema = z
         "Usa solo caratteri minuscoli, numeri, underscore o trattino, ad esempio customer-info.",
       )
       .optional(),
+    relationSourceCardinality: z.enum(["one", "many"]).optional(),
+    relationTargetIsUnique: z.boolean().optional(),
+    relationInverseLabel: z.string().min(1).max(150).nullable().optional(),
     enumMode: z.enum(["static", "managed"]).optional(),
     encryptionMode: z.enum(["plaintext", "encrypted"]).optional(),
     isRequired: z.boolean().optional(),

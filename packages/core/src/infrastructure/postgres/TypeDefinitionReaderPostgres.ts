@@ -32,6 +32,9 @@ interface FieldWithConstraintRow {
   is_required: boolean;
   relation_target_domain: TypeDomain | null;
   relation_target_type_key: string | null;
+  relation_source_cardinality: 'one' | 'many';
+  relation_target_is_unique: boolean;
+  relation_inverse_label: string | null;
   encryption_mode: 'plaintext' | 'encrypted';
   enum_mode: 'static' | 'managed';
   constraint_type: string | null;
@@ -128,6 +131,9 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
         f.is_required,
         f.relation_target_domain,
         f.relation_target_type_key,
+        f.relation_source_cardinality,
+        f.relation_target_is_unique,
+        f.relation_inverse_label,
         f.encryption_mode,
         f.enum_mode,
         COALESCE((SELECT json_agg(json_build_object(
@@ -148,6 +154,9 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
       isRequired: boolean;
       relationTargetDomain: TypeDomain | null;
       relationTargetTypeKey: string | null;
+      relationSourceCardinality: 'one' | 'many';
+      relationTargetIsUnique: boolean;
+      relationInverseLabel: string | null;
       enumMode: 'static' | 'managed';
       enumOptions: EnumOptionDefinition[];
       encryptionMode: 'plaintext' | 'encrypted';
@@ -163,6 +172,9 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           isRequired: row.is_required,
           relationTargetDomain: row.relation_target_domain,
           relationTargetTypeKey: row.relation_target_type_key,
+          relationSourceCardinality: row.relation_source_cardinality ?? 'one',
+          relationTargetIsUnique: row.relation_target_is_unique ?? false,
+          relationInverseLabel: row.relation_inverse_label,
           enumMode: row.enum_mode ?? 'static',
           enumOptions: row.enum_options ?? [],
           encryptionMode: row.encryption_mode ?? 'plaintext',
@@ -193,12 +205,15 @@ export class TypeDefinitionReaderPostgres implements TypeDefinitionReader {
           entry.isRequired,
           entry.constraints,
           entry.relationTargetDomain,
-          entry.relationTargetTypeKey
-          , entry.enumOptions
-          , entry.enumMode
-          , entry.id
-          , entry.label
-          , entry.encryptionMode
+          entry.relationTargetTypeKey,
+          entry.enumOptions,
+          entry.enumMode,
+          entry.id,
+          entry.label,
+          entry.encryptionMode,
+          entry.relationSourceCardinality,
+          entry.relationTargetIsUnique,
+          entry.relationInverseLabel,
         )
       );
     }

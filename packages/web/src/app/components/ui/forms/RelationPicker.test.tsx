@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { RelationPicker } from './RelationPicker';
 
 describe('RelationPicker', () => {
-  it('renders a cross-node search control with ACL-aware wording', () => {
+  it('renders localized ACL-aware copy through the shared translation catalog', () => {
     const markup = renderToStaticMarkup(
       <RelationPicker
         fieldKey="related_document"
@@ -16,7 +16,7 @@ describe('RelationPicker', () => {
       />,
     );
 
-    expect(markup).toContain('Cerca in tutti i nodi autorizzati');
-    expect(markup).toContain('Sono mostrate solo risorse attive visibili secondo gli scope');
+    expect(markup).toContain('Cerca risorse autorizzate');
+    expect(markup).toContain('Sono mostrate solo le risorse attive visibili negli scope');
   });
 });

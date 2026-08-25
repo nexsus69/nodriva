@@ -10,6 +10,8 @@ import type { RevisionPort } from '../ports/RevisionPort.js';
 import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
 import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
+import { entityAuditSnapshot } from './ResourceAuditSnapshot.js';
 
 import type {
   CreateEntityCommand,
@@ -31,24 +33,6 @@ import {
 } from '../../domain/errors/EntityErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 
-/** Serializes the complete entity state used by before/after audit snapshots. */
-function entityAuditSnapshot(entity: Entity): Record<string, unknown> {
-  return {
-    id: entity.id,
-    entityTypeId: entity.entityTypeId,
-    parentNodeId: entity.parentNodeId,
-    name: entity.name,
-    description: entity.description,
-    rowVersion: entity.rowVersion,
-    createdAt: entity.createdAt.toISOString(),
-    updatedAt: entity.updatedAt.toISOString(),
-    deletedAt: entity.deletedAt?.toISOString() ?? null,
-    createdBy: entity.createdBy,
-    updatedBy: entity.updatedBy,
-    payload: entity.payload,
-  };
-}
-
 export class EntityApplicationService {
   constructor(
     private readonly entityRepository: EntityRepository,
@@ -61,7 +45,8 @@ export class EntityApplicationService {
     private readonly revisionPort: RevisionPort,
     private readonly runtimeConfigPort: RuntimeConfigurationPort,
     private readonly idGenerator: IdGeneratorPort,
-    private readonly transactionPort: TransactionPort
+    private readonly transactionPort: TransactionPort,
+    private readonly resourceRelationshipService?: ResourceRelationshipService,
   ) {}
 
   async createEntity(cmd: CreateEntityCommand): Promise<Entity> {
@@ -162,6 +147,13 @@ export class EntityApplicationService {
 
       // 8. Persistenza, revisione e audit atomico
       await this.entityRepository.create(entity);
+      await this.resourceRelationshipService?.synchronize({
+        actorUserId: validatedCmd.actorUserId,
+        sourceDomain: 'entity',
+        sourceResourceId: entity.id,
+        sourceTypeKey: entityType.typeKey,
+        payload: entity.payload,
+      });
       await this.revisionPort.recordEntityRevision(entity, 'created', validatedCmd.actorUserId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
@@ -277,6 +269,13 @@ export class EntityApplicationService {
 
       // 7. Persistenza, revisione e audit
       await this.entityRepository.update(updatedEntity);
+      await this.resourceRelationshipService?.synchronize({
+        actorUserId: validatedCmd.actorUserId,
+        sourceDomain: 'entity',
+        sourceResourceId: updatedEntity.id,
+        sourceTypeKey: entityType.typeKey,
+        payload: updatedEntity.payload,
+      });
       await this.revisionPort.recordEntityRevision(updatedEntity, 'updated', validatedCmd.actorUserId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
@@ -366,7 +365,9 @@ export class EntityApplicationService {
     }
     await this.accessControlPort.assertCanReadNode(actorUserId, entity.parentNodeId);
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
-    return entity;
+    const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
+    if (!entityType || !this.resourceRelationshipService) return entity;
+    return this.withHydratedRelationships(entity, entityType.typeKey);
   }
 
   async listDeletedEntities(actorUserId: string, limit?: number, offset?: number) {
@@ -441,7 +442,12 @@ export class EntityApplicationService {
     }
     await this.accessControlPort.assertCanReadNode(actorUserId, parentNodeId);
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', parentNodeId);
-    return await this.entityRepository.listByNode(parentNodeId, limit, offset);
+    const entities = await this.entityRepository.listByNode(parentNodeId, limit, offset);
+    if (!this.resourceRelationshipService) return entities;
+    return Promise.all(entities.map(async (entity) => {
+      const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
+      return entityType ? this.withHydratedRelationships(entity, entityType.typeKey) : entity;
+    }));
   }
 
   async listEntityTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; storageTable: string; currentSchemaVersion: number }[]> {
@@ -454,5 +460,28 @@ export class EntityApplicationService {
       storageTable: t.storageTable,
       currentSchemaVersion: t.currentSchemaVersion,
     }));
+  }
+
+  private async withHydratedRelationships(entity: Entity, typeKey: string): Promise<Entity> {
+    const payload = await this.resourceRelationshipService!.hydratePayload(
+      'entity',
+      entity.id,
+      typeKey,
+      entity.payload,
+    );
+    return new Entity(
+      entity.id,
+      entity.entityTypeId,
+      entity.parentNodeId,
+      entity.name,
+      entity.description,
+      entity.rowVersion,
+      entity.createdAt,
+      entity.updatedAt,
+      entity.deletedAt,
+      entity.createdBy,
+      entity.updatedBy,
+      payload,
+    );
   }
 }

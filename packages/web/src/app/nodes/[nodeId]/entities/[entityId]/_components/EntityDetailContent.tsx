@@ -90,7 +90,7 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
                           field.dataType === 'relation' ? 'font-mono text-[11px]' : ''
                         }`}>
                           {field.dataType === 'relation'
-                            && typeof value === 'string'
+                            && (typeof value === 'string' || Array.isArray(value))
                             && field.relationTargetDomain
                             && field.relationTargetTypeKey ? (
                               <RelationValue

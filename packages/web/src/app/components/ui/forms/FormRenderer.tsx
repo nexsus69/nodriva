@@ -276,6 +276,7 @@ function FormField({
         required={isRequired}
         resourceType={field.resourceType}
         typeKey={field.typeKey}
+        multiple={field.multiple}
         tone={theme}
         showLabel={false}
         onChange={onChange}

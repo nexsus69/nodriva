@@ -53,7 +53,10 @@ export class TypeFieldDefinition implements ResourceFieldDefinition {
     readonly enumMode: 'static' | 'managed' = 'static',
     readonly id: string | null = null,
     readonly label: string = fieldKey,
-    readonly encryptionMode: 'plaintext' | 'encrypted' = 'plaintext'
+    readonly encryptionMode: 'plaintext' | 'encrypted' = 'plaintext',
+    readonly relationSourceCardinality: 'one' | 'many' = 'one',
+    readonly relationTargetIsUnique: boolean = false,
+    readonly relationInverseLabel: string | null = null,
   ) {}
 
   get relationTarget(): ResourceTypeReference | null {
@@ -91,7 +94,9 @@ export class TypeDefinition {
             source: this.resourceTypeReference,
             target: field.relationTarget,
             kind: 'reference' as const,
-            cardinality: 'many-to-one' as const,
+            cardinality: field.relationSourceCardinality === 'many'
+              ? (field.relationTargetIsUnique ? 'one-to-many' : 'many-to-many')
+              : (field.relationTargetIsUnique ? 'one-to-one' : 'many-to-one'),
             fieldKey: field.fieldKey,
           }]
         : []

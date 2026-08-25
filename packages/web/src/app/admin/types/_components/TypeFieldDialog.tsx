@@ -25,7 +25,7 @@ export function TypeFieldDialog({
   return (
     <AdminFormDialog
       title={editing ? t("admin.editField") : t("admin.addField")}
-      definition={buildFieldDefinition(t)}
+      definition={buildFieldDefinition(t, { relationConfigurationDisabled: editing })}
       values={field}
       pending={pending}
       submitLabel={editing ? t("admin.saveChanges") : t("admin.addField")}

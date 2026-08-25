@@ -2,8 +2,9 @@
 
 import { AuthResolver } from './auth/AuthResolver';
 import { withSafeActionErrors } from './errorMapping';
-import { ValidationError } from '@dashboard/core';
-import type { NodeRepository } from '@dashboard/core';
+import { ValidationError, type NodeRepository, type TypeDomain } from '@dashboard/core';
+import { runWithRealtimeOutbox } from '../../server/realtime';
+import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 
 export interface RelationCandidate {
   id: string;
@@ -11,32 +12,7 @@ export interface RelationCandidate {
   resourceType: 'node' | 'entity';
   parentNodeId: string | null;
   pathLabel: string | null;
-}
-
-export async function validateRelationPayload(actorUserId: string, entityTypeKey: string, payload: Record<string, unknown>): Promise<void> {
-  const { typeReader, accessControlPort, entityRepository, nodeRepository, entityTypeRepository, nodeTypeRepository } = await import('../../server/db');
-  const definition = await typeReader.readDefinition('entity', entityTypeKey);
-  if (!definition) return;
-  for (const field of definition.fields) {
-    if (field.dataType !== 'relation') continue;
-    const value = payload[field.fieldKey];
-    if (value === null || value === undefined || value === '') continue;
-    if (typeof value !== 'string') throw new ValidationError(`Relation field '${field.fieldKey}' must contain a resource identifier.`, { [field.fieldKey]: ['Invalid resource identifier.'] });
-    const targetTypeKey = field.relationTargetTypeKey;
-    const targetDomain = field.relationTargetDomain;
-    if (!targetTypeKey || !targetDomain) throw new ValidationError(`Relation field '${field.fieldKey}' has no target definition.`, { [field.fieldKey]: ['Missing target definition.'] });
-    if (targetDomain === 'entity') {
-      const targetType = await entityTypeRepository.findByKey(targetTypeKey);
-      const target = await entityRepository.findById(value);
-      if (!targetType || !target || target.entityTypeId !== targetType.id) throw new ValidationError(`The relation target for '${field.fieldKey}' is invalid or unavailable.`, { [field.fieldKey]: ['Target is invalid or unavailable.'] });
-      await accessControlPort.assertHasPermission(actorUserId, 'entity.read', target.parentNodeId);
-    } else {
-      const targetType = await nodeTypeRepository.findByKey(targetTypeKey);
-      const target = await nodeRepository.findById(value);
-      if (!targetType || !target || target.nodeTypeId !== targetType.id) throw new ValidationError(`The relation target for '${field.fieldKey}' is invalid or unavailable.`, { [field.fieldKey]: ['Target is invalid or unavailable.'] });
-      await accessControlPort.assertCanReadNode(actorUserId, target.id);
-    }
-  }
+  rowVersion: number;
 }
 
 const MAX_CANDIDATES = 50;
@@ -58,12 +34,12 @@ export async function searchRelationCandidatesAction(input: {
       : await entityTypeRepository.findByKey(input.typeKey);
     if (!targetType || !targetType.isActive) return [];
 
-    const readableNodes: Array<{ id: string; pathLabel: string; nodeTypeId: string }> = [];
+    const readableNodes: Array<{ id: string; pathLabel: string; nodeTypeId: string; rowVersion: number }> = [];
     const roots = readableNodeRepository.listReadableVirtualRoots
       ? await readableNodeRepository.listReadableVirtualRoots(actorUserId)
       : await (await import('../../server/db')).securityRepository.listRealtimeVirtualRootNodeIds(actorUserId)
         .then(async (ids) => (await Promise.all(ids.map((id) => nodeService.getNodeById(id, actorUserId)))).filter((node): node is NonNullable<typeof node> => Boolean(node)));
-    const visit = async (node: { id: string; pathLabel: string; nodeTypeId: string }): Promise<void> => {
+    const visit = async (node: { id: string; pathLabel: string; nodeTypeId: string; rowVersion: number }): Promise<void> => {
       readableNodes.push(node);
       if (readableNodes.length >= 500) return;
       const children = readableNodeRepository.listReadableChildren
@@ -84,7 +60,7 @@ export async function searchRelationCandidatesAction(input: {
       for (const node of readableNodes) {
         if (node.nodeTypeId !== targetType.id) continue;
         if (search && !`${node.pathLabel} ${node.id}`.toLocaleLowerCase().includes(search)) continue;
-        candidates.push({ id: node.id, name: node.pathLabel, resourceType: 'node', parentNodeId: null, pathLabel: node.pathLabel });
+        candidates.push({ id: node.id, name: node.pathLabel, resourceType: 'node', parentNodeId: null, pathLabel: node.pathLabel, rowVersion: node.rowVersion });
         if (candidates.length >= limit) break;
       }
     } else {
@@ -93,7 +69,7 @@ export async function searchRelationCandidatesAction(input: {
         for (const entity of entities) {
           if (entity.entityTypeId !== targetType.id) continue;
           if (search && !`${entity.name} ${entity.description} ${node.pathLabel}`.toLocaleLowerCase().includes(search)) continue;
-          candidates.push({ id: entity.id, name: entity.name, resourceType: 'entity', parentNodeId: entity.parentNodeId, pathLabel: node.pathLabel });
+          candidates.push({ id: entity.id, name: entity.name, resourceType: 'entity', parentNodeId: entity.parentNodeId, pathLabel: node.pathLabel, rowVersion: entity.rowVersion });
           if (candidates.length >= limit) return candidates;
         }
       }
@@ -109,6 +85,15 @@ export async function resolveRelationCandidateAction(input: {
 }): Promise<RelationCandidate | null> {
   return withSafeActionErrors(async () => {
     const actorUserId = await AuthResolver.resolveActorUserId();
+    return resolveRelationCandidate(input, actorUserId);
+  });
+}
+
+/** Resolves one candidate after the caller has already established an actor identity. */
+async function resolveRelationCandidate(
+  input: { resourceType: 'node' | 'entity'; typeKey: string; resourceId: string },
+  actorUserId: string,
+): Promise<RelationCandidate | null> {
     const { entityRepository, nodeRepository, entityTypeRepository, nodeTypeRepository, accessControlPort, nodeService } = await import('../../server/db');
     if (input.resourceType === 'entity') {
       const targetType = await entityTypeRepository.findByKey(input.typeKey);
@@ -116,12 +101,180 @@ export async function resolveRelationCandidateAction(input: {
       if (!targetType || !targetType.isActive || !entity || entity.entityTypeId !== targetType.id) return null;
       await accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
       const node = await nodeService.getNodeById(entity.parentNodeId, actorUserId);
-      return node ? { id: entity.id, name: entity.name, resourceType: 'entity', parentNodeId: entity.parentNodeId, pathLabel: node.pathLabel } : null;
+      return node ? { id: entity.id, name: entity.name, resourceType: 'entity', parentNodeId: entity.parentNodeId, pathLabel: node.pathLabel, rowVersion: entity.rowVersion } : null;
     }
     const targetType = await nodeTypeRepository.findByKey(input.typeKey);
     const node = await nodeRepository.findById(input.resourceId);
     if (!targetType || !targetType.isActive || !node || node.nodeTypeId !== targetType.id) return null;
     await accessControlPort.assertCanReadNode(actorUserId, node.id);
-    return { id: node.id, name: node.pathLabel, resourceType: 'node', parentNodeId: node.parentId, pathLabel: node.pathLabel };
+    return { id: node.id, name: node.pathLabel, resourceType: 'node', parentNodeId: node.parentId, pathLabel: node.pathLabel, rowVersion: node.rowVersion };
+}
+
+export interface IncomingRelationshipGroup {
+  definition: {
+    sourceDomain: TypeDomain;
+    sourceTypeKey: string;
+    sourceTypeName: string;
+    sourceFieldId: string;
+    sourceFieldKey: string;
+    sourceFieldLabel: string;
+    sourceCardinality: 'one' | 'many';
+    targetIsUnique: boolean;
+    inverseLabel: string | null;
+  };
+  linkedSources: RelationCandidate[];
+}
+
+/** Lists ACL-filtered inverse relations for one readable resource instance. */
+export async function listIncomingRelationshipsAction(input: {
+  targetDomain: TypeDomain;
+  targetTypeKey: string;
+  targetResourceId: string;
+}): Promise<IncomingRelationshipGroup[]> {
+  return withSafeActionErrors(async () => {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const {
+      entityService,
+      nodeService,
+      entityTypeRepository,
+      nodeTypeRepository,
+      resourceRelationshipDefinitionReader,
+      resourceRelationshipRepository,
+    } = await import('../../server/db');
+
+    if (input.targetDomain === 'node') {
+      const [expectedType, target] = await Promise.all([
+        nodeTypeRepository.findByKey(input.targetTypeKey),
+        nodeService.getNodeById(input.targetResourceId, actorUserId),
+      ]);
+      if (!expectedType || !expectedType.isActive || !target || target.nodeTypeId !== expectedType.id) {
+        throw new ValidationError('The requested target resource is unavailable.', {
+          targetResourceId: ['The resource does not match the requested type.'],
+        });
+      }
+    } else {
+      const [expectedType, target] = await Promise.all([
+        entityTypeRepository.findByKey(input.targetTypeKey),
+        entityService.getEntityById(input.targetResourceId, actorUserId),
+      ]);
+      if (!expectedType || !expectedType.isActive || !target || target.entityTypeId !== expectedType.id) {
+        throw new ValidationError('The requested target resource is unavailable.', {
+          targetResourceId: ['The resource does not match the requested type.'],
+        });
+      }
+    }
+
+    const definitions = await resourceRelationshipDefinitionReader.listIncomingDefinitions(
+      input.targetDomain,
+      input.targetTypeKey,
+    );
+    const incoming = await resourceRelationshipRepository.listIncoming(
+      input.targetDomain,
+      input.targetResourceId,
+    );
+    return Promise.all(definitions.map(async (definition) => {
+      const edges = incoming.filter((edge) => edge.sourceFieldId === definition.sourceFieldId);
+      const candidates = await Promise.all(edges.map((edge) => resolveRelationCandidate({
+        resourceType: definition.sourceDomain,
+        typeKey: definition.sourceTypeKey,
+        resourceId: edge.sourceResourceId,
+      }, actorUserId)));
+      return {
+        definition,
+        linkedSources: candidates.filter((candidate): candidate is RelationCandidate => candidate !== null),
+      };
+    }));
   });
+}
+
+/** Mutates one inverse relationship group atomically and emits one event per changed source. */
+export async function mutateIncomingRelationshipAction(input: {
+  sourceDomain: TypeDomain;
+  sourceTypeKey: string;
+  sourceFieldKey: string;
+  targetDomain: TypeDomain;
+  targetResourceId: string;
+  operation: 'link' | 'unlink';
+  sources: Array<{ resourceId: string; expectedRowVersion: number }>;
+}) {
+  return withSafeActionErrors(async () => {
+    const identity = await AuthResolver.resolveActorIdentity();
+    const { resourceRelationshipMutationService } = await import('../../server/db');
+    const result = await runWithRealtimeOutbox(
+      () => resourceRelationshipMutationService.mutate({
+        ...input,
+        actorUserId: identity.userId,
+        actorSessionId: identity.sessionId,
+      }),
+      ({ changedResources }) => changedResources.map(({ domain, resource }) => domain === 'node'
+        ? {
+            resourceType: 'node' as const,
+            resourceId: resource.id,
+            changeType: 'updated' as const,
+            actorUserId: identity.userId,
+            parentNodeId: resource.parentId,
+            data: toNodeRelationDto(resource),
+          }
+        : {
+            resourceType: 'entity' as const,
+            resourceId: resource.id,
+            changeType: 'updated' as const,
+            actorUserId: identity.userId,
+            parentNodeId: resource.parentNodeId,
+            entityTypeId: resource.entityTypeId,
+            data: toEntityRelationDto(resource),
+          }),
+    );
+    await Promise.all(result.changedResources.map(({ domain, resource }) => publishAuditRealtimeChange({
+      resourceType: domain,
+      resourceId: resource.id,
+      changeType: 'updated',
+      actorUserId: identity.userId,
+    })));
+    return result.changedResources.map(({ domain, resource }) => domain === 'node'
+      ? toNodeRelationDto(resource)
+      : toEntityRelationDto(resource));
+  });
+}
+
+function toNodeRelationDto(node: {
+  id: string;
+  parentId: string | null;
+  nodeTypeId: string;
+  name: string;
+  description: string;
+  rowVersion: number;
+  payload: Record<string, unknown>;
+}) {
+  return {
+    resourceType: 'node' as const,
+    id: node.id,
+    parentId: node.parentId,
+    nodeTypeId: node.nodeTypeId,
+    name: node.name,
+    description: node.description,
+    rowVersion: node.rowVersion,
+    payload: node.payload,
+  };
+}
+
+function toEntityRelationDto(entity: {
+  id: string;
+  parentNodeId: string;
+  entityTypeId: string;
+  name: string;
+  description: string;
+  rowVersion: number;
+  payload: Record<string, unknown>;
+}) {
+  return {
+    resourceType: 'entity' as const,
+    id: entity.id,
+    parentNodeId: entity.parentNodeId,
+    entityTypeId: entity.entityTypeId,
+    name: entity.name,
+    description: entity.description,
+    rowVersion: entity.rowVersion,
+    payload: entity.payload,
+  };
 }

@@ -230,6 +230,9 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       relation_target_domain TEXT,
       relation_target_type_key TEXT,
+      relation_source_cardinality TEXT NOT NULL DEFAULT 'one' CHECK (relation_source_cardinality IN ('one', 'many')),
+      relation_target_is_unique INTEGER NOT NULL DEFAULT 0,
+      relation_inverse_label TEXT,
       default_value_text TEXT,
       default_value TEXT,
       UNIQUE(entity_type_id, field_key),
@@ -242,7 +245,11 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       position INTEGER NOT NULL DEFAULT 0, is_system INTEGER NOT NULL DEFAULT 0, default_value_text TEXT,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-      relation_target_domain TEXT, relation_target_type_key TEXT, default_value TEXT,
+      relation_target_domain TEXT, relation_target_type_key TEXT,
+      relation_source_cardinality TEXT NOT NULL DEFAULT 'one' CHECK (relation_source_cardinality IN ('one', 'many')),
+      relation_target_is_unique INTEGER NOT NULL DEFAULT 0,
+      relation_inverse_label TEXT,
+      default_value TEXT,
       UNIQUE(node_type_id, field_key), UNIQUE(node_type_id, column_name)
     );
     CREATE TABLE IF NOT EXISTS node_type_field_constraints (
@@ -272,6 +279,29 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE INDEX IF NOT EXISTS idx_sqlite_attachments_resource ON resource_attachments(resource_type, resource_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS resource_relationships (
+      source_field_id TEXT NOT NULL,
+      source_domain TEXT NOT NULL CHECK (source_domain IN ('node', 'entity')),
+      source_resource_id TEXT NOT NULL,
+      target_domain TEXT NOT NULL CHECK (target_domain IN ('node', 'entity')),
+      target_resource_id TEXT NOT NULL,
+      position INTEGER NOT NULL CHECK (position >= 0),
+      source_cardinality TEXT NOT NULL CHECK (source_cardinality IN ('one', 'many')),
+      target_is_unique INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      PRIMARY KEY (source_field_id, source_domain, source_resource_id, target_domain, target_resource_id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_resource_relationships_source_one
+      ON resource_relationships (source_field_id, source_domain, source_resource_id)
+      WHERE source_cardinality = 'one';
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_resource_relationships_target_one
+      ON resource_relationships (source_field_id, target_domain, target_resource_id)
+      WHERE target_is_unique = 1;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_resource_relationships_source_position
+      ON resource_relationships (source_field_id, source_domain, source_resource_id, position);
+    CREATE INDEX IF NOT EXISTS idx_sqlite_resource_relationships_incoming
+      ON resource_relationships (target_domain, target_resource_id, source_field_id, position);
     CREATE TABLE IF NOT EXISTS attachment_upload_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id TEXT NOT NULL, occurred_at TEXT NOT NULL
     );
@@ -314,6 +344,15 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       database.exec(`ALTER TABLE ${tableName} ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`);
       database.exec(`UPDATE ${tableName} SET updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE updated_at=''`);
     }
+    if (!database.hasColumn(tableName, 'relation_source_cardinality')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN relation_source_cardinality TEXT NOT NULL DEFAULT 'one' CHECK (relation_source_cardinality IN ('one', 'many'))`);
+    }
+    if (!database.hasColumn(tableName, 'relation_target_is_unique')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN relation_target_is_unique INTEGER NOT NULL DEFAULT 0`);
+    }
+    if (!database.hasColumn(tableName, 'relation_inverse_label')) {
+      database.exec(`ALTER TABLE ${tableName} ADD COLUMN relation_inverse_label TEXT`);
+    }
   }
 
   for (const tableName of ['node_types', 'entity_types'] as const) {
@@ -329,4 +368,49 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     }
   }
   if (!database.hasColumn('entity_types', 'placement_policy_id')) database.exec('ALTER TABLE entity_types ADD COLUMN placement_policy_id TEXT');
+
+  database.exec(`
+    UPDATE node_type_fields
+    SET relation_target_is_unique = is_unique
+    WHERE lower(data_type) = 'relation' AND is_unique = 1;
+    UPDATE entity_type_fields
+    SET relation_target_is_unique = is_unique
+    WHERE lower(data_type) = 'relation' AND is_unique = 1;
+  `);
+
+  // SQLite stores dynamic values as JSON. The idempotent backfill is kept here
+  // because standalone deployments do not run PostgreSQL migration files.
+  database.exec(`
+    INSERT OR IGNORE INTO resource_relationships (
+      source_field_id, source_domain, source_resource_id, target_domain,
+      target_resource_id, position, source_cardinality, target_is_unique
+    )
+    SELECT field.id, 'node', node.id, field.relation_target_domain,
+           json_extract(node.payload, '$.' || field.field_key), 0,
+           field.relation_source_cardinality, field.relation_target_is_unique
+    FROM nodes node
+    JOIN node_type_fields field ON field.node_type_id = node.node_type_id
+    WHERE lower(field.data_type) = 'relation'
+      AND field.relation_target_domain IS NOT NULL
+      AND field.relation_target_type_key IS NOT NULL
+      AND json_valid(node.payload)
+      AND typeof(json_extract(node.payload, '$.' || field.field_key)) = 'text'
+      AND length(json_extract(node.payload, '$.' || field.field_key)) = 36;
+
+    INSERT OR IGNORE INTO resource_relationships (
+      source_field_id, source_domain, source_resource_id, target_domain,
+      target_resource_id, position, source_cardinality, target_is_unique
+    )
+    SELECT field.id, 'entity', entity.id, field.relation_target_domain,
+           json_extract(entity.payload, '$.' || field.field_key), 0,
+           field.relation_source_cardinality, field.relation_target_is_unique
+    FROM entities entity
+    JOIN entity_type_fields field ON field.entity_type_id = entity.entity_type_id
+    WHERE lower(field.data_type) = 'relation'
+      AND field.relation_target_domain IS NOT NULL
+      AND field.relation_target_type_key IS NOT NULL
+      AND json_valid(entity.payload)
+      AND typeof(json_extract(entity.payload, '$.' || field.field_key)) = 'text'
+      AND length(json_extract(entity.payload, '$.' || field.field_key)) = 36;
+  `);
 }

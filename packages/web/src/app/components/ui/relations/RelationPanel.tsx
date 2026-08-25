@@ -1,0 +1,326 @@
+'use client';
+
+/** Presents and mutates incoming resource relationships from shared metadata. */
+import { useCallback, useEffect, useState } from 'react';
+import Link from '@/app/components/navigation/GuardedLink';
+import {
+  listIncomingRelationshipsAction,
+  mutateIncomingRelationshipAction,
+  type IncomingRelationshipGroup,
+  type RelationCandidate,
+} from '../../../actions/relationActions';
+import { useAppLocale } from '../../../i18n/AppLocaleStore';
+import { requestConfirmation, Skeleton } from '../feedback';
+import { ModalShell } from '../feedback/ModalShell';
+import { RelationPicker } from '../forms/RelationPicker';
+
+type ResourceDomain = 'node' | 'entity';
+
+interface RelationPanelProps {
+  resourceDomain: ResourceDomain;
+  resourceTypeKey: string;
+  resourceId: string;
+  className?: string;
+}
+
+/**
+ * A metadata-driven inverse relationship surface for nodes and entities.
+ * The parent supplies only the current resource identity; definitions, ACL
+ * filtering and mutations remain server-owned.
+ */
+export function RelationPanel({
+  resourceDomain,
+  resourceTypeKey,
+  resourceId,
+  className = '',
+}: RelationPanelProps) {
+  const { t } = useAppLocale();
+  const [groups, setGroups] = useState<IncomingRelationshipGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<IncomingRelationshipGroup | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedSources, setSelectedSources] = useState<RelationCandidate[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const nextGroups = await listIncomingRelationshipsAction({
+        targetDomain: resourceDomain,
+        targetTypeKey: resourceTypeKey,
+        targetResourceId: resourceId,
+      });
+      setGroups(nextGroups);
+    } catch (cause) {
+      setError(cause instanceof Error
+        ? cause.message
+        : t('relation.loadError', 'Unable to load incoming relationships.'));
+    } finally {
+      setLoading(false);
+    }
+  }, [resourceDomain, resourceId, resourceTypeKey, t]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const openGroup = (group: IncomingRelationshipGroup) => {
+    setActiveGroup(group);
+    setSelectedIds([]);
+    setSelectedSources([]);
+  };
+
+  const closeGroup = () => {
+    if (saving) return;
+    setActiveGroup(null);
+    setSelectedIds([]);
+    setSelectedSources([]);
+  };
+
+  const saveLinks = async () => {
+    if (!activeGroup || selectedSources.length === 0) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await mutateIncomingRelationshipAction({
+        sourceDomain: activeGroup.definition.sourceDomain,
+        sourceTypeKey: activeGroup.definition.sourceTypeKey,
+        sourceFieldKey: activeGroup.definition.sourceFieldKey,
+        targetDomain: resourceDomain,
+        targetResourceId: resourceId,
+        operation: 'link',
+        sources: selectedSources.map((source) => ({
+          resourceId: source.id,
+          expectedRowVersion: source.rowVersion,
+        })),
+      });
+      setActiveGroup(null);
+      setSelectedIds([]);
+      setSelectedSources([]);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error
+        ? cause.message
+        : t('relation.saveError', 'Unable to save relationship links.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unlink = async (group: IncomingRelationshipGroup, source: RelationCandidate) => {
+    const confirmed = await requestConfirmation({
+      title: t('relation.removeTitle', 'Remove relationship link?'),
+      description: t('relation.removeDescription', 'The selected resource will no longer reference this record.'),
+      confirmLabel: t('relation.remove', 'Remove link'),
+      cancelLabel: t('relation.close', 'Close'),
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      await mutateIncomingRelationshipAction({
+        sourceDomain: group.definition.sourceDomain,
+        sourceTypeKey: group.definition.sourceTypeKey,
+        sourceFieldKey: group.definition.sourceFieldKey,
+        targetDomain: resourceDomain,
+        targetResourceId: resourceId,
+        operation: 'unlink',
+        sources: [{ resourceId: source.id, expectedRowVersion: source.rowVersion }],
+      });
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error
+        ? cause.message
+        : t('relation.saveError', 'Unable to save relationship links.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!loading && !error && groups.length === 0) return null;
+
+  return (
+    <section className={`border border-slate-200 bg-white ${className}`.trim()}>
+      <header className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">
+            {t('relation.incomingTitle', 'Incoming relationships')}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {t('relation.incomingDescription', 'Resources that reference this record.')}
+          </p>
+        </div>
+      </header>
+
+      {error && (
+        <p role="alert" className="border-b border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="space-y-3 p-4" role="status" aria-label={t('relation.loading', 'Loading relationships')}>
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-200">
+          {groups.map((group) => (
+            <RelationshipGroup
+              key={group.definition.sourceFieldId}
+              group={group}
+              disabled={saving}
+              manageLabel={t('relation.manage', 'Manage links')}
+              removeLabel={t('relation.remove', 'Remove link')}
+              emptyLabel={t('relation.noLinks', 'No linked resources.')}
+              cardinalityLabel={group.definition.sourceCardinality === 'many'
+                ? t('relation.multipleValues', 'Multiple values')
+                : t('relation.singleValue', 'One value')}
+              uniqueTargetLabel={t('relation.uniqueTarget', 'Unique target')}
+              onManage={() => openGroup(group)}
+              onUnlink={(source) => { void unlink(group, source); }}
+            />
+          ))}
+        </div>
+      )}
+
+      <ModalShell
+        open={activeGroup !== null}
+        title={t('relation.linkDialog', 'Manage incoming links')}
+        onClose={closeGroup}
+        className="max-w-2xl rounded-none"
+      >
+        {activeGroup && (
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-medium text-slate-800">
+                {activeGroup.definition.inverseLabel
+                  || `${activeGroup.definition.sourceTypeName} · ${activeGroup.definition.sourceFieldLabel}`}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {t('relation.linkHelp', 'Changes are applied atomically to the selected resources.')}
+              </p>
+            </div>
+            <RelationPicker
+              fieldKey={`inverse-${activeGroup.definition.sourceFieldId}`}
+              label={t('relation.addSources', 'Link resources')}
+              value={activeGroup.definition.targetIsUnique ? (selectedIds[0] ?? '') : selectedIds}
+              required={false}
+              resourceType={activeGroup.definition.sourceDomain}
+              typeKey={activeGroup.definition.sourceTypeKey}
+              tone="light"
+              multiple={!activeGroup.definition.targetIsUnique}
+              onChange={(value) => setSelectedIds(
+                Array.isArray(value) ? value : (value ? [value] : []),
+              )}
+              onResolvedCandidatesChange={setSelectedSources}
+            />
+            <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+              <button
+                type="button"
+                onClick={closeGroup}
+                disabled={saving}
+                className="border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50"
+              >
+                {t('relation.close', 'Close')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { void saveLinks(); }}
+                disabled={saving || selectedIds.length === 0 || selectedSources.length !== selectedIds.length}
+                className="bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                {saving
+                  ? t('relation.saving', 'Saving links…')
+                  : t('relation.saveLinks', 'Save links')}
+              </button>
+            </div>
+          </div>
+        )}
+      </ModalShell>
+    </section>
+  );
+}
+
+interface RelationshipGroupProps {
+  group: IncomingRelationshipGroup;
+  disabled: boolean;
+  manageLabel: string;
+  removeLabel: string;
+  emptyLabel: string;
+  cardinalityLabel: string;
+  uniqueTargetLabel: string;
+  onManage: () => void;
+  onUnlink: (source: RelationCandidate) => void;
+}
+
+/** Renders one inverse field group without owning data or mutation state. */
+function RelationshipGroup({
+  group,
+  disabled,
+  manageLabel,
+  removeLabel,
+  emptyLabel,
+  cardinalityLabel,
+  uniqueTargetLabel,
+  onManage,
+  onUnlink,
+}: RelationshipGroupProps) {
+  const label = group.definition.inverseLabel
+    || `${group.definition.sourceTypeName} · ${group.definition.sourceFieldLabel}`;
+
+  return (
+    <div className="px-4 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-semibold text-slate-800">{label}</h3>
+          <p className="mt-1 text-[11px] text-slate-500">
+            {cardinalityLabel}
+            {group.definition.targetIsUnique ? ` · ${uniqueTargetLabel}` : ''}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onManage}
+          disabled={disabled}
+          className="border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-700 disabled:opacity-50"
+        >
+          {manageLabel}
+        </button>
+      </div>
+
+      {group.linkedSources.length === 0 ? (
+        <p className="mt-3 text-xs text-slate-500">{emptyLabel}</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100 border-y border-slate-100">
+          {group.linkedSources.map((source) => (
+            <li key={source.id} className="flex items-center justify-between gap-3 py-2">
+              <Link
+                href={source.resourceType === 'node'
+                  ? `/nodes/${source.id}`
+                  : `/nodes/${source.parentNodeId}/entities/${source.id}`}
+                className="min-w-0 truncate text-xs font-medium text-indigo-700 hover:underline"
+              >
+                {source.name}
+                {source.pathLabel ? ` — ${source.pathLabel}` : ''}
+              </Link>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onUnlink(source)}
+                className="shrink-0 text-xs font-medium text-rose-700 hover:underline disabled:opacity-50"
+              >
+                {removeLabel}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

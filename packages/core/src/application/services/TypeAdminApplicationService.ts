@@ -321,6 +321,11 @@ export class TypeAdminApplicationService {
         if (!target || !target.isActive) {
           throw new TypeDefinitionNotFoundError(v.relationTargetTypeKey!, v.relationTargetDomain!);
         }
+        if (v.isUnique || v.isIndexed || v.defaultValueText !== undefined && v.defaultValueText !== null) {
+          throw new TypeAdminValidationError('Relation cardinality is managed by relationship metadata, not physical field flags.', {
+            dataType: ['Relation fields cannot use unique, indexed, or default-value flags.'],
+          });
+        }
       }
 
       if (['file', 'image'].includes(v.dataType) && (v.isRequired || v.isUnique || v.isIndexed || v.defaultValueText !== undefined && v.defaultValueText !== null)) {
@@ -334,8 +339,11 @@ export class TypeAdminApplicationService {
         this.idGenerator.generate(), type.id, v.fieldKey, v.label, v.columnName,
         v.dataType, v.isRequired ?? false, v.isUnique ?? false, v.isIndexed ?? false,
         v.defaultValueText ?? null, v.position, false, now, now,
-        v.relationTargetDomain ?? null, v.relationTargetTypeKey ?? null
-        , v.enumMode ?? 'static', v.encryptionMode ?? 'plaintext'
+        v.relationTargetDomain ?? null, v.relationTargetTypeKey ?? null,
+        v.enumMode ?? 'static', v.encryptionMode ?? 'plaintext',
+        v.relationSourceCardinality ?? 'one',
+        v.relationTargetIsUnique ?? false,
+        v.relationInverseLabel ?? null,
       );
 
       await this.adminRepository.createField(v.domain, newField);

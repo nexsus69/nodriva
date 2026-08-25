@@ -11,13 +11,23 @@ const OPTIONAL_EMPTY_TO_NULL_TYPES = new Set([
 export const isAttachmentField = (field: DynamicField) => ATTACHMENT_TYPES.has(field.dataType.toLowerCase());
 
 export function initializeDynamicPayload(fields: readonly DynamicField[]): Record<string, unknown> {
-  return Object.fromEntries(fields.filter((field) => !isAttachmentField(field)).map((field) => [field.fieldKey, field.dataType.toLowerCase() === 'boolean' ? false : '']));
+  return Object.fromEntries(fields.filter((field) => !isAttachmentField(field)).map((field) => [
+    field.fieldKey,
+    field.dataType.toLowerCase() === 'boolean'
+      ? false
+      : field.dataType.toLowerCase() === 'relation' && field.relationSourceCardinality === 'many'
+        ? []
+        : '',
+  ]));
 }
 
 export function coerceDynamicPayload(fields: readonly DynamicField[], payload: Readonly<Record<string, unknown>>): Record<string, unknown> {
   return Object.fromEntries(fields.filter((field) => !isAttachmentField(field)).map((field) => {
     const value = payload[field.fieldKey];
     const type = field.dataType.toLowerCase();
+    if (type === 'relation' && field.relationSourceCardinality === 'many') {
+      return [field.fieldKey, Array.isArray(value) ? value : []];
+    }
     if (!field.isRequired && value === '' && OPTIONAL_EMPTY_TO_NULL_TYPES.has(type)) {
       return [field.fieldKey, null];
     }

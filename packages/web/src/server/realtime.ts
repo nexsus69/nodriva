@@ -80,14 +80,17 @@ export async function drainRealtimeOutbox(limit = 25): Promise<number> {
  * Side-effect delivery happens only after commit and cannot roll back data. */
 export async function runWithRealtimeOutbox<T>(
   work: () => Promise<T>,
-  toEvent: (result: T) => RealtimeChangeInput | null,
+  toEvent: (result: T) => RealtimeChangeInput | readonly RealtimeChangeInput[] | null,
 ): Promise<T> {
   const { transactionPort, realtimeOutbox, isRealtimeCapabilityEnabled } = await import('./db');
   if (!(await isRealtimeCapabilityEnabled())) return work();
   const result = await transactionPort.runInTransaction(async () => {
     const value = await work();
-    const input = toEvent(value);
-    if (input) await realtimeOutbox.enqueue(await buildRealtimeEvent(input));
+    const inputs = toEvent(value);
+    const events = inputs === null ? [] : (Array.isArray(inputs) ? inputs : [inputs]);
+    for (const input of events) {
+      await realtimeOutbox.enqueue(await buildRealtimeEvent(input));
+    }
     return value;
   });
   // Best effort only; the durable outbox will be drained by the next request

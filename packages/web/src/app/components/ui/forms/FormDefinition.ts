@@ -174,6 +174,7 @@ export type FormFieldSchema = FormFieldBase &
         type: "relation";
         resourceType: "node" | "entity";
         typeKey: string;
+        multiple?: boolean;
         placeholder?: string;
       }
     | { type: "textarea"; placeholder?: string; rows?: number }

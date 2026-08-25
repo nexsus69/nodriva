@@ -62,6 +62,10 @@ import {
   SqliteInfrastructure,
   FieldEncryptionServiceSqlite,
   AttachmentRateLimitPortPostgres,
+  ResourceRelationshipRepositoryPostgres,
+  ResourceRelationshipDefinitionReaderPostgres,
+  ResourceRelationshipService,
+  ResourceRelationshipMutationService,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -227,6 +231,12 @@ export const nodeRepository = sqliteMode ? sqliteInfrastructure!.nodeRepository 
 export const realtimeScopeResolver = sqliteMode ? sqliteInfrastructure!.realtimeScopeResolver : new RealtimeScopeResolverPostgres(nodeRepository);
 export const nodeTypeRepository = sqliteMode ? sqliteInfrastructure!.nodeTypeRepository : new NodeTypeRepositoryPostgres(pgExecutor!);
 export const entityRepository = sqliteMode ? sqliteInfrastructure!.entityRepository : new EntityRepositoryPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
+export const resourceRelationshipRepository = sqliteMode
+  ? sqliteInfrastructure!.resourceRelationshipRepository
+  : new ResourceRelationshipRepositoryPostgres(pgExecutor!);
+export const resourceRelationshipDefinitionReader = sqliteMode
+  ? sqliteInfrastructure!.resourceRelationshipDefinitionReader
+  : new ResourceRelationshipDefinitionReaderPostgres(pgExecutor!);
 export const entityTypeRepository = sqliteMode ? sqliteInfrastructure!.entityTypeRepository : new EntityTypeRepositoryPostgres(pgExecutor!);
 export const typeAdminRepository = sqliteMode ? sqliteInfrastructure!.typeAdminRepository : new TypeDefinitionAdminRepositoryPostgres(pgExecutor!);
 export const userRepository = sqliteMode ? sqliteInfrastructure!.userRepository : new UserRepositoryPostgres(pgExecutor!, scheduleRealtimePolicyChange);
@@ -299,6 +309,15 @@ export const entitySchemaBridge = new EntitySchemaRegistryBridge(schemaRegistry)
 
 export const schemaInvalidationPort = new SchemaInvalidationAdapter(schemaRegistry);
 export const storageTableManager = sqliteMode ? sqliteInfrastructure!.storageTableManagement : new StorageTableManagementPostgres(pgExecutor!);
+export const resourceRelationshipService = new ResourceRelationshipService(
+  resourceRelationshipRepository,
+  typeReader,
+  nodeRepository,
+  entityRepository,
+  nodeTypeRepository,
+  entityTypeRepository,
+  accessControlPort,
+);
 
 // Generatore di UUIDv7 per ID Port
 export const idGenerator = {
@@ -327,7 +346,8 @@ export const nodeService = new NodeApplicationService(
   idGenerator,
   new LtreeNodePathPolicy(),
   transactionPort,
-  schemaRegistry
+  schemaRegistry,
+  resourceRelationshipService,
 );
 
 export const entityService = new EntityApplicationService(
@@ -341,7 +361,24 @@ export const entityService = new EntityApplicationService(
   revisionPort,
   runtimeConfigPort,
   idGenerator,
-  transactionPort
+  transactionPort,
+  resourceRelationshipService,
+);
+
+export const resourceRelationshipMutationService = new ResourceRelationshipMutationService(
+  resourceRelationshipRepository,
+  resourceRelationshipService,
+  typeReader,
+  nodeRepository,
+  entityRepository,
+  nodeTypeRepository,
+  entityTypeRepository,
+  accessControlPort,
+  lockService,
+  auditPort,
+  revisionPort,
+  runtimeConfigPort,
+  transactionPort,
 );
 
 export const typeAdminService = new TypeAdminApplicationService(

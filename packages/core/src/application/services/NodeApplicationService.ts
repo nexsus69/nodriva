@@ -10,32 +10,13 @@ import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import type { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
+import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
+import { nodeAuditSnapshot } from './ResourceAuditSnapshot.js';
 
 import type { CreateNodeCommand, UpdateNodeCommand, MoveNodeCommand, DeleteNodeCommand, RestoreNodeCommand} from '../commands/NodeCommands.js';
 import { CreateNodeCommandSchema, UpdateNodeCommandSchema, MoveNodeCommandSchema, DeleteNodeCommandSchema, RestoreNodeCommandSchema } from '../commands/NodeCommands.js';
 import { ForbiddenError, ValidationError, CapabilityDisabledError } from '../../domain/errors/ApplicationErrors.js';
 import { NodeNotFoundError, RowVersionMismatchError, NodeTypeNotFoundError, NodePathCollisionError, NodeCyclicMoveError } from '../../domain/errors/DomainErrors.js';
-
-/** Serializes the complete node state used by before/after audit snapshots. */
-function nodeAuditSnapshot(node: Node): Record<string, unknown> {
-  return {
-    id: node.id,
-    parentId: node.parentId,
-    path: node.path,
-    pathLabel: node.pathLabel,
-    depth: node.depth,
-    nodeTypeId: node.nodeTypeId,
-    name: node.name,
-    description: node.description,
-    rowVersion: node.rowVersion,
-    createdAt: node.createdAt.toISOString(),
-    updatedAt: node.updatedAt.toISOString(),
-    deletedAt: node.deletedAt?.toISOString() ?? null,
-    createdBy: node.createdBy,
-    updatedBy: node.updatedBy,
-    payload: node.payload,
-  };
-}
 
 export class NodeApplicationService {
   constructor(
@@ -49,7 +30,8 @@ export class NodeApplicationService {
     private readonly idGenerator: IdGeneratorPort,
     private readonly pathPolicy: NodePathPolicy,
     private readonly transactionPort: TransactionPort,
-    private readonly schemaRegistry?: SchemaRegistry
+    private readonly schemaRegistry?: SchemaRegistry,
+    private readonly resourceRelationshipService?: ResourceRelationshipService,
   ) {}
 
   async createNode(cmd: CreateNodeCommand): Promise<Node> {
@@ -146,6 +128,13 @@ export class NodeApplicationService {
 
       // 8. Persistenza, revisione e audit
       await this.nodeRepository.create(node);
+      await this.resourceRelationshipService?.synchronize({
+        actorUserId: validatedCmd.actorUserId,
+        sourceDomain: 'node',
+        sourceResourceId: node.id,
+        sourceTypeKey: nodeType.typeKey,
+        payload: node.payload,
+      });
       await this.revisionPort.recordNodeRevision(node, 'created', validatedCmd.actorUserId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
@@ -314,17 +303,11 @@ export class NodeApplicationService {
         await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: node.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
-      const updated = node.update(
-        validatedCmd.name !== undefined ? validatedCmd.name : node.name,
-        validatedCmd.description !== undefined ? validatedCmd.description : node.description,
-        validatedCmd.actorUserId
-      );
-
       const updatedPayload = validatedCmd.payloadDelta
         ? { ...node.payload, ...validatedCmd.payloadDelta }
         : node.payload;
+      const nodeType = await this.nodeTypeRepository.findById(node.nodeTypeId);
       if (this.schemaRegistry && validatedCmd.payloadDelta) {
-        const nodeType = await this.nodeTypeRepository.findById(node.nodeTypeId);
         const dynamicSchema = nodeType
           ? await this.schemaRegistry.getSchema('node', nodeType.typeKey)
           : null;
@@ -340,14 +323,23 @@ export class NodeApplicationService {
           }
         }
       }
-      const updatedWithPayload = new Node(
-        updated.id, updated.parentId, updated.path, updated.pathLabel, updated.depth,
-        updated.nodeTypeId, updated.name, updated.description, updated.rowVersion,
-        updated.createdAt, updated.updatedAt, updated.deletedAt, updated.createdBy,
-        updated.updatedBy, updatedPayload
+      const updatedWithPayload = node.update(
+        validatedCmd.name !== undefined ? validatedCmd.name : node.name,
+        validatedCmd.description !== undefined ? validatedCmd.description : node.description,
+        validatedCmd.actorUserId,
+        updatedPayload,
       );
 
       await this.nodeRepository.update(updatedWithPayload);
+      if (nodeType) {
+        await this.resourceRelationshipService?.synchronize({
+          actorUserId: validatedCmd.actorUserId,
+          sourceDomain: 'node',
+          sourceResourceId: updatedWithPayload.id,
+          sourceTypeKey: nodeType.typeKey,
+          payload: updatedWithPayload.payload,
+        });
+      }
       await this.revisionPort.recordNodeRevision(updatedWithPayload, 'updated', validatedCmd.actorUserId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
@@ -430,7 +422,8 @@ export class NodeApplicationService {
       await this.accessControlPort.assertCanReadNode(actorUserId, parentId);
     }
     if (this.nodeRepository.listReadableChildren) {
-      return this.nodeRepository.listReadableChildren(parentId, actorUserId);
+      const children = await this.nodeRepository.listReadableChildren(parentId, actorUserId);
+      return this.hydrateRelationshipNodes(children);
     }
     const children = await this.nodeRepository.listChildren(parentId);
     const visibleChildren: Node[] = [];
@@ -442,12 +435,13 @@ export class NodeApplicationService {
         if (!(error instanceof ForbiddenError)) throw error;
       }
     }
-    return visibleChildren;
+    return this.hydrateRelationshipNodes(visibleChildren);
   }
 
   async getNodeById(id: string, actorUserId: string): Promise<Node | null> {
     await this.accessControlPort.assertCanReadNode(actorUserId, id);
-    return await this.nodeRepository.findById(id);
+    const node = await this.nodeRepository.findById(id);
+    return node ? this.withHydratedRelationships(node) : null;
   }
 
   async listBreadcrumb(nodeId: string, actorUserId: string): Promise<Node[]> {
@@ -472,6 +466,40 @@ export class NodeApplicationService {
 
     if (nearestFirst[0]?.id !== nodeId) throw new NodeNotFoundError(nodeId);
     return nearestFirst.reverse();
+  }
+
+  private async hydrateRelationshipNodes(nodes: readonly Node[]): Promise<Node[]> {
+    if (!this.resourceRelationshipService) return [...nodes];
+    return Promise.all(nodes.map((node) => this.withHydratedRelationships(node)));
+  }
+
+  private async withHydratedRelationships(node: Node): Promise<Node> {
+    if (!this.resourceRelationshipService) return node;
+    const nodeType = await this.nodeTypeRepository.findById(node.nodeTypeId);
+    if (!nodeType) return node;
+    const payload = await this.resourceRelationshipService.hydratePayload(
+      'node',
+      node.id,
+      nodeType.typeKey,
+      node.payload,
+    );
+    return new Node(
+      node.id,
+      node.parentId,
+      node.path,
+      node.pathLabel,
+      node.depth,
+      node.nodeTypeId,
+      node.name,
+      node.description,
+      node.rowVersion,
+      node.createdAt,
+      node.updatedAt,
+      node.deletedAt,
+      node.createdBy,
+      node.updatedBy,
+      payload,
+    );
   }
 
   async listNodeTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; currentSchemaVersion: number }[]> {

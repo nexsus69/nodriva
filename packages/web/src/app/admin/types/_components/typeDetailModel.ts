@@ -15,6 +15,9 @@ export type FieldForm = {
   isIndexed: boolean;
   relationTargetDomain: "" | "node" | "entity";
   relationTargetTypeKey: string;
+  relationSourceCardinality: "one" | "many";
+  relationTargetIsUnique: boolean;
+  relationInverseLabel: string;
   enumMode: "" | "static" | "managed";
   encryptionMode: "plaintext" | "encrypted";
   defaultValueText: string;
@@ -30,6 +33,9 @@ export const EMPTY_FIELD: FieldForm = {
   isIndexed: false,
   relationTargetDomain: "",
   relationTargetTypeKey: "",
+  relationSourceCardinality: "one",
+  relationTargetIsUnique: false,
+  relationInverseLabel: "",
   enumMode: "",
   encryptionMode: "plaintext",
   defaultValueText: "",
@@ -81,6 +87,7 @@ export function buildMetadataDefinition(
 /** Builds the localized field definition used by both add and edit dialogs. */
 export function buildFieldDefinition(
   t: (key: string) => string,
+  options: { relationConfigurationDisabled?: boolean } = {},
 ): FormDefinition {
   return {
     key: "admin.types.detail.field",
@@ -182,6 +189,7 @@ export function buildFieldDefinition(
           { value: "plaintext", label: t("admin.plaintext") },
           { value: "encrypted", label: t("admin.encrypted") },
         ],
+        disabled: options.relationConfigurationDisabled,
         layout: { row: "advanced", colSpan: 1, order: 2 },
       },
       {
@@ -199,7 +207,33 @@ export function buildFieldDefinition(
         name: "relationTargetTypeKey",
         type: "text",
         label: t("admin.relationTargetType"),
+        disabled: options.relationConfigurationDisabled,
         layout: { row: "relation", colSpan: 1, order: 2 },
+      },
+      {
+        name: "relationSourceCardinality",
+        type: "select",
+        label: t("admin.relationCardinality"),
+        options: [
+          { value: "one", label: t("admin.relationOne") },
+          { value: "many", label: t("admin.relationMany") },
+        ],
+        disabled: options.relationConfigurationDisabled,
+        layout: { row: "relation", colSpan: 1, order: 3 },
+      },
+      {
+        name: "relationTargetIsUnique",
+        type: "boolean",
+        label: t("admin.relationTargetUnique"),
+        disabled: options.relationConfigurationDisabled,
+        layout: { row: "relation", colSpan: 1, order: 4 },
+      },
+      {
+        name: "relationInverseLabel",
+        type: "text",
+        label: t("admin.relationInverseLabel"),
+        disabled: options.relationConfigurationDisabled,
+        layout: { row: "relation", colSpan: 2, order: 5 },
       },
       {
         name: "enumMode",
@@ -210,7 +244,7 @@ export function buildFieldDefinition(
           { value: "static", label: t("admin.enumStatic") },
           { value: "managed", label: t("admin.enumManaged") },
         ],
-        layout: { row: "relation", colSpan: 2, order: 3 },
+        layout: { row: "advanced", colSpan: 2, order: 3 },
       },
     ],
   };

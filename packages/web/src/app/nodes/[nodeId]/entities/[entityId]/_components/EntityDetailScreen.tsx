@@ -7,6 +7,7 @@ import { NodeBreadcrumb } from '../../../../../components/navigation/NodeBreadcr
 import { Skeleton, SkeletonState } from '../../../../../components/ui/feedback';
 import { PageShell, Panel } from '../../../../../components/ui/layout';
 import { EntityResourceMenu } from '../../../../../components/ui/menu';
+import { RelationPanel } from '../../../../../components/ui/relations';
 import { EntityDetailContent } from './EntityDetailContent';
 import { useEntityDetailController } from '../_hooks/useEntityDetailController';
 
@@ -128,6 +129,13 @@ export function EntityDetailScreen() {
           void controller.requestDelete();
         }}
       />
+      {controller.entityType?.typeKey && (
+        <RelationPanel
+          resourceDomain="entity"
+          resourceTypeKey={controller.entityType.typeKey}
+          resourceId={entity.id}
+        />
+      )}
     </PageShell>
   );
 }
