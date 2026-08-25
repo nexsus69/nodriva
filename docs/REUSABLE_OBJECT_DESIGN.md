@@ -63,6 +63,17 @@ The Admin Panel has one implementation path for each shared behavior:
   confirmation service is the only confirmation path.
 - Forms use `FormDefinition` and `FormRenderer`; a field type, required rule or
   validation rule must not acquire a module-specific interpretation.
+- `ResourceFormRenderer`, `ResourceFormDefinition`, and `ResourceFormDraft`
+  compose stable identity fields with dynamic metadata and route a flat form
+  value back to the canonical draft segments. Node and entity screens must not
+  recreate native selects, attachment mapping, or nested forms.
+- `CustomSelect` is the sole select-control implementation. Static type
+  choices, filters, and asynchronously loaded relation candidates all expose
+  the same keyboard and accessibility contract.
+- `ConfirmDialogStore` and its root `ConfirmDialogHost` are the only in-app
+  confirmation path. A browser-native `beforeunload` warning remains the sole
+  exception because browsers cannot display a custom confirmation surface while
+  closing or reloading a document.
 - All user-visible Admin Panel text is defined for both supported locales.
 
 Static architecture tests enforce the single confirmation, table, surface and

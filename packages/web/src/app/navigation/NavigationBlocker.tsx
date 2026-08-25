@@ -1,8 +1,22 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { requestConfirmation } from '../components/ui/feedback/ConfirmDialogStore';
+import { APP_MESSAGES, useAppLocaleStore } from '../i18n/AppLocaleStore';
 
-export const UNSAVED_CHANGES_MESSAGE = 'Sono presenti modifiche non salvate. Vuoi davvero abbandonare la pagina?';
+/** Creates localized copy for the single application-owned discard confirmation. */
+function discardConfirmationOptions() {
+  const locale = useAppLocaleStore.getState().locale;
+  const messages = APP_MESSAGES[locale];
+  return {
+    title: messages['admin.discardTitle'] ?? 'Discard unsaved changes?',
+    description: messages['admin.discardDescription'] ?? 'Your changes will be removed from this form.',
+    confirmLabel: messages['admin.discardChanges'] ?? 'Discard changes',
+    cancelLabel: messages['admin.keepEditing'] ?? 'Keep editing',
+    tone: 'danger' as const,
+  };
+}
 
 export class NavigationBlockerRegistry {
   private readonly blockers = new Set<string>();
@@ -27,13 +41,24 @@ export class NavigationBlockerRegistry {
 
 interface NavigationBlockerContextValue {
   setBlocked: (id: string, blocked: boolean) => void;
-  confirmNavigation: () => boolean;
+  confirmNavigation: () => Promise<boolean>;
+  requestNavigation: (continueNavigation: () => void) => Promise<boolean>;
+  requestHrefNavigation: (href: string) => Promise<boolean>;
 }
 
 const NavigationBlockerContext = createContext<NavigationBlockerContextValue | null>(null);
-const allowNavigationWithoutProvider = () => true;
+const allowNavigationWithoutProvider = async () => true;
+const runNavigationWithoutProvider = async (continueNavigation: () => void) => {
+  continueNavigation();
+  return true;
+};
+const navigateHrefWithoutProvider = async (href: string) => {
+  window.location.assign(href);
+  return true;
+};
 
 export function NavigationBlockerProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const registry = useRef(new NavigationBlockerRegistry());
   const [, setRevision] = useState(0);
 
@@ -41,12 +66,23 @@ export function NavigationBlockerProvider({ children }: { children: React.ReactN
     if (registry.current.setBlocked(id, blocked)) setRevision((current) => current + 1);
   }, []);
 
-  const confirmNavigation = useCallback(() => {
+  const confirmNavigation = useCallback(async () => {
     if (!registry.current.isBlocked) return true;
-    if (!window.confirm(UNSAVED_CHANGES_MESSAGE)) return false;
+    if (!(await requestConfirmation(discardConfirmationOptions()))) return false;
     if (registry.current.clear()) setRevision((current) => current + 1);
     return true;
   }, []);
+
+  const requestNavigation = useCallback(async (continueNavigation: () => void) => {
+    if (!(await confirmNavigation())) return false;
+    continueNavigation();
+    return true;
+  }, [confirmNavigation]);
+
+  const requestHrefNavigation = useCallback(
+    (href: string) => requestNavigation(() => router.push(href)),
+    [requestNavigation, router],
+  );
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -58,23 +94,10 @@ export function NavigationBlockerProvider({ children }: { children: React.ReactN
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  useEffect(() => {
-    const browserNavigation = (window as Window & { navigation?: EventTarget }).navigation;
-    if (!browserNavigation) return;
-    const handleNavigate = (event: Event) => {
-      const navigationEvent = event as Event & { downloadRequest?: string | null; hashChange?: boolean };
-      if (!registry.current.isBlocked || navigationEvent.hashChange || navigationEvent.downloadRequest) return;
-      if (!window.confirm(UNSAVED_CHANGES_MESSAGE)) {
-        if (event.cancelable) event.preventDefault();
-        return;
-      }
-      if (registry.current.clear()) setRevision((current) => current + 1);
-    };
-    browserNavigation.addEventListener('navigate', handleNavigate);
-    return () => browserNavigation.removeEventListener('navigate', handleNavigate);
-  }, []);
-
-  const value = useMemo(() => ({ setBlocked, confirmNavigation }), [confirmNavigation, setBlocked]);
+  const value = useMemo(
+    () => ({ setBlocked, confirmNavigation, requestNavigation, requestHrefNavigation }),
+    [confirmNavigation, requestHrefNavigation, requestNavigation, setBlocked],
+  );
   return <NavigationBlockerContext.Provider value={value}>{children}</NavigationBlockerContext.Provider>;
 }
 
@@ -89,13 +112,28 @@ export function useUnsavedChanges(isDirty: boolean) {
   }, [blockerId, context, isDirty]);
 
   const allowNavigation = useCallback(() => context.setBlocked(blockerId, false), [blockerId, context]);
-  const confirmDiscard = useCallback(() => (
-    !isDirty || window.confirm(UNSAVED_CHANGES_MESSAGE)
-  ), [isDirty]);
+  const confirmDiscard = useCallback(async () => {
+    if (!isDirty) return true;
+    const confirmed = await requestConfirmation(discardConfirmationOptions());
+    if (confirmed) context.setBlocked(blockerId, false);
+    return confirmed;
+  }, [blockerId, context, isDirty]);
   return { confirmDiscard, allowNavigation };
 }
 
 export function useNavigationConfirmation() {
   const context = useContext(NavigationBlockerContext);
   return context?.confirmNavigation ?? allowNavigationWithoutProvider;
+}
+
+/** Requests confirmed client-side navigation through the global discard policy. */
+export function useNavigationRequest() {
+  const context = useContext(NavigationBlockerContext);
+  return context?.requestNavigation ?? runNavigationWithoutProvider;
+}
+
+/** Requests an in-app route transition while preserving the unsaved-work policy. */
+export function useHrefNavigationRequest() {
+  const context = useContext(NavigationBlockerContext);
+  return context?.requestHrefNavigation ?? navigateHrefWithoutProvider;
 }

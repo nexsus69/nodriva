@@ -2,21 +2,21 @@
 
 import NextLink from 'next/link';
 import type { ComponentProps } from 'react';
-import { useNavigationConfirmation } from '../../navigation/NavigationBlocker';
+import { useHrefNavigationRequest } from '../../navigation/NavigationBlocker';
 
-type GuardedLinkProps = ComponentProps<typeof NextLink>;
+type GuardedLinkProps = Omit<ComponentProps<typeof NextLink>, 'href'> & {
+  href: string;
+};
 
 export default function GuardedLink({ onNavigate, ...props }: GuardedLinkProps) {
-  const confirmNavigation = useNavigationConfirmation();
+  const requestHrefNavigation = useHrefNavigationRequest();
   return (
     <NextLink
       {...props}
       onNavigate={(event) => {
-        if (!confirmNavigation()) {
-          event.preventDefault();
-          return;
-        }
         onNavigate?.(event);
+        event.preventDefault();
+        void requestHrefNavigation(props.href);
       }}
     />
   );

@@ -20,7 +20,7 @@ export function LogoutButton({ className }: LogoutButtonProps) {
   const confirmNavigation = useNavigationConfirmation();
 
   const handleLogout = async () => {
-    if (!confirmNavigation()) return;
+    if (!(await confirmNavigation())) return;
     setIsLoggingOut(true);
     try {
       // Ferma immediatamente timer e polling, prima che il cookie venga

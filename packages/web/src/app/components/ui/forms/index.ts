@@ -13,6 +13,16 @@ export type {
 } from "./EnumOptionModal";
 export { FormRenderer } from "./FormRenderer";
 export { createValidationMessages, defineForm } from "./FormDefinition";
+export { buildResourceIdentityFields } from "./ResourceFormDefinition";
+export type { ResourceIdentityFormOptions } from "./ResourceFormDefinition";
+export {
+  applyResourceFormDraftChange,
+  flattenResourceFormDraft,
+} from "./ResourceFormDraft";
+export type {
+  ResourceFormDraftBindings,
+  ResourceFormDraftValues,
+} from "./ResourceFormDraft";
 export type {
   FormDefinition,
   FormFieldLayout,

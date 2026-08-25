@@ -77,5 +77,11 @@ export function useCreateEntity(parentNodeId: string) {
     if (enumField) setFields((current) => current.map((field) => field.id === enumField.id ? { ...field, enumOptions: [...(field.enumOptions ?? []), option] } : field));
   };
 
-  return { entityTypesList, siblingEntities, isPending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, payload, setPayload, error, setError, attachments, setAttachments, enumField, setEnumField, lock, related, submit, addEnumOption };
+  const cancel = async () => {
+    if (!(await navigationGuard.confirmDiscard())) return;
+    navigationGuard.allowNavigation();
+    router.push(`/nodes/${parentNodeId}`);
+  };
+
+  return { entityTypesList, siblingEntities, isPending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, payload, setPayload, error, setError, attachments, setAttachments, enumField, setEnumField, lock, related, submit, addEnumOption, cancel };
 }

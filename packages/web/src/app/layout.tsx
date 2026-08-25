@@ -18,6 +18,7 @@ import { WorkspaceShell } from "./components/layout/WorkspaceShell";
 import { ActivityProvider } from "./activity/ActivityProvider";
 import { ActivityDebugOverlayHost } from "./activity/ActivityDebugOverlayHost";
 import { NavigationBlockerProvider } from "./navigation/NavigationBlocker";
+import { ConfirmDialogHost } from "./components/ui/feedback/ConfirmDialog";
 
 export default async function RootLayout({
   children,
@@ -38,6 +39,7 @@ export default async function RootLayout({
               <SessionCacheSynchronizer />
               <SessionModalWatcher />
               <WorkspaceShell>{children}</WorkspaceShell>
+              <ConfirmDialogHost />
             </NavigationBlockerProvider>
           </ActivityProvider>
         </SessionProviderWrapper>

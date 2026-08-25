@@ -13,6 +13,7 @@ import {
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { EntityResourceMenu } from '../../../components/ui/menu';
 import { Skeleton } from '../../../components/ui/feedback';
+import { CustomSelect } from '../../../components/ui/forms';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -123,11 +124,22 @@ export function SubtreeEntitiesTableSection({
         <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Descrizione
           <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contiene…" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
         </label>
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Lock
-          <select value={lockState} onChange={(event) => setLockState(event.target.value as typeof lockState)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400">
-            <option value="">Tutti</option><option value="locked">Bloccati</option><option value="unlocked">Non bloccati</option>
-          </select>
-        </label>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          Lock
+          <div className="mt-1 normal-case tracking-normal">
+            <CustomSelect
+              id="subtree-lock-state"
+              value={lockState}
+              tone="light"
+              placeholder="Tutti"
+              options={[
+                { value: 'locked', label: 'Bloccati' },
+                { value: 'unlocked', label: 'Non bloccati' },
+              ]}
+              onChange={(value) => setLockState(value as typeof lockState)}
+            />
+          </div>
+        </div>
       </div>
       <div className="h-[420px] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <VirtualGroupedTable

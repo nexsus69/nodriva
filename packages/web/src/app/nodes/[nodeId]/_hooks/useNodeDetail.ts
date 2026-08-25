@@ -99,7 +99,7 @@ export function useNodeDetail(nodeId: string) {
   };
 
   const exitEditMode = async () => {
-    if (!navigationGuard.confirmDiscard()) return;
+    if (!(await navigationGuard.confirmDiscard())) return;
     if (currentNode) {
       setNodeName(currentNode.name);
       setNodeDescription(currentNode.description || '');

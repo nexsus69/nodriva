@@ -34,18 +34,31 @@ export interface FormRendererProps {
   definition?: FormDefinition;
   values: Record<string, unknown>;
   onChange: (name: string, value: unknown) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  /** Handles form submission when the renderer owns the surrounding form. */
+  onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   isPending?: boolean;
   submitDisabled?: boolean;
   submitLabel?: string;
   pendingLabel?: string;
   cancelLabel?: string;
   onCancel?: () => void;
+  /** Places an explicitly configured destructive operation beside standard form actions. */
+  destructiveAction?: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+  };
   children?: ReactNode;
   theme?: "dark" | "light";
   renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
   showActions?: boolean;
   actionPlacement?: "flow" | "sticky";
+  /**
+   * Selects whether this component owns a form element or contributes fields
+   * to a form owned by its parent. The latter prevents invalid nested forms
+   * when a dynamic resource section is composed into a resource editor.
+   */
+  renderMode?: "form" | "content";
 }
 
 const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
@@ -511,11 +524,13 @@ export function FormRenderer({
   pendingLabel = "Salvataggio...",
   cancelLabel,
   onCancel,
+  destructiveAction,
   children,
   theme = "dark",
   renderFieldAddon,
   showActions = true,
   actionPlacement = "flow",
+  renderMode = "form",
 }: FormRendererProps) {
   const resolvedFields = definition?.fields ?? fields ?? [];
   const layout = definition?.layout;
@@ -528,8 +543,8 @@ export function FormRenderer({
   const unassigned = resolvedFields.filter(
     (field) => !assigned.has(field.name),
   );
-  return (
-    <form onSubmit={onSubmit} className="space-y-6">
+  const content = (
+    <>
       {sections.map((section) => (
         <FormSection
           key={section.key}
@@ -557,25 +572,45 @@ export function FormRenderer({
         />
       )}
       {children}
-      {showActions && <div className={`flex items-center justify-end gap-3 border-t pt-4 ${actionPlacement === "sticky" ? "sticky -bottom-6 z-10 -mx-6 -mb-6 mt-6 bg-white px-6 py-4 shadow-[0_-8px_16px_-16px_rgba(15,23,42,0.35)]" : ""} ${theme === "light" ? "border-slate-200" : "border-slate-800/80"}`}>
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-            className={`min-h-9 border border-transparent px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
-          >
-            {cancelLabel ?? "Annulla"}
-          </button>
-        )}
-        <button
-          type="submit"
-          disabled={isPending || submitDisabled}
-          className="min-h-9 border border-violet-600 bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:border-violet-700 hover:bg-violet-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
-        >
-          {isPending ? pendingLabel : submitLabel}
-        </button>
-      </div>}
-    </form>
+      {showActions && (
+        <div className={`flex items-center gap-3 border-t pt-4 ${actionPlacement === "sticky" ? "sticky -bottom-6 z-10 -mx-6 -mb-6 mt-6 bg-white px-6 py-4 shadow-[0_-8px_16px_-16px_rgba(15,23,42,0.35)]" : ""} ${theme === "light" ? "border-slate-200" : "border-slate-800/80"}`}>
+          {destructiveAction && (
+            <button
+              type="button"
+              onClick={destructiveAction.onClick}
+              disabled={isPending || destructiveAction.disabled}
+              className="min-h-9 border border-rose-200 px-3.5 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {destructiveAction.label}
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                disabled={isPending}
+                className={`min-h-9 border border-transparent px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
+              >
+                {cancelLabel ?? "Annulla"}
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={isPending || submitDisabled}
+              className="min-h-9 border border-violet-600 bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:border-violet-700 hover:bg-violet-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+            >
+              {isPending ? pendingLabel : submitLabel}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
+
+  if (renderMode === "content") {
+    return <div className="space-y-6">{content}</div>;
+  }
+
+  return <form onSubmit={onSubmit} className="space-y-6">{content}</form>;
 }

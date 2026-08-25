@@ -11,7 +11,6 @@ import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { checkAdminAccessAction } from "../../actions/adminAccessActions";
 import { AdminPanelHeader } from "./AdminPanelHeader";
 import { AdminPanelSidebar } from "./AdminPanelSidebar";
-import { ConfirmDialogHost } from "@/app/components/ui/feedback/ConfirmDialog";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { AdminAuthorizationProvider } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminButton } from "@/adminPanel/components/AdminButton";
@@ -172,7 +171,6 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto max-w-[90rem]">{children}</div>
         </main>
       </div>
-      <ConfirmDialogHost />
       </div>
     </AdminAuthorizationProvider>
   );

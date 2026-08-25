@@ -1,5 +1,4 @@
 /** Converts resource metadata into the shared form renderer contract. */
-import type { FormEvent, ReactNode } from "react";
 import type { ResourceFieldDefinition } from "@dashboard/core";
 import {
   FormRenderer,
@@ -7,6 +6,7 @@ import {
   type FormFieldLayout,
   type FormFieldSchema,
   type FormOption,
+  type FormRendererProps,
 } from "./FormRenderer";
 
 const NUMBER_TYPES = new Set([
@@ -32,12 +32,70 @@ export type ResourceFieldOptionsMap = Readonly<
   Record<string, ResourceFieldOptions>
 >;
 
+/**
+ * Describes metadata from either the Core resource contract or the authorized
+ * type-definition read model. Both shapes are normalized before rendering.
+ */
+export type ResourceFormFieldDefinition = Omit<
+  ResourceFieldDefinition,
+  "relationTarget"
+> & {
+  relationTarget?: ResourceFieldDefinition["relationTarget"];
+  enumOptions?: readonly ResourceFormOption[];
+  relationTargetDomain?: "node" | "entity" | null;
+  relationTargetTypeKey?: string | null;
+};
+
+/** Preserves optional active-state metadata while remaining a form option. */
+interface ResourceFormOption extends FormOption {
+  isActive?: boolean;
+}
+
+/** Resolves either supported relation representation to the canonical target. */
+function resolveRelationTarget(field: ResourceFormFieldDefinition) {
+  if (field.relationTarget) return field.relationTarget;
+  if (!field.relationTargetDomain || !field.relationTargetTypeKey) return null;
+  return {
+    resourceType: field.relationTargetDomain,
+    typeKey: field.relationTargetTypeKey,
+  } as const;
+}
+
+/** Selects configured enum options first, otherwise exposes active metadata values. */
+function resolveEnumOptions(
+  field: ResourceFormFieldDefinition,
+  options: ResourceFieldOptionsMap,
+): readonly FormOption[] {
+  const configuredOptions = options[field.fieldKey]?.options;
+  if (configuredOptions) return configuredOptions;
+  const metadataOptions = (field.enumOptions ?? [])
+    .filter((option) => option.isActive !== false)
+    .map(({ value, label }) => ({ value, label }));
+  if (metadataOptions.length > 0) return metadataOptions;
+
+  const legacyEnumConstraint = field.constraints.find((constraint) => {
+    if (!constraint || typeof constraint !== "object") return false;
+    return Reflect.get(constraint, "constraintType") === "enum";
+  });
+  const rawValues = legacyEnumConstraint && typeof legacyEnumConstraint === "object"
+    ? Reflect.get(legacyEnumConstraint, "constraintValueText")
+    : undefined;
+  if (typeof rawValues !== "string") return [];
+  return rawValues
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .map((value) => ({ value, label: value }));
+}
+
+/** Builds one shared UI schema from the metadata of a node or entity type. */
 export function buildResourceFormSchema(
-  fields: readonly ResourceFieldDefinition[],
+  fields: readonly ResourceFormFieldDefinition[],
   options: ResourceFieldOptionsMap = {},
 ): FormFieldSchema[] {
   return fields.map((field) => {
     const dataType = field.dataType.toLowerCase();
+    const relationTarget = resolveRelationTarget(field);
     if (dataType === "boolean")
       return {
         name: field.fieldKey,
@@ -55,14 +113,14 @@ export function buildResourceFormSchema(
         layout: options[field.fieldKey]?.layout,
         ...options[field.fieldKey]?.attachment,
       };
-    if (dataType === "relation" && field.relationTarget)
+    if (dataType === "relation" && relationTarget)
       return {
         name: field.fieldKey,
         type: "relation",
         label: field.label,
         required: field.isRequired,
-        resourceType: field.relationTarget.resourceType,
-        typeKey: field.relationTarget.typeKey,
+        resourceType: relationTarget.resourceType,
+        typeKey: relationTarget.typeKey,
         layout: options[field.fieldKey]?.layout,
       };
     if (dataType === "enum" || dataType === "relation")
@@ -71,7 +129,9 @@ export function buildResourceFormSchema(
         type: "select",
         label: field.label,
         required: field.isRequired,
-        options: options[field.fieldKey]?.options ?? [],
+        options: dataType === "enum"
+          ? resolveEnumOptions(field, options)
+          : options[field.fieldKey]?.options ?? [],
         layout: options[field.fieldKey]?.layout,
       };
     if (dataType === "date")
@@ -135,24 +195,27 @@ export function buildResourceFormSchema(
   });
 }
 
-export interface ResourceFormRendererProps {
-  fields: readonly ResourceFieldDefinition[];
+/**
+ * Configures a complete resource editor from stable fields plus dynamic type
+ * metadata. Consumers only bind draft values and callbacks; the renderer owns
+ * field construction, layout, validation presentation, and action geometry.
+ */
+export interface ResourceFormRendererProps extends Omit<
+  FormRendererProps,
+  "definition" | "fields"
+> {
+  fields: readonly ResourceFormFieldDefinition[];
+  baseFields?: readonly FormFieldSchema[];
   options?: ResourceFieldOptionsMap;
   definition?: Omit<FormDefinition, "fields" | "key" | "version"> & {
     key?: string;
     version?: string;
   };
-  values: Record<string, unknown>;
-  onChange: (name: string, value: unknown) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  isPending?: boolean;
-  submitLabel?: string;
-  pendingLabel?: string;
-  children?: ReactNode;
 }
 
 export function ResourceFormRenderer({
   fields,
+  baseFields = [],
   options,
   definition,
   ...props
@@ -163,7 +226,7 @@ export function ResourceFormRenderer({
       definition={{
         key: definition?.key ?? "resource-form",
         version: definition?.version ?? "1",
-        fields: buildResourceFormSchema(fields, options),
+        fields: [...baseFields, ...buildResourceFormSchema(fields, options)],
         sections: definition?.sections,
         layout: definition?.layout,
       }}

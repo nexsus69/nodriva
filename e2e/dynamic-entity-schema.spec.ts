@@ -19,10 +19,12 @@ test.describe('dynamic entity schema', () => {
 
     await page.goto(`/nodes/${process.env.E2E_ENTITY_PARENT_NODE_ID}/entities/new`);
     const creationForm = page.locator('form');
-    // These labels are visual only; scope locators to the creation form and
-    // preserve the order declared by the isolated integration-customer fixture.
+    // Preserve the order declared by the isolated integration-customer fixture.
     const textInputs = creationForm.locator('input[type="text"]');
-    await creationForm.locator('select').selectOption(process.env.E2E_ENTITY_TYPE_KEY!);
+    await page.getByRole('combobox', { name: 'Tipo Entità *' }).click();
+    await page.getByRole('option', {
+      name: new RegExp(process.env.E2E_ENTITY_TYPE_KEY!),
+    }).click();
     await expect(textInputs).toHaveCount(3);
     await expect(page.getByText('Email Address *')).toBeVisible();
     await expect(page.getByText('Phone Number *')).toBeVisible();

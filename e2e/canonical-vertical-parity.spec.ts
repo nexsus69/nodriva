@@ -63,8 +63,8 @@ async function login(page: Page, baseUrl: string, email: string, password: strin
   await expect(page).toHaveURL(new RegExp(`${baseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/?$`));
 }
 
-/** Selects one option from the application-owned combobox used by admin forms. */
-async function selectAdminOption(
+/** Selects one option from the application-owned combobox used by every form. */
+async function selectApplicationOption(
   page: Page,
   label: string | RegExp,
   option: string | RegExp,
@@ -114,11 +114,11 @@ async function addField(page: Page, options: {
   await page.getByRole('button', { name: /Aggiungi campo/i }).click();
   await page.getByLabel('Chiave campo *').fill(options.key);
   await page.getByLabel('Nome colonna *').fill(options.key);
-  await selectAdminOption(page, /Tipo dato/, options.dataType);
+  await selectApplicationOption(page, /Tipo dato/, options.dataType);
   if (options.dataType === 'enum') {
-    await selectAdminOption(page, /Modalità enum/, /Opzioni gestite/);
+    await selectApplicationOption(page, /Modalità enum/, /Opzioni gestite/);
   } else {
-    await selectAdminOption(page, /Dominio relazione/, /Tipi entità/);
+    await selectApplicationOption(page, /Dominio relazione/, /Tipi entità/);
     await page.getByLabel(/Chiave tipo relazione/).fill(options.relationTargetTypeKey!);
   }
   await page.getByLabel('Etichetta *').fill(options.label);
@@ -128,7 +128,11 @@ async function addField(page: Page, options: {
 
 async function addManagedEnumOption(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
   await page.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}/entities/new`);
-  await page.getByLabel('Tipo Entità *').selectOption(names.entityTypeKey);
+  await selectApplicationOption(
+    page,
+    'Tipo Entità *',
+    new RegExp(names.entityTypeKey),
+  );
   await expect(page.getByRole('button', { name: '+ Aggiungi opzione' })).toBeVisible();
   await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
   await page.getByPlaceholder(/Valore tecnico/).fill('planned');
@@ -156,11 +160,14 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await page.goto(`${baseUrl}/admin/users`);
   await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^\+?\s*Crea utente$/i }).click();
+  await expect(
+    page.locator('[data-node-tree-field="assignment.1.nodeId"]'),
+  ).toHaveAttribute('aria-busy', 'false');
   await page.getByLabel('Email *').fill(names.operatorEmail);
   const passwordInput = page.getByLabel('Password *');
   await passwordInput.fill(OPERATOR_PASSWORD);
   await expect(passwordInput).toHaveValue(OPERATOR_PASSWORD);
-  await selectAdminOption(page, /Ruolo \*/, names.roleName);
+  await selectApplicationOption(page, /Ruolo \*/, names.roleName);
   await page.locator('[data-node-tree-field="assignment.1.nodeId"] [data-node-id]').filter({ hasText: 'Admin parity root' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Crea utente' }).click();
   await expect(page.getByText(names.operatorEmail, { exact: true })).toBeVisible();
@@ -180,7 +187,11 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
   await ensureEditMode(page);
   await page.getByRole('link', { name: /Sotto-Nodo/ }).first().click();
   await expect(page.getByText('Modalità modifica')).toBeVisible();
-  await page.getByLabel('Tipo Nodo *').selectOption(names.nodeTypeKey);
+  await selectApplicationOption(
+    page,
+    'Tipo Nodo *',
+    new RegExp(names.nodeTypeKey),
+  );
   await page.getByLabel('Nome Nodo *').fill(names.childName);
   await page.getByRole('button', { name: 'Crea Sotto-Nodo' }).click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
@@ -196,14 +207,20 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   await ensureEditMode(page);
   await page.getByRole('link', { name: /Nuova Entità/i }).first().click();
   await expect(page.getByText('Modalità modifica')).toBeVisible();
-  await page.getByLabel('Tipo Entità *').selectOption(names.entityTypeKey);
+  await selectApplicationOption(
+    page,
+    'Tipo Entità *',
+    new RegExp(names.entityTypeKey),
+  );
   await page.getByLabel('Nome Entità *').fill(entityName);
-  await selectAdminOption(page, 'Status', 'Planned');
+  await selectApplicationOption(page, 'Status', 'Planned');
   if (relationName) {
-    await page.locator('#relation-search-depends_on').fill(relationName);
-    const relationSelect = page.locator('#relation-search-depends_on + select');
-    await expect(relationSelect.locator('option')).toHaveCount(2);
-    await relationSelect.selectOption({ index: 1 });
+    const relationPicker = page.locator('[data-relation-picker="depends_on"]');
+    await relationPicker.locator('#relation-search-depends_on').fill(relationName);
+    await expect(relationPicker).toHaveAttribute('aria-busy', 'true');
+    await expect(relationPicker).toHaveAttribute('aria-busy', 'false');
+    await relationPicker.locator('#relation-select-depends_on').click();
+    await page.getByRole('option', { name: new RegExp(relationName) }).click();
   }
   const createButton = page.getByRole('button', { name: 'Crea Entità' });
   await expect(createButton).toBeEnabled();
@@ -309,7 +326,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await firstOperatorPage.goto(secondEntityUrl);
     await ensureEditMode(firstOperatorPage);
     await firstOperatorPage.getByRole('button', { name: 'Elimina', exact: true }).click();
-    await firstOperatorPage.getByRole('dialog').getByRole('button', { name: 'Elimina' }).click();
+    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${childNodeId}`);
 
     const lifecycle = await restoreAndAudit(adminPage, baseUrl, names.secondEntityName);
@@ -332,7 +349,10 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
 
 test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
   test.skip(!enabled, 'Run through pnpm e2e:canonical to provision both isolated adapters.');
-  test.setTimeout(240_000);
+  // Two fully isolated adapters execute the complete lifecycle concurrently.
+  // Keep the timeout above the normal combined cold-start budget without
+  // weakening individual UI expectations, which retain their short defaults.
+  test.setTimeout(300_000);
 
   test('completes the scoped operator lifecycle with equivalent outcomes', async ({ browser }) => {
     const [sqlite, postgres] = await Promise.all([

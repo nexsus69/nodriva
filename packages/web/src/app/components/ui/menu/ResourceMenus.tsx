@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { OverflowMenu } from './Menu';
-import { useNavigationConfirmation } from '../../../navigation/NavigationBlocker';
+import { useNavigationRequest } from '../../../navigation/NavigationBlocker';
 
 function copyTechnicalId(id: string): void {
   void navigator.clipboard?.writeText(id);
@@ -17,8 +17,10 @@ export interface NodeResourceMenuProps {
 /** Canonical operations for every node representation in the workspace. */
 export function NodeResourceMenu({ nodeId, nodeName, onEdit }: NodeResourceMenuProps) {
   const router = useRouter();
-  const confirmNavigation = useNavigationConfirmation();
-  const navigate = (href: string) => { if (confirmNavigation()) router.push(href); };
+  const requestNavigation = useNavigationRequest();
+  const navigate = (href: string) => {
+    void requestNavigation(() => router.push(href));
+  };
 
   return (
     <OverflowMenu
@@ -45,8 +47,10 @@ export interface EntityResourceMenuProps {
 /** Canonical operations for every entity representation in the workspace. */
 export function EntityResourceMenu({ entityId, entityName, parentNodeId, onEdit, editDisabled = false }: EntityResourceMenuProps) {
   const router = useRouter();
-  const confirmNavigation = useNavigationConfirmation();
-  const navigate = (href: string) => { if (confirmNavigation()) router.push(href); };
+  const requestNavigation = useNavigationRequest();
+  const navigate = (href: string) => {
+    void requestNavigation(() => router.push(href));
+  };
 
   return (
     <OverflowMenu

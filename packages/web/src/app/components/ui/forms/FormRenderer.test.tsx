@@ -71,6 +71,23 @@ describe("FormRenderer", () => {
     expect(markup).toContain("disabled");
   });
 
+  it("can contribute fields without creating a nested form", () => {
+    const markup = renderToStaticMarkup(
+      <form>
+        <FormRenderer
+          fields={[{ name: "title", type: "text", label: "Title" }]}
+          values={{ title: "Draft" }}
+          onChange={vi.fn()}
+          renderMode="content"
+          showActions={false}
+        />
+      </form>,
+    );
+
+    expect(markup.match(/<form/g)).toHaveLength(1);
+    expect(markup).toContain('name="title"');
+  });
+
   it("can disable submission while prerequisite data is unavailable", () => {
     const markup = renderToStaticMarkup(
       <FormRenderer
@@ -84,6 +101,21 @@ describe("FormRenderer", () => {
 
     expect(markup).toContain("disabled");
     expect(markup).toContain("Salva");
+  });
+
+  it("renders a configured destructive action in the shared action bar", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[]}
+        values={{}}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+        destructiveAction={{ label: "Delete", onClick: vi.fn() }}
+      />,
+    );
+
+    expect(markup).toContain("Delete");
+    expect(markup).toContain("text-rose-700");
   });
 
   it("renders definition sections and places fields on the same row", () => {

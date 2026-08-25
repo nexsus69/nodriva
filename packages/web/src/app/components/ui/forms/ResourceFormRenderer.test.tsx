@@ -34,4 +34,47 @@ describe('buildResourceFormSchema', () => {
       { name: 'photo', type: 'attachment', label: 'Foto', required: false, kind: 'image' },
     ]);
   });
+
+  it('normalizes legacy type-definition enum and relation metadata', () => {
+    const fields = buildResourceFormSchema([
+      {
+        fieldKey: 'state',
+        label: 'State',
+        dataType: 'enum',
+        isRequired: true,
+        constraints: [],
+        enumOptions: [
+          { value: 'open', label: 'Open', isActive: true },
+          { value: 'closed', label: 'Closed', isActive: false },
+        ],
+      },
+      {
+        fieldKey: 'owner',
+        label: 'Owner',
+        dataType: 'relation',
+        isRequired: false,
+        constraints: [],
+        relationTargetDomain: 'entity',
+        relationTargetTypeKey: 'user',
+      },
+    ]);
+
+    expect(fields).toEqual([
+      {
+        name: 'state',
+        type: 'select',
+        label: 'State',
+        required: true,
+        options: [{ value: 'open', label: 'Open' }],
+      },
+      {
+        name: 'owner',
+        type: 'relation',
+        label: 'Owner',
+        required: false,
+        resourceType: 'entity',
+        typeKey: 'user',
+      },
+    ]);
+  });
 });

@@ -12,6 +12,17 @@ import { useHumanActivity } from '../activity/ActivityProvider';
 
 type UseLockProps = ResourceReference;
 
+/** Checks whether a lock belongs to the current browser or its last server-confirmed acquisition. */
+export function isOwnedLock(
+  lockState: { locked: boolean; bySessionId?: string },
+  currentSessionId?: string,
+  acquiredSessionId?: string,
+): boolean {
+  if (!lockState.locked || !lockState.bySessionId) return false;
+  return lockState.bySessionId === currentSessionId
+    || lockState.bySessionId === acquiredSessionId;
+}
+
 export function useLock({ resourceType, resourceId }: UseLockProps) {
   const { data: session } = useSession();
   const currentUserId = (session as { userId?: string } | null)?.userId;
@@ -31,6 +42,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     getLockSnapshot
   );
   const [error, setError] = useState<string | null>(null);
+  const [acquiredSessionId, setAcquiredSessionId] = useState<string>();
   const ownsLockRef = useRef(false);
   const { registerActiveLock } = useHumanActivity();
 
@@ -42,14 +54,18 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       return false;
     }
 
+    // The server action is authoritative. The session returned here can be
+    // available before the client session provider finishes synchronizing.
+    setAcquiredSessionId(result.lock.sessionId);
+    ownsLockRef.current = true;
     AppCache.setLockState(resourceType, resourceId, {
       locked: true,
       byUserId: currentUserId,
-      bySessionId: currentSessionId,
+      bySessionId: result.lock.sessionId,
       expiresAt: result.lock.expiresAt,
     });
     return true;
-  }, [currentSessionId, currentUserId, resourceId, resourceType]);
+  }, [currentUserId, resourceId, resourceType]);
 
   const releaseLock = useCallback(async (): Promise<void> => {
     if (!ownsLockRef.current) return;
@@ -59,6 +75,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       return;
     }
 
+    setAcquiredSessionId(undefined);
     AppCache.setLockState(resourceType, resourceId, { locked: false });
   }, [resourceId, resourceType]);
 
@@ -66,14 +83,19 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     void AppCache.hydrateLockState(resourceType, resourceId);
   }, [resourceId, resourceType]);
 
+  const isMyLock = useMemo(
+    () => isOwnedLock(lockState, currentSessionId, acquiredSessionId),
+    [acquiredSessionId, currentSessionId, lockState],
+  );
+
   useEffect(() => {
-    if (lockState.locked && lockState.bySessionId === currentSessionId) {
+    if (isMyLock) {
       ownsLockRef.current = true;
       return registerActiveLock({ resourceType, resourceId });
-    } else {
-      ownsLockRef.current = false;
     }
-  }, [currentSessionId, lockState.bySessionId, lockState.locked, registerActiveLock, resourceId, resourceType]);
+    ownsLockRef.current = false;
+    return undefined;
+  }, [isMyLock, registerActiveLock, resourceId, resourceType]);
 
   useEffect(() => {
     const releaseOnPageExit = () => {
@@ -104,10 +126,6 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     };
   }, [resourceId, resourceType]);
 
-  const isMyLock = useMemo(
-    () => lockState.locked && !!currentSessionId && lockState.bySessionId === currentSessionId,
-    [currentSessionId, lockState.bySessionId, lockState.locked]
-  );
   const lockedByOther = useMemo(
     () => ({
       locked: lockState.locked && !isMyLock,

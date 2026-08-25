@@ -13,6 +13,7 @@ import type { DynamicField } from '../../../../../components/ui/forms';
 import { uploadDynamicAttachments, validateDynamicAttachments } from '../../../../../components/ui/forms/dynamicResourceForm';
 import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
+import { requestConfirmation } from '../../../../../components/ui/feedback/ConfirmDialogStore';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -28,7 +29,6 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
   const entityType = detail.entity
@@ -59,7 +59,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   };
   const cancelEditing = async () => {
     if (!detail.entity) return;
-    if (!navigationGuard.confirmDiscard()) return;
+    if (!(await navigationGuard.confirmDiscard())) return;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({}); await lock.releaseLock();
   };
 
@@ -89,7 +89,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
 
   const confirmDelete = () => {
     if (!detail.entity) return;
-    setDeleteOpen(false); setErrorMessage(null);
+    setErrorMessage(null);
     startTransition(async () => {
       try {
         await AppCache.deleteEntity(entityId, detail.entity!.entityTypeId, detail.entity!.rowVersion);
@@ -100,5 +100,16 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     });
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, deleteOpen, setDeleteOpen, attachments, setAttachments, lock, beginEditing, cancelEditing, save, confirmDelete };
+  const requestDelete = async () => {
+    const confirmed = await requestConfirmation({
+      title: 'Elimina entità?',
+      description: 'L’entità verrà spostata nel cestino.',
+      confirmLabel: 'Elimina',
+      cancelLabel: 'Annulla',
+      tone: 'danger',
+    });
+    if (confirmed) confirmDelete();
+  };
+
+  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, attachments, setAttachments, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }

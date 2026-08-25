@@ -77,5 +77,11 @@ export function useCreateChildNode(parentNodeId: string) {
     setFields((current) => current.map((field) => field.id === enumField.id ? { ...field, enumOptions: [...(field.enumOptions ?? []), option] } : field));
   };
 
-  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, lock, submit, addEnumOption };
+  const cancel = async () => {
+    if (!(await navigationGuard.confirmDiscard())) return;
+    navigationGuard.allowNavigation();
+    router.push(`/nodes/${parentNodeId}`);
+  };
+
+  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, lock, submit, addEnumOption, cancel };
 }
