@@ -129,6 +129,11 @@ jobs:
       INTEGRATION_DATABASE_ADMIN_URL: postgresql://postgres:dashboard-e2e-admin@127.0.0.1:5432/dashboard_e2e_test
       INTEGRATION_DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
       INTEGRATION_DATABASE_APP_PASSWORD: dashboard-ci-app
+      DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
+      DATABASE_ADAPTER: postgres
+      REQUIRE_RESTRICTED_DB_ROLE: "true"
+      NEXTAUTH_SECRET: dashboard-e2e-nextauth-secret-at-least-32-characters
+      NEXTAUTH_URL: http://127.0.0.1:3102
       PARITY_POSTGRES_ADMIN_URL: postgresql://postgres:dashboard-e2e-admin@127.0.0.1:5432/dashboard_e2e_test
       PARITY_POSTGRES_APP_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
       PARITY_POSTGRES_TEMPLATE_DATABASE: dashboard_e2e_test
