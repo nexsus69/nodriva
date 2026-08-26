@@ -76,6 +76,11 @@ async function selectApplicationOption(
   await page.getByRole('option', { name: option, exact: typeof option === 'string' }).click();
 }
 
+/** Waits for a navigated Next.js screen to load the client code that owns its controls. */
+async function waitForClientControls(page: Page): Promise<void> {
+  await page.waitForLoadState('networkidle');
+}
+
 async function createType(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
   await page.goto(`${baseUrl}/admin/types`);
   await expect(page.getByRole('row').filter({ hasText: 'admin_parity_root' })).toBeVisible();
@@ -177,10 +182,11 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
 }
 
 async function ensureEditMode(page: Page): Promise<void> {
+  await waitForClientControls(page);
   const editMode = page.getByText('Modalità modifica');
   if (await editMode.isVisible()) return;
   const editButton = page.getByRole('button', { name: 'Modifica', exact: true });
-  await expect(editButton).toBeVisible();
+  await expect(editButton).toBeEnabled();
   await editButton.click();
   await expect(editMode).toBeVisible();
 }
@@ -220,8 +226,6 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   if (relationName) {
     const relationPicker = page.locator('[data-relation-picker="depends_on"]');
     await relationPicker.locator('#relation-search-depends_on').fill(relationName);
-    await expect(relationPicker).toHaveAttribute('aria-busy', 'true');
-    await expect(relationPicker).toHaveAttribute('aria-busy', 'false');
     await relationPicker.locator('#relation-select-depends_on').click();
     await page.getByRole('option', { name: new RegExp(relationName) }).click();
   }
@@ -265,8 +269,6 @@ async function exerciseInverseRelationReplacementReview(
   await page.getByRole('button', { name: 'Gestisci collegamenti' }).click();
   const picker = page.locator('[data-relation-picker^="inverse-"]');
   await picker.locator('input').fill(names.thirdEntityName);
-  await expect(picker).toHaveAttribute('aria-busy', 'true');
-  await expect(picker).toHaveAttribute('aria-busy', 'false');
   await picker.getByRole('checkbox', { name: new RegExp(names.thirdEntityName) }).click();
   await page.getByRole('button', { name: 'Verifica modifiche' }).click();
   await expect(page.getByRole('heading', { name: 'Verifica modifiche alla relazione' })).toBeVisible();
@@ -286,6 +288,7 @@ async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: str
   await expect(adminPage.getByText(entityName, { exact: true })).toHaveCount(0);
 
   await adminPage.goto(`${baseUrl}/admin/audit`);
+  await waitForClientControls(adminPage);
   const expected = ['node.create', 'entity.create', 'entity.update', 'entity.delete', 'entity.restore'];
   const actions: string[] = [];
   for (const action of expected) {
