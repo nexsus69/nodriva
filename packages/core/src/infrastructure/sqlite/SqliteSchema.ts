@@ -392,6 +392,19 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     );
   `);
 
+  // Keep the standalone profile ready to receive the canonical generic record
+  // lifecycle events without requiring a PostgreSQL migration runner.
+  for (const eventType of ['record.created', 'record.updated', 'record.deleted', 'record.restored'] as const) {
+    database.run(
+      'INSERT OR IGNORE INTO workflow_event_types(event_type,subject_kinds,payload_version,is_active) VALUES(?,?,?,?)',
+      [eventType, JSON.stringify(['node', 'entity']), 1, 1],
+    );
+  }
+  database.run(
+    'INSERT OR IGNORE INTO workflow_event_types(event_type,subject_kinds,payload_version,is_active) VALUES(?,?,?,?)',
+    ['hierarchy.moved', JSON.stringify(['node']), 1, 1],
+  );
+
   for (const tableName of ['node_type_fields', 'entity_type_fields'] as const) {
     if (!database.hasColumn(tableName, 'enum_mode')) {
       database.exec(`ALTER TABLE ${tableName} ADD COLUMN enum_mode TEXT NOT NULL DEFAULT 'static' CHECK (enum_mode IN ('static', 'managed'))`);

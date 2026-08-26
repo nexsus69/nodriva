@@ -2,6 +2,7 @@
 import { ValidationError } from '../../domain/errors/ApplicationErrors.js';
 import type { WorkflowEvent } from '../../domain/events/WorkflowEvent.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
 import type { WorkflowRepository } from '../ports/WorkflowRepository.js';
 import { WorkflowPlanner } from './WorkflowPlanner.js';
 
@@ -15,7 +16,7 @@ export interface WorkflowEventProcessingResult {
  * It deliberately does not execute actions: workers run only after the
  * surrounding mutation, audit entry and plans have committed.
  */
-export class WorkflowEventProcessor {
+export class WorkflowEventProcessor implements WorkflowEventPublisher {
   constructor(
     private readonly transactionPort: TransactionPort,
     private readonly repository: WorkflowRepository,
@@ -47,5 +48,9 @@ export class WorkflowEventProcessor {
       }
       return { eventRecorded: true, plannedInstanceKeys };
     });
+  }
+
+  async publish(event: WorkflowEvent): Promise<void> {
+    await this.process(event);
   }
 }

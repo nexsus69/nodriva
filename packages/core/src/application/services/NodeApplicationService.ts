@@ -14,6 +14,9 @@ import type { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import type { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
 import { nodeAuditSnapshot } from './ResourceAuditSnapshot.js';
+import { createUserWorkflowEvent } from './WorkflowEventFactory.js';
+import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
+import type { EventSubject } from '../../domain/events/WorkflowEvent.js';
 
 import type { CreateNodeCommand, UpdateNodeCommand, MoveNodeCommand, DeleteNodeCommand, RestoreNodeCommand} from '../commands/NodeCommands.js';
 import { CreateNodeCommandSchema, UpdateNodeCommandSchema, MoveNodeCommandSchema, DeleteNodeCommandSchema, RestoreNodeCommandSchema } from '../commands/NodeCommands.js';
@@ -34,6 +37,7 @@ export class NodeApplicationService {
     private readonly transactionPort: TransactionPort,
     private readonly schemaRegistry?: SchemaRegistry,
     private readonly resourceRelationshipService?: ResourceRelationshipService,
+    private readonly workflowEventPublisher?: WorkflowEventPublisher,
   ) {}
 
   async createNode(cmd: CreateNodeCommand): Promise<Node> {
@@ -147,6 +151,14 @@ export class NodeApplicationService {
         null,
         nodeAuditSnapshot(node)
       );
+      await this.publishWorkflowEvent(
+        'record.created',
+        { kind: 'node', id: node.id, typeKey: nodeType.typeKey, scopeId: node.parentId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.created:node:${node.id}:${node.rowVersion}`,
+        { parentNodeId: node.parentId, rowVersion: node.rowVersion },
+      );
 
       return node;
     });
@@ -259,6 +271,19 @@ export class NodeApplicationService {
         { parentId: node.parentId, path: node.path },
         { parentId: validatedCmd.newParentNodeId, path: movedNode?.path ?? null }
       );
+      await this.publishWorkflowEvent(
+        'hierarchy.moved',
+        { kind: 'node', id: node.id, scopeId: validatedCmd.newParentNodeId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `hierarchy.moved:node:${node.id}:${movedNode?.rowVersion ?? node.rowVersion}`,
+        {
+          previousParentNodeId: node.parentId,
+          parentNodeId: validatedCmd.newParentNodeId,
+          movedNodeIds: movedSubtree.map((subtreeNode) => subtreeNode.id),
+          rowVersion: movedNode?.rowVersion ?? node.rowVersion,
+        },
+      );
       return movedSubtree.map((subtreeNode) => subtreeNode.id);
     });
   }
@@ -352,6 +377,19 @@ export class NodeApplicationService {
         nodeAuditSnapshot(node),
         nodeAuditSnapshot(updatedWithPayload)
       );
+      await this.publishWorkflowEvent(
+        'record.updated',
+        {
+          kind: 'node',
+          id: updatedWithPayload.id,
+          scopeId: updatedWithPayload.parentId,
+          ...(nodeType ? { typeKey: nodeType.typeKey } : {}),
+        },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.updated:node:${updatedWithPayload.id}:${updatedWithPayload.rowVersion}`,
+        { parentNodeId: updatedWithPayload.parentId, rowVersion: updatedWithPayload.rowVersion },
+      );
 
       return updatedWithPayload;
     });
@@ -373,6 +411,16 @@ export class NodeApplicationService {
       const batchId = this.idGenerator.generate();
       const affectedIds = await this.nodeRepository.softDeleteSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
       for (const affectedId of affectedIds) await this.auditPort.record(validatedCmd.actorUserId, 'node.delete', 'node', affectedId, node.id, null, { deletionBatchId: batchId });
+      for (const affectedId of affectedIds) {
+        await this.publishWorkflowEvent(
+          'record.deleted',
+          { kind: 'node', id: affectedId, scopeId: node.id },
+          validatedCmd.actorUserId,
+          validatedCmd.actorSessionId,
+          `record.deleted:node:${affectedId}:${batchId}`,
+          { deletionBatchId: batchId, rootNodeId: node.id },
+        );
+      }
     });
   }
 
@@ -410,6 +458,16 @@ export class NodeApplicationService {
       if (!batchId) throw new ValidationError('The node has no subtree deletion batch.', { nodeId: ['Missing deletion batch.'] });
       const restoredIds = await this.nodeRepository.restoreSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
       await this.auditPort.record(validatedCmd.actorUserId, 'node.restore', 'node', node.id, node.id, { deletionBatchId: batchId }, { restoredNodeIds: restoredIds });
+      for (const restoredId of restoredIds) {
+        await this.publishWorkflowEvent(
+          'record.restored',
+          { kind: 'node', id: restoredId, scopeId: node.parentId },
+          validatedCmd.actorUserId,
+          validatedCmd.actorSessionId,
+          `record.restored:node:${restoredId}:${batchId}`,
+          { deletionBatchId: batchId, rootNodeId: node.id },
+        );
+      }
     });
   }
 
@@ -502,6 +560,26 @@ export class NodeApplicationService {
       node.updatedBy,
       payload,
     );
+  }
+
+  private async publishWorkflowEvent(
+    eventType: string,
+    subject: EventSubject,
+    actorUserId: string,
+    actorSessionId: string | undefined,
+    idempotencyKey: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<void> {
+    if (!this.workflowEventPublisher) return;
+    await this.workflowEventPublisher.publish(createUserWorkflowEvent({
+      eventType,
+      subject,
+      actorUserId,
+      ...(actorSessionId ? { actorSessionId } : {}),
+      correlationId: actorSessionId ?? actorUserId,
+      idempotencyKey,
+      payload,
+    }));
   }
 
   async listNodeTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; currentSchemaVersion: number }[]> {

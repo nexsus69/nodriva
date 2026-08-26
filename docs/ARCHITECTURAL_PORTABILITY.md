@@ -24,6 +24,7 @@ assembling concrete adapters and injecting them into application services.
 | Data event delivery | `RealtimeEventBus` | `PusherEventBus` |
 | Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` | `RealtimeOutboxSqlite` |
 | Generic workflow catalogue and planning idempotency | `WorkflowRepository` | `WorkflowRepositoryPostgres` | `WorkflowRepositorySqlite` |
+| Generic mutation-to-workflow publication | `WorkflowEventPublisher` | `WorkflowEventProcessor` | `WorkflowEventProcessor` |
 | Transactions | `TransactionPort` | `TransactionPortPostgres` | `TransactionPortSqlite` |
 | Dynamic type storage | `StorageTableManagementPort` | physical tables through controlled DDL | JSON payload plus relational field metadata |
 | Attachments and quota | `AttachmentRepository` | `AttachmentRepositoryPostgres` | `AttachmentRepositorySqlite` |

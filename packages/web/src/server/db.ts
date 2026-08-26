@@ -358,6 +358,7 @@ export const nodeService = new NodeApplicationService(
   transactionPort,
   schemaRegistry,
   resourceRelationshipService,
+  workflowEventProcessor,
 );
 
 export const entityService = new EntityApplicationService(
@@ -373,6 +374,7 @@ export const entityService = new EntityApplicationService(
   idGenerator,
   transactionPort,
   resourceRelationshipService,
+  workflowEventProcessor,
 );
 
 export const resourceRelationshipMutationService = new ResourceRelationshipMutationService(

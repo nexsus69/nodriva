@@ -9,6 +9,7 @@ import type { RevisionPort } from '../ports/RevisionPort.js';
 import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
 import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
 import { LtreeNodePathPolicy } from '../../domain/policies/LtreeNodePathPolicy.js';
 
 import type { CreateNodeCommand, MoveNodeCommand } from '../commands/NodeCommands.js';
@@ -28,6 +29,7 @@ describe('NodeApplicationService', () => {
   let mockRuntimeConfigPort: RuntimeConfigurationPort;
   let mockIdGenerator: IdGeneratorPort;
   let mockTransactionPort: TransactionPort;
+  let mockWorkflowEventPublisher: WorkflowEventPublisher;
   const pathPolicy = new LtreeNodePathPolicy();
 
   beforeEach(() => {
@@ -100,6 +102,7 @@ describe('NodeApplicationService', () => {
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
     };
+    mockWorkflowEventPublisher = { publish: vi.fn() };
 
     service = new NodeApplicationService(
       mockNodeRepository,
@@ -111,7 +114,10 @@ describe('NodeApplicationService', () => {
       mockRuntimeConfigPort,
       mockIdGenerator,
       pathPolicy,
-      mockTransactionPort
+      mockTransactionPort,
+      undefined,
+      undefined,
+      mockWorkflowEventPublisher,
     );
   });
 
@@ -139,6 +145,11 @@ describe('NodeApplicationService', () => {
       expect(mockNodeRepository.create).toHaveBeenCalledWith(node);
       expect(mockRevisionPort.recordNodeRevision).toHaveBeenCalledWith(node, 'created', cmd.actorUserId);
       expect(mockAuditPort.record).toHaveBeenCalled();
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledWith(expect.objectContaining({
+        eventType: 'record.created',
+        subject: { kind: 'node', id: node.id, typeKey: 'folder', scopeId: null },
+        idempotencyKey: `record.created:node:${node.id}:1`,
+      }));
     });
 
     it('should fail validation if name is empty', async () => {

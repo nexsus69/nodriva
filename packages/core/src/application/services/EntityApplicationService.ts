@@ -14,6 +14,9 @@ import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
 import { entityAuditSnapshot } from './ResourceAuditSnapshot.js';
+import { createUserWorkflowEvent } from './WorkflowEventFactory.js';
+import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
+import type { EventSubject } from '../../domain/events/WorkflowEvent.js';
 
 import type {
   CreateEntityCommand,
@@ -49,6 +52,7 @@ export class EntityApplicationService {
     private readonly idGenerator: IdGeneratorPort,
     private readonly transactionPort: TransactionPort,
     private readonly resourceRelationshipService?: ResourceRelationshipService,
+    private readonly workflowEventPublisher?: WorkflowEventPublisher,
   ) {}
 
   async createEntity(cmd: CreateEntityCommand): Promise<Entity> {
@@ -165,6 +169,14 @@ export class EntityApplicationService {
         parentNode.id,
         null,
         entityAuditSnapshot(entity)
+      );
+      await this.publishWorkflowEvent(
+        'record.created',
+        { kind: 'entity', id: entity.id, typeKey: entityType.typeKey, scopeId: entity.parentNodeId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.created:entity:${entity.id}:${entity.rowVersion}`,
+        { parentNodeId: entity.parentNodeId, rowVersion: entity.rowVersion },
       );
 
       return entity;
@@ -288,6 +300,14 @@ export class EntityApplicationService {
         entityAuditSnapshot(entity),
         entityAuditSnapshot(updatedEntity),
       );
+      await this.publishWorkflowEvent(
+        'record.updated',
+        { kind: 'entity', id: updatedEntity.id, typeKey: entityType.typeKey, scopeId: updatedEntity.parentNodeId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.updated:entity:${updatedEntity.id}:${updatedEntity.rowVersion}`,
+        { parentNodeId: updatedEntity.parentNodeId, rowVersion: updatedEntity.rowVersion },
+      );
 
       return updatedEntity;
     });
@@ -356,6 +376,14 @@ export class EntityApplicationService {
         entity.parentNodeId,
         entity.payload,
         null
+      );
+      await this.publishWorkflowEvent(
+        'record.deleted',
+        { kind: 'entity', id: entity.id, scopeId: entity.parentNodeId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.deleted:entity:${entity.id}:${deletedEntity.rowVersion}`,
+        { parentNodeId: entity.parentNodeId, rowVersion: deletedEntity.rowVersion },
       );
     });
   }
@@ -429,6 +457,14 @@ export class EntityApplicationService {
         validatedCmd.actorUserId, 'entity.restore', 'entity', entity.id, entity.parentNodeId,
         { deletedAt: entity.deletedAt.toISOString() }, { deletedAt: null },
       );
+      await this.publishWorkflowEvent(
+        'record.restored',
+        { kind: 'entity', id: restored.id, typeKey: entityType.typeKey, scopeId: restored.parentNodeId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.restored:entity:${restored.id}:${restored.rowVersion}`,
+        { parentNodeId: restored.parentNodeId, rowVersion: restored.rowVersion },
+      );
     });
   }
 
@@ -485,5 +521,25 @@ export class EntityApplicationService {
       entity.updatedBy,
       payload,
     );
+  }
+
+  private async publishWorkflowEvent(
+    eventType: string,
+    subject: EventSubject,
+    actorUserId: string,
+    actorSessionId: string | undefined,
+    idempotencyKey: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<void> {
+    if (!this.workflowEventPublisher) return;
+    await this.workflowEventPublisher.publish(createUserWorkflowEvent({
+      eventType,
+      subject,
+      actorUserId,
+      ...(actorSessionId ? { actorSessionId } : {}),
+      correlationId: actorSessionId ?? actorUserId,
+      idempotencyKey,
+      payload,
+    }));
   }
 }

@@ -13,6 +13,7 @@ import type { RevisionPort } from '../ports/RevisionPort.js';
 import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort.js';
 import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
+import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
 
 import type { CreateEntityCommand, UpdateEntityCommand, DeleteEntityCommand } from '../commands/EntityCommands.js';
 import {
@@ -38,6 +39,7 @@ describe('EntityApplicationService', () => {
   let mockRuntimeConfigPort: RuntimeConfigurationPort;
   let mockIdGenerator: IdGeneratorPort;
   let mockTransactionPort: TransactionPort;
+  let mockWorkflowEventPublisher: WorkflowEventPublisher;
 
   // Lo schema dinamico dei campi custom del device (esclude name/description in quanto attributi canonici)
   const mockDeviceSchema = z.object({
@@ -135,6 +137,7 @@ describe('EntityApplicationService', () => {
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
     };
+    mockWorkflowEventPublisher = { publish: vi.fn() };
 
     service = new EntityApplicationService(
       mockEntityRepository,
@@ -147,7 +150,9 @@ describe('EntityApplicationService', () => {
       mockRevisionPort,
       mockRuntimeConfigPort,
       mockIdGenerator,
-      mockTransactionPort
+      mockTransactionPort,
+      undefined,
+      mockWorkflowEventPublisher,
     );
   });
 
@@ -183,6 +188,11 @@ describe('EntityApplicationService', () => {
         cmd.actorUserId,
         cmd.actorSessionId
       );
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledWith(expect.objectContaining({
+        eventType: 'record.created',
+        subject: { kind: 'entity', id: entity.id, typeKey: 'device', scopeId: entity.parentNodeId },
+        idempotencyKey: `record.created:entity:${entity.id}:1`,
+      }));
     });
 
     it('should fail structural command validation if actorUserId is not a uuid', async () => {
