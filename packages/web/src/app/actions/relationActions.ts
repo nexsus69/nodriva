@@ -3,8 +3,8 @@
 /** Provides authenticated server boundaries for relationship reads, previews and commits. */
 
 import { AuthResolver } from './auth/AuthResolver';
-import { withSafeActionErrors } from './errorMapping';
-import { ValidationError, type NodeRepository, type TypeDomain } from '@dashboard/core';
+import { mapAppErrorToApiErrorResponse, withSafeActionErrors } from './errorMapping';
+import { ValidationError, type ApiErrorResponse, type NodeRepository, type TypeDomain } from '@dashboard/core';
 import { runWithRealtimeOutbox } from '../../server/realtime';
 import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 
@@ -18,6 +18,19 @@ export interface RelationCandidate {
 }
 
 const MAX_CANDIDATES = 50;
+
+type RelationActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ApiErrorResponse };
+
+/** Returns expected relationship failures as serializable action data. */
+async function runRelationAction<T>(operation: () => Promise<T>): Promise<RelationActionResult<T>> {
+  try {
+    return { success: true, data: await operation() };
+  } catch (error) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(error) };
+  }
+}
 
 export async function searchRelationCandidatesAction(input: {
   resourceType: 'node' | 'entity';
@@ -145,8 +158,8 @@ export async function listIncomingRelationshipsAction(input: {
   targetDomain: TypeDomain;
   targetTypeKey: string;
   targetResourceId: string;
-}): Promise<IncomingRelationshipGroup[]> {
-  return withSafeActionErrors(async () => {
+}): Promise<RelationActionResult<IncomingRelationshipGroup[]>> {
+  return runRelationAction(async () => {
     const actorUserId = await AuthResolver.resolveActorUserId();
     const {
       entityService,
@@ -211,8 +224,8 @@ export async function prepareIncomingRelationshipAction(input: {
   targetResourceId: string;
   operation: 'link' | 'unlink';
   sources: Array<{ resourceId: string; expectedRowVersion: number }>;
-}): Promise<IncomingRelationshipMutationPreview> {
-  return withSafeActionErrors(async () => {
+}): Promise<RelationActionResult<IncomingRelationshipMutationPreview>> {
+  return runRelationAction(async () => {
     const identity = await AuthResolver.resolveActorIdentity();
     const { resourceRelationshipMutationService } = await import('../../server/db');
     const plan = await resourceRelationshipMutationService.prepare({
@@ -244,8 +257,8 @@ export async function mutateIncomingRelationshipAction(input: {
   operation: 'link' | 'unlink';
   sources: Array<{ resourceId: string; expectedRowVersion: number }>;
   acceptedReplacementSourceIds?: string[];
-}) {
-  return withSafeActionErrors(async () => {
+}): Promise<RelationActionResult<Array<ReturnType<typeof toNodeRelationDto> | ReturnType<typeof toEntityRelationDto>>>> {
+  return runRelationAction(async () => {
     const identity = await AuthResolver.resolveActorIdentity();
     const { resourceRelationshipMutationService } = await import('../../server/db');
     const result = await runWithRealtimeOutbox(

@@ -156,12 +156,14 @@ The responsive navigation and breadcrumb behavior is documented in
 
 ## P1 — Server Action error UX
 
-- [ ] Replace the generic production message shown when a Server Action
-  rejects a validation or authorization error (for example an invalid
-  relation target) with a localized, actionable application message. Preserve
-  the fail-safe boundary: never expose stack traces, SQL details or internal
-  digests to the client, and add E2E coverage for validation, authorization
-  and unexpected-error paths.
+- [x] Return expected validation, authorization and concurrency failures from
+  inverse relationship actions as serializable result data rather than rejected
+  Server Actions. `RelationPanel` keeps the localized, actionable server
+  message; unexpected failures remain an `INTERNAL_ERROR` without stack, SQL
+  details or internal digests. Unit coverage verifies the three cases and the
+  canonical E2E preserves the normal relationship flow on SQLite/PostgreSQL.
+- [ ] Extend the same expected-error contract and E2E coverage for validation,
+  authorization and unexpected-error paths to the remaining Server Actions.
 
 ## P2 — Archive attachments
 

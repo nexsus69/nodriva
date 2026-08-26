@@ -56,7 +56,11 @@ export function RelationPanel({
         targetTypeKey: resourceTypeKey,
         targetResourceId: resourceId,
       });
-      setGroups(nextGroups);
+      if (!nextGroups.success) {
+        setError(nextGroups.error.message);
+        return;
+      }
+      setGroups(nextGroups.data);
     } catch (cause) {
       setError(cause instanceof Error
         ? cause.message
@@ -103,7 +107,11 @@ export function RelationPanel({
           expectedRowVersion: source.rowVersion,
         })),
       });
-      setPreview(nextPreview);
+      if (!nextPreview.success) {
+        setError(nextPreview.error.message);
+        return;
+      }
+      setPreview(nextPreview.data);
     } catch (cause) {
       setError(cause instanceof Error
         ? cause.message
@@ -118,7 +126,7 @@ export function RelationPanel({
     setSaving(true);
     setError(null);
     try {
-      await mutateIncomingRelationshipAction({
+      const result = await mutateIncomingRelationshipAction({
         sourceDomain: activeGroup.definition.sourceDomain,
         sourceTypeKey: activeGroup.definition.sourceTypeKey,
         sourceFieldKey: activeGroup.definition.sourceFieldKey,
@@ -131,6 +139,10 @@ export function RelationPanel({
         })),
         acceptedReplacementSourceIds: preview.replacementSourceIds,
       });
+      if (!result.success) {
+        setError(result.error.message);
+        return;
+      }
       setActiveGroup(null);
       setSelectedIds([]);
       setSelectedSources([]);
@@ -158,7 +170,7 @@ export function RelationPanel({
     setSaving(true);
     setError(null);
     try {
-      await mutateIncomingRelationshipAction({
+      const result = await mutateIncomingRelationshipAction({
         sourceDomain: group.definition.sourceDomain,
         sourceTypeKey: group.definition.sourceTypeKey,
         sourceFieldKey: group.definition.sourceFieldKey,
@@ -167,6 +179,10 @@ export function RelationPanel({
         operation: 'unlink',
         sources: [{ resourceId: source.id, expectedRowVersion: source.rowVersion }],
       });
+      if (!result.success) {
+        setError(result.error.message);
+        return;
+      }
       await load();
     } catch (cause) {
       setError(cause instanceof Error
