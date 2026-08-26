@@ -31,6 +31,7 @@ A section is considered truly closed only when its cross-cutting placement is al
 | Governance | Audit, revisions, locking, optimistic concurrency |
 | Frontend Read Model | Normalized client store, page-based cache, view composition data |
 | Administration | System configuration, capabilities, runtime profile selection |
+| Workflow | Generic event catalogues, workflow definitions, idempotent execution planning and action contracts |
 
 These bounded contexts are stable reference zones even when concrete classes, adapters, or tables evolve.[cite:30][cite:11]
 
@@ -119,6 +120,7 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 | `ResourceRelationshipRepositoryPostgres` / `ResourceRelationshipRepositorySqlite` | Infrastructure | relationship persistence port | authorization or cardinality policy |
 | Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |
+| `WorkflowPlanner` | Application | Domain workflow events and definitions | SQL, adapters, framework runtime |
 
 ## Cross-cutting implementation rules
 

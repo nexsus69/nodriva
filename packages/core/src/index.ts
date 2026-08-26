@@ -1,6 +1,8 @@
 /** Exposes the public Core API consumed by composition roots and external packages. */
 // ─── Domain Models ───────────────────────────────────────────────────────────
 export { PasswordHasher } from "./domain/policies/PasswordHasher.js";
+export { WorkflowPlanner } from "./application/services/WorkflowPlanner.js";
+export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
 export { Node } from "./domain/models/Node.js";
 export { Entity } from "./domain/models/Entity.js";
 export { Lock } from "./domain/models/Lock.js";
