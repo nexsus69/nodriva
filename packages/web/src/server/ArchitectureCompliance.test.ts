@@ -1,3 +1,4 @@
+// Purpose: protects cache and route-composition architectural invariants.
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('./db', () => ({
   db: {},

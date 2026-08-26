@@ -1,3 +1,4 @@
+/** Coordinates browser-side canonical caches, view invalidation and mutations. */
 import { ClientNode, ClientEntity } from '../types/models';
 import { createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
 import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';

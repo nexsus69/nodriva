@@ -1,3 +1,4 @@
+// Purpose: verifies node action authorization and safe structured mutation errors.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenError, UnauthorizedError, ValidationError } from '@dashboard/core';
 
