@@ -106,3 +106,64 @@ jobs:
 
       - name: Run PostgreSQL integration and parity tests
         run: pnpm test:postgres
+
+  e2e-parity:
+    name: Browser parity on SQLite and PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dashboard_e2e_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: dashboard-e2e-admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d dashboard_e2e_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      INTEGRATION_DATABASE_ADMIN_URL: postgresql://postgres:dashboard-e2e-admin@127.0.0.1:5432/dashboard_e2e_test
+      INTEGRATION_DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
+      INTEGRATION_DATABASE_APP_PASSWORD: dashboard-ci-app
+      PARITY_POSTGRES_ADMIN_URL: postgresql://postgres:dashboard-e2e-admin@127.0.0.1:5432/dashboard_e2e_test
+      PARITY_POSTGRES_APP_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
+      NEXT_PUBLIC_REALTIME_ENABLED: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v1
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install PostgreSQL client and Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Initialize isolated PostgreSQL schema and restricted role
+        run: ./scripts/postgres-test-bootstrap.sh
+
+      - name: Run SQLite/PostgreSQL browser parity
+        run: pnpm e2e:parity
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-parity-results
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore

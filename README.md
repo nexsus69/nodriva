@@ -87,9 +87,10 @@ user with a role and scope, verifies denial outside that scope, exercises locks
 and `rowVersion` with two sessions, and checks deletion, restoration, and audit.
 
 GitHub Actions runs reproducible installation, typecheck, lint, Core/Web tests,
-and the production build. A separate job initializes PostgreSQL 17 in a
-`dashboard_ci_test` database, applies schema and migrations, verifies the
-restricted application role, and runs integration and adapter-parity tests.
+and the production build. Separate jobs initialize isolated PostgreSQL 17
+databases, verify migrations and the restricted application role, execute the
+PostgreSQL integration/contract suite, and run `pnpm e2e:parity` with Chromium
+against SQLite and PostgreSQL.
 
 ## Documentation
 

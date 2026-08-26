@@ -7,7 +7,7 @@ quando una correzione è verificata.
 | Stato | Priorità | Rilievo | Azione prevista |
 | --- | --- | --- | --- |
 | Risolto | P3 | Quattro warning ESLint per navigazioni interne mediante `window.location.href`. | Il reload completo è intenzionale nei flussi di sessione/logout: ogni riga ha una soppressione ESLint locale e una motivazione del confine di sicurezza. |
-| Risolto | P1 | La CI non avviava PostgreSQL e saltava le integrazioni. | Aggiunto un job PostgreSQL 17 con database `dashboard_ci_test`, bootstrap completo, ruolo applicativo ristretto, integrazioni Core/Web e contract test di parità. Gli E2E browser restano un release gate separato. |
+| Risolto | P1 | La CI non avviava PostgreSQL e saltava le integrazioni. | Aggiunti job PostgreSQL 17 con bootstrap completo e ruolo applicativo ristretto: integrazioni/contract test Core-Web e `pnpm e2e:parity` su Chromium contro SQLite e PostgreSQL isolati. |
 | Risolto | P1 | Script diagnostici/test tracciati ma senza riferimenti: `test_double_save.ts`, `test_login.js`, `test_auth.js`, `test_auth2.js`, `inspect-db.js`, `packages/core/inspect-db.ts`, `packages/web/test_pusher.cjs`, `packages/web/test_ws.cjs`. | Rimossi: alcuni contenevano dati di connessione o sessione non adatti al repository. |
 | Risolto | P2 | Il package `@dashboard/core` non aveva un lint dedicato. | Aggiunto ESLint TypeScript al core; `pnpm lint` e quindi `pnpm check` lo eseguono. |
 | Risolto | P2 | `EntitySchemaRegistry` esponeva `z.ZodObject<any>`. | Il registry usa ora `z.ZodObject<z.ZodRawShape>`. |

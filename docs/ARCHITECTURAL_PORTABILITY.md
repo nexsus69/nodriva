@@ -60,7 +60,9 @@ scoped operator access, direct out-of-scope denial, two sessions of the same
 user, lock conflict, stale `rowVersion`, delete/restore and audit. The test
 compares semantic outcomes, not storage layout. `pnpm e2e:parity` runs the admin
 and canonical scenarios sequentially so they cannot contend for shared
-administrative locks or mix audit windows.
+administrative locks or mix audit windows. The CI job `Browser parity on SQLite
+and PostgreSQL` runs the same command with a disposable PostgreSQL database and
+a restricted application role.
 
 ## Forbidden dependencies
 
