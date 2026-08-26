@@ -3,6 +3,7 @@
 export { PasswordHasher } from "./domain/policies/PasswordHasher.js";
 export { WorkflowPlanner } from "./application/services/WorkflowPlanner.js";
 export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
+export type { WorkflowRepository } from "./application/ports/WorkflowRepository.js";
 export { Node } from "./domain/models/Node.js";
 export { Entity } from "./domain/models/Entity.js";
 export { Lock } from "./domain/models/Lock.js";
