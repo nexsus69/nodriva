@@ -131,6 +131,7 @@ jobs:
       INTEGRATION_DATABASE_APP_PASSWORD: dashboard-ci-app
       PARITY_POSTGRES_ADMIN_URL: postgresql://postgres:dashboard-e2e-admin@127.0.0.1:5432/dashboard_e2e_test
       PARITY_POSTGRES_APP_URL: postgresql://dashboard_ci_app:dashboard-ci-app@127.0.0.1:5432/dashboard_e2e_test
+      PARITY_POSTGRES_TEMPLATE_DATABASE: dashboard_e2e_test
       NEXT_PUBLIC_REALTIME_ENABLED: "false"
     steps:
       - name: Checkout

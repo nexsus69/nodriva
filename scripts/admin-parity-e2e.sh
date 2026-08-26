@@ -5,6 +5,7 @@ workspace_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 postgres_container="${PARITY_POSTGRES_CONTAINER:-dashboard_ultimate-postgres-1}"
 web_container="${PARITY_WEB_CONTAINER:-dashboard_ultimate-web-1}"
 test_database="dashboard_admin_e2e_test"
+template_database="${PARITY_POSTGRES_TEMPLATE_DATABASE:-dashboard_test}"
 sqlite_path="$(mktemp /tmp/dashboard-admin-parity-XXXXXX.sqlite)"
 sqlite_attachments="$(mktemp -d /tmp/dashboard-admin-parity-sqlite-attachments-XXXXXX)"
 postgres_attachments="$(mktemp -d /tmp/dashboard-admin-parity-postgres-attachments-XXXXXX)"
@@ -33,10 +34,10 @@ drop_test_database() {
 create_test_database() {
   if [[ "${uses_connection_urls}" == true ]]; then
     psql "${postgres_server_url}" -v ON_ERROR_STOP=1 \
-      -c "CREATE DATABASE ${test_database} TEMPLATE dashboard_test" >/dev/null
+      -c "CREATE DATABASE ${test_database} TEMPLATE ${template_database}" >/dev/null
   else
     docker exec "${postgres_container}" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-      -c "CREATE DATABASE ${test_database} TEMPLATE dashboard_test" >/dev/null
+      -c "CREATE DATABASE ${test_database} TEMPLATE ${template_database}" >/dev/null
   fi
 }
 
