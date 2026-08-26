@@ -157,7 +157,7 @@ The responsive navigation and breadcrumb behavior is documented in
 ## P1 — Server Action error UX
 
 - [x] Return expected validation, authorization and concurrency failures from
-  inverse relationship and all node mutation actions as serializable result
+  inverse relationship, all node mutation and administrative bootstrap actions as serializable result
   data rather than rejected Server Actions. `RelationPanel` and the node form
   controllers keep the localized, actionable server message and unsaved form
   values; unexpected failures remain an `INTERNAL_ERROR` without stack, SQL

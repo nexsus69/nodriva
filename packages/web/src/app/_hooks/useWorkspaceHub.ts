@@ -1,5 +1,6 @@
 'use client';
 
+/** Coordinates workspace bootstrap state, initial seeding and root-node loading. */
 import { useEffect, useState } from 'react';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { useSemanticNodeList } from '../hooks/useSemanticNodeList';
@@ -38,7 +39,12 @@ export function useWorkspaceHub() {
   const seedDatabase = async () => {
     setSeeding(true); setSeedError(null);
     try {
-      await AppCache.admin.seedDatabase(seedConfirmation);
+      const result = await AppCache.admin.seedDatabase(seedConfirmation);
+      if (!result.success) {
+        setSeedError(`Errore durante l'inizializzazione del DB: ${result.error?.message ?? 'Inizializzazione del database non riuscita.'}`);
+        setSeeding(false);
+        return;
+      }
       setDatabaseSeeded(true);
       window.location.reload();
     } catch (reason) {
