@@ -1,3 +1,5 @@
+/** Implements dynamic type-administration persistence for the standalone SQLite profile. */
+
 import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
 import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import type { EnumMode, FieldDataType, FieldDto, FieldEncryptionMode, RelationTargetDomain, TypeDetailDto, TypeListItemDto } from '../../application/dto/AdminContractDtos.js';

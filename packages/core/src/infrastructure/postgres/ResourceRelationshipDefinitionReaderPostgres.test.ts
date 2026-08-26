@@ -1,3 +1,5 @@
+/** Verifies PostgreSQL mapping of inverse relationship definition projections. */
+
 import { describe, expect, it, vi } from 'vitest';
 import { ResourceRelationshipDefinitionReaderPostgres } from './ResourceRelationshipDefinitionReaderPostgres.js';
 

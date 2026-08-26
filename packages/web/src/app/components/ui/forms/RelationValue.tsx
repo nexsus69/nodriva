@@ -1,5 +1,7 @@
 'use client';
 
+/** Resolves and renders one authorized relationship value without exposing raw identifiers. */
+
 import Link from '@/app/components/navigation/GuardedLink';
 import { useEffect, useMemo, useState } from 'react';
 import { resolveRelationCandidateAction, type RelationCandidate } from '../../../actions/relationActions';

@@ -1,3 +1,5 @@
+/** Validates application commands that manage dynamic node and entity type metadata. */
+
 import { z } from 'zod';
 
 const DomainSchema = z.enum(['node', 'entity']);

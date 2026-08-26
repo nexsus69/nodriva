@@ -1,3 +1,5 @@
+/** Represents the domain state and invariant-preserving transitions of one hierarchy node. */
+
 import type { NodePathPolicy } from '../policies/NodePathPolicy.js';
 import type { NodeType } from './NodeType.js';
 

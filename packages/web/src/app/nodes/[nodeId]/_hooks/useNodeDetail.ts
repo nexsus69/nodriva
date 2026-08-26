@@ -1,3 +1,5 @@
+/** Coordinates node detail state, cache reads, lock state and user-driven mutations. */
+
 import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useSemanticNodeList } from '../../../hooks/useSemanticNodeList';
 import { useSemanticEntityCollection } from '../../../hooks/useSemanticEntityCollection';

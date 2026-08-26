@@ -1,3 +1,5 @@
+/** Builds the server composition root for the configured PostgreSQL or SQLite profile. */
+
 import pg from 'pg';
 import {
   PgExecutor,

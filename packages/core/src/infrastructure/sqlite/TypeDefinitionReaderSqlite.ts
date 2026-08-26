@@ -1,3 +1,5 @@
+/** Reads runtime type definitions from SQLite without exposing storage-specific rows. */
+
 import type { TypeDefinitionReader } from '../../application/ports/TypeDefinitionReader.js';
 import {
   TypeDefinition,

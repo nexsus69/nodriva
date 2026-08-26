@@ -1,3 +1,5 @@
+/** Verifies localized, ACL-aware copy rendered by the shared relationship picker. */
+
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { RelationPicker } from './RelationPicker';

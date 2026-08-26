@@ -1,3 +1,5 @@
+/** Orchestrates schema-safe administration of dynamic type definitions and fields. */
+
 import type { z } from 'zod';
 import safeRegex from 'safe-regex2';
 import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';

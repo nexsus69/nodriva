@@ -1,3 +1,5 @@
+/** Implements dynamic type-administration persistence against PostgreSQL metadata tables. */
+
 import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
 import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import type { TypeListItemDto, TypeDetailDto, FieldDto, FieldConstraintDto, FieldDataType } from '../../application/dto/AdminContractDtos.js';

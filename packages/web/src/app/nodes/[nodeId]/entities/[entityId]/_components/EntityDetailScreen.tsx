@@ -1,5 +1,7 @@
 'use client';
 
+/** Composes the interactive entity detail screen from shared resource surfaces. */
+
 import { useParams } from 'next/navigation';
 import { LockBadge } from '../../../../../components/LockBadge';
 import { LockIndicator } from '../../../../../components/LockIndicator';

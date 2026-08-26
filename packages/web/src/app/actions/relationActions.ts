@@ -1,5 +1,7 @@
 'use server';
 
+/** Provides authenticated server boundaries for relationship reads, previews and commits. */
+
 import { AuthResolver } from './auth/AuthResolver';
 import { withSafeActionErrors } from './errorMapping';
 import { ValidationError, type NodeRepository, type TypeDomain } from '@dashboard/core';
@@ -125,6 +127,19 @@ export interface IncomingRelationshipGroup {
   linkedSources: RelationCandidate[];
 }
 
+/** Serializable preview returned before an inverse relationship batch is committed. */
+export interface IncomingRelationshipMutationPreview {
+  items: Array<{
+    resourceId: string;
+    kind: 'add' | 'append' | 'replace' | 'remove' | 'no_change';
+    previousTargetIds: string[];
+    nextTargetIds: string[];
+    requiresConfirmation: boolean;
+  }>;
+  replacementSourceIds: string[];
+  unavailableSourceIds: string[];
+}
+
 /** Lists ACL-filtered inverse relations for one readable resource instance. */
 export async function listIncomingRelationshipsAction(input: {
   targetDomain: TypeDomain;
@@ -187,6 +202,38 @@ export async function listIncomingRelationshipsAction(input: {
   });
 }
 
+/** Prepares an ACL-checked relationship preview without writing or reserving resources. */
+export async function prepareIncomingRelationshipAction(input: {
+  sourceDomain: TypeDomain;
+  sourceTypeKey: string;
+  sourceFieldKey: string;
+  targetDomain: TypeDomain;
+  targetResourceId: string;
+  operation: 'link' | 'unlink';
+  sources: Array<{ resourceId: string; expectedRowVersion: number }>;
+}): Promise<IncomingRelationshipMutationPreview> {
+  return withSafeActionErrors(async () => {
+    const identity = await AuthResolver.resolveActorIdentity();
+    const { resourceRelationshipMutationService } = await import('../../server/db');
+    const plan = await resourceRelationshipMutationService.prepare({
+      ...input,
+      actorUserId: identity.userId,
+      actorSessionId: identity.sessionId,
+    });
+    return {
+      items: plan.items.map((item) => ({
+        resourceId: item.resourceId,
+        kind: item.impact.kind,
+        previousTargetIds: [...item.impact.beforeTargetIds],
+        nextTargetIds: [...item.impact.afterTargetIds],
+        requiresConfirmation: item.impact.requiresConfirmation,
+      })),
+      replacementSourceIds: [...plan.replacementSourceIds],
+      unavailableSourceIds: [...(plan.unavailableSourceIds ?? [])],
+    };
+  });
+}
+
 /** Mutates one inverse relationship group atomically and emits one event per changed source. */
 export async function mutateIncomingRelationshipAction(input: {
   sourceDomain: TypeDomain;
@@ -196,6 +243,7 @@ export async function mutateIncomingRelationshipAction(input: {
   targetResourceId: string;
   operation: 'link' | 'unlink';
   sources: Array<{ resourceId: string; expectedRowVersion: number }>;
+  acceptedReplacementSourceIds?: string[];
 }) {
   return withSafeActionErrors(async () => {
     const identity = await AuthResolver.resolveActorIdentity();

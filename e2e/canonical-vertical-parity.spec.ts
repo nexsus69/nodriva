@@ -20,6 +20,7 @@ interface CanonicalOutcome {
   entityCreated: boolean;
   enumPersisted: boolean;
   relationPersisted: boolean;
+  inverseRelationReplacementReviewed: boolean;
   lockConflictObserved: boolean;
   rowVersionConflictObserved: boolean;
   breadcrumbReloaded: boolean;
@@ -38,6 +39,7 @@ interface ScenarioNames {
   childName: string;
   firstEntityName: string;
   secondEntityName: string;
+  thirdEntityName: string;
 }
 
 function scenarioNames(adapter: string): ScenarioNames {
@@ -52,6 +54,7 @@ function scenarioNames(adapter: string): ScenarioNames {
     childName: `Canonical project ${adapter}`,
     firstEntityName: `Canonical task A ${adapter}`,
     secondEntityName: `Canonical task B ${adapter}`,
+    thirdEntityName: `Canonical task C ${adapter}`,
   };
 }
 
@@ -252,6 +255,27 @@ async function exerciseConcurrency(firstPage: Page, secondPage: Page, entityUrl:
   return { lock: true, rowVersion: true };
 }
 
+/** Exercises the inverse relation preview before replacing an existing single value. */
+async function exerciseInverseRelationReplacementReview(
+  page: Page,
+  secondEntityUrl: string,
+  names: ScenarioNames,
+): Promise<boolean> {
+  await page.goto(secondEntityUrl);
+  await page.getByRole('button', { name: 'Gestisci collegamenti' }).click();
+  const picker = page.locator('[data-relation-picker^="inverse-"]');
+  await picker.locator('input').fill(names.thirdEntityName);
+  await expect(picker).toHaveAttribute('aria-busy', 'true');
+  await expect(picker).toHaveAttribute('aria-busy', 'false');
+  await picker.getByRole('checkbox', { name: new RegExp(names.thirdEntityName) }).click();
+  await page.getByRole('button', { name: 'Verifica modifiche' }).click();
+  await expect(page.getByRole('heading', { name: 'Verifica modifiche alla relazione' })).toBeVisible();
+  await expect(page.getByText('I collegamenti esistenti verranno sostituiti')).toBeVisible();
+  await page.getByRole('button', { name: 'Conferma sostituzione' }).click();
+  await expect(page.getByRole('link', { name: new RegExp(names.thirdEntityName) })).toBeVisible();
+  return true;
+}
+
 async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: string): Promise<{ restored: boolean; actions: string[] }> {
   await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
   const deletedItem = adminPage.getByRole('row').filter({ hasText: entityName });
@@ -311,6 +335,13 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
 
     const firstEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName);
     const secondEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.secondEntityName, names.firstEntityName);
+    await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.thirdEntityName, names.firstEntityName);
+
+    const inverseRelationReplacementReviewed = await exerciseInverseRelationReplacementReview(
+      firstOperatorPage,
+      secondEntityUrl,
+      names,
+    );
 
     await firstOperatorPage.goto(secondEntityUrl);
     await firstOperatorPage.reload();
@@ -336,6 +367,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       entityCreated: true,
       enumPersisted: true,
       relationPersisted: true,
+      inverseRelationReplacementReviewed,
       lockConflictObserved: concurrency.lock,
       rowVersionConflictObserved: concurrency.rowVersion,
       breadcrumbReloaded: true,
@@ -366,6 +398,7 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       entityCreated: true,
       enumPersisted: true,
       relationPersisted: true,
+      inverseRelationReplacementReviewed: true,
       lockConflictObserved: true,
       rowVersionConflictObserved: true,
       breadcrumbReloaded: true,

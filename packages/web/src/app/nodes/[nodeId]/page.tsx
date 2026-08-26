@@ -1,5 +1,6 @@
 'use client';
 
+/** Composes the interactive node detail route from dedicated state and presentation modules. */
 import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
 import { Alert } from '../../components/ui/feedback';

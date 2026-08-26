@@ -67,9 +67,30 @@ and checks every submitted row version. This prevents overwriting an open form
 while allowing a user to link one resource to many sources without opening and
 locking each one separately.
 
+Bulk operations use an explicit two-step protocol:
+
+1. `RelationshipMutationPlanner` validates the requested source/target,
+   authorization and submitted source versions and produces a non-durable
+   `RelationshipMutationPlan`.
+2. The UI presents the calculated effects. In particular, changing an existing
+   single-value relation is a `replace`, never an implicit `link`; the actor
+   must explicitly confirm every replacement.
+3. `ResourceRelationshipMutationService` prepares the plan again inside one
+   transaction. `BatchMutationConcurrencyGuard` rejects sources actively
+   locked by another session, then `RelationshipMutationCommitter` delegates
+   writes to `ResourceRelationshipMutationWriter`.
+
+The plan is deliberately a preview, not a long-lived reservation or a second
+cache. It is not persisted because no UI action may rely on a stale plan:
+commit re-reads the source rows, rechecks ACL, locks, cardinality and every
+`rowVersion`. PostgreSQL obtains normal short write locks during the atomic
+updates; SQLite serializes its transaction on the standalone connection. The
+observable contract is the same: a concurrent change makes the complete batch
+fail rather than allowing a partial or silent overwrite.
+
 Bulk operations are all-or-nothing by default. The command carries the
-expected row version for every affected source; a stale or unauthorized member
-rejects the complete request rather than partially changing one hundred
+expected row version for every affected source; a stale, locked or unauthorized
+member rejects the complete request rather than partially changing one hundred
 resources. A future explicit best-effort command may return per-resource
 outcomes, but must not silently weaken this default.
 
@@ -79,8 +100,9 @@ outcomes, but must not silently weaken this default.
 candidate selector for `one`, and an ordered multi-select for `many`.
 `RelationPanel` is generated from the same metadata on a resource detail
 surface and lists both outgoing and incoming edges. Its inverse bulk action
-invokes the common server command; it never edits another resource's cached
-payload locally.
+first requests the common server preview, then invokes the common server
+command only after the review step. It never edits another resource's cached
+payload locally or infers replacement semantics from client data.
 
 All relationship candidates, labels and inverse rows are ACL-filtered on the
 server. Cache updates and realtime notifications use canonical resource
@@ -90,6 +112,7 @@ identifiers and do not infer relationship completeness from a view.
 
 Every relationship change requires SQLite/PostgreSQL contract coverage for
 cardinality, target type validation, authorization, deletion policy, audit,
-row-version conflicts and rollback. Browser E2E covers a relation created from
-both the source editor and inverse panel, including reload and realtime
-propagation when enabled.
+row-version conflicts and rollback. Unit tests cover each pure relationship
+impact and the confirmation gate independently. Browser E2E covers a relation
+created from both the source editor and inverse panel, including replacement
+review, reload and realtime propagation when enabled.

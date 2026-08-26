@@ -1,3 +1,5 @@
+/** Verifies canonical relationship synchronization and payload hydration behavior. */
+
 import { describe, expect, it, vi } from 'vitest';
 import { ValidationError } from '../../domain/errors/ApplicationErrors.js';
 import { TypeDefinition, TypeFieldDefinition } from '../dto/TypeFieldDefinition.js';

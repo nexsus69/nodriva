@@ -66,10 +66,25 @@ export type {
 export { ServiceHealthCheckService } from "./application/services/ServiceHealthCheckService.js";
 export { ResourceRelationshipService } from "./application/services/ResourceRelationshipService.js";
 export { ResourceRelationshipMutationService } from "./application/services/ResourceRelationshipMutationService.js";
+export { RelationshipMutationImpactPolicy } from "./domain/policies/RelationshipMutationImpactPolicy.js";
+export { RelationshipMutationPlanner } from "./application/services/RelationshipMutationPlanner.js";
+export { RelationshipMutationCommitter } from "./application/services/RelationshipMutationCommitter.js";
+export { BatchMutationConcurrencyGuard } from "./application/services/BatchMutationConcurrencyGuard.js";
 export type {
   RelationshipMutationResource,
   RelationshipMutationResult,
 } from "./application/services/ResourceRelationshipMutationService.js";
+export type {
+  RelationshipMutationImpact,
+  RelationshipMutationImpactInput,
+  RelationshipMutationImpactKind,
+  RelationshipMutationOperation,
+} from "./domain/policies/RelationshipMutationImpactPolicy.js";
+export type {
+  RelationshipMutationFieldPlan,
+  RelationshipMutationPlan,
+  RelationshipMutationPlanItem,
+} from "./application/dto/RelationshipMutationPlan.js";
 export type {
   IncomingResourceRelationshipDefinition,
   ResourceRelationshipDefinitionReader,

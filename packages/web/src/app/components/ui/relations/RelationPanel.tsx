@@ -6,13 +6,16 @@ import Link from '@/app/components/navigation/GuardedLink';
 import {
   listIncomingRelationshipsAction,
   mutateIncomingRelationshipAction,
+  prepareIncomingRelationshipAction,
   type IncomingRelationshipGroup,
+  type IncomingRelationshipMutationPreview,
   type RelationCandidate,
 } from '../../../actions/relationActions';
 import { useAppLocale } from '../../../i18n/AppLocaleStore';
 import { requestConfirmation, Skeleton } from '../feedback';
 import { ModalShell } from '../feedback/ModalShell';
 import { RelationPicker } from '../forms/RelationPicker';
+import { RelationshipChangeReview } from './RelationshipChangeReview';
 
 type ResourceDomain = 'node' | 'entity';
 
@@ -41,6 +44,7 @@ export function RelationPanel({
   const [activeGroup, setActiveGroup] = useState<IncomingRelationshipGroup | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<RelationCandidate[]>([]);
+  const [preview, setPreview] = useState<IncomingRelationshipMutationPreview | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -71,6 +75,7 @@ export function RelationPanel({
     setActiveGroup(group);
     setSelectedIds([]);
     setSelectedSources([]);
+    setPreview(null);
   };
 
   const closeGroup = () => {
@@ -78,10 +83,38 @@ export function RelationPanel({
     setActiveGroup(null);
     setSelectedIds([]);
     setSelectedSources([]);
+    setPreview(null);
   };
 
-  const saveLinks = async () => {
+  const prepareLinks = async () => {
     if (!activeGroup || selectedSources.length === 0) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const nextPreview = await prepareIncomingRelationshipAction({
+        sourceDomain: activeGroup.definition.sourceDomain,
+        sourceTypeKey: activeGroup.definition.sourceTypeKey,
+        sourceFieldKey: activeGroup.definition.sourceFieldKey,
+        targetDomain: resourceDomain,
+        targetResourceId: resourceId,
+        operation: 'link',
+        sources: selectedSources.map((source) => ({
+          resourceId: source.id,
+          expectedRowVersion: source.rowVersion,
+        })),
+      });
+      setPreview(nextPreview);
+    } catch (cause) {
+      setError(cause instanceof Error
+        ? cause.message
+        : t('relation.saveError', 'Unable to save relationship links.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const commitLinks = async () => {
+    if (!activeGroup || !preview || selectedSources.length === 0) return;
     setSaving(true);
     setError(null);
     try {
@@ -96,10 +129,12 @@ export function RelationPanel({
           resourceId: source.id,
           expectedRowVersion: source.rowVersion,
         })),
+        acceptedReplacementSourceIds: preview.replacementSourceIds,
       });
       setActiveGroup(null);
       setSelectedIds([]);
       setSelectedSources([]);
+      setPreview(null);
       await load();
     } catch (cause) {
       setError(cause instanceof Error
@@ -206,40 +241,52 @@ export function RelationPanel({
                 {t('relation.linkHelp', 'Changes are applied atomically to the selected resources.')}
               </p>
             </div>
-            <RelationPicker
-              fieldKey={`inverse-${activeGroup.definition.sourceFieldId}`}
-              label={t('relation.addSources', 'Link resources')}
-              value={activeGroup.definition.targetIsUnique ? (selectedIds[0] ?? '') : selectedIds}
-              required={false}
-              resourceType={activeGroup.definition.sourceDomain}
-              typeKey={activeGroup.definition.sourceTypeKey}
-              tone="light"
-              multiple={!activeGroup.definition.targetIsUnique}
-              onChange={(value) => setSelectedIds(
-                Array.isArray(value) ? value : (value ? [value] : []),
-              )}
-              onResolvedCandidatesChange={setSelectedSources}
-            />
-            <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
-              <button
-                type="button"
-                onClick={closeGroup}
-                disabled={saving}
-                className="border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50"
-              >
-                {t('relation.close', 'Close')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { void saveLinks(); }}
-                disabled={saving || selectedIds.length === 0 || selectedSources.length !== selectedIds.length}
-                className="bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                {saving
-                  ? t('relation.saving', 'Saving links…')
-                  : t('relation.saveLinks', 'Save links')}
-              </button>
-            </div>
+            {preview ? (
+              <RelationshipChangeReview
+                preview={preview}
+                selectedSources={selectedSources}
+                pending={saving}
+                onBack={() => setPreview(null)}
+                onConfirm={() => { void commitLinks(); }}
+              />
+            ) : (
+              <>
+                <RelationPicker
+                  fieldKey={`inverse-${activeGroup.definition.sourceFieldId}`}
+                  label={t('relation.addSources', 'Link resources')}
+                  value={activeGroup.definition.targetIsUnique ? (selectedIds[0] ?? '') : selectedIds}
+                  required={false}
+                  resourceType={activeGroup.definition.sourceDomain}
+                  typeKey={activeGroup.definition.sourceTypeKey}
+                  tone="light"
+                  multiple={!activeGroup.definition.targetIsUnique}
+                  onChange={(value) => setSelectedIds(
+                    Array.isArray(value) ? value : (value ? [value] : []),
+                  )}
+                  onResolvedCandidatesChange={setSelectedSources}
+                />
+                <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeGroup}
+                    disabled={saving}
+                    className="border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50"
+                  >
+                    {t('relation.close', 'Close')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void prepareLinks(); }}
+                    disabled={saving || selectedIds.length === 0 || selectedSources.length !== selectedIds.length}
+                    className="bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                  >
+                    {saving
+                      ? t('relation.saving', 'Saving links…')
+                      : t('relation.reviewChanges', 'Review changes')}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </ModalShell>

@@ -1,3 +1,5 @@
+/** Normalizes dynamic resource form values before validation and persistence boundaries. */
+
 import type { DynamicField } from './DynamicFieldsForm';
 import { uploadResourceAttachment, validateResourceAttachmentFile } from '../../../attachments/attachmentClient';
 

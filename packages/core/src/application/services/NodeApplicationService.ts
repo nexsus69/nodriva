@@ -1,3 +1,5 @@
+/** Orchestrates authorized hierarchical node lifecycle operations through application ports. */
+
 import { Node } from '../../domain/models/Node.js';
 import type { NodeRepository } from '../ports/NodeRepository.js';
 import type { NodeTypeRepository } from '../ports/NodeTypeRepository.js';

@@ -1,3 +1,5 @@
+/** Covers the facade contract for relationship previews and atomic mutations. */
+
 import { describe, expect, it, vi } from 'vitest';
 import { Entity } from '../../domain/models/Entity.js';
 import { EntityType } from '../../domain/models/EntityType.js';
@@ -8,10 +10,14 @@ import { ResourceRelationshipMutationService } from './ResourceRelationshipMutat
 const actorUserId = '11111111-1111-4111-8111-111111111111';
 const actorSessionId = '22222222-2222-4222-8222-222222222222';
 const targetResourceId = '33333333-3333-4333-8333-333333333333';
+const previousTargetResourceId = '99999999-9999-4999-8999-999999999999';
 const firstSourceId = '44444444-4444-4444-8444-444444444444';
 const secondSourceId = '55555555-5555-4555-8555-555555555555';
 
-function relationshipField(targetIsUnique = false): TypeFieldDefinition {
+function relationshipField(
+  targetIsUnique = false,
+  sourceCardinality: 'one' | 'many' = 'many',
+): TypeFieldDefinition {
   return new TypeFieldDefinition(
     'documents',
     'relation',
@@ -24,12 +30,12 @@ function relationshipField(targetIsUnique = false): TypeFieldDefinition {
     'task-documents-field',
     'Documents',
     'plaintext',
-    'many',
+    sourceCardinality,
     targetIsUnique,
   );
 }
 
-function sourceEntity(id: string, rowVersion = 3): Entity {
+function sourceEntity(id: string, rowVersion = 3, documents: string | string[] | null = []): Entity {
   return new Entity(
     id,
     'task-type-id',
@@ -42,13 +48,13 @@ function sourceEntity(id: string, rowVersion = 3): Entity {
     null,
     actorUserId,
     actorUserId,
-    { documents: [] },
+    { documents },
   );
 }
 
-function createService(field = relationshipField()) {
+function createService(field = relationshipField(), firstSourceDocuments: string | string[] | null = []) {
   const entities = new Map([
-    [firstSourceId, sourceEntity(firstSourceId)],
+    [firstSourceId, sourceEntity(firstSourceId, 3, firstSourceDocuments)],
     [secondSourceId, sourceEntity(secondSourceId)],
   ]);
   const relationshipRepository = {
@@ -83,7 +89,7 @@ function createService(field = relationshipField()) {
       findByKey: vi.fn().mockResolvedValue(new EntityType('task-type-id', 'task', 'Task', '', 'entity_task', 1, true)),
     } as never,
     { assertCanEditEntity: vi.fn(), assertHasPermission: vi.fn() } as never,
-    { requireLockIfNeeded: vi.fn() } as never,
+    { isLocked: vi.fn().mockResolvedValue({ locked: false }), requireLockIfNeeded: vi.fn() } as never,
     auditPort,
     revisionPort,
     { isCapabilityEnabled: vi.fn().mockResolvedValue(true) } as never,
@@ -140,5 +146,38 @@ describe('ResourceRelationshipMutationService', () => {
     })).rejects.toBeInstanceOf(ValidationError);
 
     expect(entityRepository.update).not.toHaveBeenCalled();
+  });
+
+  it('previews a single-value replacement and requires explicit confirmation before committing it', async () => {
+    const { service, entityRepository } = createService(relationshipField(false, 'one'), previousTargetResourceId);
+    const command = {
+      actorUserId,
+      actorSessionId,
+      sourceDomain: 'entity' as const,
+      sourceTypeKey: 'task',
+      sourceFieldKey: 'documents',
+      targetDomain: 'entity' as const,
+      targetResourceId,
+      operation: 'link' as const,
+      sources: [{ resourceId: firstSourceId, expectedRowVersion: 3 }],
+    };
+
+    const preview = await service.prepare(command);
+    expect(preview.replacementSourceIds).toEqual([firstSourceId]);
+    expect(preview.items[0]?.impact).toMatchObject({
+      kind: 'replace',
+      beforeTargetIds: [previousTargetResourceId],
+      afterTargetIds: [targetResourceId],
+      requiresConfirmation: true,
+    });
+
+    await expect(service.mutate(command)).rejects.toBeInstanceOf(ValidationError);
+    expect(entityRepository.update).not.toHaveBeenCalled();
+
+    await service.mutate({
+      ...command,
+      acceptedReplacementSourceIds: [firstSourceId],
+    });
+    expect(entityRepository.update).toHaveBeenCalledTimes(1);
   });
 });

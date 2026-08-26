@@ -1,3 +1,5 @@
+/** Verifies SQLite inverse relationship definition projections through the shared infrastructure. */
+
 import { afterEach, describe, expect, it } from 'vitest';
 import { SqliteInfrastructure } from './SqliteInfrastructure.js';
 

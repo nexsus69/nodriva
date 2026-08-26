@@ -1,3 +1,5 @@
+/** Coordinates transactional realtime outbox writes and post-commit publication. */
+
 import { randomUUID } from 'crypto';
 import type { RealtimeDataChangedEvent } from '@dashboard/core';
 

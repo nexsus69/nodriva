@@ -1,3 +1,5 @@
+/** Defines stable, transport-safe contracts for the administration API. */
+
 import { z } from "zod";
 
 // ─── Domain Types & Enums ───────────────────────────────────────────────────

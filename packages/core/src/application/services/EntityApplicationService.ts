@@ -1,3 +1,5 @@
+/** Orchestrates authorized entity lifecycle operations through application ports. */
+
 import { Entity } from '../../domain/models/Entity.js';
 import type { EntityRepository } from '../ports/EntityRepository.js';
 import type { EntityTypeRepository } from '../ports/EntityTypeRepository.js';

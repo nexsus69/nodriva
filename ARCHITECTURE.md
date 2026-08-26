@@ -113,6 +113,9 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 | `StorageTableManagementPort` | Application port | — | becoming a generic migration framework |
 | `StorageTableManagementPostgres` / `StorageTableManagementSqlite` | Infrastructure | DDL port, metadata, identifier validation | arbitrary identifier interpolation |
 | `ResourceRelationshipService` | Application | resource/type/ACL ports and transaction | SQL, UI state, adapter-specific logic |
+| `RelationshipMutationPlanner` | Application | validated preview of one relationship batch | writes, UI state or lock ownership |
+| `RelationshipMutationCommitter` / `ResourceRelationshipMutationWriter` | Application | confirmed transactional writes, audit and revisions | SQL or client-side replacement decisions |
+| `RelationshipMutationImpactPolicy` | Domain | pure cardinality and replacement semantics | persistence, ACL or framework concerns |
 | `ResourceRelationshipRepositoryPostgres` / `ResourceRelationshipRepositorySqlite` | Infrastructure | relationship persistence port | authorization or cardinality policy |
 | Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |

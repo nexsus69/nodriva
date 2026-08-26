@@ -1,3 +1,5 @@
+/** Runs the canonical relationship-edge persistence contract against SQLite. */
+
 import { afterEach } from 'vitest';
 import { resourceRelationshipRepositoryContract } from '../ResourceRelationshipRepository.contract.js';
 import { SqliteInfrastructure } from './SqliteInfrastructure.js';
