@@ -11,4 +11,14 @@ describe('WorkflowPlanner', () => {
     expect(planner.plan(event, definition)).toMatchObject({ instanceKey: 'revoke-notification:2:event-1', steps: [{ executionKey: 'revoke-notification:2:event-1:notify' }] });
     expect(planner.plan({ ...event, payload: { reason: 'manual' } }, definition)).toBeNull();
   });
+
+  it('names every durable step beneath its workflow instance even with a custom idempotency suffix', () => {
+    const planner = new WorkflowPlanner();
+    const definition = {
+      workflowId: 'custom-step-key', version: 1, isActive: true, triggerEventTypes: [event.eventType], conditions: [],
+      steps: [{ stepId: 'notify', actionType: 'notification.send', input: {}, idempotencyKey: 'outbound-notification' }],
+    };
+    expect(planner.plan(event, definition)?.steps[0]?.executionKey)
+      .toBe('custom-step-key:1:event-1:outbound-notification');
+  });
 });

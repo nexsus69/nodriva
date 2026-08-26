@@ -11,7 +11,10 @@ export class WorkflowPlanner {
       workflowVersion: definition.version,
       eventId: event.eventId,
       instanceKey,
-      steps: definition.steps.map((step) => ({ ...step, executionKey: step.idempotencyKey ?? `${instanceKey}:${step.stepId}` })),
+      steps: definition.steps.map((step) => ({
+        ...step,
+        executionKey: `${instanceKey}:${step.idempotencyKey ?? step.stepId}`,
+      })),
     };
   }
 }

@@ -68,6 +68,9 @@ import {
   ResourceRelationshipDefinitionReaderPostgres,
   ResourceRelationshipService,
   ResourceRelationshipMutationService,
+  WorkflowRepositoryPostgres,
+  WorkflowDefinitionService,
+  WorkflowEventProcessor,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -146,6 +149,11 @@ async function getRealtimeChannelPolicies(): Promise<RealtimeChannelPolicy[]> {
 
 // Porte e Adapter concreti infrastrutturali
 export const transactionPort = sqliteMode ? sqliteInfrastructure!.transactionPort : new TransactionPortPostgres(pool!);
+export const workflowRepository = sqliteMode
+  ? sqliteInfrastructure!.workflowRepository
+  : new WorkflowRepositoryPostgres(pgExecutor!);
+export const workflowDefinitionService = new WorkflowDefinitionService(workflowRepository);
+export const workflowEventProcessor = new WorkflowEventProcessor(transactionPort, workflowRepository);
 export const auditPort = sqliteMode ? sqliteInfrastructure!.auditPort : new AuditPortPostgres(pgExecutor!);
 export const lockRepository = sqliteMode ? sqliteInfrastructure!.lockRepository : new LockRepositoryPostgres(pgExecutor!);
 export const pusherEventBus = new PusherEventBus({

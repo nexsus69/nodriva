@@ -120,7 +120,7 @@ These bounded contexts are stable reference zones even when concrete classes, ad
 | `ResourceRelationshipRepositoryPostgres` / `ResourceRelationshipRepositorySqlite` | Infrastructure | relationship persistence port | authorization or cardinality policy |
 | Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |
-| `WorkflowPlanner` | Application | Domain workflow events and definitions | SQL, adapters, framework runtime |
+| `WorkflowPlanner` / `WorkflowDefinitionService` / `WorkflowEventProcessor` / `WorkflowWorker` | Application | Domain workflow events and definitions, application ports | SQL, adapters, framework runtime |
 
 ## Cross-cutting implementation rules
 

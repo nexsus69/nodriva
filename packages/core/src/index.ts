@@ -2,7 +2,13 @@
 // ─── Domain Models ───────────────────────────────────────────────────────────
 export { PasswordHasher } from "./domain/policies/PasswordHasher.js";
 export { WorkflowPlanner } from "./application/services/WorkflowPlanner.js";
-export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
+export { WorkflowEventProcessor } from "./application/services/WorkflowEventProcessor.js";
+export type { WorkflowEventProcessingResult } from "./application/services/WorkflowEventProcessor.js";
+export { WorkflowWorker } from "./application/services/WorkflowWorker.js";
+export type { WorkflowWorkerRunResult } from "./application/services/WorkflowWorker.js";
+export { WorkflowDefinitionService } from "./application/services/WorkflowDefinitionService.js";
+export type { WorkflowActionHandler, WorkflowActionRegistry } from "./application/ports/WorkflowActionHandler.js";
+export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowExecutionStep, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
 export type { WorkflowRepository } from "./application/ports/WorkflowRepository.js";
 export { Node } from "./domain/models/Node.js";
 export { Entity } from "./domain/models/Entity.js";
@@ -585,6 +591,8 @@ export { AccountActionTokenPortSqlite } from "./infrastructure/sqlite/AccountAct
 export { UserRepositorySqlite } from "./infrastructure/sqlite/UserRepositorySqlite.js";
 export { RevisionPortSqlite } from "./infrastructure/sqlite/RevisionPortSqlite.js";
 export { RealtimeOutboxSqlite } from "./infrastructure/sqlite/RealtimeOutboxSqlite.js";
+export { WorkflowRepositorySqlite } from "./infrastructure/sqlite/WorkflowRepositorySqlite.js";
+export { WorkflowRepositoryPostgres } from "./infrastructure/postgres/WorkflowRepositoryPostgres.js";
 export { SqliteInfrastructure } from "./infrastructure/sqlite/SqliteInfrastructure.js";
 export { StorageTableManagementSqlite } from "./infrastructure/sqlite/StorageTableManagementSqlite.js";
 export type {

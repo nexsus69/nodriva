@@ -33,6 +33,7 @@ import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.js';
 import { ResourceRelationshipRepositorySqlite } from './ResourceRelationshipRepositorySqlite.js';
 import { ResourceRelationshipDefinitionReaderSqlite } from './ResourceRelationshipDefinitionReaderSqlite.js';
+import { WorkflowRepositorySqlite } from './WorkflowRepositorySqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
@@ -70,6 +71,7 @@ export class SqliteInfrastructure {
   readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
   readonly resourceRelationshipRepository: ResourceRelationshipRepositorySqlite;
   readonly resourceRelationshipDefinitionReader: ResourceRelationshipDefinitionReaderSqlite;
+  readonly workflowRepository: WorkflowRepositorySqlite;
 
   constructor(location = ':memory:') {
     this.database = new SqliteDatabase(location);
@@ -95,6 +97,7 @@ export class SqliteInfrastructure {
     this.attachmentRateLimitPort = new AttachmentRateLimitPortSqlite(this.database);
     this.resourceRelationshipRepository = new ResourceRelationshipRepositorySqlite(this.database);
     this.resourceRelationshipDefinitionReader = new ResourceRelationshipDefinitionReaderSqlite(this.database);
+    this.workflowRepository = new WorkflowRepositorySqlite(this.database);
     this.attachmentPolicyRepository = new AttachmentPolicyRepositorySqlite(this.database);
     this.resourcePurgeRepository = new ResourcePurgeRepositorySqlite(this.database);
     this.typeDefinitionReader = new TypeDefinitionReaderSqlite(this.database);

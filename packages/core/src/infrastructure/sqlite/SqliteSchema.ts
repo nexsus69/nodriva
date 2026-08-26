@@ -212,6 +212,66 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       event_id TEXT PRIMARY KEY, event_payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       published_at TEXT, attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT, locked_by TEXT, last_error TEXT
     );
+    -- The workflow catalogue is deliberately independent from the node/entity
+    -- schema: a workflow may react to any subject kind exposed by a module.
+    CREATE TABLE IF NOT EXISTS workflow_event_types (
+      event_type TEXT PRIMARY KEY,
+      subject_kinds TEXT NOT NULL,
+      payload_version INTEGER NOT NULL CHECK (payload_version > 0),
+      is_active INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE TABLE IF NOT EXISTS workflow_definitions (
+      workflow_id TEXT NOT NULL,
+      version INTEGER NOT NULL CHECK (version > 0),
+      definition_payload TEXT NOT NULL,
+      is_active INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      PRIMARY KEY (workflow_id, version)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_workflow_definitions_active
+      ON workflow_definitions (is_active, workflow_id, version);
+    CREATE TABLE IF NOT EXISTS workflow_events (
+      event_id TEXT PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      subject_kind TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      scope_id TEXT,
+      event_payload TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_workflow_events_type_created
+      ON workflow_events (event_type, created_at);
+    CREATE TABLE IF NOT EXISTS workflow_execution_plans (
+      instance_key TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      workflow_version INTEGER NOT NULL,
+      event_id TEXT NOT NULL REFERENCES workflow_events(event_id) ON DELETE RESTRICT,
+      plan_payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_workflow_execution_plans_event
+      ON workflow_execution_plans (event_id, workflow_id, workflow_version);
+    CREATE TABLE IF NOT EXISTS workflow_execution_steps (
+      execution_key TEXT PRIMARY KEY,
+      instance_key TEXT NOT NULL REFERENCES workflow_execution_plans(instance_key) ON DELETE CASCADE,
+      step_id TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      input_payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'leased', 'completed')),
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT,
+      locked_at TEXT,
+      locked_by TEXT,
+      last_error TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      completed_at TEXT,
+      UNIQUE(instance_key, step_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_sqlite_workflow_execution_steps_pending
+      ON workflow_execution_steps (status, next_attempt_at, created_at);
     CREATE TABLE IF NOT EXISTS entity_type_fields (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       entity_type_id TEXT NOT NULL REFERENCES entity_types(id) ON DELETE CASCADE,

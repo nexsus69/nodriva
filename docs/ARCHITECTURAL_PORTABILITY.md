@@ -23,6 +23,7 @@ assembling concrete adapters and injecting them into application services.
 | Realtime node scopes | `RealtimeScopeResolver` | `RealtimeScopeResolverPostgres` | `RealtimeScopeResolverSqlite` |
 | Data event delivery | `RealtimeEventBus` | `PusherEventBus` |
 | Durable realtime delivery | `RealtimeOutboxPort` | `RealtimeOutboxPostgres` | `RealtimeOutboxSqlite` |
+| Generic workflow catalogue and planning idempotency | `WorkflowRepository` | `WorkflowRepositoryPostgres` | `WorkflowRepositorySqlite` |
 | Transactions | `TransactionPort` | `TransactionPortPostgres` | `TransactionPortSqlite` |
 | Dynamic type storage | `StorageTableManagementPort` | physical tables through controlled DDL | JSON payload plus relational field metadata |
 | Attachments and quota | `AttachmentRepository` | `AttachmentRepositoryPostgres` | `AttachmentRepositorySqlite` |
@@ -47,6 +48,10 @@ scenario against an in-memory SQLite database and the dedicated PostgreSQL
 integration database. It compares hierarchy, entities, stale-version errors,
 soft delete/restore, locks, transaction rollback, attachment quotas and rate
 limits rather than requiring identical SQL or physical schemas.
+
+`WorkflowRepository` has a shared contract suite on both adapters. It verifies
+event catalogue replacement, deterministic active-definition filtering, and
+event/plan idempotency without assuming that a subject is a node or entity.
 
 `pnpm e2e:admin-parity` extends this contract through the production Web build:
 it clones `dashboard_test` into a temporary PostgreSQL database, creates a

@@ -55,3 +55,12 @@ export interface WorkflowExecutionPlan {
   instanceKey: string;
   steps: readonly (WorkflowStepDefinition & { executionKey: string })[];
 }
+
+export interface WorkflowExecutionStep {
+  executionKey: string;
+  instanceKey: string;
+  workflowId: string;
+  workflowVersion: number;
+  event: WorkflowEvent;
+  step: WorkflowStepDefinition;
+}
