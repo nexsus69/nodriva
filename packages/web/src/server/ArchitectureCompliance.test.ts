@@ -181,7 +181,7 @@ describe('Architecture Compliance - Phase 1', () => {
     });
 
     it('should inject moved node into domain cache upon moveNode', async () => {
-      vi.mocked(nodeActions.moveNodeAction).mockResolvedValue({ id: 'node_1', name: 'Moved Node', parentId: 'new_parent' } as unknown as never);
+      vi.mocked(nodeActions.moveNodeAction).mockResolvedValue({ success: true, data: { id: 'node_1', name: 'Moved Node', parentId: 'new_parent' } } as never);
 
       const input: MoveNodeInput = { nodeId: 'node_1', newParentNodeId: 'new_parent', expectedNodeRowVersion: 2 };
       const result = await AppCache.moveNode(input);

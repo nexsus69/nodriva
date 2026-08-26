@@ -157,12 +157,12 @@ The responsive navigation and breadcrumb behavior is documented in
 ## P1 — Server Action error UX
 
 - [x] Return expected validation, authorization and concurrency failures from
-  inverse relationship and node create/update actions as serializable result
+  inverse relationship and all node mutation actions as serializable result
   data rather than rejected Server Actions. `RelationPanel` and the node form
   controllers keep the localized, actionable server message and unsaved form
   values; unexpected failures remain an `INTERNAL_ERROR` without stack, SQL
   details or internal digests. Unit coverage verifies validation, authorization
-  and unexpected failures; the canonical E2E preserves the normal flows on
+  concurrency and unexpected failures; the canonical E2E preserves the normal flows on
   SQLite/PostgreSQL.
 - [ ] Extend the same expected-error contract and E2E coverage for validation,
   authorization and unexpected-error paths to the remaining Server Actions.

@@ -170,7 +170,7 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
 }
 
 export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' | 'actorSessionId'>) {
-  return withSafeActionErrors(async () => {
+  return nodeMutationResult(async () => {
   const { nodeService } = await import('../../server/db');
   const identity = await AuthResolver.resolveActorIdentity();
   const cmd: MoveNodeCommand = {
@@ -197,7 +197,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
 }
 
 export async function deleteNodeAction(input: Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId'>) {
-  return withSafeActionErrors(async () => {
+  return nodeMutationResult(async () => {
     const { nodeService } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
     const cmd: DeleteNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };
@@ -211,7 +211,7 @@ export async function deleteNodeAction(input: Omit<DeleteNodeCommand, 'actorUser
 }
 
 export async function restoreNodeAction(input: Omit<RestoreNodeCommand, 'actorUserId' | 'actorSessionId'>) {
-  return withSafeActionErrors(async () => {
+  return nodeMutationResult(async () => {
     const { nodeService } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
     const cmd: RestoreNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };

@@ -564,7 +564,9 @@ export class GlobalCacheClient {
   public async moveNode(input: MoveNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const moved = await moveNodeAction(input);
+      const result = await moveNodeAction(input);
+      if (!result.success) throw actionError(result.error);
+      const moved = result.data;
       if (moved) {
         const clientNode: ClientNode = moved as unknown as ClientNode;
         if (this.getCacheEpoch() !== requestEpoch) return clientNode;

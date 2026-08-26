@@ -1,6 +1,6 @@
 // Purpose: verifies node action authorization and safe structured mutation errors.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ForbiddenError, UnauthorizedError, ValidationError } from '@dashboard/core';
+import { ForbiddenError, RowVersionMismatchError, UnauthorizedError, ValidationError } from '@dashboard/core';
 
 const mocks = vi.hoisted(() => ({
   resolveActorUserId: vi.fn(),
@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   assertCanReadNode: vi.fn(),
   createNode: vi.fn(),
   updateNode: vi.fn(),
+  moveNode: vi.fn(),
+  getNodeById: vi.fn(),
 }));
 
 vi.mock('../../server/db', () => ({
@@ -15,6 +17,8 @@ vi.mock('../../server/db', () => ({
   nodeService: {
     createNode: mocks.createNode,
     updateNode: mocks.updateNode,
+    moveNode: mocks.moveNode,
+    getNodeById: mocks.getNodeById,
   },
 }));
 
@@ -33,7 +37,7 @@ vi.mock('./auth/AuthResolver', () => ({
   },
 }));
 
-import { checkNodeReadAccessAction, createNodeAction, updateNodeAction } from './nodeActions';
+import { checkNodeReadAccessAction, createNodeAction, moveNodeAction, updateNodeAction } from './nodeActions';
 
 describe('checkNodeReadAccessAction', () => {
   beforeEach(() => {
@@ -42,6 +46,8 @@ describe('checkNodeReadAccessAction', () => {
     mocks.resolveActorIdentity.mockReset().mockResolvedValue({ userId: 'actor-1', sessionId: 'session-1' });
     mocks.createNode.mockReset();
     mocks.updateNode.mockReset();
+    mocks.moveNode.mockReset();
+    mocks.getNodeById.mockReset().mockResolvedValue(null);
   });
 
   it('allows an authorized node read', async () => {
@@ -70,6 +76,8 @@ describe('node mutation actions', () => {
     mocks.resolveActorIdentity.mockReset().mockResolvedValue({ userId: 'actor-1', sessionId: 'session-1' });
     mocks.createNode.mockReset();
     mocks.updateNode.mockReset();
+    mocks.moveNode.mockReset();
+    mocks.getNodeById.mockReset().mockResolvedValue(null);
   });
 
   it('returns a validation result instead of rejecting a node create form', async () => {
@@ -89,6 +97,16 @@ describe('node mutation actions', () => {
 
     await expect(updateNodeAction({ nodeId: 'node-1', name: 'Nuovo nome', expectedRowVersion: 1 }))
       .resolves.toMatchObject({ success: false, error: { code: 'ACCESS_FORBIDDEN' } });
+  });
+
+  it('returns a row-version result instead of rejecting a node move form', async () => {
+    mocks.moveNode.mockRejectedValue(new RowVersionMismatchError(2, 3));
+
+    await expect(moveNodeAction({ nodeId: 'node-1', newParentNodeId: 'parent-2', expectedNodeRowVersion: 2 }))
+      .resolves.toMatchObject({
+        success: false,
+        error: { code: 'ROW_VERSION_MISMATCH', expectedRowVersion: 2, currentRowVersion: 3 },
+      });
   });
 
   it('keeps unexpected node mutation failures generic and safe for the client', async () => {

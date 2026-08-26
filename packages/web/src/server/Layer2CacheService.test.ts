@@ -1,3 +1,4 @@
+// Purpose: verifies cache hydration, invalidation and mutation consistency.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../app/actions/entityActions', () => ({
@@ -199,9 +200,12 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       dependencyTokens: [VIEW_DEPENDENCIES.nodeHierarchy],
     });
     vi.mocked(moveNodeAction).mockResolvedValue({
-      id: 'child',
-      parentId: 'new-parent',
-      name: 'Child',
+      success: true,
+      data: {
+        id: 'child',
+        parentId: 'new-parent',
+        name: 'Child',
+      },
     } as never);
 
     await AppCache.moveNode({
