@@ -12,7 +12,24 @@ import {
 import { AuthResolver } from './auth/AuthResolver';
 import { runWithRealtimeOutbox } from '../../server/realtime';
 import { publishAuditRealtimeChange } from '../../server/adminRealtime';
-import { withSafeActionErrors } from './errorMapping';
+import { mapAppErrorToApiErrorResponse, withSafeActionErrors } from './errorMapping';
+import type { ApiErrorResponse } from '@dashboard/core';
+
+type NodeMutationActionResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ApiErrorResponse };
+
+/**
+ * Expected node mutation failures cross the Server Action boundary as data.
+ * This lets the form keep its unsaved values while rendering a safe message.
+ */
+async function nodeMutationResult<T>(operation: () => Promise<T>): Promise<NodeMutationActionResult<T>> {
+  try {
+    return { success: true, data: await operation() };
+  } catch (error) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(error) };
+  }
+}
 
 export async function checkNodeReadAccessAction(nodeId: string): Promise<boolean> {
   try {
@@ -93,7 +110,7 @@ export async function listNodeTypesAction() {
 }
 
 export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
-  return withSafeActionErrors(async () => {
+  return nodeMutationResult(async () => {
   const { nodeService } = await import('../../server/db');
   const identity = await AuthResolver.resolveActorIdentity();
   const cmd: CreateNodeCommand = {
@@ -123,7 +140,7 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
 }
 
 export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
-  return withSafeActionErrors(async () => {
+  return nodeMutationResult(async () => {
   const { nodeService } = await import('../../server/db');
   const identity = await AuthResolver.resolveActorIdentity();
   const cmd: UpdateNodeCommand = {

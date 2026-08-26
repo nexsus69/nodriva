@@ -145,7 +145,7 @@ describe('Architecture Compliance - Phase 1', () => {
     it('should inject new node into domain cache upon createNode', async () => {
       // Mock node action return value since we mock db
       // Actually we just test the AppCache orchestrator behavior
-      vi.mocked(nodeActions.createNodeAction).mockResolvedValue({ id: 'node_new', name: 'Test Node', parentId: 'root' } as unknown as never);
+      vi.mocked(nodeActions.createNodeAction).mockResolvedValue({ success: true, data: { id: 'node_new', name: 'Test Node', parentId: 'root' } } as never);
 
       const input: CreateNodeInput = { parentNodeId: 'root', nodeTypeKey: 'test', name: 'Test Node' };
       const result = await AppCache.createNode(input);
@@ -155,7 +155,7 @@ describe('Architecture Compliance - Phase 1', () => {
     });
 
     it('should inject updated node into domain cache upon updateNode', async () => {
-      vi.mocked(nodeActions.updateNodeAction).mockResolvedValue({ id: 'node_1', name: 'Updated Node', expectedRowVersion: 2 } as unknown as never);
+      vi.mocked(nodeActions.updateNodeAction).mockResolvedValue({ success: true, data: { id: 'node_1', name: 'Updated Node', expectedRowVersion: 2 } } as never);
 
       const input: UpdateNodeInput = { nodeId: 'node_1', name: 'Updated Node', expectedRowVersion: 1 };
       const result = await AppCache.updateNode(input);
@@ -163,6 +163,20 @@ describe('Architecture Compliance - Phase 1', () => {
       expect(result.name).toBe('Updated Node');
       expect(AppCache.nodes.get('node_1')).toBeDefined();
       expect(AppCache.nodes.get('node_1')?.name).toBe('Updated Node');
+    });
+
+    it('keeps the node cache unchanged when a mutation returns an expected error', async () => {
+      const cachedNode = { id: 'node_unchanged', name: 'Nodo esistente', parentId: 'root' };
+      AppCache.nodes.inject(cachedNode.id, cachedNode);
+      vi.mocked(nodeActions.createNodeAction).mockResolvedValue({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Nome nodo non valido.' },
+      } as never);
+
+      await expect(AppCache.createNode({ parentNodeId: 'root', nodeTypeKey: 'test', name: '' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR', message: 'Nome nodo non valido.' });
+
+      expect(AppCache.nodes.get(cachedNode.id)).toEqual(cachedNode);
     });
 
     it('should inject moved node into domain cache upon moveNode', async () => {

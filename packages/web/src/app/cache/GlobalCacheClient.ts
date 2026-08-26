@@ -526,7 +526,9 @@ export class GlobalCacheClient {
   public async createNode(input: CreateNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const created = await createNodeAction(input);
+      const result = await createNodeAction(input);
+      if (!result.success) throw actionError(result.error);
+      const created = result.data;
       const clientNode: ClientNode = created as unknown as ClientNode;
       if (this.getCacheEpoch() !== requestEpoch) return clientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
@@ -542,7 +544,9 @@ export class GlobalCacheClient {
   public async updateNode(input: UpdateNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const updated = await updateNodeAction(input);
+      const result = await updateNodeAction(input);
+      if (!result.success) throw actionError(result.error);
+      const updated = result.data;
       const clientNode: ClientNode = updated as unknown as ClientNode;
       if (this.getCacheEpoch() !== requestEpoch) return clientNode;
       this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
