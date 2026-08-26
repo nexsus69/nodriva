@@ -1,7 +1,13 @@
-# Demo domain: project operations
+# Nodriva: canonical project-operations vertical
 
-The demo seed keeps the original orders fixture for compatibility and adds a
-representative project-operations scenario:
+Nodriva is the product name. The project-operations scenario is its canonical
+vertical for acceptance and regression: it demonstrates the generic platform
+without turning nodes, types, entities or relationships into domain-specific
+primitives. Package names, database identifiers and historical documents keep
+their existing names until an explicit technical migration is approved.
+
+The demo seed keeps the original orders fixture for compatibility and adds the
+representative Nodriva scenario:
 
 ```text
 Acme Delivery Organization
@@ -35,3 +41,6 @@ own project-operations-shaped schema and data in temporary SQLite and
 PostgreSQL profiles, then compares the common observable outcome. It does not
 depend on the historical demo fixture and does not touch an operational
 database.
+
+The acceptance criteria and the evidence required for each step are maintained
+in [`NODRIVA_ACCEPTANCE_CHECKLIST.md`](./NODRIVA_ACCEPTANCE_CHECKLIST.md).
