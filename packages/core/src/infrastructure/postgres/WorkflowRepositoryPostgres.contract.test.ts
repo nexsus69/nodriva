@@ -1,3 +1,4 @@
+/** Runs the shared workflow persistence contract against the isolated PostgreSQL profile. */
 import { describe } from 'vitest';
 import pg from 'pg';
 import { registerWorkflowRepositoryContract } from '../contract/WorkflowRepository.contract.js';

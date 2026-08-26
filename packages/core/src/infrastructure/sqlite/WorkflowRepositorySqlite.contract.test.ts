@@ -1,3 +1,4 @@
+/** Runs the shared workflow persistence contract against the SQLite standalone profile. */
 import { registerWorkflowRepositoryContract } from '../contract/WorkflowRepository.contract.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
