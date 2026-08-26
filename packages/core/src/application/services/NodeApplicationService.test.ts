@@ -1,3 +1,4 @@
+/** Verifies node use-case invariants and generic workflow event publication. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NodeApplicationService } from './NodeApplicationService.js';
 import type { NodeRepository } from '../ports/NodeRepository.js';
