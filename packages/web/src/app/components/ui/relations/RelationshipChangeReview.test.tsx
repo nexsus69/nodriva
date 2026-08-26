@@ -1,3 +1,5 @@
+/** Verifies the review summary shown before a relationship mutation is committed. */
+
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { RelationshipChangeReview } from './RelationshipChangeReview';
