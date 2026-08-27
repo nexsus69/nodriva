@@ -1,5 +1,5 @@
 /** SQLite persistence for the generic workflow catalogue and durable idempotency keys. */
-import type { WorkflowRepository } from '../../application/ports/WorkflowRepository.js';
+import type { WorkflowOperationalStats, WorkflowRepository } from '../../application/ports/WorkflowRepository.js';
 import type {
   EventTypeDefinition,
   WorkflowDefinition,
@@ -32,6 +32,14 @@ interface WorkflowExecutionStepRow {
   input_payload: string;
 }
 
+interface WorkflowOperationalStatsRow {
+  pending_count: number;
+  leased_count: number;
+  retrying_count: number;
+  oldest_pending_age_seconds: number;
+  max_attempts: number;
+}
+
 /** Keeps JSON serialization at the adapter boundary while preserving the shared port contract. */
 export class WorkflowRepositorySqlite implements WorkflowRepository {
   constructor(private readonly database: SqliteDatabase) {}
@@ -57,16 +65,33 @@ export class WorkflowRepositorySqlite implements WorkflowRepository {
     return row ? this.mapEventType(row) : null;
   }
 
-  async saveDefinition(definition: WorkflowDefinition): Promise<void> {
-    this.database.run(
+  async listEventTypes(): Promise<EventTypeDefinition[]> {
+    return this.database.all<EventTypeRow>(
+      'SELECT event_type, subject_kinds, payload_version, is_active FROM workflow_event_types ORDER BY event_type ASC',
+    ).map((row) => this.mapEventType(row));
+  }
+
+  async saveDefinition(definition: WorkflowDefinition): Promise<boolean> {
+    const result = this.database.run(
       `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
        VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(workflow_id, version) DO UPDATE SET
-         definition_payload=excluded.definition_payload,
-         is_active=excluded.is_active,
-         updated_at=excluded.updated_at`,
+       ON CONFLICT(workflow_id, version) DO NOTHING`,
       [definition.workflowId, definition.version, JSON.stringify(definition), definition.isActive ? 1 : 0, new Date().toISOString()],
     );
+    return result.changes === 1;
+  }
+
+  async findDefinition(workflowId: string, version: number): Promise<WorkflowDefinition | null> {
+    const row = this.database.get<WorkflowDefinitionRow>(
+      'SELECT definition_payload FROM workflow_definitions WHERE workflow_id=? AND version=?', [workflowId, version],
+    );
+    return row ? JSON.parse(row.definition_payload) as WorkflowDefinition : null;
+  }
+
+  async listDefinitions(): Promise<WorkflowDefinition[]> {
+    return this.database.all<WorkflowDefinitionRow>(
+      'SELECT definition_payload FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
+    ).map((row) => JSON.parse(row.definition_payload) as WorkflowDefinition);
   }
 
   async listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]> {
@@ -184,6 +209,25 @@ export class WorkflowRepositorySqlite implements WorkflowRepository {
        WHERE execution_key=? AND status='leased' AND locked_by=?`,
       [attempts, new Date(Date.now() + delay).toISOString(), error.slice(0, 1000), executionKey, workerId],
     );
+  }
+
+  async getOperationalStats(): Promise<WorkflowOperationalStats> {
+    const row = this.database.get<WorkflowOperationalStatsRow>(
+      `SELECT
+         SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending_count,
+         SUM(CASE WHEN status='leased' THEN 1 ELSE 0 END) AS leased_count,
+         SUM(CASE WHEN status='pending' AND attempts>0 THEN 1 ELSE 0 END) AS retrying_count,
+         CAST(MAX(0, COALESCE((julianday('now') - julianday(MIN(CASE WHEN status='pending' THEN created_at END))) * 86400, 0)) AS INTEGER) AS oldest_pending_age_seconds,
+         COALESCE(MAX(attempts), 0) AS max_attempts
+       FROM workflow_execution_steps`,
+    );
+    return {
+      pendingCount: row?.pending_count ?? 0,
+      leasedCount: row?.leased_count ?? 0,
+      retryingCount: row?.retrying_count ?? 0,
+      oldestPendingAgeSeconds: row?.oldest_pending_age_seconds ?? 0,
+      maxAttempts: row?.max_attempts ?? 0,
+    };
   }
 
   private mapEventType(row: EventTypeRow): EventTypeDefinition {

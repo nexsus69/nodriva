@@ -1,5 +1,5 @@
 /** PostgreSQL persistence for generic workflow definitions, events and idempotent plans. */
-import type { WorkflowRepository } from '../../application/ports/WorkflowRepository.js';
+import type { WorkflowOperationalStats, WorkflowRepository } from '../../application/ports/WorkflowRepository.js';
 import type {
   EventTypeDefinition,
   WorkflowDefinition,
@@ -30,6 +30,14 @@ interface WorkflowExecutionStepRow {
   step_id: string;
   action_type: string;
   input_payload: Record<string, unknown>;
+}
+
+interface WorkflowOperationalStatsRow {
+  pending_count: number;
+  leased_count: number;
+  retrying_count: number;
+  oldest_pending_age_seconds: number;
+  max_attempts: number;
 }
 
 /** Uses JSONB only as durable configuration data; workflow rules remain in the Domain/Application layers. */
@@ -63,16 +71,37 @@ export class WorkflowRepositoryPostgres implements WorkflowRepository {
     } : null;
   }
 
-  async saveDefinition(definition: WorkflowDefinition): Promise<void> {
-    await this.executor.query(
+  async listEventTypes(): Promise<EventTypeDefinition[]> {
+    const result = await this.executor.query<EventTypeRow>(
+      'SELECT event_type, subject_kinds, payload_version, is_active FROM workflow_event_types ORDER BY event_type ASC',
+    );
+    return result.rows.map((row) => ({
+      eventType: row.event_type, subjectKinds: row.subject_kinds, payloadVersion: row.payload_version, isActive: row.is_active,
+    }));
+  }
+
+  async saveDefinition(definition: WorkflowDefinition): Promise<boolean> {
+    const result = await this.executor.query(
       `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
        VALUES ($1, $2, $3::jsonb, $4, now())
-       ON CONFLICT(workflow_id, version) DO UPDATE SET
-         definition_payload=EXCLUDED.definition_payload,
-         is_active=EXCLUDED.is_active,
-         updated_at=now()`,
+       ON CONFLICT(workflow_id, version) DO NOTHING`,
       [definition.workflowId, definition.version, JSON.stringify(definition), definition.isActive],
     );
+    return result.rowCount === 1;
+  }
+
+  async findDefinition(workflowId: string, version: number): Promise<WorkflowDefinition | null> {
+    const result = await this.executor.query<WorkflowDefinitionRow>(
+      'SELECT definition_payload FROM workflow_definitions WHERE workflow_id=$1 AND version=$2', [workflowId, version],
+    );
+    return result.rows[0]?.definition_payload ?? null;
+  }
+
+  async listDefinitions(): Promise<WorkflowDefinition[]> {
+    const result = await this.executor.query<WorkflowDefinitionRow>(
+      'SELECT definition_payload FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
+    );
+    return result.rows.map((row) => row.definition_payload);
   }
 
   async listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]> {
@@ -172,6 +201,26 @@ export class WorkflowRepositoryPostgres implements WorkflowRepository {
        WHERE execution_key=$1 AND status='leased' AND locked_by=$3`,
       [executionKey, error.slice(0, 1000), workerId],
     );
+  }
+
+  async getOperationalStats(): Promise<WorkflowOperationalStats> {
+    const result = await this.executor.query<WorkflowOperationalStatsRow>(
+      `SELECT
+         COUNT(*) FILTER (WHERE status='pending') AS pending_count,
+         COUNT(*) FILTER (WHERE status='leased') AS leased_count,
+         COUNT(*) FILTER (WHERE status='pending' AND attempts>0) AS retrying_count,
+         COALESCE(EXTRACT(EPOCH FROM (now() - MIN(created_at) FILTER (WHERE status='pending'))), 0)::integer AS oldest_pending_age_seconds,
+         COALESCE(MAX(attempts), 0) AS max_attempts
+       FROM workflow_execution_steps`,
+    );
+    const row = result.rows[0];
+    return {
+      pendingCount: Number(row?.pending_count ?? 0),
+      leasedCount: Number(row?.leased_count ?? 0),
+      retryingCount: Number(row?.retrying_count ?? 0),
+      oldestPendingAgeSeconds: Number(row?.oldest_pending_age_seconds ?? 0),
+      maxAttempts: Number(row?.max_attempts ?? 0),
+    };
   }
 
   private mapExecutionStep(row: WorkflowExecutionStepRow): WorkflowExecutionStep {

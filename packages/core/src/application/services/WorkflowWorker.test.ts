@@ -16,8 +16,8 @@ const step = {
 
 function createWorker(handler: { execute: ReturnType<typeof vi.fn> } | null) {
   const repository: WorkflowRepository = {
-    registerEventType: vi.fn(), findEventType: vi.fn(), saveDefinition: vi.fn(), listActiveDefinitions: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(),
-    claimPendingSteps: vi.fn().mockResolvedValue([step]), markStepCompleted: vi.fn(), markStepFailed: vi.fn(),
+    registerEventType: vi.fn(), findEventType: vi.fn(), listEventTypes: vi.fn(), saveDefinition: vi.fn(), findDefinition: vi.fn(), listDefinitions: vi.fn(), listActiveDefinitions: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(),
+    claimPendingSteps: vi.fn().mockResolvedValue([step]), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
   };
   const registry: WorkflowActionRegistry = {
     find: vi.fn().mockReturnValue(handler ? { actionType: 'notification.create', execute: handler.execute } : null),
@@ -44,5 +44,12 @@ describe('WorkflowWorker', () => {
     expect(context.repository.markStepFailed).toHaveBeenCalledWith(
       step.executionKey, 'worker-1', expect.stringContaining('No workflow action handler'),
     );
+  });
+
+  it('rejects unsafe worker batch parameters before claiming work', async () => {
+    const context = createWorker({ execute: vi.fn() });
+    await expect(context.worker.runOnce('', 1)).rejects.toThrow('identifier');
+    await expect(context.worker.runOnce('worker-1', 101)).rejects.toThrow('between 1 and 100');
+    expect(context.repository.claimPendingSteps).not.toHaveBeenCalled();
   });
 });

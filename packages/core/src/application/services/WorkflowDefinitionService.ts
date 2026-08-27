@@ -58,7 +58,12 @@ export class WorkflowDefinitionService {
         triggerEventTypes: unregisteredTriggers.map((eventType) => `The event type '${eventType}' is not registered.`),
       });
     }
-    await this.repository.saveDefinition(definition);
+    const saved = await this.repository.saveDefinition(definition);
+    if (!saved) {
+      throw new ValidationError('Workflow definition version already exists.', {
+        version: [`Workflow '${definition.workflowId}' version ${definition.version} is immutable.`],
+      });
+    }
   }
 
   private throwIfInvalid(message: string, issues: Record<string, string[]>): void {

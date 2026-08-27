@@ -131,6 +131,7 @@ services:
         condition: service_healthy
     environment:
       REALTIME_DRAIN_URL: http://web:3000/api/internal/realtime/drain
+      WORKFLOW_DRAIN_URL: http://web:3000/api/internal/workflows/drain
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
       REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
     restart: unless-stopped

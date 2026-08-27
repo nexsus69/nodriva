@@ -34,4 +34,15 @@ describe('WorkflowRepositoryPostgres', () => {
     ]);
     expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('FOR UPDATE SKIP LOCKED'), ['worker', 1]);
   });
+
+  it('maps database-native backlog statistics to the shared operational contract', async () => {
+    const executor = { query: vi.fn().mockResolvedValue({ rowCount: 1, rows: [{
+      pending_count: '2', leased_count: '1', retrying_count: '1', oldest_pending_age_seconds: '60', max_attempts: '3',
+    }] }) } as unknown as PgExecutor;
+    const repository = new WorkflowRepositoryPostgres(executor);
+    await expect(repository.getOperationalStats()).resolves.toEqual({
+      pendingCount: 2, leasedCount: 1, retryingCount: 1, oldestPendingAgeSeconds: 60, maxAttempts: 3,
+    });
+    expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("COUNT(*) FILTER (WHERE status='pending')"));
+  });
 });

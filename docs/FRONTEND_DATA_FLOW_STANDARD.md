@@ -84,6 +84,16 @@ uno alla volta dal componente né mostrare identificatori tecnici come fallback.
 - centralizzare mapping errori, retry, session refresh e purge;
 - aggiungere test di cache hit/miss, deduplicazione, rowVersion, evento realtime e cambio sessione.
 
+## Interazione amministrativa e valori semantici
+
+Le UI amministrative traducono contratti tecnici in compiti comprensibili. Per
+le regole vincolanti su cataloghi, chiavi, filtri, progressive disclosure e
+test, consultare
+[`ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md`](./ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md).
+In particolare, un identificatore tecnico non può essere l'unica opzione
+offerta all'utente quando il backend può esporre un catalogo autorizzato di
+etichette e descrizioni.
+
 ## Contratto trasversale di reattività dei componenti
 
 Queste regole valgono per **ogni componente presente e futuro**, non soltanto

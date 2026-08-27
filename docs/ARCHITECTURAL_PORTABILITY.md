@@ -51,8 +51,9 @@ soft delete/restore, locks, transaction rollback, attachment quotas and rate
 limits rather than requiring identical SQL or physical schemas.
 
 `WorkflowRepository` has a shared contract suite on both adapters. It verifies
-event catalogue replacement, deterministic active-definition filtering, and
-event/plan idempotency without assuming that a subject is a node or entity.
+event catalogue replacement, deterministic active-definition filtering,
+event/plan idempotency, durable lease transitions and operational backlog
+statistics without assuming that a subject is a node or entity.
 
 `pnpm e2e:admin-parity` extends this contract through the production Web build:
 it clones `dashboard_test` into a temporary PostgreSQL database, creates a

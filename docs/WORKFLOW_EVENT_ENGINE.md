@@ -17,6 +17,25 @@ The SQLite integration test uses a custom `asset` subject and an integration act
 
 Events must be persisted with their business mutation and audit before delivery. Realtime is one consumer of a mutation's durable outbox; workflow planning/execution is a separate, idempotent consumer and never runs inside the write transaction. `WorkflowWorker` leases persisted steps, invokes a registered `WorkflowActionHandler`, and completes or retries the individual step with exponential backoff. A handler receives its stable `executionKey` and must pass it to downstream systems that support idempotency. Action adapters must not be embedded in a workflow definition or coupled to Pusher/realtime.
 
+## First built-in action and operation
+
+`audit.record` is the first internal action handler. It creates a compact
+`workflow.audit.record` entry against any originating subject kind, attributed
+to the original user when that actor is a Nodriva user. Its immutable trace
+contains the workflow id/version, execution key and event correlation, but
+never copies the event payload. Audit resource references are textual and no
+longer require a new schema migration for every future module; a node scope is
+linked only when the event carries a valid Nodriva UUID.
+
+In the complete PostgreSQL deployment, the existing authenticated worker calls
+`POST /api/internal/workflows/drain` alongside the realtime drain. Each call
+claims at most 100 steps. `GET /api/internal/workflows/metrics`, protected by
+the same deployment worker secret, exposes durable pending, leased, retrying,
+oldest-pending-age and maximum-attempt measurements to Prometheus. SQLite
+keeps the identical repository and worker contract; a standalone host may call
+the same application service from its chosen local scheduler and requires no
+new service.
+
 ## Initial producer catalog
 
 The canonical vertical now publishes these generic contracts from its Node and
@@ -29,6 +48,27 @@ the workflow event. The first four accept `node` and `entity` subjects;
 
 The catalogue is installed idempotently by PostgreSQL migration 036 and by the
 SQLite schema bootstrap. It creates no workflow definition and no external
-action: administrators or module installers must explicitly configure those.
+action: authorized administrators or module installers must explicitly
+configure those. The administrative application boundary requires
+`system.config.read` to inspect catalogues/definitions and `system.config` to
+register an event type or publish a definition. Published `(workflowId,
+version)` pairs are immutable; changing a workflow means publishing a new
+version, and both catalogue and definition mutations are audit logged. The
+administrator may publish only action types installed in the deployment; the
+initial safe action is `audit.record`.
 Other modules use the same `WorkflowEventPublisher` port and can register a
 different subject kind or event type without changes to this engine.
+
+## Administrative experience
+
+Workflow configuration is an administrative task, not a developer console.
+The UI must present event types and installed action types through authorized
+semantic catalogues (localized name, explanation and supported subject kinds),
+while sending their stable technical identifiers to the application boundary.
+It separates a human-readable workflow name from its immutable technical key,
+guides the administrator from intent to trigger, action and optional
+conditions, and retains drafts safely. A visual graph is introduced only once
+branching and dependencies make a linear editor ambiguous; it is not a
+substitute for validation, authorization, versioning or execution history.
+The general rule, including audit filters and other admin modules, is defined
+in [`ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md`](./ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md).

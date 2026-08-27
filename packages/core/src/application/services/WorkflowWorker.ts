@@ -19,6 +19,10 @@ export class WorkflowWorker {
   ) {}
 
   async runOnce(workerId: string, limit: number): Promise<WorkflowWorkerRunResult> {
+    if (!workerId.trim()) throw new Error('A workflow worker identifier is required.');
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Workflow worker batch size must be an integer between 1 and 100.');
+    }
     const steps = await this.repository.claimPendingSteps(workerId, limit);
     const completedExecutionKeys: string[] = [];
     const failedExecutionKeys: string[] = [];

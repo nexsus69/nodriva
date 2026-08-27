@@ -13,6 +13,7 @@ import { UserDetailScreen } from "../security/users/_components/UserDetailScreen
 import { UsersModuleScreen } from "../security/users/_components/UsersModuleScreen";
 import { PlacementPoliciesModuleScreen } from "../system/_components/PlacementPoliciesModuleScreen";
 import { SystemConfigModuleScreen } from "../system/_components/SystemConfigModuleScreen";
+import { WorkflowModuleScreen } from "../system/_components/WorkflowModuleScreen";
 import AdminTypesPage from "../types/_components/TypesModuleScreen";
 import { AdminOverviewScreen } from "./AdminOverviewScreen";
 import { AdminContentModuleScreen } from "../content/_components/AdminContentModuleScreen";
@@ -30,6 +31,7 @@ const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
   "system.capabilities": () => <SystemConfigModuleScreen kind="capabilities" />,
   "system.settings": () => <SystemConfigModuleScreen kind="settings" />,
   "system.placement-policies": () => <PlacementPoliciesModuleScreen />,
+  "system.workflows": () => <WorkflowModuleScreen />,
 };
 
 /** Renders a detail compatibility route or the screen registered for the path. */

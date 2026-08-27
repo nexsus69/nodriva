@@ -2,6 +2,7 @@
 set -eu
 
 : "${REALTIME_DRAIN_URL:?REALTIME_DRAIN_URL must be set}"
+: "${WORKFLOW_DRAIN_URL:?WORKFLOW_DRAIN_URL must be set}"
 : "${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}"
 
 interval="${REALTIME_WORKER_INTERVAL_SECONDS:-5}"
@@ -13,12 +14,19 @@ if [ "$interval" -lt 1 ]; then
   exit 64
 fi
 
-while :; do
+drain() {
+  component="$1"
+  url="$2"
   if ! curl --fail --silent --show-error --output /dev/null --max-time 20 \
     -X POST \
     -H "Authorization: Bearer ${REALTIME_WORKER_SECRET}" \
-    "$REALTIME_DRAIN_URL"; then
-    printf '{"timestamp":"%s","level":"error","component":"realtime-worker","message":"outbox drain failed"}\n' "$(date -u +%FT%TZ)" >&2
+    "$url"; then
+    printf '{"timestamp":"%s","level":"error","component":"%s","message":"drain failed"}\n' "$(date -u +%FT%TZ)" "$component" >&2
   fi
+}
+
+while :; do
+  drain 'realtime-worker' "$REALTIME_DRAIN_URL"
+  drain 'workflow-worker' "$WORKFLOW_DRAIN_URL"
   sleep "$interval"
 done

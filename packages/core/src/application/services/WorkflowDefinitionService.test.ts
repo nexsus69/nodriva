@@ -7,7 +7,7 @@ function createService(existing = true) {
   const repository: WorkflowRepository = {
     registerEventType: vi.fn(),
     findEventType: vi.fn().mockResolvedValue(existing ? { eventType: 'custom.invoice.approved', subjectKinds: ['invoice'], payloadVersion: 1, isActive: true } : null),
-    saveDefinition: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(),
+    saveDefinition: vi.fn().mockResolvedValue(true), findDefinition: vi.fn(), listDefinitions: vi.fn(), listEventTypes: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
     listActiveDefinitions: vi.fn(),
   };
   return { service: new WorkflowDefinitionService(repository), repository };
@@ -39,5 +39,15 @@ describe('WorkflowDefinitionService', () => {
       steps: [{ stepId: 'notify', actionType: 'notification.create', input: {} }],
     })).rejects.toMatchObject({ code: 'VALIDATION_FAILED', details: { issues: { triggerEventTypes: expect.any(Array) } } });
     expect(unknown.repository.saveDefinition).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite an already published workflow version', async () => {
+    const context = createService();
+    vi.mocked(context.repository.saveDefinition).mockResolvedValue(false);
+    await expect(context.service.saveDefinition({
+      workflowId: 'invoice-approved', version: 1, isActive: true,
+      triggerEventTypes: ['custom.invoice.approved'], conditions: [],
+      steps: [{ stepId: 'notify', actionType: 'notification.create', input: {} }],
+    })).rejects.toMatchObject({ code: 'VALIDATION_FAILED', details: { issues: { version: expect.any(Array) } } });
   });
 });

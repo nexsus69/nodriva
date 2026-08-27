@@ -185,6 +185,16 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         route: "/admin/system/placement-policies",
         requiredPermissions: ["system.config.read"],
       },
+      {
+        key: "system.workflows",
+        label: "Workflows",
+        labelKey: "admin.workflows",
+        description: "Configure durable event-driven automations.",
+        descriptionKey: "admin.workflowsDescription",
+        order: 30,
+        route: "/admin/system/workflows",
+        requiredPermissions: ["system.config.read"],
+      },
     ],
   },
 ];

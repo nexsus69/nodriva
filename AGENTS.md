@@ -120,6 +120,39 @@ Quando si modifica codice Next.js sotto `packages/web`, leggere e rispettare
 anche il relativo `packages/web/AGENTS.md` e la documentazione Next.js locale
 da esso indicata.
 
+## Esperienza amministrativa e cataloghi semantici
+
+Le interfacce amministrative sono strumenti per persone, non console di
+debug. Un valore tecnico può essere indispensabile al contratto backend, ma
+non deve diventare il linguaggio che l'utente deve conoscere o digitare per
+completare un compito normale.
+
+- Per ogni catalogo finito e noto al sistema (eventi, azioni, risorse, ruoli,
+  permessi, stati, tipi e simili), la UI offre un selettore ricercabile con
+  nome localizzato e descrizione contestuale; il valore tecnico resta quello
+  inviato al backend.
+- Non usare un campo testo per chiedere direttamente chiavi quali
+  `entity.update`, `role.read` o `audit.record` quando un catalogo
+  autorizzato può essere fornito dalla stessa applicazione. Filtri inclusi.
+- Distinguere sempre nome umano e chiave tecnica. Il nome è libero e
+  descrittivo; la chiave è stabile, validata dal backend, proposta o generata
+  in forma normalizzata e mostrata solo quando serve, con modalità avanzata e
+  copia esplicita.
+- Le configurazioni complesse seguono progressive disclosure: prima intento,
+  trigger e azione leggibili; poi condizioni e opzioni; infine dettagli
+  tecnici. Una rappresentazione a grafo è giustificata solo quando rami e
+  dipendenze rendono un percorso lineare ambiguo.
+- Cataloghi, etichette e descrizioni sono contratti di presentazione: devono
+  avere fallback esplicito per elementi storici/non più disponibili e non
+  possono alterare autorizzazione o validazione backend.
+- Ogni nuovo selettore o filtro semantico deve testare mapping
+  etichetta→valore tecnico, stato vuoto/caricamento/errore, autorizzazione e
+  conservazione del filtro o della bozza nel workspace amministrativo.
+
+Il contratto completo, inclusi i criteri per le eccezioni e la migrazione
+graduale delle schermate esistenti, è in
+`docs/ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md`.
+
 ## Sessione e lock
 
 La sessione usa una scadenza scorrevole basata su attività umana reale, non una

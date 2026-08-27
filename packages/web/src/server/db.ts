@@ -70,6 +70,7 @@ import {
   ResourceRelationshipMutationService,
   WorkflowRepositoryPostgres,
   WorkflowDefinitionService,
+  WorkflowAdminApplicationService,
   WorkflowEventProcessor,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
@@ -231,6 +232,13 @@ export const configService = new ConfigService(
   defaultConfigurationRegistry,
 );
 export const accessControlPort = sqliteMode ? sqliteInfrastructure!.accessControlPort : new AccessControlPortPostgres(pgExecutor!);
+export const workflowAdminService = new WorkflowAdminApplicationService(
+  workflowRepository,
+  auditPort,
+  transactionPort,
+  accessControlPort,
+  new Set(['audit.record']),
+);
 export const fieldEncryptionService = sqliteMode
   ? new FieldEncryptionServiceSqlite(sqliteInfrastructure!.database, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1')
   : new FieldEncryptionService(pgExecutor!, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1');

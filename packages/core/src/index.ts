@@ -9,10 +9,12 @@ export type { UserWorkflowEventInput } from "./application/services/WorkflowEven
 export type { WorkflowEventPublisher } from "./application/ports/WorkflowEventPublisher.js";
 export { WorkflowWorker } from "./application/services/WorkflowWorker.js";
 export type { WorkflowWorkerRunResult } from "./application/services/WorkflowWorker.js";
+export { AuditRecordWorkflowActionHandler } from "./application/services/AuditRecordWorkflowActionHandler.js";
 export { WorkflowDefinitionService } from "./application/services/WorkflowDefinitionService.js";
+export { WorkflowAdminApplicationService } from "./application/services/WorkflowAdminApplicationService.js";
 export type { WorkflowActionHandler, WorkflowActionRegistry } from "./application/ports/WorkflowActionHandler.js";
 export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowExecutionStep, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
-export type { WorkflowRepository } from "./application/ports/WorkflowRepository.js";
+export type { WorkflowOperationalStats, WorkflowRepository } from "./application/ports/WorkflowRepository.js";
 export { Node } from "./domain/models/Node.js";
 export { Entity } from "./domain/models/Entity.js";
 export { Lock } from "./domain/models/Lock.js";

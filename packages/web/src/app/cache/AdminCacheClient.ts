@@ -6,6 +6,7 @@ import * as systemActions from '../actions/systemActions';
 import * as typeActions from '../actions/typeActions';
 import * as recycleActions from '../actions/recycleActions';
 import * as entityActions from '../actions/entityActions';
+import * as workflowActions from '../actions/workflowActions';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
@@ -128,6 +129,11 @@ export class AdminCacheClient {
     this.write(['placement-policy'], () => systemActions.createPlacementRuleAction(cmd));
   public deletePlacementRule = (cmd: Parameters<typeof systemActions.deletePlacementRuleAction>[0]) =>
     this.write(['placement-policy'], () => systemActions.deletePlacementRuleAction(cmd));
+
+  public listWorkflowEventTypes = () => this.read('workflow-event-types', workflowActions.listWorkflowEventTypesAction);
+  public listWorkflowDefinitions = () => this.read('workflow-definitions', workflowActions.listWorkflowDefinitionsAction);
+  public publishWorkflowDefinition = (definition: Parameters<typeof workflowActions.publishWorkflowDefinitionAction>[0]) =>
+    this.write(['workflow-definitions'], () => workflowActions.publishWorkflowDefinitionAction(definition));
 
   public listRoles = () => this.read('roles', securityActions.listRolesAction);
   public getRoleByKey = (key: string) => this.read(`role:${key}`, () => securityActions.getRoleByKeyAction(key));

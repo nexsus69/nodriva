@@ -10,7 +10,7 @@ dedicate. Il modello generale è descritto in
 - `postgres`: PostgreSQL 17;
 - `db-migrate`: schema base, migrazioni e ruolo applicativo ristretto;
 - `soketi`: broker Pusher realtime;
-- `realtime-worker`: drain dell’outbox;
+- `realtime-worker`: drain autenticato dell’outbox realtime e dei workflow;
 - `clamav`: scansione antivirus;
 - `prometheus`: metriche;
 - `backup`: backup e restore verificato giornaliero;
@@ -92,6 +92,6 @@ Per impostazione predefinita anche applicazione, WebSocket e Prometheus sono
 vincolati a `127.0.0.1`.
 
 Prometheus conserva le serie per 30 giorni (`PROMETHEUS_RETENTION_TIME`); il
-valore può essere modificato nel deployment. Le regole realtime sono valutate
-localmente; per consegnare notifiche è necessario collegare Prometheus a un
-Alertmanager o a un sistema di alerting esterno approvato.
+valore può essere modificato nel deployment. Le regole realtime e workflow
+sono valutate localmente; per consegnare notifiche è necessario collegare
+Prometheus a un Alertmanager o a un sistema di alerting esterno approvato.

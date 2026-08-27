@@ -21,6 +21,9 @@ function createProcessor(overrides: Partial<WorkflowRepository> = {}) {
     registerEventType: vi.fn(),
     findEventType: vi.fn().mockResolvedValue({ eventType: event.eventType, subjectKinds: ['scope-assignment'], payloadVersion: 1, isActive: true }),
     saveDefinition: vi.fn(),
+    findDefinition: vi.fn(),
+    listDefinitions: vi.fn(),
+    listEventTypes: vi.fn(),
     listActiveDefinitions: vi.fn().mockResolvedValue([{
       workflowId: 'notify-scope-revocation', version: 1, isActive: true,
       triggerEventTypes: [event.eventType], conditions: [],
@@ -31,6 +34,7 @@ function createProcessor(overrides: Partial<WorkflowRepository> = {}) {
     claimPendingSteps: vi.fn(),
     markStepCompleted: vi.fn(),
     markStepFailed: vi.fn(),
+    getOperationalStats: vi.fn(),
     ...overrides,
   };
   return { processor: new WorkflowEventProcessor(transactionPort, repository), transactionPort, repository };

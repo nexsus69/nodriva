@@ -31,3 +31,21 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Realtime publisher reported a delivery failure"
+      - alert: DashboardWorkflowBacklog
+        expr: dashboard_workflow_steps_oldest_pending_age_seconds > 60
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Workflow worker has a step pending for over one minute"
+      - alert: DashboardWorkflowLeaseStuck
+        expr: dashboard_workflow_steps_leased > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Workflow worker lease did not clear; worker recovery may be required"
+      - alert: DashboardWorkflowRepeatedFailure
+        expr: dashboard_workflow_steps_max_attempts >= 5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Workflow action has repeatedly failed"

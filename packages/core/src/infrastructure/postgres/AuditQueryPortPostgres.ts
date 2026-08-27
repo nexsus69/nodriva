@@ -1,3 +1,4 @@
+/** Reads generic audit references from PostgreSQL without restoring schema-specific casts. */
 import type { AuditQueryPort } from '../../application/ports/AuditQueryPort.js';
 import type {
   AuditLogFilterDto,
@@ -52,7 +53,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
 
     if (filters.resourceKind) {
       params.push(filters.resourceKind);
-      conditions.push(`a.resource_kind = $${params.length}::resource_kind_enum`);
+      conditions.push(`a.resource_kind = $${params.length}`);
     }
 
     if (filters.resourceId) {

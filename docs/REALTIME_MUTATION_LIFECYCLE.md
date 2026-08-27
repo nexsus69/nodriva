@@ -106,7 +106,8 @@ job autenticato deve richiamare `POST /api/internal/realtime/drain` con
 assenza di nuove mutazioni.
 
 Nel deployment Docker completo fornito dal repository, `realtime-worker`
-effettua tale chiamata ogni cinque secondi. Impostare lo stesso
+effettua tale chiamata ogni cinque secondi e drena anche le azioni workflow
+registrate. Impostare lo stesso
 `REALTIME_WORKER_SECRET` nel processo Web e nel Compose. Nello stato attuale il
 worker è incluso nello stack completo; la sua separazione in un profilo Compose
 opzionale è ancora da implementare. Per sviluppo con Web sull'host, l'URL predefinito usa
@@ -131,3 +132,9 @@ del backlog, retry, tentativi ripetuti e fallimenti di publish. Per ciascuna
 replica Web aggiungere un target al job `dashboard-web-realtime` (oppure
 eseguire una replica Prometheus per rete/host); l'endpoint resta protetto da
 `REALTIME_WORKER_SECRET`.
+
+Il job `dashboard-web-workflow` raccoglie separatamente
+`GET /api/internal/workflows/metrics`: il valore è un backlog persistente, non
+una metrica locale alla singola istanza. Lo stesso worker richiama
+`POST /api/internal/workflows/drain`; entrambe le route richiedono il bearer
+secret del worker e non sono endpoint utente.

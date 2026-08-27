@@ -26,7 +26,7 @@ export class AuditPortPostgres implements AuditPort {
         node_id,
         before_payload,
         after_payload
-      ) VALUES ($1, $2, $3::resource_kind_enum, $4, $5, $6, $7)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     `;
 
     await this.executor.query(query, [

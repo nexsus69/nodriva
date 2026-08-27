@@ -13,3 +13,10 @@ scrape_configs:
       credentials: "__REALTIME_WORKER_SECRET__"
     static_configs:
       - targets: ["__REALTIME_METRICS_TARGET__"]
+  - job_name: dashboard-web-workflow
+    metrics_path: /api/internal/workflows/metrics
+    authorization:
+      type: Bearer
+      credentials: "__REALTIME_WORKER_SECRET__"
+    static_configs:
+      - targets: ["__REALTIME_METRICS_TARGET__"]

@@ -59,17 +59,18 @@ export function registerWorkflowRepositoryContract(
         isActive: false,
       });
 
-      await fixture.repository.saveDefinition(matchingDefinition);
-      await fixture.repository.saveDefinition({
+      await expect(fixture.repository.saveDefinition(matchingDefinition)).resolves.toBe(true);
+      await expect(fixture.repository.saveDefinition({
         ...matchingDefinition,
         workflowId: 'workflow-contract-beta',
         triggerEventTypes: ['unrelated.event'],
-      });
-      await fixture.repository.saveDefinition({
+      })).resolves.toBe(true);
+      await expect(fixture.repository.saveDefinition({
         ...matchingDefinition,
         workflowId: 'workflow-contract-inactive',
         isActive: false,
-      });
+      })).resolves.toBe(true);
+      await expect(fixture.repository.saveDefinition(matchingDefinition)).resolves.toBe(false);
       await expect(fixture.repository.listActiveDefinitions(event.eventType)).resolves.toEqual([matchingDefinition]);
     });
 
@@ -85,6 +86,9 @@ export function registerWorkflowRepositoryContract(
       };
       await expect(fixture.repository.recordPlan(plan)).resolves.toBe(true);
       await expect(fixture.repository.recordPlan(plan)).resolves.toBe(false);
+      await expect(fixture.repository.getOperationalStats()).resolves.toMatchObject({
+        pendingCount: 1, leasedCount: 0, retryingCount: 0, maxAttempts: 0,
+      });
       await expect(fixture.repository.claimPendingSteps('workflow-contract-worker', 1)).resolves.toEqual([
         expect.objectContaining({
           executionKey: 'workflow-contract-alpha:notify',
@@ -92,6 +96,7 @@ export function registerWorkflowRepositoryContract(
           step: expect.objectContaining({ actionType: 'notification.create' }),
         }),
       ]);
+      await expect(fixture.repository.getOperationalStats()).resolves.toMatchObject({ pendingCount: 0, leasedCount: 1 });
       await fixture.repository.markStepCompleted('workflow-contract-alpha:notify', 'workflow-contract-worker');
       await expect(fixture.repository.claimPendingSteps('workflow-contract-worker-2', 1)).resolves.toEqual([]);
     });
