@@ -1,8 +1,10 @@
+/** Reads audit history and its semantic filter catalog from the SQLite adapter. */
 import type { AuditQueryPort } from '../../application/ports/AuditQueryPort.js';
 import type {
   AuditLogDetailDto,
   AuditLogFilterDto,
   AuditLogListItemDto,
+  AuditFilterCatalogDto,
   PaginatedResultDto,
 } from '../../application/dto/AuditQueryDtos.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
@@ -32,6 +34,12 @@ const parsePayload = (value: string | null): Record<string, unknown> | null => {
 
 export class AuditQueryPortSqlite implements AuditQueryPort {
   constructor(private readonly database: SqliteDatabase) {}
+
+  async listFilterCatalog(): Promise<AuditFilterCatalogDto> {
+    const actions = this.database.all<{ value: string }>('SELECT DISTINCT action_key AS value FROM audit_logs ORDER BY action_key ASC LIMIT 250');
+    const resourceKinds = this.database.all<{ value: string }>('SELECT DISTINCT resource_kind AS value FROM audit_logs ORDER BY resource_kind ASC LIMIT 250');
+    return { actionKeys: actions.map((row) => row.value), resourceKinds: resourceKinds.map((row) => row.value) };
+  }
 
   async listAuditLogs(filters: AuditLogFilterDto): Promise<PaginatedResultDto<AuditLogListItemDto>> {
     const page = Math.max(1, filters.page ?? 1);

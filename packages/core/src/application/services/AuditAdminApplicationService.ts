@@ -1,9 +1,11 @@
+/** Coordinates permission-checked administration access to immutable audit history. */
 import type { AuditQueryPort } from '../ports/AuditQueryPort.js';
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import type {
   AuditLogFilterDto,
   AuditLogListItemDto,
   AuditLogDetailDto,
+  AuditFilterCatalogDto,
   PaginatedResultDto,
 } from '../dto/AuditQueryDtos.js';
 
@@ -16,6 +18,11 @@ export class AuditAdminApplicationService {
   async getAuditLogs(actorUserId: string, filters: AuditLogFilterDto): Promise<PaginatedResultDto<AuditLogListItemDto>> {
     await this.accessControlPort.assertHasPermission(actorUserId, 'audit.access', null);
     return await this.auditQueryPort.listAuditLogs(filters);
+  }
+
+  async getFilterCatalog(actorUserId: string): Promise<AuditFilterCatalogDto> {
+    await this.accessControlPort.assertHasPermission(actorUserId, 'audit.access', null);
+    return await this.auditQueryPort.listFilterCatalog();
   }
 
   async getAuditLogById(actorUserId: string, id: string): Promise<AuditLogDetailDto | null> {

@@ -42,6 +42,7 @@ export interface FormValidationMessages {
   required: string;
   pattern: string;
   selectPlaceholder: string;
+  searchOptions: string;
   minLength: (count: number) => string;
   maxLength: (count: number) => string;
   email: string;
@@ -56,6 +57,7 @@ export function createValidationMessages(t: (key: string) => string): FormValida
     required: t("admin.validationRequired"),
     pattern: t("admin.validationInvalid"),
     selectPlaceholder: t("admin.selectValue"),
+    searchOptions: t("admin.searchOptions"),
     minLength: (count) => t("admin.validationMinLength").replace("{count}", String(count)),
     maxLength: (count) => t("admin.validationMaxLength").replace("{count}", String(count)),
     email: t("admin.validationEmail"),
@@ -162,7 +164,7 @@ export type FormFieldSchema = FormFieldBase &
         placeholder?: string;
         autoComplete?: string;
       }
-    | { type: "select"; options: readonly FormOption[]; placeholder?: string }
+    | { type: "select"; options: readonly FormOption[]; placeholder?: string; searchable?: boolean }
     | {
         type: "nodeTree";
         nodes: readonly FormTreeNodeOption[];
@@ -204,4 +206,8 @@ export type FormFieldSchema = FormFieldBase &
 export interface FormOption {
   value: string;
   label: string;
+  /** Explains a semantic choice while keeping its technical value secondary. */
+  description?: string;
+  /** Additional normalized terms used by the shared catalogue search. */
+  keywords?: readonly string[];
 }

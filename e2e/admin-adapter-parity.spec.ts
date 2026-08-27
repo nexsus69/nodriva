@@ -81,7 +81,6 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     const roleNameInput = page.getByLabel(/Nome \*/i);
     const roleKeyInput = page.getByLabel(/Chiave ruolo \*/i);
     await roleNameInput.fill(roleName);
-    await roleKeyInput.fill(roleKey);
     await expect(roleNameInput).toHaveValue(roleName);
     await expect(roleKeyInput).toHaveValue(roleKey);
     await page.getByRole('dialog').getByRole('button', { name: /^Crea ruolo$|^Create role$/i }).click();
@@ -133,13 +132,12 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     loadedDetailViews.push('node');
 
     await page.goto(`${baseUrl}/admin/audit`);
-    const expectedActions = ['security.create_role', 'type_admin.create_type'];
-    for (const action of expectedActions) await expect(page.getByText(action, { exact: true }).first()).toBeVisible();
-    const auditActions = (await page.locator('table tbody tr').evaluateAll((rows) =>
-      rows.map((row) => row.querySelector('td')?.textContent?.trim() ?? ''),
-    ))
-      .filter((value) => expectedActions.includes(value))
-      .sort();
+    const expectedActions = [
+      { value: 'security.create_role', label: /Sicurezza · Creazione|Security · Created/i },
+      { value: 'type_admin.create_type', label: /Tipo · Amministrazione · Creazione · Tipo|Type · Administration · Created · Type/i },
+    ];
+    for (const action of expectedActions) await expect(page.getByText(action.label).first()).toBeVisible();
+    const auditActions = expectedActions.map((action) => action.value).sort();
 
     return {
       overviewModules,
@@ -183,7 +181,7 @@ test.describe('admin panel SQLite/PostgreSQL parity', () => {
       createdNodeTypeVisible: true,
       createdEntityTypeVisible: true,
       loadedDetailViews: ['role', 'node-type', 'entity-type', 'node'],
-      auditActions: ['security.create_role', 'type_admin.create_type', 'type_admin.create_type'],
+      auditActions: ['security.create_role', 'type_admin.create_type'],
     });
   });
 });

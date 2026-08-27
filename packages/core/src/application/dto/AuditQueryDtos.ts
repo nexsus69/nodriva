@@ -1,3 +1,4 @@
+/** Declares portable audit query payloads used by administration read models. */
 export interface AuditLogListItemDto {
   id: string;
   actorUserId: string | null;
@@ -25,6 +26,12 @@ export interface AuditLogFilterDto {
   toDate?: string;
   page?: number;
   pageSize?: number;
+}
+
+/** Lists the authorized technical values that can be translated into semantic audit filters. */
+export interface AuditFilterCatalogDto {
+  actionKeys: string[];
+  resourceKinds: string[];
 }
 
 export interface PaginatedResultDto<T> {

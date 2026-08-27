@@ -157,7 +157,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await page.goto(`${baseUrl}/admin/security/roles`);
   await page.getByRole('button', { name: /^\+?\s*Crea ruolo$/i }).click();
   await page.getByLabel('Nome *').fill(names.roleName);
-  await page.getByLabel('Chiave ruolo *').fill(names.roleKey);
+  await expect(page.getByLabel('Chiave ruolo *')).toHaveValue(names.roleKey);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea ruolo' }).click();
   await page.getByRole('row', { name: names.roleName }).click();
   for (const permission of OPERATOR_PERMISSIONS) {
@@ -290,11 +290,20 @@ async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: str
   await adminPage.goto(`${baseUrl}/admin/audit`);
   await waitForClientControls(adminPage);
   const expected = ['node.create', 'entity.create', 'entity.update', 'entity.delete', 'entity.restore'];
+  const semanticLabels: Record<string, RegExp> = {
+    'node.create': /Nodo · Creazione/,
+    'entity.create': /Entità · Creazione/,
+    'entity.update': /Aggiornamento entità/,
+    'entity.delete': /Entità · Eliminazione/,
+    'entity.restore': /Entità · Ripristino/,
+  };
   const actions: string[] = [];
   for (const action of expected) {
-    await adminPage.getByRole('textbox', { name: 'Azione', exact: true }).fill(action);
+    const actionFilter = adminPage.getByRole('combobox', { name: 'Azione', exact: true });
+    await actionFilter.click();
+    await adminPage.getByRole('option', { name: new RegExp(action.replace('.', '\\.')) }).click();
     await adminPage.getByRole('button', { name: /Applica Filtri/i }).click();
-    await expect(adminPage.getByRole('row').filter({ hasText: action }).first()).toBeVisible();
+    await expect(adminPage.getByRole('row').filter({ hasText: semanticLabels[action]! }).first()).toBeVisible();
     actions.push(action);
   }
   return { restored: true, actions: actions.sort() };

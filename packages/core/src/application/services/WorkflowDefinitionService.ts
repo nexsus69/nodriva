@@ -30,7 +30,18 @@ export class WorkflowDefinitionService {
 
   async saveDefinition(definition: WorkflowDefinition): Promise<void> {
     const issues: Record<string, string[]> = {};
-    if (!definition.workflowId.trim()) issues.workflowId = ['A workflow identifier is required.'];
+    if (!definition.workflowId.trim()) {
+      issues.workflowId = ['A workflow identifier is required.'];
+    } else if (!isTechnicalKey(definition.workflowId)) {
+      const legacyDefinition = (await this.repository.listDefinitions())
+        .some((existing) => existing.workflowId === definition.workflowId);
+      if (!legacyDefinition) {
+        issues.workflowId = ['New workflow identifiers must use lowercase snake_case.'];
+      }
+    }
+    if (isTechnicalKey(definition.workflowId) && !definition.name?.trim()) {
+      issues.name = ['A human-readable workflow name is required.'];
+    }
     if (!Number.isInteger(definition.version) || definition.version < 1) {
       issues.version = ['Workflow version must be a positive integer.'];
     }
@@ -43,6 +54,9 @@ export class WorkflowDefinitionService {
     if (new Set(stepIds).size !== stepIds.length) issues.steps = [...(issues.steps ?? []), 'Step identifiers must be unique.'];
     if (definition.steps.some((step) => !step.stepId.trim() || !step.actionType.trim())) {
       issues.steps = [...(issues.steps ?? []), 'Every step requires an identifier and action type.'];
+    }
+    if (definition.steps.some((step) => !isTechnicalKey(step.stepId))) {
+      issues.steps = [...(issues.steps ?? []), 'Step identifiers must use lowercase snake_case.'];
     }
     if (definition.conditions.some((condition) => !condition.path.trim())) {
       issues.conditions = ['Condition paths cannot be empty.'];
@@ -69,4 +83,9 @@ export class WorkflowDefinitionService {
   private throwIfInvalid(message: string, issues: Record<string, string[]>): void {
     if (Object.keys(issues).length > 0) throw new ValidationError(message, issues);
   }
+}
+
+/** Keeps user-authored labels separate from stable configuration identifiers. */
+function isTechnicalKey(value: string): boolean {
+  return /^[a-z][a-z0-9_]{0,99}$/.test(value);
 }

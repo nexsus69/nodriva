@@ -24,7 +24,16 @@ const EMPTY_ROLE: RoleForm = {
   name: "",
   description: "",
   permissionIds: [],
+  customKey: false,
 };
+
+/** Proposes the same stable key grammar used by backend role validation. */
+function roleKeyFromName(value: unknown): string {
+  const normalized = String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!normalized) return "role";
+  return normalized.match(/^[a-z]/) ? normalized : `role_${normalized}`;
+}
 
 /** Renders the complete role list and create flow without owning resource lifecycle state. */
 export function RolesModuleScreen() {
@@ -33,7 +42,6 @@ export function RolesModuleScreen() {
   const selectResource = useAdminWorkspaceStore((state) => state.selectResource);
   const authorization = useAdminAuthorization();
   const resource = useMemo(() => createRoleResource(t), [t]);
-  const formDefinition = useMemo(() => createRoleForm(t), [t]);
   const controller = useAdminResourceController(resource, undefined);
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const formSurface = useAdminFormSurface<RoleForm>({
@@ -41,7 +49,7 @@ export function RolesModuleScreen() {
     surfaceKey: ROLE_CREATE_SURFACE.key,
     surfaceKind: ROLE_CREATE_SURFACE.presentation,
     draftKey: "admin.roles.create",
-    formVersion: formDefinition.version,
+    formVersion: "2",
     initialValues: EMPTY_ROLE,
     closePolicy: "discard",
     confirmOnDiscard: true,
@@ -50,6 +58,7 @@ export function RolesModuleScreen() {
     confirmConfirmLabel: t("admin.discardChanges"),
     confirmCancelLabel: t("admin.keepEditing"),
   });
+  const formDefinition = useMemo(() => createRoleForm(t, Boolean(formSurface.values.customKey)), [formSurface.values.customKey, t]);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,12 +101,12 @@ export function RolesModuleScreen() {
           pending={controller.pending}
           submitLabel={t("admin.createRole")}
           cancelLabel={t("admin.cancel")}
-          onChange={(name, value) =>
-            formSurface.setValues((current) => ({
-              ...current,
-              [name]: value,
-            }))
-          }
+          onChange={(name, value) => formSurface.setValues((current) => {
+            const next = { ...current, [name]: value };
+            if (name === "name" && !current.customKey) next.roleKey = roleKeyFromName(value);
+            if (name === "customKey" && !value) next.roleKey = roleKeyFromName(current.name);
+            return next;
+          })}
           onSubmit={submit}
           onClose={() => void formSurface.close()}
           surface={ROLE_CREATE_SURFACE}

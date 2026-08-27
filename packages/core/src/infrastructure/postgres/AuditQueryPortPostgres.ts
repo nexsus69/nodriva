@@ -4,6 +4,7 @@ import type {
   AuditLogFilterDto,
   AuditLogListItemDto,
   AuditLogDetailDto,
+  AuditFilterCatalogDto,
   PaginatedResultDto,
 } from '../../application/dto/AuditQueryDtos.js';
 import type { PgExecutor } from './PgExecutor.js';
@@ -25,8 +26,18 @@ interface AuditLogDetailRow extends Omit<AuditLogListRow, 'fullCount'> {
   afterPayload: Record<string, unknown> | null;
 }
 
+interface AuditFilterValueRow { value: string; }
+
 export class AuditQueryPortPostgres implements AuditQueryPort {
   constructor(private readonly executor: PgExecutor) {}
+
+  async listFilterCatalog(): Promise<AuditFilterCatalogDto> {
+    const [actions, resourceKinds] = await Promise.all([
+      this.executor.query<AuditFilterValueRow>('SELECT DISTINCT action_key AS value FROM audit_logs ORDER BY action_key ASC LIMIT 250'),
+      this.executor.query<AuditFilterValueRow>('SELECT DISTINCT resource_kind AS value FROM audit_logs ORDER BY resource_kind ASC LIMIT 250'),
+    ]);
+    return { actionKeys: actions.rows.map((row) => row.value), resourceKinds: resourceKinds.rows.map((row) => row.value) };
+  }
 
   async listAuditLogs(filters: AuditLogFilterDto): Promise<PaginatedResultDto<AuditLogListItemDto>> {
     const page = Math.max(1, filters.page ?? 1);

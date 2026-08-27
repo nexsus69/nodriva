@@ -105,3 +105,18 @@ vertical change:
 Conversions are prioritized by frequency, risk and current user confusion.
 They are intentionally incremental: do not replace every administrative form
 in a single refactor.
+
+## Current implementation status
+
+The audit module is the first completed conversion. Its action and resource
+kind filters load a permission-checked, adapter-parity catalogue of observed
+values, render localized semantic labels through the shared searchable select,
+and submit the original technical values. The audit list and detail use the
+same labels while retaining the exact identifier as secondary support context.
+
+Workflow configuration uses the same selector primitive for event and action
+catalogues. It collects a human name first, proposes a `snake_case` key, keeps
+technical-key customization explicit, and preserves the form draft in the
+admin workspace. Role creation follows the same name-first and generated-key
+pattern. Other modules remain scheduled incremental conversions, rather than
+being silently treated as compliant.

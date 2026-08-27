@@ -31,6 +31,12 @@ export class WorkflowAdminApplicationService {
     return this.repository.listDefinitions();
   }
 
+  /** Lists only action contracts that this deployment can execute safely. */
+  async listActionTypes(actorUserId: string): Promise<string[]> {
+    await this.accessControlPort.assertHasPermission(actorUserId, 'system.config.read', null);
+    return [...this.availableActionTypes].sort();
+  }
+
   async registerEventType(actorUserId: string, definition: EventTypeDefinition): Promise<void> {
     await this.accessControlPort.assertHasPermission(actorUserId, 'system.config', null);
     await this.transactionPort.runInTransaction(async () => {

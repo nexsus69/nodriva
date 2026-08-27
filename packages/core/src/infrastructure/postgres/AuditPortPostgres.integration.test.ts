@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import { AuditPortPostgres } from './AuditPortPostgres.js';
+import { AuditQueryPortPostgres } from './AuditQueryPortPostgres.js';
 import { PgExecutor } from './PgExecutor.js';
 
 const applicationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
@@ -28,6 +29,9 @@ describeIntegration('PostgreSQL generic audit reference', () => {
 
   it('preserves a non-Nodriva subject kind and non-UUID resource identifier', async () => {
     await new AuditPortPostgres(applicationExecutor).record(null, actionKey, 'asset', resourceId, null, null, { source: 'workflow' });
+    await expect(new AuditQueryPortPostgres(applicationExecutor).listFilterCatalog()).resolves.toMatchObject({
+      actionKeys: expect.arrayContaining([actionKey]), resourceKinds: expect.arrayContaining(['asset']),
+    });
     const result = await adminExecutor.query<{ resource_kind: string; resource_id: string; after_payload: { source: string } }>(
       'SELECT resource_kind, resource_id, after_payload FROM audit_logs WHERE action_key=$1 AND resource_id=$2',
       [actionKey, resourceId],

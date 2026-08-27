@@ -53,9 +53,14 @@ configure those. The administrative application boundary requires
 `system.config.read` to inspect catalogues/definitions and `system.config` to
 register an event type or publish a definition. Published `(workflowId,
 version)` pairs are immutable; changing a workflow means publishing a new
-version, and both catalogue and definition mutations are audit logged. The
-administrator may publish only action types installed in the deployment; the
-initial safe action is `audit.record`.
+version, and both catalogue and definition mutations are audit logged. At most
+one version of a workflow identifier is active: publishing a new active
+version atomically deactivates its previously active version, while existing
+plans retain the version that created them. PostgreSQL migration 038 repairs
+historic duplicate active versions by retaining the greatest version; SQLite
+does the same during its idempotent bootstrap. The administrator may publish
+only action types installed in the deployment; the initial safe action is
+`audit.record`.
 Other modules use the same `WorkflowEventPublisher` port and can register a
 different subject kind or event type without changes to this engine.
 
@@ -67,7 +72,9 @@ semantic catalogues (localized name, explanation and supported subject kinds),
 while sending their stable technical identifiers to the application boundary.
 It separates a human-readable workflow name from its immutable technical key,
 guides the administrator from intent to trigger, action and optional
-conditions, and retains drafts safely. A visual graph is introduced only once
+conditions, and retains drafts safely in the administrative workspace. New
+workflow and step keys use lowercase `snake_case`; pre-existing legacy keys
+remain readable and executable. A visual graph is introduced only once
 branching and dependencies make a linear editor ambiguous; it is not a
 substitute for validation, authorization, versioning or execution history.
 The general rule, including audit filters and other admin modules, is defined

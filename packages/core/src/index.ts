@@ -572,6 +572,7 @@ export { NodePathPolicy } from "./domain/policies/NodePathPolicy.js";
 export {
   AuditLogListItemDto,
   AuditLogDetailDto,
+  AuditFilterCatalogDto,
   AuditLogFilterDto,
   PaginatedResultDto,
 } from "./application/dto/AuditQueryDtos.js";

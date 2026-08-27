@@ -5,6 +5,7 @@ import { WorkflowDefinitionService } from '../../application/services/WorkflowDe
 import { WorkflowEventProcessor } from '../../application/services/WorkflowEventProcessor.js';
 import { WorkflowWorker } from '../../application/services/WorkflowWorker.js';
 import { AuditPortSqlite } from './AuditPortSqlite.js';
+import { AuditQueryPortSqlite } from './AuditQueryPortSqlite.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { TransactionPortSqlite } from './TransactionPortSqlite.js';
@@ -21,7 +22,7 @@ describe('SQLite audit workflow integration', () => {
     const repository = new WorkflowRepositorySqlite(database);
     const definitions = new WorkflowDefinitionService(repository);
     await definitions.saveDefinition({
-      workflowId: 'record-history', version: 1, isActive: true,
+      workflowId: 'record_history', name: 'Registra cronologia', version: 1, isActive: true,
       triggerEventTypes: ['record.created'], conditions: [],
       steps: [{ stepId: 'audit', actionType: 'audit.record', input: {} }],
     });
@@ -41,8 +42,11 @@ describe('SQLite audit workflow integration', () => {
     );
     expect(row).toMatchObject({ action_key: 'workflow.audit.record', resource_kind: 'node', resource_id: '00000000-0000-0000-0000-000000000001', node_id: '00000000-0000-0000-0000-000000000002' });
     expect(JSON.parse(row?.after_payload ?? '{}')).toEqual({
-      workflowId: 'record-history', workflowVersion: 1, executionKey: 'record-history:1:record-created-node-1:audit',
+      workflowId: 'record_history', workflowVersion: 1, executionKey: 'record_history:1:record-created-node-1:audit',
       eventId: 'record-event-1', eventType: 'record.created', correlationId: 'session-1',
+    });
+    await expect(new AuditQueryPortSqlite(database).listFilterCatalog()).resolves.toMatchObject({
+      actionKeys: expect.arrayContaining(['workflow.audit.record']), resourceKinds: expect.arrayContaining(['node']),
     });
   });
 });

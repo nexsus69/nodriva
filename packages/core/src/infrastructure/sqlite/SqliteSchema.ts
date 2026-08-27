@@ -404,6 +404,21 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     'INSERT OR IGNORE INTO workflow_event_types(event_type,subject_kinds,payload_version,is_active) VALUES(?,?,?,?)',
     ['hierarchy.moved', JSON.stringify(['node']), 1, 1],
   );
+  // Legacy definitions may predate the one-active-version rule. Keep their
+  // latest enabled revision and enforce the same invariant as PostgreSQL.
+  database.exec(`
+    UPDATE workflow_definitions AS older
+    SET is_active=0, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')
+    WHERE is_active=1
+      AND EXISTS (
+        SELECT 1 FROM workflow_definitions AS newer
+        WHERE newer.workflow_id=older.workflow_id
+          AND newer.is_active=1
+          AND newer.version>older.version
+      );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_workflow_definitions_one_active
+      ON workflow_definitions (workflow_id) WHERE is_active=1;
+  `);
 
   for (const tableName of ['node_type_fields', 'entity_type_fields'] as const) {
     if (!database.hasColumn(tableName, 'enum_mode')) {

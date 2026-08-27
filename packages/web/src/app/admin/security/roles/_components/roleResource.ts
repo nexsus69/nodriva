@@ -15,6 +15,7 @@ export type RoleForm = {
   name: string;
   description: string;
   permissionIds: string[];
+  customKey?: boolean;
 };
 
 /** Stores one boolean per permission so the shared renderer can own every control. */
@@ -97,30 +98,12 @@ export const ROLE_CREATE_SURFACE = defineAdminSurface({
   initialState: {},
 });
 
-export function createRoleForm(t: AdminTranslator): FormDefinition<RoleForm> {
+export function createRoleForm(t: AdminTranslator, customKey = false): FormDefinition<RoleForm> {
   return defineForm({
     key: "admin.roles.form",
-    version: "1",
+    version: "2",
     validationMessages: createValidationMessages(t),
     fields: [
-      {
-        name: "roleKey",
-        label: t("admin.roleKey"),
-        type: "text",
-        description: t("admin.roleKeyHelp"),
-        required: true,
-        validation: {
-          rules: [
-            {
-              kind: "pattern",
-              value: "^[a-z0-9_]+$",
-              message: t("admin.validationInvalid"),
-            },
-            { kind: "minLength", value: 2 },
-          ],
-        },
-        layout: { row: "identity", colSpan: 1, order: 1 },
-      },
       {
         name: "name",
         label: t("admin.name"),
@@ -131,7 +114,33 @@ export function createRoleForm(t: AdminTranslator): FormDefinition<RoleForm> {
           ],
         },
         required: true,
-        layout: { row: "identity", colSpan: 1, order: 2 },
+        layout: { row: "identity", colSpan: 2, order: 1 },
+      },
+      {
+        name: "customKey",
+        label: t("admin.roleCustomizeKey"),
+        type: "boolean",
+        description: t("admin.roleCustomizeKeyHelp"),
+        layout: { row: "technical-key", colSpan: 2, order: 1 },
+      },
+      {
+        name: "roleKey",
+        label: t("admin.roleKey"),
+        type: "text",
+        description: customKey ? t("admin.roleKeyHelp") : t("admin.roleGeneratedKeyHelp"),
+        required: true,
+        disabled: !customKey,
+        validation: {
+          rules: [
+            {
+              kind: "pattern",
+              value: "^[a-z][a-z0-9_]*$",
+              message: t("admin.validationInvalid"),
+            },
+            { kind: "minLength", value: 2 },
+          ],
+        },
+        layout: { row: "technical-key", colSpan: 2, order: 2 },
       },
       {
         name: "description",
@@ -144,7 +153,7 @@ export function createRoleForm(t: AdminTranslator): FormDefinition<RoleForm> {
     sections: [
       {
         key: "identity",
-        fieldNames: ["roleKey", "name"],
+        fieldNames: ["name", "customKey", "roleKey"],
         columns: 2,
       },
       {

@@ -23,7 +23,7 @@ describe('SQLite generic workflow engine integration', () => {
       eventType: 'custom.asset.calibrated', subjectKinds: ['asset'], payloadVersion: 1, isActive: true,
     });
     await definitionService.saveDefinition({
-      workflowId: 'calibration-notification', version: 1, isActive: true,
+      workflowId: 'calibration_notification', name: 'Notifica calibrazione', version: 1, isActive: true,
       triggerEventTypes: ['custom.asset.calibrated'],
       conditions: [{ path: 'payload.result', operator: 'equals', value: 'passed' }],
       steps: [{ stepId: 'notify', actionType: 'notification.create', input: { template: 'calibrated' } }],
@@ -36,7 +36,7 @@ describe('SQLite generic workflow engine integration', () => {
     };
     const processor = new WorkflowEventProcessor(transactionPort, repository);
     await expect(processor.process(event)).resolves.toEqual({
-      eventRecorded: true, plannedInstanceKeys: ['calibration-notification:1:calibration-job-1'],
+      eventRecorded: true, plannedInstanceKeys: ['calibration_notification:1:calibration-job-1'],
     });
 
     const execute = vi.fn().mockResolvedValue(undefined);
@@ -45,7 +45,7 @@ describe('SQLite generic workflow engine integration', () => {
     });
     await expect(worker.runOnce('workflow-worker', 10)).resolves.toEqual({
       claimedCount: 1,
-      completedExecutionKeys: ['calibration-notification:1:calibration-job-1:notify'],
+      completedExecutionKeys: ['calibration_notification:1:calibration-job-1:notify'],
       failedExecutionKeys: [],
     });
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({

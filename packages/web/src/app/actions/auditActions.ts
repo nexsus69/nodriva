@@ -1,10 +1,12 @@
 'use server';
 
+/** Provides authenticated audit administration reads through typed server actions. */
 import { auditAdminService } from '../../server/db';
 import {
   AuditLogFilterDto,
   AuditLogListItemDto,
   AuditLogDetailDto,
+  AuditFilterCatalogDto,
   PaginatedResultDto,
   ApiErrorResponse,
 } from '@dashboard/core';
@@ -34,6 +36,20 @@ export async function getAuditLogByIdAction(id: string): Promise<{
     const actorUserId = await AuthResolver.resolveActorUserId();
     const data = await auditAdminService.getAuditLogById(actorUserId, id);
     return { success: true, data };
+  } catch (err: unknown) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Returns only audit filter values the current actor may inspect. */
+export async function listAuditFilterCatalogAction(): Promise<{
+  success: boolean;
+  data?: AuditFilterCatalogDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await auditAdminService.getFilterCatalog(actorUserId) };
   } catch (err: unknown) {
     return { success: false, error: mapAppErrorToApiErrorResponse(err) };
   }

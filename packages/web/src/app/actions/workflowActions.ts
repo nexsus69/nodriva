@@ -23,6 +23,15 @@ export async function listWorkflowDefinitionsAction(): Promise<{ success: boolea
   }
 }
 
+/** Returns action contracts installed in the current deployment. */
+export async function listWorkflowActionTypesAction(): Promise<{ success: boolean; data?: string[]; error?: ApiErrorResponse }> {
+  try {
+    return { success: true, data: await workflowAdminService.listActionTypes(await AuthResolver.resolveActorUserId()) };
+  } catch (error) {
+    return { success: false, error: mapAppErrorToApiErrorResponse(error) };
+  }
+}
+
 export async function registerWorkflowEventTypeAction(definition: EventTypeDefinition): Promise<{ success: boolean; error?: ApiErrorResponse }> {
   try {
     await workflowAdminService.registerEventType(await AuthResolver.resolveActorUserId(), definition);

@@ -19,6 +19,7 @@ interface EventTypeRow {
 
 interface WorkflowDefinitionRow {
   definition_payload: string;
+  is_active: number;
 }
 
 interface WorkflowExecutionStepRow {
@@ -72,35 +73,49 @@ export class WorkflowRepositorySqlite implements WorkflowRepository {
   }
 
   async saveDefinition(definition: WorkflowDefinition): Promise<boolean> {
-    const result = this.database.run(
-      `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(workflow_id, version) DO NOTHING`,
-      [definition.workflowId, definition.version, JSON.stringify(definition), definition.isActive ? 1 : 0, new Date().toISOString()],
-    );
-    return result.changes === 1;
+    return this.database.transaction(() => {
+      const result = this.database.run(
+        `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
+         VALUES (?, ?, ?, 0, ?)
+         ON CONFLICT(workflow_id, version) DO NOTHING`,
+        [definition.workflowId, definition.version, JSON.stringify(definition), new Date().toISOString()],
+      );
+      if (result.changes !== 1) return false;
+      if (definition.isActive) {
+        this.database.run(
+          `UPDATE workflow_definitions SET is_active=0, updated_at=?
+           WHERE workflow_id=? AND version<>? AND is_active=1`,
+          [new Date().toISOString(), definition.workflowId, definition.version],
+        );
+        this.database.run(
+          'UPDATE workflow_definitions SET is_active=1, updated_at=? WHERE workflow_id=? AND version=?',
+          [new Date().toISOString(), definition.workflowId, definition.version],
+        );
+      }
+      return true;
+    });
   }
 
   async findDefinition(workflowId: string, version: number): Promise<WorkflowDefinition | null> {
     const row = this.database.get<WorkflowDefinitionRow>(
-      'SELECT definition_payload FROM workflow_definitions WHERE workflow_id=? AND version=?', [workflowId, version],
+      'SELECT definition_payload, is_active FROM workflow_definitions WHERE workflow_id=? AND version=?', [workflowId, version],
     );
-    return row ? JSON.parse(row.definition_payload) as WorkflowDefinition : null;
+    return row ? this.mapDefinition(row) : null;
   }
 
   async listDefinitions(): Promise<WorkflowDefinition[]> {
     return this.database.all<WorkflowDefinitionRow>(
-      'SELECT definition_payload FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
-    ).map((row) => JSON.parse(row.definition_payload) as WorkflowDefinition);
+      'SELECT definition_payload, is_active FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
+    ).map((row) => this.mapDefinition(row));
   }
 
   async listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]> {
     const rows = this.database.all<WorkflowDefinitionRow>(
-      `SELECT definition_payload FROM workflow_definitions
+      `SELECT definition_payload, is_active FROM workflow_definitions
        WHERE is_active=1 ORDER BY workflow_id ASC, version ASC`,
     );
     return rows
-      .map((row) => JSON.parse(row.definition_payload) as WorkflowDefinition)
+      .map((row) => this.mapDefinition(row))
       .filter((definition) => definition.triggerEventTypes.includes(eventType));
   }
 
@@ -237,6 +252,11 @@ export class WorkflowRepositorySqlite implements WorkflowRepository {
       payloadVersion: row.payload_version,
       isActive: row.is_active === 1,
     };
+  }
+
+  /** Keeps activation lifecycle metadata outside the immutable definition payload. */
+  private mapDefinition(row: WorkflowDefinitionRow): WorkflowDefinition {
+    return { ...JSON.parse(row.definition_payload) as WorkflowDefinition, isActive: row.is_active === 1 };
   }
 
   private mapExecutionStep(row: WorkflowExecutionStepRow): WorkflowExecutionStep {

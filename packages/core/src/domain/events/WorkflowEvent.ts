@@ -41,6 +41,10 @@ export interface WorkflowStepDefinition {
 
 export interface WorkflowDefinition {
   workflowId: string;
+  /** Human-readable immutable title; definitions published before this field remain supported. */
+  name?: string;
+  /** Optional immutable context for administrators. */
+  description?: string;
   version: number;
   triggerEventTypes: readonly string[];
   conditions: readonly WorkflowCondition[];

@@ -19,6 +19,7 @@ interface EventTypeRow {
 
 interface WorkflowDefinitionRow {
   definition_payload: WorkflowDefinition;
+  is_active: boolean;
 }
 
 interface WorkflowExecutionStepRow {
@@ -81,36 +82,51 @@ export class WorkflowRepositoryPostgres implements WorkflowRepository {
   }
 
   async saveDefinition(definition: WorkflowDefinition): Promise<boolean> {
-    const result = await this.executor.query(
-      `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
-       VALUES ($1, $2, $3::jsonb, $4, now())
-       ON CONFLICT(workflow_id, version) DO NOTHING`,
-      [definition.workflowId, definition.version, JSON.stringify(definition), definition.isActive],
-    );
-    return result.rowCount === 1;
+    return this.executor.runInTransaction(async () => {
+      await this.executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [definition.workflowId]);
+      const inserted = await this.executor.query(
+        `INSERT INTO workflow_definitions (workflow_id, version, definition_payload, is_active, updated_at)
+         VALUES ($1, $2, $3::jsonb, false, now())
+         ON CONFLICT(workflow_id, version) DO NOTHING
+         RETURNING workflow_id`,
+        [definition.workflowId, definition.version, JSON.stringify(definition)],
+      );
+      if (inserted.rowCount !== 1) return false;
+      if (!definition.isActive) return true;
+      await this.executor.query(
+        `UPDATE workflow_definitions SET is_active=false, updated_at=now()
+         WHERE workflow_id=$1 AND version<>$2 AND is_active=true`,
+        [definition.workflowId, definition.version],
+      );
+      await this.executor.query(
+        'UPDATE workflow_definitions SET is_active=true, updated_at=now() WHERE workflow_id=$1 AND version=$2',
+        [definition.workflowId, definition.version],
+      );
+      return true;
+    });
   }
 
   async findDefinition(workflowId: string, version: number): Promise<WorkflowDefinition | null> {
     const result = await this.executor.query<WorkflowDefinitionRow>(
-      'SELECT definition_payload FROM workflow_definitions WHERE workflow_id=$1 AND version=$2', [workflowId, version],
+      'SELECT definition_payload, is_active FROM workflow_definitions WHERE workflow_id=$1 AND version=$2', [workflowId, version],
     );
-    return result.rows[0]?.definition_payload ?? null;
+    return result.rows[0] ? this.mapDefinition(result.rows[0]) : null;
   }
 
   async listDefinitions(): Promise<WorkflowDefinition[]> {
     const result = await this.executor.query<WorkflowDefinitionRow>(
-      'SELECT definition_payload FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
+      'SELECT definition_payload, is_active FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
     );
-    return result.rows.map((row) => row.definition_payload);
+    return result.rows.map((row) => this.mapDefinition(row));
   }
 
   async listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]> {
     const result = await this.executor.query<WorkflowDefinitionRow>(
-      `SELECT definition_payload FROM workflow_definitions
+      `SELECT definition_payload, is_active FROM workflow_definitions
        WHERE is_active=true ORDER BY workflow_id ASC, version ASC`,
     );
     return result.rows
-      .map((row) => row.definition_payload)
+      .map((row) => this.mapDefinition(row))
       .filter((definition) => definition.triggerEventTypes.includes(eventType));
   }
 
@@ -236,5 +252,10 @@ export class WorkflowRepositoryPostgres implements WorkflowRepository {
         input: row.input_payload,
       } satisfies WorkflowStepDefinition,
     };
+  }
+
+  /** Keeps activation lifecycle metadata outside the immutable definition payload. */
+  private mapDefinition(row: WorkflowDefinitionRow): WorkflowDefinition {
+    return { ...row.definition_payload, isActive: row.is_active };
   }
 }

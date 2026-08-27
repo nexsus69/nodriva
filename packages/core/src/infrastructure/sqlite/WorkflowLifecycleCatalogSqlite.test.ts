@@ -28,7 +28,7 @@ describe('SQLite workflow lifecycle catalogue', () => {
     ensureSqliteSchema(database);
     const repository = new WorkflowRepositorySqlite(database);
     await new WorkflowDefinitionService(repository).saveDefinition({
-      workflowId: 'node-created-contract', version: 1, isActive: true,
+      workflowId: 'node_created_contract', name: 'Nodo creato', version: 1, isActive: true,
       triggerEventTypes: ['record.created'],
       conditions: [{ path: 'subject.kind', operator: 'equals', value: 'node' }],
       steps: [{ stepId: 'record', actionType: 'audit.record', input: {} }],
@@ -39,7 +39,7 @@ describe('SQLite workflow lifecycle catalogue', () => {
         correlationId: 'session-1', idempotencyKey: 'record.created:node:node-1:1', payload: { rowVersion: 1 },
       }),
     );
-    expect(result).toEqual({ eventRecorded: true, plannedInstanceKeys: ['node-created-contract:1:record.created:node:node-1:1'] });
+    expect(result).toEqual({ eventRecorded: true, plannedInstanceKeys: ['node_created_contract:1:record.created:node:node-1:1'] });
     database.close();
   });
 });

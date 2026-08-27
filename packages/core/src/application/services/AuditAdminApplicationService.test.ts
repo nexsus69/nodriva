@@ -1,3 +1,4 @@
+/** Covers audit administration authorization and query delegation. */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuditAdminApplicationService } from './AuditAdminApplicationService.js';
 import type { AuditQueryPort } from '../ports/AuditQueryPort.js';
@@ -11,6 +12,7 @@ describe('AuditAdminApplicationService', () => {
 
   beforeEach(() => {
     mockAuditQueryPort = {
+      listFilterCatalog: vi.fn(),
       listAuditLogs: vi.fn(),
       getAuditLogById: vi.fn(),
     };
@@ -80,6 +82,12 @@ describe('AuditAdminApplicationService', () => {
 
     expect(res).toEqual(mockDetail);
     expect(mockAuditQueryPort.getAuditLogById).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001');
+  });
+
+  it('returns the same authorized filter catalogue used by the audit list', async () => {
+    vi.mocked(mockAuditQueryPort.listFilterCatalog).mockResolvedValue({ actionKeys: ['entity.update'], resourceKinds: ['entity'] });
+    await expect(service.getFilterCatalog('user1')).resolves.toEqual({ actionKeys: ['entity.update'], resourceKinds: ['entity'] });
+    expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('user1', 'audit.access', null);
   });
 
   it('should return null if audit log is not found', async () => {

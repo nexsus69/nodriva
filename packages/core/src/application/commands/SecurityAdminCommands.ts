@@ -1,7 +1,8 @@
+/** Validates administrative security mutations at the application boundary. */
 import { z } from 'zod';
 
 export const CreateRoleCommandSchema = z.object({
-  roleKey: z.string().min(2).max(100).regex(/^[a-z0-9_]+$/),
+  roleKey: z.string().min(2).max(100).regex(/^[a-z][a-z0-9_]*$/),
   name: z.string().min(2).max(150),
   description: z.string().max(500).optional(),
   permissionIds: z.array(z.string().uuid()).optional(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FormOption } from "./FormDefinition";
 
 /** Renders a keyboard-accessible select without relying on browser-native UI. */
@@ -12,6 +12,8 @@ export function CustomSelect({
   required = false,
   tone = "dark",
   placeholder = "Select a value",
+  searchable = false,
+  searchPlaceholder = "Search options",
   onChange,
 }: {
   id: string;
@@ -21,14 +23,25 @@ export function CustomSelect({
   required?: boolean;
   tone?: "dark" | "light";
   placeholder?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, options.findIndex((option) => option.value === value)));
+  const [query, setQuery] = useState("");
+  const visibleOptions = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    if (!normalizedQuery) return options;
+    return options.filter((option) => [option.label, option.description, option.value, ...(option.keywords ?? [])]
+      .filter((term): term is string => Boolean(term))
+      .some((term) => term.toLocaleLowerCase().includes(normalizedQuery)));
+  }, [options, query]);
+  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, visibleOptions.findIndex((option) => option.value === value)));
   const rootRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
   const selected = options.find((option) => option.value === value);
-  const selectedIndex = options.findIndex((option) => option.value === value);
+  const selectedVisibleIndex = visibleOptions.findIndex((option) => option.value === value);
+  const resolvedActiveIndex = Math.min(activeIndex, Math.max(0, visibleOptions.length - 1));
 
   useEffect(() => {
     if (!open) return undefined;
@@ -55,24 +68,24 @@ export function CustomSelect({
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       const direction = event.key === "ArrowDown" ? 1 : -1;
-      const start = open ? activeIndex : selectedIndex;
-      setActiveIndex(Math.max(0, Math.min(options.length - 1, start + direction)));
+      const start = open ? resolvedActiveIndex : selectedVisibleIndex;
+      setActiveIndex(Math.max(0, Math.min(visibleOptions.length - 1, start + direction)));
       setOpen(true);
       return;
     }
     if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
-      setActiveIndex(event.key === "Home" ? 0 : Math.max(0, options.length - 1));
+      setActiveIndex(event.key === "Home" ? 0 : Math.max(0, visibleOptions.length - 1));
       setOpen(true);
       return;
     }
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       if (!open) {
-        setActiveIndex(Math.max(0, selectedIndex));
+        setActiveIndex(Math.max(0, selectedVisibleIndex));
         setOpen(true);
-      } else if (options[activeIndex]) {
-        select(options[activeIndex].value);
+      } else if (visibleOptions[resolvedActiveIndex]) {
+        select(visibleOptions[resolvedActiveIndex].value);
       }
     }
   };
@@ -100,7 +113,7 @@ export function CustomSelect({
         aria-required={required}
         disabled={disabled}
         onClick={() => {
-          setActiveIndex(Math.max(0, selectedIndex));
+          setActiveIndex(Math.max(0, visibleOptions.findIndex((option) => option.value === value)));
           setOpen((current) => !current);
         }}
         onKeyDown={handleKeyDown}
@@ -127,6 +140,18 @@ export function CustomSelect({
           aria-labelledby={id}
           className={`absolute z-50 mt-1 max-h-60 w-full overflow-auto border p-1.5 text-sm shadow-xl shadow-slate-950/10 ${tone === "light" ? "border-slate-200 bg-white" : "border-slate-700 bg-slate-900"}`}
         >
+          {searchable && (
+            <li className={`sticky top-0 z-10 px-1 pb-1.5 ${tone === "light" ? "bg-white" : "bg-slate-900"}`}>
+              <input
+                autoFocus
+                type="search"
+                value={query}
+                placeholder={searchPlaceholder}
+                onChange={(event) => setQuery(event.target.value)}
+                className={`w-full rounded border px-2.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 ${tone === "light" ? "border-slate-200 bg-slate-50 text-slate-900" : "border-slate-700 bg-slate-800 text-slate-100"}`}
+              />
+            </li>
+          )}
           <li
             role="option"
             aria-selected={!value}
@@ -136,7 +161,7 @@ export function CustomSelect({
           >
             {placeholder}
           </li>
-          {options.map((option, index) => (
+          {visibleOptions.map((option, index) => (
             <li
               key={option.value}
               role="option"
@@ -144,11 +169,17 @@ export function CustomSelect({
               onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => select(option.value)}
-              className={`cursor-pointer px-3 py-2 ${index === activeIndex ? "bg-violet-50 font-medium text-violet-700" : tone === "light" ? "text-slate-800 hover:bg-slate-100" : "text-slate-100 hover:bg-slate-800"}`}
+              className={`cursor-pointer px-3 py-2 ${index === resolvedActiveIndex ? "bg-violet-50 font-medium text-violet-700" : tone === "light" ? "text-slate-800 hover:bg-slate-100" : "text-slate-100 hover:bg-slate-800"}`}
             >
-              {option.label}
+              <span className="block">{option.label}</span>
+              {option.description && <span className={`mt-0.5 block text-xs font-normal ${tone === "light" ? "text-slate-500" : "text-slate-400"}`}>{option.description}</span>}
             </li>
           ))}
+          {visibleOptions.length === 0 && (
+            <li className={`px-3 py-2 text-sm ${tone === "light" ? "text-slate-500" : "text-slate-400"}`}>
+              {searchPlaceholder}
+            </li>
+          )}
         </ul>
       )}
     </div>

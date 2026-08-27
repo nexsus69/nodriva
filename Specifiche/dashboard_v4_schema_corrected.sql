@@ -591,6 +591,7 @@ CREATE INDEX idx_locks_owner ON locks(user_id);
 CREATE INDEX idx_locks_expires_at ON locks(expires_at);
 
 CREATE INDEX idx_audit_logs_actor_user_id ON audit_logs(actor_user_id);
+CREATE INDEX idx_audit_logs_action_key ON audit_logs(action_key);
 CREATE INDEX idx_audit_logs_resource_kind_resource_id ON audit_logs(resource_kind, resource_id);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 

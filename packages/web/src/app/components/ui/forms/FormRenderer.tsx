@@ -65,6 +65,7 @@ const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
   required: "Required",
   pattern: "Valid format",
   selectPlaceholder: "Select a value",
+  searchOptions: "Search options",
   minLength: (count) => `At least ${count} characters`,
   maxLength: (count) => `At most ${count} characters`,
   email: "Valid email",
@@ -304,6 +305,8 @@ function FormField({
         disabled={field.disabled}
         tone={theme}
         placeholder={field.placeholder ?? validationMessages.selectPlaceholder}
+        searchable={field.searchable}
+        searchPlaceholder={validationMessages.searchOptions}
         onChange={onChange}
       />
     ) : field.type === "password" ? (

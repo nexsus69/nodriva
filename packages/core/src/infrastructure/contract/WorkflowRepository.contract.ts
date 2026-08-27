@@ -71,7 +71,10 @@ export function registerWorkflowRepositoryContract(
         isActive: false,
       })).resolves.toBe(true);
       await expect(fixture.repository.saveDefinition(matchingDefinition)).resolves.toBe(false);
-      await expect(fixture.repository.listActiveDefinitions(event.eventType)).resolves.toEqual([matchingDefinition]);
+      const versionTwo = { ...matchingDefinition, version: 2, steps: [{ stepId: 'notify_v2', actionType: 'notification.create', input: { channel: 'audit' } }] };
+      await expect(fixture.repository.saveDefinition(versionTwo)).resolves.toBe(true);
+      await expect(fixture.repository.findDefinition(matchingDefinition.workflowId, 1)).resolves.toEqual({ ...matchingDefinition, isActive: false });
+      await expect(fixture.repository.listActiveDefinitions(event.eventType)).resolves.toEqual([versionTwo]);
     });
 
     it('records an event and plan exactly once using their stable identifiers', async () => {

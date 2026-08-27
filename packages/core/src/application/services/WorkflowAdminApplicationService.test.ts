@@ -19,17 +19,23 @@ function service() {
 }
 
 describe('WorkflowAdminApplicationService', () => {
+  it('exposes only installed action types to authorized workflow administration', async () => {
+    const context = service();
+    await expect(context.app.listActionTypes('admin-1')).resolves.toEqual(['audit.record']);
+    expect(context.access.assertHasPermission).toHaveBeenCalledWith('admin-1', 'system.config.read', null);
+  });
+
   it('publishes a new immutable definition only with configuration permission and an audit trace', async () => {
     const context = service();
-    await context.app.publishDefinition('admin-1', { workflowId: 'record-history', version: 1, isActive: true, triggerEventTypes: ['record.created'], conditions: [], steps: [{ stepId: 'audit', actionType: 'audit.record', input: {} }] });
+    await context.app.publishDefinition('admin-1', { workflowId: 'record_history', name: 'Registra cronologia', version: 1, isActive: true, triggerEventTypes: ['record.created'], conditions: [], steps: [{ stepId: 'audit', actionType: 'audit.record', input: {} }] });
     expect(context.access.assertHasPermission).toHaveBeenCalledWith('admin-1', 'system.config', null);
-    expect(context.audit.record).toHaveBeenCalledWith('admin-1', 'workflow.publish_definition', 'workflow_definition', 'record-history@1', null, null, expect.objectContaining({ stepActionTypes: ['audit.record'] }));
+    expect(context.audit.record).toHaveBeenCalledWith('admin-1', 'workflow.publish_definition', 'workflow_definition', 'record_history@1', null, null, expect.objectContaining({ stepActionTypes: ['audit.record'] }));
   });
 
   it('rejects an action that is not installed before persisting a retrying workflow', async () => {
     const context = service();
     await expect(context.app.publishDefinition('admin-1', {
-      workflowId: 'external', version: 1, isActive: true, triggerEventTypes: ['record.created'], conditions: [],
+      workflowId: 'external', name: 'Azione esterna', version: 1, isActive: true, triggerEventTypes: ['record.created'], conditions: [],
       steps: [{ stepId: 'send', actionType: 'webhook.send', input: {} }],
     })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(context.repository.saveDefinition).not.toHaveBeenCalled();

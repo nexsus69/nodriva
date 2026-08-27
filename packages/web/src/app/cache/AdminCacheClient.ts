@@ -131,6 +131,7 @@ export class AdminCacheClient {
     this.write(['placement-policy'], () => systemActions.deletePlacementRuleAction(cmd));
 
   public listWorkflowEventTypes = () => this.read('workflow-event-types', workflowActions.listWorkflowEventTypesAction);
+  public listWorkflowActionTypes = () => this.read('workflow-action-types', workflowActions.listWorkflowActionTypesAction);
   public listWorkflowDefinitions = () => this.read('workflow-definitions', workflowActions.listWorkflowDefinitionsAction);
   public publishWorkflowDefinition = (definition: Parameters<typeof workflowActions.publishWorkflowDefinitionAction>[0]) =>
     this.write(['workflow-definitions'], () => workflowActions.publishWorkflowDefinitionAction(definition));
@@ -156,6 +157,7 @@ export class AdminCacheClient {
 
   public listAuditLogs = (filters: Parameters<typeof auditActions.listAuditLogsAction>[0]) =>
     this.read(`audit:${JSON.stringify(filters)}`, () => auditActions.listAuditLogsAction(filters));
+  public listAuditFilterCatalog = () => this.read('audit-filter-catalog', auditActions.listAuditFilterCatalogAction);
   public getAuditLogById = (id: string) => this.read(`audit-detail:${id}`, () => auditActions.getAuditLogByIdAction(id));
   public listTypeSchemaHistory = (kind: 'node' | 'entity', typeId: string) =>
     this.read(`type-schema-history:${kind}:${typeId}`, () => auditActions.listTypeSchemaHistoryAction(kind, typeId));
