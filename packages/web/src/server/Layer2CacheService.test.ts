@@ -253,7 +253,7 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     };
     vi.mocked(createEntityAction).mockResolvedValue({ success: true, data: entity });
     vi.mocked(updateEntityAction).mockResolvedValue({ success: true, data: { ...entity, name: 'Updated', rowVersion: 2 } });
-    vi.mocked(deleteEntityAction).mockResolvedValue({ success: true, data: undefined });
+    vi.mocked(deleteEntityAction).mockResolvedValue({ success: true, data: { deleted: true, parentNodeId: 'node-1', entityTypeId: 'task' } });
 
     await AppCache.createEntity({ parentNodeId: entity.parentNodeId, entityTypeId: entity.entityTypeId, name: entity.name });
     expect(GlobalViewStore.get('SUBTREE_LIST|baseNodeId:test-node-1')).toBeNull();

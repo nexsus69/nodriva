@@ -504,17 +504,19 @@ export class GlobalCacheClient {
     }
   }
 
-  public async deleteEntity(entityId: string, entityTypeKey: string, expectedRowVersion: number) {
+  public async deleteEntity(entityId: string, entityTypeKey?: string, expectedRowVersion?: number): Promise<{ parentNodeId: string; entityTypeId: string }> {
     const requestEpoch = this.getCacheEpoch();
     try {
       const result = await deleteEntityAction({ entityId, expectedRowVersion });
       if (!result.success) throw actionError(result.error);
-      if (this.getCacheEpoch() !== requestEpoch) return;
+      const deleted = result.data;
+      if (this.getCacheEpoch() !== requestEpoch) return deleted;
       // Aggiorna lo store
-      const cache = this.getEntityCache(entityTypeKey);
+      const cache = this.getEntityCache(entityTypeKey ?? deleted.entityTypeId);
       cache.remove(entityId);
-      GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey}`, id: entityId });
+      GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey ?? deleted.entityTypeId}`, id: entityId });
       this.invalidateEntityViews();
+      return deleted;
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -583,17 +585,19 @@ export class GlobalCacheClient {
   }
 
   /** Removes a deleted node from local records and invalidates every affected hierarchy projection. */
-  public async deleteNode(nodeId: string, expectedRowVersion: number): Promise<void> {
+  public async deleteNode(nodeId: string, expectedRowVersion?: number): Promise<{ parentNodeId: string | null }> {
     const requestEpoch = this.getCacheEpoch();
     try {
       const result = await deleteNodeAction({ nodeId, expectedRowVersion });
       if (!result.success) throw actionError(result.error);
-      if (this.getCacheEpoch() !== requestEpoch) return;
+      const deleted = result.data;
+      if (this.getCacheEpoch() !== requestEpoch) return deleted;
       this.nodes.remove(nodeId);
       GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
       this.invalidateNodeChildrenViews();
       this.invalidateNodeHierarchyViews();
       this.invalidateEntityViews();
+      return deleted;
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;

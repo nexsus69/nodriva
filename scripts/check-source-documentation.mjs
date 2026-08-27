@@ -22,11 +22,31 @@ function committedSourceCandidates() {
   }
 }
 
-const changedFiles = process.argv.slice(2).length > 0
-  ? process.argv.slice(2)
-  : committedSourceCandidates()
-    .split('\n')
-    .filter(Boolean);
+/**
+ * Returns every local source candidate so pre-push checks validate the work
+ * that will be committed, not the preceding commit already in history.
+ */
+function workingTreeSourceCandidates() {
+  const changed = execFileSync(
+    'git',
+    ['diff', '--name-only', '--diff-filter=AM', 'HEAD'],
+    { encoding: 'utf8' },
+  ).split('\n').filter(Boolean);
+  const untracked = execFileSync(
+    'git',
+    ['ls-files', '--others', '--exclude-standard'],
+    { encoding: 'utf8' },
+  ).split('\n').filter(Boolean);
+  return [...new Set([...changed, ...untracked])];
+}
+
+const explicitCandidates = process.argv.slice(2);
+const workingCandidates = workingTreeSourceCandidates();
+const changedFiles = explicitCandidates.length > 0
+  ? explicitCandidates
+  : workingCandidates.length > 0
+    ? workingCandidates
+    : committedSourceCandidates().split('\n').filter(Boolean);
 
 const missing = [];
 for (const file of changedFiles) {

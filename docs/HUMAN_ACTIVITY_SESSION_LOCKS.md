@@ -117,6 +117,13 @@ acquisisce un lock transitorio per la sessione, esegue restore e controllo
 possono così attraversare insieme il confine applicativo e un errore non lascia
 un lock amministrativo residuo.
 
+La stessa regola vale per la cancellazione richiamata dal menu di una risorsa:
+il client può fornire soltanto l'UUID. L'azione server rilegge il record,
+verifica il permesso di cancellazione, ricava la `rowVersion` corrente e, se il
+locking è abilitato e la sessione non possiede già il lock, lo acquisisce solo
+per la mutation. Il lock temporaneo viene rilasciato sia dopo il successo sia
+in caso di errore; un lock altrui continua invece a produrre un conflitto.
+
 ## Modifiche non salvate
 
 I form di creazione e modifica del workspace e del pannello amministrativo

@@ -56,12 +56,18 @@ export function resolveDeletionReturnContext(
 
 /** Builds a routed creation href that returns to the exact visible page, including its query state. */
 export function useNavigationHref(destination: string): string {
+  const origin = useCurrentInternalPath();
+  return useMemo(() => withReturnContext(destination, origin), [destination, origin]);
+}
+
+/** Returns the current validated route, including query state, for local workflow actions. */
+export function useCurrentInternalPath(): string {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? '';
   return useMemo(
-    () => withReturnContext(destination, `${pathname ?? '/'}${search ? `?${search}` : ''}`),
-    [destination, pathname, search],
+    () => toInternalPath(`${pathname ?? '/'}${search ? `?${search}` : ''}`) ?? '/',
+    [pathname, search],
   );
 }
 

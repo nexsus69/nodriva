@@ -196,26 +196,61 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
   });
 }
 
-export async function deleteNodeAction(input: Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+type DeleteNodeActionInput = Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId' | 'expectedRowVersion'> & {
+  /** Detail forms send their observed version; resource menus resolve it server-side. */
+  expectedRowVersion?: number;
+};
+
+export async function deleteNodeAction(input: DeleteNodeActionInput) {
   return nodeMutationResult(async () => {
-    const { nodeService, lockService, runtimeConfigPort } = await import('../../server/db');
+    const { accessControlPort, nodeService, lockService, runtimeConfigPort } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
-    const cmd: DeleteNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };
     const existing = await nodeService.getNodeById(input.nodeId, identity.userId);
-    await runWithRealtimeOutbox(
-      () => nodeService.deleteNode(cmd),
-      () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
-    );
-    await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId });
-    if (existing && await runtimeConfigPort.isCapabilityEnabled('locking')) {
-      try {
-        await lockService.unlock({ resourceType: 'node', resourceId: input.nodeId }, identity.userId, identity.sessionId, { scopeNodeId: existing.id });
-      } catch (error) {
-        // The deletion already succeeded; the lock TTL remains a safe fallback.
-        console.error('[NodeActions] Failed to release deleted node lock:', error);
+    if (!existing) throw new Error('Node not found.');
+
+    const reference = { resourceType: 'node' as const, resourceId: input.nodeId };
+    const lockingEnabled = await runtimeConfigPort.isCapabilityEnabled('locking');
+    let acquiredForDeletion = false;
+    try {
+      // Do not create a lock as a side effect for an actor who cannot delete.
+      await accessControlPort.assertHasPermission(identity.userId, 'node.delete', existing.id);
+      if (lockingEnabled) {
+        const lock = await lockService.isLocked(reference);
+        if (!lock.locked) {
+          await lockService.lock(reference, identity.userId, identity.sessionId, undefined, { scopeNodeId: existing.id });
+          acquiredForDeletion = true;
+        }
       }
+      const cmd: DeleteNodeCommand = {
+        nodeId: input.nodeId,
+        expectedRowVersion: input.expectedRowVersion ?? existing.rowVersion,
+        actorUserId: identity.userId,
+        actorSessionId: identity.sessionId,
+      };
+      await runWithRealtimeOutbox(
+        () => nodeService.deleteNode(cmd),
+        () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
+      );
+      await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId });
+      if (lockingEnabled) {
+        try {
+          await lockService.unlock(reference, identity.userId, identity.sessionId, { scopeNodeId: existing.id });
+        } catch (error) {
+          // The deletion already succeeded; the lock TTL remains a safe fallback.
+          console.error('[NodeActions] Failed to release deleted node lock:', error);
+        }
+      }
+      return { deleted: true, parentNodeId: existing.parentId };
+    } catch (error) {
+      if (acquiredForDeletion) {
+        try {
+          await lockService.unlock(reference, identity.userId, identity.sessionId, { scopeNodeId: existing.id });
+        } catch (unlockError) {
+          console.error('[NodeActions] Failed to release node lock after unsuccessful deletion:', unlockError);
+        }
+      }
+      throw error;
     }
-    return { deleted: true };
   });
 }
 

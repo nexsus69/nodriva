@@ -11,12 +11,15 @@ const mocks = vi.hoisted(() => ({
   moveNode: vi.fn(),
   deleteNode: vi.fn(),
   getNodeById: vi.fn(),
+  assertHasPermission: vi.fn(),
+  isLocked: vi.fn(),
+  lock: vi.fn(),
   unlock: vi.fn(),
   isCapabilityEnabled: vi.fn(),
 }));
 
 vi.mock('../../server/db', () => ({
-  accessControlPort: { assertCanReadNode: mocks.assertCanReadNode },
+  accessControlPort: { assertCanReadNode: mocks.assertCanReadNode, assertHasPermission: mocks.assertHasPermission },
   nodeService: {
     createNode: mocks.createNode,
     updateNode: mocks.updateNode,
@@ -24,7 +27,7 @@ vi.mock('../../server/db', () => ({
     deleteNode: mocks.deleteNode,
     getNodeById: mocks.getNodeById,
   },
-  lockService: { unlock: mocks.unlock },
+  lockService: { isLocked: mocks.isLocked, lock: mocks.lock, unlock: mocks.unlock },
   runtimeConfigPort: { isCapabilityEnabled: mocks.isCapabilityEnabled },
 }));
 
@@ -55,6 +58,9 @@ describe('checkNodeReadAccessAction', () => {
     mocks.moveNode.mockReset();
     mocks.deleteNode.mockReset();
     mocks.getNodeById.mockReset().mockResolvedValue(null);
+    mocks.assertHasPermission.mockReset().mockResolvedValue(undefined);
+    mocks.isLocked.mockReset().mockResolvedValue({ locked: false });
+    mocks.lock.mockReset().mockResolvedValue(undefined);
     mocks.unlock.mockReset();
     mocks.isCapabilityEnabled.mockReset().mockResolvedValue(false);
   });
@@ -88,6 +94,9 @@ describe('node mutation actions', () => {
     mocks.moveNode.mockReset();
     mocks.deleteNode.mockReset();
     mocks.getNodeById.mockReset().mockResolvedValue(null);
+    mocks.assertHasPermission.mockReset().mockResolvedValue(undefined);
+    mocks.isLocked.mockReset().mockResolvedValue({ locked: false });
+    mocks.lock.mockReset().mockResolvedValue(undefined);
     mocks.unlock.mockReset();
     mocks.isCapabilityEnabled.mockReset().mockResolvedValue(false);
   });
@@ -122,12 +131,12 @@ describe('node mutation actions', () => {
   });
 
   it('deletes a node through the safe action boundary and releases its owned lock', async () => {
-    mocks.getNodeById.mockResolvedValue({ id: 'node-1' });
+    mocks.getNodeById.mockResolvedValue({ id: 'node-1', parentId: null, rowVersion: 3 });
     mocks.deleteNode.mockResolvedValue(undefined);
     mocks.isCapabilityEnabled.mockResolvedValue(true);
 
     await expect(deleteNodeAction({ nodeId: 'node-1', expectedRowVersion: 3 }))
-      .resolves.toEqual({ success: true, data: { deleted: true } });
+      .resolves.toEqual({ success: true, data: { deleted: true, parentNodeId: null } });
 
     expect(mocks.deleteNode).toHaveBeenCalledWith(expect.objectContaining({
       actorUserId: 'actor-1', actorSessionId: 'session-1', nodeId: 'node-1', expectedRowVersion: 3,
@@ -138,6 +147,24 @@ describe('node mutation actions', () => {
       'session-1',
       { scopeNodeId: 'node-1' },
     );
+  });
+
+  it('resolves row version and transient lock server-side when a resource menu supplies only the UUID', async () => {
+    mocks.getNodeById.mockResolvedValue({ id: 'node-1', parentId: 'parent-1', rowVersion: 7 });
+    mocks.deleteNode.mockResolvedValue(undefined);
+    mocks.isCapabilityEnabled.mockResolvedValue(true);
+
+    await expect(deleteNodeAction({ nodeId: 'node-1' }))
+      .resolves.toEqual({ success: true, data: { deleted: true, parentNodeId: 'parent-1' } });
+
+    expect(mocks.lock).toHaveBeenCalledWith(
+      { resourceType: 'node', resourceId: 'node-1' },
+      'actor-1',
+      'session-1',
+      undefined,
+      { scopeNodeId: 'node-1' },
+    );
+    expect(mocks.deleteNode).toHaveBeenCalledWith(expect.objectContaining({ expectedRowVersion: 7 }));
   });
 
   it('keeps unexpected node mutation failures generic and safe for the client', async () => {

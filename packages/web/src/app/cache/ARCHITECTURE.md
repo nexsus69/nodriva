@@ -243,6 +243,11 @@ Dopo una delete confermata, l'indice inverso del `GlobalViewStore` individua e
 invalida immediatamente tutte le viste che referenziano il record. I token di
 membership invalidano inoltre le collezioni la cui composizione può essere
 cambiata anche quando il record non era nella finestra attualmente caricata.
+
+Le pagine di dettaglio passano la `rowVersion` già osservata. Il menu canonico
+può invece chiamare `AppCache.deleteEntity(entityId)`: l'azione server ricava
+la versione e il lock transitorio necessari senza affidare al browser i
+controlli di autorizzazione o concorrenza.
 Non sono ammessi descrittori orfani trattati silenziosamente come una lista
 valida.
 

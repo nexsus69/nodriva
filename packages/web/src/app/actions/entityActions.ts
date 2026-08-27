@@ -29,7 +29,8 @@ interface UpdateEntityActionInput {
 interface DeleteEntityActionInput {
   entityId?: string;
   id?: string;
-  expectedRowVersion: number;
+  /** Detail forms send their observed version; resource menus resolve it server-side. */
+  expectedRowVersion?: number;
 }
 
 type EntityMutationActionResult<T> =
@@ -129,7 +130,7 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
 
 export async function deleteEntityAction(input: DeleteEntityActionInput) {
   return entityMutationResult(async () => {
-  const { entityService, lockService, runtimeConfigPort } = await import('../../server/db');
+  const { accessControlPort, entityService, lockService, runtimeConfigPort } = await import('../../server/db');
   const entityId = input.entityId || input.id;
   if (!entityId) {
     throw new Error('entityId is required');
@@ -137,26 +138,50 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
   const identity = await AuthResolver.resolveActorIdentity();
   const actorUserId = identity.userId;
   const existing = await entityService.getEntityById(entityId, actorUserId);
-  const cmd = {
-    actorUserId,
-    actorSessionId: identity.sessionId,
-    entityId,
-    expectedRowVersion: input.expectedRowVersion,
-  };
-  await runWithRealtimeOutbox(
-    () => entityService.deleteEntity(cmd),
-    () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
-  );
-  await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId });
-
-  if (await runtimeConfigPort.isCapabilityEnabled('locking')) {
-    try {
-      await lockService.unlock({ resourceType: 'entity', resourceId: entityId }, actorUserId, identity.sessionId, { scopeNodeId: existing.parentNodeId });
-    } catch (error) {
-      // La cancellazione è già stata completata; il TTL del lock resta il
-      // fallback se il rilascio esplicito non riesce.
-      console.error('[EntityActions] Failed to release deleted entity lock:', error);
+  const reference = { resourceType: 'entity' as const, resourceId: entityId };
+  const lockingEnabled = await runtimeConfigPort.isCapabilityEnabled('locking');
+  let acquiredForDeletion = false;
+  try {
+    // Do not create a lock as a side effect for an actor who cannot delete.
+    await accessControlPort.assertCanDeleteEntity(actorUserId, existing.id);
+    if (lockingEnabled) {
+      const lock = await lockService.isLocked(reference);
+      if (!lock.locked) {
+        await lockService.lock(reference, actorUserId, identity.sessionId, undefined, { scopeNodeId: existing.parentNodeId });
+        acquiredForDeletion = true;
+      }
     }
+    const cmd = {
+      actorUserId,
+      actorSessionId: identity.sessionId,
+      entityId,
+      expectedRowVersion: input.expectedRowVersion ?? existing.rowVersion,
+    };
+    await runWithRealtimeOutbox(
+      () => entityService.deleteEntity(cmd),
+      () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
+    );
+    await publishAuditRealtimeChange({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId });
+
+    if (lockingEnabled) {
+      try {
+        await lockService.unlock(reference, actorUserId, identity.sessionId, { scopeNodeId: existing.parentNodeId });
+      } catch (error) {
+        // La cancellazione è già stata completata; il TTL del lock resta il
+        // fallback se il rilascio esplicito non riesce.
+        console.error('[EntityActions] Failed to release deleted entity lock:', error);
+      }
+    }
+    return { deleted: true, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId };
+  } catch (error) {
+    if (acquiredForDeletion) {
+      try {
+        await lockService.unlock(reference, actorUserId, identity.sessionId, { scopeNodeId: existing.parentNodeId });
+      } catch (unlockError) {
+        console.error('[EntityActions] Failed to release entity lock after unsuccessful deletion:', unlockError);
+      }
+    }
+    throw error;
   }
   });
 }

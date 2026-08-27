@@ -1,5 +1,6 @@
 'use client';
 
+/** Coordinates entity detail editing, soft deletion, locking, and safe return navigation. */
 import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
