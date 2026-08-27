@@ -35,8 +35,27 @@ export function resolveReturnContext(returnTo: string | null | undefined, fallba
   return toInternalPath(returnTo) ?? toInternalPath(fallback) ?? '/';
 }
 
+/**
+ * Resolves a post-deletion destination without returning to a route that was
+ * removed by the mutation. The fallback must identify the closest valid view.
+ */
+export function resolveDeletionReturnContext(
+  returnTo: string | null | undefined,
+  fallback: string,
+  deletedRoute: string,
+): string {
+  const resolved = resolveReturnContext(returnTo, fallback);
+  const deleted = toInternalPath(deletedRoute);
+  if (!deleted) return resolved;
+  const originPath = new URL(resolved, internalOrigin).pathname;
+  const deletedPath = new URL(deleted, internalOrigin).pathname;
+  return originPath === deletedPath || originPath.startsWith(`${deletedPath}/`)
+    ? resolveReturnContext(null, fallback)
+    : resolved;
+}
+
 /** Builds a routed creation href that returns to the exact visible page, including its query state. */
-export function useCreationHref(destination: string): string {
+export function useNavigationHref(destination: string): string {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? '';
@@ -46,9 +65,22 @@ export function useCreationHref(destination: string): string {
   );
 }
 
+/** Backward-compatible name for routed flows that create a resource. */
+export const useCreationHref = useNavigationHref;
+
 /** Reads the origin encoded by a routed flow while keeping direct-entry fallback explicit. */
 export function useReturnContext(fallback: string): string {
   const searchParams = useSearchParams();
   const returnTo = searchParams?.get(RETURN_TO_PARAMETER) ?? null;
   return useMemo(() => resolveReturnContext(returnTo, fallback), [fallback, returnTo]);
+}
+
+/** Reads a return origin while excluding the route hierarchy just deleted. */
+export function useDeletionReturnContext(fallback: string, deletedRoute: string): string {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams?.get(RETURN_TO_PARAMETER) ?? null;
+  return useMemo(
+    () => resolveDeletionReturnContext(returnTo, fallback, deletedRoute),
+    [deletedRoute, fallback, returnTo],
+  );
 }

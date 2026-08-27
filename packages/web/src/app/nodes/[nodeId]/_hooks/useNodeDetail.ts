@@ -1,6 +1,7 @@
 /** Coordinates node detail state, cache reads, lock state and user-driven mutations. */
 
 import { useEffect, useState, useTransition, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSemanticNodeList } from '../../../hooks/useSemanticNodeList';
 import { useSemanticEntityCollection } from '../../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
@@ -12,11 +13,14 @@ import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../navigation/unsavedChanges';
 import { resolveNodeAccess, type NodeAccessState } from './nodeAccessState';
+import { requestConfirmation } from '../../../components/ui/feedback/ConfirmDialogStore';
+import { useDeletionReturnContext } from '../../../navigation/returnContext';
 
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
 
 export function useNodeDetail(nodeId: string) {
+  const router = useRouter();
   const [nodeAccessResult, setNodeAccessResult] = useState<{ nodeId: string; state: NodeAccessState }>({ nodeId, state: 'checking' });
   const nodeAccess = nodeAccessResult.nodeId === nodeId ? nodeAccessResult.state : 'checking';
   const [nodeAccessAttempt, setNodeAccessAttempt] = useState(0);
@@ -35,6 +39,8 @@ export function useNodeDetail(nodeId: string) {
   const { entityTypes, nodeTypes } = useSemanticMetadata();
   const lock = useLock({ resourceType: 'node', resourceId: nodeId });
   const { data: currentNode, error: nodeError, isLoading: isLoadingNode } = useCacheNode(nodeId);
+  const deletionFallback = currentNode?.parentId ? `/nodes/${currentNode.parentId}` : '/';
+  const deletionReturnTo = useDeletionReturnContext(deletionFallback, `/nodes/${nodeId}`);
   const readOnly = !lock.isMyLock;
   const hasUnsavedChanges = Boolean(lock.isMyLock && currentNode && (
     nodeName !== currentNode.name
@@ -139,6 +145,32 @@ export function useNodeDetail(nodeId: string) {
     });
   };
 
+  const requestDeleteNode = async () => {
+    if (!currentNode) return;
+    const confirmed = await requestConfirmation({
+      title: 'Eliminare il nodo e il suo contenuto?',
+      description: 'Il nodo, tutti i sotto-nodi e le entità contenute verranno spostati nel cestino.',
+      confirmLabel: 'Elimina nodo',
+      cancelLabel: 'Annulla',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+    if (!lock.isMyLock && !(await beginNodeEditing())) return;
+
+    const nodeToDelete = currentNode;
+    startNodeUpdate(async () => {
+      try {
+        await AppCache.deleteNode(nodeToDelete.id, nodeToDelete.rowVersion);
+        navigationGuard.allowNavigation();
+        router.push(deletionReturnTo);
+      } catch (cause) {
+        setErrorMessage(cause instanceof Error
+          ? `Errore durante l'eliminazione del nodo: ${cause.message}`
+          : 'Errore durante l’eliminazione del nodo.');
+      }
+    });
+  };
+
   const displayedError = errorMessage
     ?? (childrenError ? `Errore nel caricamento del nodo: ${childrenError.message}`
       : entitiesError ? `Errore nel caricamento delle entità: ${entitiesError.message}` : null);
@@ -154,5 +186,6 @@ export function useNodeDetail(nodeId: string) {
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
     setDynamicNodePayload, setAttachmentsByField, setNodeName, setNodeDescription,
     beginNodeEditing, exitEditMode, handleUpdateNode,
+    requestDeleteNode,
   };
 }

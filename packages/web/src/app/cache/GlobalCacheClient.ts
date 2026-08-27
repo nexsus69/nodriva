@@ -1,6 +1,6 @@
 /** Coordinates browser-side canonical caches, view invalidation and mutations. */
 import { ClientNode, ClientEntity } from '../types/models';
-import { createNodeAction, updateNodeAction, moveNodeAction } from '../actions/nodeActions';
+import { createNodeAction, updateNodeAction, moveNodeAction, deleteNodeAction } from '../actions/nodeActions';
 import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
 import { GlobalViewStore, VIEW_DEPENDENCIES, type CacheRecordReference } from './ViewStore';
@@ -576,6 +576,24 @@ export class GlobalCacheClient {
         return clientNode;
       }
       return null;
+    } catch (err: unknown) {
+      this.handleFetchError(err);
+      throw err;
+    }
+  }
+
+  /** Removes a deleted node from local records and invalidates every affected hierarchy projection. */
+  public async deleteNode(nodeId: string, expectedRowVersion: number): Promise<void> {
+    const requestEpoch = this.getCacheEpoch();
+    try {
+      const result = await deleteNodeAction({ nodeId, expectedRowVersion });
+      if (!result.success) throw actionError(result.error);
+      if (this.getCacheEpoch() !== requestEpoch) return;
+      this.nodes.remove(nodeId);
+      GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
+      this.invalidateNodeChildrenViews();
+      this.invalidateNodeHierarchyViews();
+      this.invalidateEntityViews();
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;

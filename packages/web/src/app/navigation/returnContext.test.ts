@@ -1,6 +1,11 @@
 /** Covers safe, generic origin preservation for routed application flows. */
 import { describe, expect, it } from 'vitest';
-import { resolveReturnContext, toInternalPath, withReturnContext } from './returnContext';
+import {
+  resolveDeletionReturnContext,
+  resolveReturnContext,
+  toInternalPath,
+  withReturnContext,
+} from './returnContext';
 
 describe('return context', () => {
   it('preserves an internal origin and its query state', () => {
@@ -12,5 +17,14 @@ describe('return context', () => {
     expect(toInternalPath('https://example.test/steal')).toBeNull();
     expect(toInternalPath('//example.test/steal')).toBeNull();
     expect(resolveReturnContext('https://example.test/steal', '/nodes/root')).toBe('/nodes/root');
+  });
+
+  it('keeps a valid origin after deletion but never returns to the deleted route', () => {
+    expect(resolveDeletionReturnContext('/nodes/root?tab=children', '/nodes/root', '/nodes/child'))
+      .toBe('/nodes/root?tab=children');
+    expect(resolveDeletionReturnContext('/nodes/child', '/nodes/root', '/nodes/child'))
+      .toBe('/nodes/root');
+    expect(resolveDeletionReturnContext('/nodes/child/entities/record', '/nodes/root', '/nodes/child'))
+      .toBe('/nodes/root');
   });
 });

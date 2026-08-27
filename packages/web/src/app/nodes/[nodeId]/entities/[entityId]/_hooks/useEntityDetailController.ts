@@ -14,6 +14,7 @@ import { uploadDynamicAttachments, validateDynamicAttachments } from '../../../.
 import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 import { requestConfirmation } from '../../../../../components/ui/feedback/ConfirmDialogStore';
+import { useDeletionReturnContext } from '../../../../../navigation/returnContext';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -22,6 +23,10 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const detail = useSemanticEntityDetail(entityId, parentNodeId);
   const { entities: siblingEntities } = useSemanticEntityCollection(parentNodeId);
   const { entityTypes, entityTypesList } = useSemanticMetadata();
+  const deletionReturnTo = useDeletionReturnContext(
+    `/nodes/${parentNodeId}`,
+    `/nodes/${parentNodeId}/entities/${entityId}`,
+  );
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -95,7 +100,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         await AppCache.deleteEntity(entityId, detail.entity!.entityTypeId, detail.entity!.rowVersion);
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
-        router.push(`/nodes/${parentNodeId}`);
+        router.push(deletionReturnTo);
       } catch (reason) { setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’eliminazione.'); }
     });
   };
@@ -108,7 +113,9 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
       cancelLabel: 'Annulla',
       tone: 'danger',
     });
-    if (confirmed) confirmDelete();
+    if (!confirmed) return;
+    if (!lock.isMyLock && !(await beginEditing())) return;
+    confirmDelete();
   };
 
   return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, attachments, setAttachments, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };

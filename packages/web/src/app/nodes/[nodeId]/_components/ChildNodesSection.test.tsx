@@ -1,3 +1,4 @@
+/** Verifies that the child-node section keeps its loading boundary distinct from its empty state. */
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { ChildNodesSection } from './ChildNodesSection';

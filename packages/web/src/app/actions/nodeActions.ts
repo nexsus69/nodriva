@@ -198,14 +198,23 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
 
 export async function deleteNodeAction(input: Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId'>) {
   return nodeMutationResult(async () => {
-    const { nodeService } = await import('../../server/db');
+    const { nodeService, lockService, runtimeConfigPort } = await import('../../server/db');
     const identity = await AuthResolver.resolveActorIdentity();
     const cmd: DeleteNodeCommand = { ...input, actorUserId: identity.userId, actorSessionId: identity.sessionId };
+    const existing = await nodeService.getNodeById(input.nodeId, identity.userId);
     await runWithRealtimeOutbox(
       () => nodeService.deleteNode(cmd),
       () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
     );
     await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId });
+    if (existing && await runtimeConfigPort.isCapabilityEnabled('locking')) {
+      try {
+        await lockService.unlock({ resourceType: 'node', resourceId: input.nodeId }, identity.userId, identity.sessionId, { scopeNodeId: existing.id });
+      } catch (error) {
+        // The deletion already succeeded; the lock TTL remains a safe fallback.
+        console.error('[NodeActions] Failed to release deleted node lock:', error);
+      }
+    }
     return { deleted: true };
   });
 }

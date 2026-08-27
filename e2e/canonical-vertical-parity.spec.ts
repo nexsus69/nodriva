@@ -25,6 +25,7 @@ interface CanonicalOutcome {
   rowVersionConflictObserved: boolean;
   breadcrumbReloaded: boolean;
   entityRestored: boolean;
+  nodeDeletedViaMenu: boolean;
   auditActions: string[];
 }
 
@@ -181,16 +182,6 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await expect(page.getByText(names.operatorEmail, { exact: true })).toBeVisible();
 }
 
-async function ensureEditMode(page: Page): Promise<void> {
-  await waitForClientControls(page);
-  const editMode = page.getByText('Modalità modifica');
-  if (await editMode.isVisible()) return;
-  const editButton = page.getByRole('button', { name: 'Modifica', exact: true });
-  await expect(editButton).toBeEnabled();
-  await editButton.click();
-  await expect(editMode).toBeVisible();
-}
-
 async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames): Promise<string> {
   await page.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
   await expect(page.getByText('Modalità modifica')).toHaveCount(0);
@@ -213,8 +204,12 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
 }
 
 async function openChildCreationFromMenu(page: Page, childName: string, action: 'Nuovo sotto-nodo' | 'Nuova entità'): Promise<void> {
-  await page.getByRole('button', { name: `Azioni per ${childName}` }).click();
-  await page.getByRole('menuitem', { name: action }).click();
+  const trigger = page.getByRole('button', { name: `Azioni per ${childName}` });
+  await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  const menuItem = page.getByRole('menuitem', { name: action });
+  await expect(menuItem).toBeVisible();
+  await menuItem.click();
 }
 
 async function createEntity(page: Page, baseUrl: string, nodeId: string, names: ScenarioNames, entityName: string, relationName?: string, originNodeId = nodeId): Promise<string> {
@@ -387,12 +382,19 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     const concurrency = await exerciseConcurrency(firstOperatorPage, secondOperatorPage, firstEntityUrl);
 
     await firstOperatorPage.goto(secondEntityUrl);
-    await ensureEditMode(firstOperatorPage);
-    await firstOperatorPage.getByRole('button', { name: 'Elimina', exact: true }).click();
+    await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
+    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
     await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${childNodeId}`);
 
     const lifecycle = await restoreAndAudit(adminPage, baseUrl, names.secondEntityName);
+    await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
+    await firstOperatorPage.locator('h1').getByRole('button', { name: `Azioni per ${names.childName}` }).click();
+    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina nodo' }).click();
+    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina nodo' }).click();
+    await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+    await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
+
     return {
       outsideScopeDenied: true,
       childCreated: true,
@@ -404,6 +406,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       rowVersionConflictObserved: concurrency.rowVersion,
       breadcrumbReloaded: true,
       entityRestored: lifecycle.restored,
+      nodeDeletedViaMenu: true,
       auditActions: lifecycle.actions,
     };
   } finally {
@@ -435,6 +438,7 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       rowVersionConflictObserved: true,
       breadcrumbReloaded: true,
       entityRestored: true,
+      nodeDeletedViaMenu: true,
       auditActions: ['entity.create', 'entity.delete', 'entity.restore', 'entity.update', 'node.create'],
     });
   });

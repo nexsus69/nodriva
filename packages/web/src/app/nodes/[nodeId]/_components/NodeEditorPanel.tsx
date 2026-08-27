@@ -57,6 +57,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
                     nodeId={controller.currentNode.id}
                     nodeName={controller.currentNode.name}
                     onEdit={() => { void controller.beginNodeEditing(); }}
+                    onDelete={() => { void controller.requestDeleteNode(); }}
                   />
                 )}
               </h1>
@@ -107,6 +108,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             )}
             onSubmit={controller.handleUpdateNode}
             onCancel={() => { void controller.exitEditMode(); }}
+            destructiveAction={{ label: 'Elimina nodo', onClick: () => { void controller.requestDeleteNode(); } }}
             isPending={controller.isSavingNode}
             submitDisabled={!controller.nodeName.trim()}
             submitLabel="Salva modifiche"

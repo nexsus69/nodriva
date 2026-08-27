@@ -85,6 +85,7 @@ export function EntityDetailScreen() {
               entityName={entity.name}
               parentNodeId={nodeId}
               onEdit={() => void controller.beginEditing()}
+              onDelete={() => { void controller.requestDelete(); }}
               editDisabled={controller.lock.isMyLock}
             />
           </h1>

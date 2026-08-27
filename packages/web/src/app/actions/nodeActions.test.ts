@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   createNode: vi.fn(),
   updateNode: vi.fn(),
   moveNode: vi.fn(),
+  deleteNode: vi.fn(),
   getNodeById: vi.fn(),
+  unlock: vi.fn(),
+  isCapabilityEnabled: vi.fn(),
 }));
 
 vi.mock('../../server/db', () => ({
@@ -18,8 +21,11 @@ vi.mock('../../server/db', () => ({
     createNode: mocks.createNode,
     updateNode: mocks.updateNode,
     moveNode: mocks.moveNode,
+    deleteNode: mocks.deleteNode,
     getNodeById: mocks.getNodeById,
   },
+  lockService: { unlock: mocks.unlock },
+  runtimeConfigPort: { isCapabilityEnabled: mocks.isCapabilityEnabled },
 }));
 
 vi.mock('../../server/realtime', () => ({
@@ -37,7 +43,7 @@ vi.mock('./auth/AuthResolver', () => ({
   },
 }));
 
-import { checkNodeReadAccessAction, createNodeAction, moveNodeAction, updateNodeAction } from './nodeActions';
+import { checkNodeReadAccessAction, createNodeAction, deleteNodeAction, moveNodeAction, updateNodeAction } from './nodeActions';
 
 describe('checkNodeReadAccessAction', () => {
   beforeEach(() => {
@@ -47,7 +53,10 @@ describe('checkNodeReadAccessAction', () => {
     mocks.createNode.mockReset();
     mocks.updateNode.mockReset();
     mocks.moveNode.mockReset();
+    mocks.deleteNode.mockReset();
     mocks.getNodeById.mockReset().mockResolvedValue(null);
+    mocks.unlock.mockReset();
+    mocks.isCapabilityEnabled.mockReset().mockResolvedValue(false);
   });
 
   it('allows an authorized node read', async () => {
@@ -77,7 +86,10 @@ describe('node mutation actions', () => {
     mocks.createNode.mockReset();
     mocks.updateNode.mockReset();
     mocks.moveNode.mockReset();
+    mocks.deleteNode.mockReset();
     mocks.getNodeById.mockReset().mockResolvedValue(null);
+    mocks.unlock.mockReset();
+    mocks.isCapabilityEnabled.mockReset().mockResolvedValue(false);
   });
 
   it('returns a validation result instead of rejecting a node create form', async () => {
@@ -107,6 +119,25 @@ describe('node mutation actions', () => {
         success: false,
         error: { code: 'ROW_VERSION_MISMATCH', expectedRowVersion: 2, currentRowVersion: 3 },
       });
+  });
+
+  it('deletes a node through the safe action boundary and releases its owned lock', async () => {
+    mocks.getNodeById.mockResolvedValue({ id: 'node-1' });
+    mocks.deleteNode.mockResolvedValue(undefined);
+    mocks.isCapabilityEnabled.mockResolvedValue(true);
+
+    await expect(deleteNodeAction({ nodeId: 'node-1', expectedRowVersion: 3 }))
+      .resolves.toEqual({ success: true, data: { deleted: true } });
+
+    expect(mocks.deleteNode).toHaveBeenCalledWith(expect.objectContaining({
+      actorUserId: 'actor-1', actorSessionId: 'session-1', nodeId: 'node-1', expectedRowVersion: 3,
+    }));
+    expect(mocks.unlock).toHaveBeenCalledWith(
+      { resourceType: 'node', resourceId: 'node-1' },
+      'actor-1',
+      'session-1',
+      { scopeNodeId: 'node-1' },
+    );
   });
 
   it('keeps unexpected node mutation failures generic and safe for the client', async () => {
