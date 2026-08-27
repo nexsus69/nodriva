@@ -52,8 +52,12 @@ riconciliazione è passiva e non rinnova la sessione.
 ### Creazione
 
 ```text
-create -> data:changed(created) -> response
+authorize placement -> create -> data:changed(created) -> response
 ```
+
+La creazione non acquisisce il lock e non controlla la `rowVersion` del nodo
+contenitore: il riferimento al padre serve a verificare scope e autorizzazione,
+oltre a indirizzare invalidazione e notifica dell'elemento creato sotto di esso.
 
 ### Aggiornamento
 

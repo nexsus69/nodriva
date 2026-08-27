@@ -36,7 +36,6 @@ export interface CreateNodeInput {
   nodeTypeKey: string;
   name: string;
   description?: string;
-  expectedParentRowVersion?: number;
   payload?: Record<string, unknown>;
 }
 

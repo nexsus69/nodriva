@@ -35,11 +35,11 @@ export default function NodeDetailPage() {
 
   if (controller.nodeAccessDenied || controller.nodeAccess === 'denied') return <AccessDenied />;
   if (controller.nodeAccess === 'unavailable') return <NodeAccessUnavailable onRetry={controller.retryNodeAccess} />;
-  const readOnly = controller.readOnly || controller.nodeAccess !== 'allowed';
+  const canCreate = controller.nodeAccess === 'allowed';
 
   return (
     <PageShell>
-      <NodeWorkspaceNavigation nodeId={nodeId} readOnly={readOnly} />
+      <NodeWorkspaceNavigation nodeId={nodeId} canCreate={canCreate} />
       <NodeContextOverview nodeId={nodeId} controller={controller} />
       {controller.displayedError && <Alert tone="danger"><span className="font-bold">Errore:</span> {controller.displayedError}</Alert>}
       {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}
@@ -51,8 +51,8 @@ export default function NodeDetailPage() {
           resourceId={controller.currentNode.id}
         />
       )}
-      <NodeEntitiesSection nodeId={nodeId} controller={controller} />
-      <ChildNodesSection nodeId={nodeId} childNodes={controller.childNodes} loading={controller.isChildrenLoading} readOnly={readOnly} />
+      <NodeEntitiesSection nodeId={nodeId} canCreate={canCreate} controller={controller} />
+      <ChildNodesSection nodeId={nodeId} childNodes={controller.childNodes} loading={controller.isChildrenLoading} canCreate={canCreate} />
       <SubtreeEntitiesTableSection nodeId={nodeId} />
     </PageShell>
   );

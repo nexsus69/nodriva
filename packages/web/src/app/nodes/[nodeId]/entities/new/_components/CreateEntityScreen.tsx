@@ -3,7 +3,6 @@
 /** Builds an entity draft through the same metadata-driven form contract as nodes. */
 import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
-import { LockBadge } from '../../../../../components/LockBadge';
 import { Alert } from '../../../../../components/ui/feedback';
 import {
   EnumOptionModal,
@@ -43,10 +42,10 @@ export function CreateEntityScreen() {
   return (
     <PageShell className="max-w-xl">
       <Link
-        href={`/nodes/${nodeId}`}
+        href={controller.returnTo}
         className="text-xs font-mono text-slate-400 hover:text-slate-200"
       >
-        ← Torna al nodo padre
+        ← Torna alla pagina di origine
       </Link>
       <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
         <div>
@@ -60,13 +59,6 @@ export function CreateEntityScreen() {
             {controller.error}
           </Alert>
         )}
-        <LockBadge
-          lockedByOther={controller.lock.lockedByOther}
-          isMyLock={controller.lock.isMyLock}
-          acquireLock={controller.lock.acquireLock}
-          releaseLock={controller.lock.releaseLock}
-          error={controller.lock.error}
-        />
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
             type: { name: 'typeKey', label: 'Tipo Entità', options: typeOptions },
@@ -95,7 +87,7 @@ export function CreateEntityScreen() {
           onCancel={() => { void controller.cancel(); }}
           isPending={controller.isPending}
           submitDisabled={
-            !controller.name || !controller.typeKey || !controller.lock.isMyLock
+            !controller.name || !controller.typeKey
           }
           submitLabel="Crea Entità"
           pendingLabel="Creazione…"

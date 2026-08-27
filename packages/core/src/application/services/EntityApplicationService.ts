@@ -98,20 +98,10 @@ export class EntityApplicationService {
         validatedCmd.entityTypeKey
       );
 
-      // 5. Validazione del parent node (deve esistere e controlliamo la row version)
+      // 5. The parent authorizes and locates the entity; creation never locks or versions it.
       const parentNode = await this.nodeRepository.findById(validatedCmd.parentNodeId);
       if (!parentNode) {
         throw new NodeNotFoundError(validatedCmd.parentNodeId);
-      }
-
-      if (validatedCmd.expectedParentRowVersion !== undefined && parentNode.rowVersion !== validatedCmd.expectedParentRowVersion) {
-        throw new RowVersionMismatchError(validatedCmd.expectedParentRowVersion, parentNode.rowVersion);
-      }
-
-      // Concurrency locking check sul parent node
-      const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
-      if (isLockingEnabled) {
-        await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: parentNode.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
 
       // 6. Validazione del payload contro lo schema Zod dinamico

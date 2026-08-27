@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { OverflowMenu } from './Menu';
 import { useNavigationRequest } from '../../../navigation/NavigationBlocker';
+import { useCreationHref } from '../../../navigation/returnContext';
 
 function copyTechnicalId(id: string): void {
   void navigator.clipboard?.writeText(id);
@@ -18,6 +19,8 @@ export interface NodeResourceMenuProps {
 export function NodeResourceMenu({ nodeId, nodeName, onEdit }: NodeResourceMenuProps) {
   const router = useRouter();
   const requestNavigation = useNavigationRequest();
+  const createChildHref = useCreationHref(`/nodes/${nodeId}/new`);
+  const createEntityHref = useCreationHref(`/nodes/${nodeId}/entities/new`);
   const navigate = (href: string) => {
     void requestNavigation(() => router.push(href));
   };
@@ -28,8 +31,8 @@ export function NodeResourceMenu({ nodeId, nodeName, onEdit }: NodeResourceMenuP
       items={[
         { id: 'open', label: 'Apri nodo', onSelect: () => navigate(`/nodes/${nodeId}`) },
         { id: 'edit', label: 'Modifica nodo', onSelect: onEdit ?? (() => navigate(`/nodes/${nodeId}`)) },
-        { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => navigate(`/nodes/${nodeId}/new`) },
-        { id: 'new-entity', label: 'Nuova entità', onSelect: () => navigate(`/nodes/${nodeId}/entities/new`) },
+        { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => navigate(createChildHref) },
+        { id: 'new-entity', label: 'Nuova entità', onSelect: () => navigate(createEntityHref) },
         { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => copyTechnicalId(nodeId) },
       ]}
     />

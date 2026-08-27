@@ -13,7 +13,6 @@ interface CreateEntityActionInput {
   description?: string;
   payload?: Record<string, unknown>;
   payloadDelta?: Record<string, unknown>;
-  expectedParentRowVersion?: number;
 }
 
 interface UpdateEntityActionInput {
@@ -66,7 +65,6 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     name: input.name,
     description: input.description,
     payload: input.payload || input.payloadDelta || {},
-    expectedParentRowVersion: input.expectedParentRowVersion,
   };
   const e = await runWithRealtimeOutbox(
     () => entityService.createEntity(cmd),

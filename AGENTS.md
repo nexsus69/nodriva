@@ -66,7 +66,9 @@ Procedere in questo ordine, salvo richiesta esplicita diversa:
    (completato: preservare catalogo condiviso, idempotenza e test contract);
 5. completare lo scenario E2E della verticale canonica sui profili supportati
    (completato: mantenere verdi `e2e:canonical` ed `e2e:parity`);
-6. rifattorizzare con test `ActivityProvider` e poi `VirtualGroupedTable`;
+6. rifattorizzare con test `ActivityProvider` e poi `VirtualGroupedTable`
+   (completato: preservare i test granulari su controller, lifecycle browser,
+   sentinel, ancoraggio, grouping, selezione e rendering);
 7. intervenire su `NodeTree` solo con una motivazione concreta e test di
    espansione, selezione, caricamento e realtime;
 8. consolidare migrazioni, backup/restore, healthcheck e osservabilità.

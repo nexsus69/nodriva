@@ -1,19 +1,21 @@
 'use client';
 
+/** Owns a child-node creation draft without acquiring a lock on its containing node. */
 import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
-import { useLock } from '../../../../hooks/useLock';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import type { DynamicField } from '../../../../components/ui/forms';
 import { coerceDynamicPayload, initializeDynamicPayload, uploadDynamicAttachments, validateDynamicAttachments } from '../../../../components/ui/forms/dynamicResourceForm';
 import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../navigation/unsavedChanges';
+import { useReturnContext } from '../../../../navigation/returnContext';
 
 export function useCreateChildNode(parentNodeId: string) {
   const router = useRouter();
+  const returnTo = useReturnContext(`/nodes/${parentNodeId}`);
   const { nodeTypesList } = useSemanticMetadata();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState('');
@@ -28,14 +30,11 @@ export function useCreateChildNode(parentNodeId: string) {
   const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
   const [hasCreatedResource, setHasCreatedResource] = useState(false);
   const submitting = useRef(false);
-  const lock = useLock({ resourceType: 'node', resourceId: parentNodeId });
-  const { acquireLock } = lock;
   const navigationGuard = useUnsavedChanges(
     name !== '' || description !== '' || !areFormValuesEqual(payload, initialPayload)
       || hasSelectedFiles(attachments) || hasCreatedResource,
   );
 
-  useEffect(() => { const timer = window.setTimeout(() => void acquireLock(), 0); return () => window.clearTimeout(timer); }, [acquireLock]);
   useEffect(() => {
     const selectedType = typeKey || nodeTypesList[0]?.typeKey;
     if (!selectedType) return;
@@ -64,7 +63,7 @@ export function useCreateChildNode(parentNodeId: string) {
         await uploadDynamicAttachments('node', resourceId, fields, attachments);
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
-        router.push(`/nodes/${parentNodeId}`);
+        router.push(returnTo);
       } catch (reason) {
         submitting.current = false;
         setError(reason instanceof Error ? reason.message : 'Errore nella creazione del nodo.');
@@ -80,8 +79,8 @@ export function useCreateChildNode(parentNodeId: string) {
   const cancel = async () => {
     if (!(await navigationGuard.confirmDiscard())) return;
     navigationGuard.allowNavigation();
-    router.push(`/nodes/${parentNodeId}`);
+    router.push(returnTo);
   };
 
-  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, lock, submit, addEnumOption, cancel };
+  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
 }

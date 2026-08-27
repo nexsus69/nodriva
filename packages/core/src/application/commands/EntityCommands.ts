@@ -1,3 +1,4 @@
+/** Validates entity lifecycle commands without requiring concurrency ownership of their container. */
 import { z } from 'zod';
 
 export const CreateEntityCommandSchema = z.object({
@@ -8,7 +9,6 @@ export const CreateEntityCommandSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional(),
   payload: z.record(z.unknown()),
-  expectedParentRowVersion: z.number().int().positive().optional(),
 });
 
 export type CreateEntityCommand = z.infer<typeof CreateEntityCommandSchema>;

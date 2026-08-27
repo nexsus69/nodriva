@@ -21,7 +21,6 @@ import {
   EntitySchemaValidationError,
   EntityCommandValidationError,
 } from '../../domain/errors/EntityErrors.js';
-import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { EntityType } from '../../domain/models/EntityType.js';
 import { Entity } from '../../domain/models/Entity.js';
 import { Node } from '../../domain/models/Node.js';
@@ -183,11 +182,7 @@ describe('EntityApplicationService', () => {
       expect(mockEntityRepository.create).toHaveBeenCalledWith(entity);
       expect(mockRevisionPort.recordEntityRevision).toHaveBeenCalledWith(entity, 'created', cmd.actorUserId);
       expect(mockAuditPort.record).toHaveBeenCalled();
-      expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        { resourceType: 'node', resourceId: 'parent-uuid' },
-        cmd.actorUserId,
-        cmd.actorSessionId
-      );
+      expect(mockLockService.requireOwnedLock).not.toHaveBeenCalled();
       expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledWith(expect.objectContaining({
         eventType: 'record.created',
         subject: { kind: 'entity', id: entity.id, typeKey: 'device', scopeId: entity.parentNodeId },
@@ -242,21 +237,22 @@ describe('EntityApplicationService', () => {
       await expect(service.createEntity(cmd)).rejects.toThrow(EntityTypeNotFoundError);
     });
 
-    it('should fail if parent node rowVersion mismatches', async () => {
+    it('creates under a parent without requiring its lock or rowVersion', async () => {
+      vi.mocked(mockLockService.requireOwnedLock).mockRejectedValue(new Error('The parent is locked by another session.'));
       const cmd: CreateEntityCommand = {
         actorUserId: '00000000-0000-0000-0000-000000000000',
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         parentNodeId: '00000000-0000-0000-0000-000000000001',
         entityTypeKey: 'device',
         name: 'Oscilloscope',
-        expectedParentRowVersion: 99, // Mismatches mocked version 1
         payload: {
           serialNumber: 'OSC-123',
           voltage: 220,
         },
       };
 
-      await expect(service.createEntity(cmd)).rejects.toThrow(RowVersionMismatchError);
+      await expect(service.createEntity(cmd)).resolves.toBeInstanceOf(Entity);
+      expect(mockLockService.requireOwnedLock).not.toHaveBeenCalled();
     });
   });
 

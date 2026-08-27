@@ -3,6 +3,11 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
+const MENU_GAP = 8;
+const VIEWPORT_GUTTER = 8;
+const ESTIMATED_ITEM_HEIGHT = 40;
+const MENU_VERTICAL_PADDING = 12;
+
 export interface MenuItem {
   id: string;
   label: ReactNode;
@@ -19,19 +24,40 @@ export interface ActionMenuProps {
   className?: string;
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+  opensUpward: boolean;
+}
+
 /** Small accessible action menu. The caller owns the actions and navigation. */
 export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align = 'right', className = '' }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0, opensUpward: false });
   const rootRef = useRef<HTMLSpanElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const itemCount = items.length;
 
   useEffect(() => {
     if (!open) return;
     const updatePosition = () => {
       const rect = rootRef.current?.getBoundingClientRect();
       if (!rect) return;
-      setMenuPosition({ top: rect.bottom + 8, left: align === 'right' ? rect.right : align === 'center' ? rect.left + rect.width / 2 : rect.left });
+      const estimatedHeight = Math.min(
+        itemCount * ESTIMATED_ITEM_HEIGHT + MENU_VERTICAL_PADDING,
+        window.innerHeight - VIEWPORT_GUTTER * 2,
+      );
+      const canOpenBelow = rect.bottom + MENU_GAP + estimatedHeight <= window.innerHeight - VIEWPORT_GUTTER;
+      const canOpenAbove = rect.top - MENU_GAP - estimatedHeight >= VIEWPORT_GUTTER;
+      const opensUpward = !canOpenBelow && canOpenAbove;
+
+      setMenuPosition({
+        top: opensUpward
+          ? rect.top - MENU_GAP
+          : Math.min(rect.bottom + MENU_GAP, window.innerHeight - VIEWPORT_GUTTER),
+        left: align === 'right' ? rect.right : align === 'center' ? rect.left + rect.width / 2 : rect.left,
+        opensUpward,
+      });
     };
     updatePosition();
     window.addEventListener('resize', updatePosition);
@@ -40,7 +66,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [align, open]);
+  }, [align, itemCount, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,9 +108,12 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
           style={{
             top: menuPosition.top,
             left: menuPosition.left,
-            transform: align === 'right' ? 'translateX(-100%)' : align === 'center' ? 'translateX(-50%)' : undefined,
+            transform: [
+              align === 'right' ? 'translateX(-100%)' : align === 'center' ? 'translateX(-50%)' : undefined,
+              menuPosition.opensUpward ? 'translateY(-100%)' : undefined,
+            ].filter(Boolean).join(' ') || undefined,
           } as CSSProperties}
-          className="fixed z-[100] min-w-44 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
+          className="fixed z-[100] max-h-[calc(100vh-1rem)] min-w-44 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 text-left shadow-xl"
         >
           {items.map((item) => (
             <button

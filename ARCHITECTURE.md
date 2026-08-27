@@ -217,6 +217,14 @@ hooks in route files. Dynamic node/entity forms share coercion, initialization,
 attachment validation and upload helpers instead of duplicating those rules in
 each route.
 
+Routed creation flows keep the navigation origin separate from the relationship
+used to create data. They use the shared, validated internal return-context
+contract: after save or cancellation the user returns to the page from which
+the form was opened, never implicitly to a parent/container record. The rule
+applies to every routed creation flow, regardless of domain; a direct URL uses
+an explicit local fallback. Return targets are internal paths validated before
+client navigation, so they cannot become an open redirect.
+
 ### Type administration and DDL
 
 Administrative metadata management and physical storage DDL are distinct responsibilities. They may be orchestrated together by the application layer, but repository write-side logic and DDL generation must remain separated by ports.[cite:26][cite:13]

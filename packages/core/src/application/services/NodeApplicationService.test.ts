@@ -165,7 +165,7 @@ describe('NodeApplicationService', () => {
       await expect(service.createNode(cmd)).rejects.toThrow(ValidationError);
     });
 
-    it('requires the parent node lock when creating a child', async () => {
+    it('creates a child without locking or versioning its parent', async () => {
       const parent = new Node(
         '00000000-0000-0000-0000-000000000001',
         null,
@@ -192,11 +192,8 @@ describe('NodeApplicationService', () => {
         name: 'Child',
       });
 
-      expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
-        { resourceType: 'node', resourceId: parent.id },
-        '00000000-0000-0000-0000-000000000000',
-        '00000000-0000-7000-8000-000000000001'
-      );
+      expect(mockLockService.requireOwnedLock).not.toHaveBeenCalled();
+      expect(mockRuntimeConfigPort.isCapabilityEnabled).not.toHaveBeenCalledWith('locking');
     });
 
     it('should fail if runtime capability is disabled', async () => {

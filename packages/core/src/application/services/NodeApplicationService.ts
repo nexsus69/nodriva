@@ -78,23 +78,12 @@ export class NodeApplicationService {
         validatedCmd.nodeTypeKey
       );
 
-      // 5. Caricamento del parent reale e controlli concorrenza/lock
+      // 5. The parent supplies placement only: creation never mutates or locks it.
       let parentNode: Node | null = null;
       if (validatedCmd.parentNodeId) {
         parentNode = await this.nodeRepository.findById(validatedCmd.parentNodeId);
         if (!parentNode) {
           throw new NodeNotFoundError(validatedCmd.parentNodeId);
-        }
-
-        // Optimistic concurrency check
-        if (validatedCmd.expectedParentRowVersion !== undefined && parentNode.rowVersion !== validatedCmd.expectedParentRowVersion) {
-          throw new RowVersionMismatchError(validatedCmd.expectedParentRowVersion, parentNode.rowVersion);
-        }
-
-        // Concurrency locking check basato su runtime capability ed eseguito esplicitamente sul parent
-        const isLockingEnabled = await this.runtimeConfigPort.isCapabilityEnabled('locking');
-        if (isLockingEnabled) {
-          await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: parentNode.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
         }
       }
 

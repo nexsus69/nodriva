@@ -193,9 +193,8 @@ async function ensureEditMode(page: Page): Promise<void> {
 
 async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames): Promise<string> {
   await page.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
-  await ensureEditMode(page);
+  await expect(page.getByText('Modalità modifica')).toHaveCount(0);
   await page.getByRole('link', { name: /Sotto-Nodo/ }).first().click();
-  await expect(page.getByText('Modalità modifica')).toBeVisible();
   await selectApplicationOption(
     page,
     'Tipo Nodo *',
@@ -204,6 +203,8 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
   await page.getByLabel('Nome Nodo *').fill(names.childName);
   await page.getByRole('button', { name: 'Crea Sotto-Nodo' }).click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+  await expect(page.getByText('Modalità modifica')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toBeEnabled();
   const childLink = page.getByRole('link', { name: names.childName, exact: true }).first();
   await expect(childLink).toBeVisible();
   const href = await childLink.getAttribute('href');
@@ -211,11 +212,19 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
   return href.split('/').at(-1)!;
 }
 
-async function createEntity(page: Page, baseUrl: string, nodeId: string, names: ScenarioNames, entityName: string, relationName?: string): Promise<string> {
-  await page.goto(`${baseUrl}/nodes/${nodeId}`);
-  await ensureEditMode(page);
-  await page.getByRole('link', { name: /Nuova Entità/i }).first().click();
-  await expect(page.getByText('Modalità modifica')).toBeVisible();
+async function openChildCreationFromMenu(page: Page, childName: string, action: 'Nuovo sotto-nodo' | 'Nuova entità'): Promise<void> {
+  await page.getByRole('button', { name: `Azioni per ${childName}` }).click();
+  await page.getByRole('menuitem', { name: action }).click();
+}
+
+async function createEntity(page: Page, baseUrl: string, nodeId: string, names: ScenarioNames, entityName: string, relationName?: string, originNodeId = nodeId): Promise<string> {
+  await page.goto(`${baseUrl}/nodes/${originNodeId}`);
+  await expect(page.getByText('Modalità modifica')).toHaveCount(0);
+  if (originNodeId === nodeId) {
+    await page.getByRole('link', { name: /Nuova Entità/i }).first().click();
+  } else {
+    await openChildCreationFromMenu(page, names.childName, 'Nuova entità');
+  }
   await selectApplicationOption(
     page,
     'Tipo Entità *',
@@ -232,7 +241,13 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   const createButton = page.getByRole('button', { name: 'Crea Entità' });
   await expect(createButton).toBeEnabled();
   await createButton.click();
-  await expect(page).toHaveURL(`${baseUrl}/nodes/${nodeId}`);
+  await expect(page).toHaveURL(`${baseUrl}/nodes/${originNodeId}`);
+  await expect(page.getByText('Modalità modifica')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toBeEnabled();
+  if (originNodeId !== nodeId) {
+    await page.goto(`${baseUrl}/nodes/${nodeId}`);
+    await expect(page.getByText('Modalità modifica')).toHaveCount(0);
+  }
   const entityLink = page.getByRole('link', { name: entityName, exact: true }).first();
   await expect(entityLink).toBeVisible();
   const href = await entityLink.getAttribute('href');
@@ -345,7 +360,12 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(nodeBreadcrumb).toContainText(names.childName);
     await expect(nodeBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
 
-    const firstEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName);
+    await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+    await openChildCreationFromMenu(firstOperatorPage, names.childName, 'Nuovo sotto-nodo');
+    await firstOperatorPage.getByRole('button', { name: 'Annulla' }).click();
+    await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+
+    const firstEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName, undefined, ROOT_NODE_ID);
     const secondEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.secondEntityName, names.firstEntityName);
     await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.thirdEntityName, names.firstEntityName);
 

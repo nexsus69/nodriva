@@ -1,3 +1,4 @@
+/** Validates node lifecycle commands without treating containment as a mutable parent record. */
 import { z } from 'zod';
 
 export const CreateNodeCommandSchema = z.object({
@@ -8,7 +9,6 @@ export const CreateNodeCommandSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().optional(),
   payload: z.record(z.unknown()).optional(),
-  expectedParentRowVersion: z.number().int().positive().optional(),
 });
 
 export type CreateNodeCommand = z.infer<typeof CreateNodeCommandSchema>;

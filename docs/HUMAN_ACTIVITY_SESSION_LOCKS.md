@@ -101,6 +101,15 @@ di eliminare la sessione. La foreign key
 per revoche, errori o percorsi amministrativi. Alla scadenza per inattività, il
 TTL più breve del lock resta invece il meccanismo normale di sicurezza.
 
+Un lock protegge esclusivamente la risorsa esistente che viene modificata. La
+creazione di un'entità o di un sottonodo non acquisisce, verifica né rinnova un
+lock del nodo contenitore e non richiede la sua `rowVersion`: il
+`parentNodeId` è un riferimento di collocazione e autorizzazione, non un record
+modificato. Più sessioni autorizzate possono quindi creare elementi nello stesso
+contenitore contemporaneamente. Le autorizzazioni sul contenitore, la
+transazione della nuova risorsa, audit e la relativa notifica realtime restano
+sempre obbligatori.
+
 Il ripristino dal cestino è una mutation protetta ma non parte da una pagina di
 modifica. L'azione server verifica quindi il permesso sul record eliminato,
 acquisisce un lock transitorio per la sessione, esegue restore e controllo

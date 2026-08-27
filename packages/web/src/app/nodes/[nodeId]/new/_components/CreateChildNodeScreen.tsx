@@ -3,7 +3,6 @@
 /** Builds a child-node draft through the shared resource form lifecycle. */
 import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
-import { LockBadge } from '../../../../components/LockBadge';
 import { Alert } from '../../../../components/ui/feedback';
 import {
   EnumOptionModal,
@@ -42,10 +41,10 @@ export function CreateChildNodeScreen() {
   return (
     <PageShell className="max-w-xl">
       <Link
-        href={`/nodes/${nodeId}`}
+        href={controller.returnTo}
         className="text-xs font-mono text-slate-400 hover:text-slate-200"
       >
-        ← Torna al nodo padre
+        ← Torna alla pagina di origine
       </Link>
       <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
         <div>
@@ -59,13 +58,6 @@ export function CreateChildNodeScreen() {
             {controller.error}
           </Alert>
         )}
-        <LockBadge
-          lockedByOther={controller.lock.lockedByOther}
-          isMyLock={controller.lock.isMyLock}
-          acquireLock={controller.lock.acquireLock}
-          releaseLock={controller.lock.releaseLock}
-          error={controller.lock.error}
-        />
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
             type: { name: 'typeKey', label: 'Tipo Nodo', options: typeOptions },
@@ -93,7 +85,7 @@ export function CreateChildNodeScreen() {
           onSubmit={controller.submit}
           onCancel={() => { void controller.cancel(); }}
           isPending={controller.isPending}
-          submitDisabled={!controller.name || !controller.lock.isMyLock}
+          submitDisabled={!controller.name}
           submitLabel="Crea Sotto-Nodo"
           pendingLabel="Creazione…"
           cancelLabel="Annulla"
