@@ -1,3 +1,4 @@
+/** Provides idempotent system roles, permissions, runtime settings, and capabilities. */
 import crypto from 'node:crypto';
 
 export const BOOTSTRAP_ADMIN_ID = '00000000-0000-0000-0000-000000000001';
@@ -55,6 +56,11 @@ export const SYSTEM_SETTINGS = [
     key: 'data.fieldsEncryptionEnabled', category: 'security', displayName: 'Global field encryption',
     description: 'Allow explicit field encryption when global field encryption is enabled.',
     valueType: 'boolean', valueText: 'false',
+  },
+  {
+    key: 'audit.recordLockLifecycle', category: 'governance', displayName: 'Record ordinary lock activity',
+    description: 'Record lock acquisition and ordinary release events. Lock conflicts and administrative releases remain audited.',
+    valueType: 'boolean', valueText: 'true',
   },
 ] as const;
 

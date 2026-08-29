@@ -36,7 +36,8 @@ rifiutare comunque ogni mutation non autorizzata.
 5. Rilasciare il lock e ripetere: la mutation deve riuscire solo con una
    `rowVersion` aggiornata.
 6. Controllare gli eventi `lock.acquire`, `lock.conflict` e `lock.release` nel
-   registro audit.
+   registro audit, se la registrazione dell'attività ordinaria dei lock è
+   abilitata. I conflitti e i rilasci amministrativi restano sempre tracciati.
 
 I test automatici del core coprono ownership, conflitto, audit e routing dei
 canali amministrativi; i test browser devono essere eseguiti con sessioni
@@ -45,3 +46,7 @@ sezioni amministrative e le mutation principali producano lo stesso esito sui
 profili SQLite e PostgreSQL. `pnpm e2e:canonical` verifica inoltre la contesa
 reale fra due sessioni dello stesso utente su un'entità e il successivo rifiuto
 di una `rowVersion` obsoleta.
+
+La policy centrale decide quali eventi audit vengono conservati senza cambiare
+la semantica del lock né il realtime; il contratto completo è in
+[`AUDIT_RECORDING_POLICY.md`](AUDIT_RECORDING_POLICY.md).

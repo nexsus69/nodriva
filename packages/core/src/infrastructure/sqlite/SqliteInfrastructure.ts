@@ -110,6 +110,9 @@ export class SqliteInfrastructure {
     this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort);
     this.realtimeScopeResolver = new RealtimeScopeResolverSqlite(this.nodeRepository);
     this.systemSeedService = new SystemSeedSqlite(this.database, process.env.SEED_ADMIN_PASSWORD, process.env.SEED_ADMIN_EMAIL);
+    // SQLite has no migration runner: catalogue additions are idempotent and
+    // must be available to an already initialized standalone database too.
+    this.systemSeedService.ensureRuntimeSettings();
     if (process.env.SEED_ADMIN_PASSWORD && !this.database.get("SELECT 1 FROM permissions WHERE permission_key='node.create'")) {
       // SystemSeedSqlite performs synchronous SQLite work before returning its
       // resolved Promise, so the composition root is ready when construction ends.

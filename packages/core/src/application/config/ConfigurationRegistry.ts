@@ -1,3 +1,4 @@
+/** Defines typed runtime, deployment, secret, and derived configuration contracts. */
 export type ConfigurationSource = 'runtime' | 'deployment' | 'secret' | 'derived';
 export type ConfigurationValueType = 'integer' | 'decimal' | 'boolean' | 'string' | 'json';
 
@@ -79,9 +80,21 @@ export const fieldEncryptionEnabledDefinition: ConfigurationDefinition<boolean> 
   },
 };
 
+export const auditLockLifecycleDefinition: ConfigurationDefinition<boolean> = {
+  key: 'audit.recordLockLifecycle',
+  type: 'boolean',
+  defaultValue: true,
+  source: 'runtime',
+  clientVisible: false,
+  validate: (value) => {
+    if (typeof value !== 'boolean') throw new Error('Lock lifecycle audit setting must be boolean.');
+  },
+};
+
 export const defaultConfigurationRegistry = new ConfigurationRegistry([
   sessionIdleTimeoutDefinition,
   attachmentAntivirusEnabledDefinition,
   attachmentEncryptionEnabledDefinition,
   fieldEncryptionEnabledDefinition,
+  auditLockLifecycleDefinition,
 ]);

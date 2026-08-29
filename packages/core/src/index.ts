@@ -30,7 +30,19 @@ export {
   attachmentAntivirusEnabledDefinition,
   attachmentEncryptionEnabledDefinition,
   fieldEncryptionEnabledDefinition,
+  auditLockLifecycleDefinition,
 } from "./application/config/ConfigurationRegistry.js";
+export {
+  PolicyAuditRecorder,
+  RuntimeAuditRecordingPolicy,
+  AUDIT_ACTION_POLICY_CATALOG,
+  AUDIT_LOCK_LIFECYCLE_SETTING,
+} from "./application/services/PolicyAuditRecorder.js";
+export type {
+  AuditActionPolicyDefinition,
+  AuditEvent,
+  AuditRecordingPolicy,
+} from "./application/services/PolicyAuditRecorder.js";
 export type {
   ConfigurationDefinition,
   ConfigurationSource,

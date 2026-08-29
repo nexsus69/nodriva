@@ -48,6 +48,8 @@ da `session_idle_timeout_seconds`; non sono chiavi indipendenti.
 - dimensione massima dei payload;
 - limiti upload e allegati;
 - retention e modalità di esportazione audit;
+- registrazione dell'attività ordinaria dei lock, senza sopprimere conflitti o
+  rilasci amministrativi;
 - eventuali policy funzionali globali.
 
 ### Realtime — misto

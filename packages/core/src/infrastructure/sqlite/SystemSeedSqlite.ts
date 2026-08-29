@@ -34,6 +34,16 @@ export class SystemSeedSqlite implements SystemSeedPort {
     this.database.transaction(() => this.bootstrap());
   }
 
+  /** Adds newly catalogued runtime settings without repeating identity bootstrap. */
+  ensureRuntimeSettings(): void {
+    for (const setting of SYSTEM_SETTINGS) {
+      this.database.run(
+        'INSERT OR IGNORE INTO system_settings(setting_key,value_type,value_text,row_version,updated_at) VALUES(?,?,?,?,?)',
+        [setting.key, setting.valueType, setting.valueText, 1, new Date().toISOString()],
+      );
+    }
+  }
+
   private bootstrap(): void {
     const adminId = this.ensureAdministrator();
     for (const role of SYSTEM_ROLES) {
@@ -56,12 +66,7 @@ export class SystemSeedSqlite implements SystemSeedPort {
     if (!adminRole) throw new Error('Administrative role bootstrap failed.');
     this.database.run('INSERT OR IGNORE INTO user_roles(user_id,role_id) VALUES(?,?)', [adminId, adminRole.id]);
 
-    for (const setting of SYSTEM_SETTINGS) {
-      this.database.run(
-        'INSERT OR IGNORE INTO system_settings(setting_key,value_type,value_text,row_version,updated_at) VALUES(?,?,?,?,?)',
-        [setting.key, setting.valueType, setting.valueText, 1, new Date().toISOString()],
-      );
-    }
+    this.ensureRuntimeSettings();
     for (const capability of RUNTIME_CAPABILITIES) {
       this.database.run('INSERT OR IGNORE INTO runtime_capabilities(capability_key,default_status) VALUES(?,?)', [capability.key, capability.status]);
       this.database.run(
