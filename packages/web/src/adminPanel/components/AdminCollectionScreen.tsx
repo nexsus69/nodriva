@@ -115,7 +115,7 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
             </div>
           ))}
         </SkeletonState>
-      ) : definition.error ? null : definition.rows.length === 0 ? (
+      ) : definition.rows.length === 0 ? (
         <EmptyState
           title={definition.emptyLabel}
           description={definition.description}

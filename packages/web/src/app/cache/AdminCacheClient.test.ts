@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listScopeAssignmentsAction: vi.fn(),
+  listDeletedNodesAction: vi.fn(),
+  listDeletedEntitiesAction: vi.fn(),
+  restoreDeletedNodeAction: vi.fn(),
 }));
 
 vi.mock('../actions/securityActions', () => ({
@@ -13,13 +16,17 @@ vi.mock('../actions/nodeActions', () => ({}));
 vi.mock('../actions/seedAction', () => ({}));
 vi.mock('../actions/systemActions', () => ({}));
 vi.mock('../actions/typeActions', () => ({}));
-vi.mock('../actions/recycleActions', () => ({}));
+vi.mock('../actions/recycleActions', () => ({
+  listDeletedNodesAction: mocks.listDeletedNodesAction,
+  listDeletedEntitiesAction: mocks.listDeletedEntitiesAction,
+  restoreDeletedNodeAction: mocks.restoreDeletedNodeAction,
+}));
 vi.mock('../actions/entityActions', () => ({}));
 
 import { AdminCacheClient } from './AdminCacheClient';
 
 describe('AdminCacheClient failed reads', () => {
-  beforeEach(() => mocks.listScopeAssignmentsAction.mockReset());
+  beforeEach(() => Object.values(mocks).forEach((mock) => mock.mockReset()));
 
   it('evicts a failed action result so retry reaches the backend', async () => {
     mocks.listScopeAssignmentsAction
@@ -59,5 +66,23 @@ describe('AdminCacheClient failed reads', () => {
     await client.listScopeAssignments();
 
     expect(mocks.listScopeAssignmentsAction).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates both recycle projections after restoring a node subtree', async () => {
+    mocks.listDeletedNodesAction
+      .mockResolvedValueOnce({ success: true, data: [{ id: 'old-node' }] })
+      .mockResolvedValueOnce({ success: true, data: [] });
+    mocks.listDeletedEntitiesAction
+      .mockResolvedValueOnce({ success: true, data: [{ id: 'old-entity' }] })
+      .mockResolvedValueOnce({ success: true, data: [] });
+    mocks.restoreDeletedNodeAction.mockResolvedValue({ success: true, data: { restored: true } });
+    const client = new AdminCacheClient();
+
+    await Promise.all([client.listDeletedNodes(), client.listDeletedEntities()]);
+    await client.restoreDeletedNode({ nodeId: 'old-node', expectedRowVersion: 1 });
+    await Promise.all([client.listDeletedNodes(), client.listDeletedEntities()]);
+
+    expect(mocks.listDeletedNodesAction).toHaveBeenCalledTimes(2);
+    expect(mocks.listDeletedEntitiesAction).toHaveBeenCalledTimes(2);
   });
 });

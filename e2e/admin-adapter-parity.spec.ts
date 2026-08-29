@@ -51,6 +51,9 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
 
     await page.goto(`${baseUrl}/admin`);
     await expect(page.getByRole('heading', { name: /Administration at a glance|Amministrazione in sintesi/i })).toBeVisible();
+    await expect(page.getByTestId('admin-overview-attention')).toBeVisible();
+    await expect(page.getByTestId('admin-overview-attention')).toContainText(/Needs attention|Richiede attenzione/i);
+    await expect(page.getByRole('heading', { name: /Recent activity|Attività recente/i })).toBeVisible();
     const overviewModules = await page.locator('a[href^="/admin/"]').evaluateAll((links) =>
       [...new Set(links.map((link) => link.getAttribute('href')).filter((href): href is string => Boolean(href)))].sort(),
     );

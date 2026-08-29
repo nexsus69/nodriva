@@ -43,6 +43,7 @@ export interface DeletedEntityListItem {
   rowVersion: number;
   deletedAt: string;
   updatedBy: string | null;
+  deletionBatchId: string | null;
 }
 
 export interface DeletedNodeListItem {
@@ -56,6 +57,9 @@ export interface DeletedNodeListItem {
   rowVersion: number;
   deletedAt: string;
   deletionBatchId: string | null;
+  isDeletionRoot: boolean;
+  affectedNodeCount: number;
+  affectedEntityCount: number;
 }
 
 export async function listDeletedNodesAction(input?: { limit?: number; offset?: number }): Promise<RecycleActionResult<DeletedNodeListItem[]>> {

@@ -102,9 +102,9 @@ export class AdminCacheClient {
   public restoreDeletedEntity = (input: Parameters<typeof recycleActions.restoreDeletedEntityAction>[0]) =>
     this.write(['deleted-entities'], () => recycleActions.restoreDeletedEntityAction(input));
   public restoreDeletedNode = (input: Parameters<typeof recycleActions.restoreDeletedNodeAction>[0]) =>
-    this.write(['deleted-nodes'], () => recycleActions.restoreDeletedNodeAction(input));
+    this.write(['deleted-nodes', 'deleted-entities'], () => recycleActions.restoreDeletedNodeAction(input));
   public purgeDeletedNode = (input: Parameters<typeof recycleActions.purgeDeletedNodeAction>[0]) =>
-    this.write(['deleted-nodes'], () => recycleActions.purgeDeletedNodeAction(input));
+    this.write(['deleted-nodes', 'deleted-entities'], () => recycleActions.purgeDeletedNodeAction(input));
   public purgeDeletedEntity = (input: Parameters<typeof recycleActions.purgeDeletedEntityAction>[0]) =>
     this.write(['deleted-entities'], () => recycleActions.purgeDeletedEntityAction(input));
   public reorderFields = (...args: Parameters<typeof typeActions.reorderFieldsAction>) =>

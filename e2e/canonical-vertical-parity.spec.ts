@@ -26,6 +26,7 @@ interface CanonicalOutcome {
   breadcrumbReloaded: boolean;
   entityRestored: boolean;
   nodeDeletedViaMenu: boolean;
+  subtreeRecycleOperation: boolean;
   auditActions: string[];
 }
 
@@ -395,6 +396,18 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
     await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
 
+    await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
+    const subtreeOperation = adminPage.getByRole('row').filter({ hasText: names.childName });
+    await expect(subtreeOperation).toContainText('Nodo e contenuto');
+    await expect(adminPage.getByText(names.firstEntityName, { exact: true })).toHaveCount(0);
+    await expect(adminPage.getByText(names.thirdEntityName, { exact: true })).toHaveCount(0);
+    await subtreeOperation.getByRole('button', { name: /Azioni|Actions/i }).click();
+    await adminPage.getByRole('menuitem', { name: 'Ripristina tutto' }).click();
+    await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina tutto' }).click();
+    await expect(adminPage.getByText(names.childName, { exact: true })).toHaveCount(0);
+    await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+    await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toBeVisible();
+
     return {
       outsideScopeDenied: true,
       childCreated: true,
@@ -407,6 +420,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       breadcrumbReloaded: true,
       entityRestored: lifecycle.restored,
       nodeDeletedViaMenu: true,
+      subtreeRecycleOperation: true,
       auditActions: lifecycle.actions,
     };
   } finally {
@@ -439,6 +453,7 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       breadcrumbReloaded: true,
       entityRestored: true,
       nodeDeletedViaMenu: true,
+      subtreeRecycleOperation: true,
       auditActions: ['entity.create', 'entity.delete', 'entity.restore', 'entity.update', 'node.create'],
     });
   });

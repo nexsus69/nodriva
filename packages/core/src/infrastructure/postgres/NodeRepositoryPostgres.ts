@@ -57,7 +57,17 @@ export class NodeRepositoryPostgres implements NodeRepository {
       SELECT n.id, n.node_type_id AS "nodeTypeId", nt.name AS "nodeTypeName",
              n.parent_id AS "parentId", parent.name AS "parentName", n.name,
              n.path::text AS path, n.row_version AS "rowVersion", n.deleted_at AS "deletedAt",
-             n.deletion_batch_id AS "deletionBatchId"
+             n.deletion_batch_id AS "deletionBatchId",
+             NOT EXISTS (
+               SELECT 1 FROM nodes batch_parent
+               WHERE batch_parent.id = n.parent_id
+                 AND batch_parent.deleted_at IS NOT NULL
+                 AND batch_parent.deletion_batch_id = n.deletion_batch_id
+             ) AS "isDeletionRoot",
+             (SELECT count(*)::int FROM nodes batch_node
+              WHERE batch_node.deleted_at IS NOT NULL AND batch_node.deletion_batch_id = n.deletion_batch_id) AS "affectedNodeCount",
+             (SELECT count(*)::int FROM entities batch_entity
+              WHERE batch_entity.deleted_at IS NOT NULL AND batch_entity.deletion_batch_id = n.deletion_batch_id) AS "affectedEntityCount"
       FROM nodes n
       JOIN node_types nt ON nt.id = n.node_type_id
       LEFT JOIN nodes parent ON parent.id = n.parent_id

@@ -51,7 +51,7 @@ export class EntityRepositorySqlite implements EntityRepository {
   }
 
   async listDeletedByScope(actorUserId: string, limit = 100, offset = 0): Promise<DeletedEntitySummary[]> {
-    const rows = this.database.all<DeletedEntitySummary>(`SELECT e.id,e.entity_type_id AS entityTypeId,et.name AS entityTypeName,et.is_active AS entityTypeActive,e.parent_node_id AS parentNodeId,n.name AS parentNodeName,e.name,e.description,e.row_version AS rowVersion,e.deleted_at AS deletedAt,e.updated_by AS updatedBy FROM entities e JOIN entity_types et ON et.id=e.entity_type_id JOIN nodes n ON n.id=e.parent_node_id WHERE e.deleted_at IS NOT NULL ORDER BY e.deleted_at DESC`);
+    const rows = this.database.all<DeletedEntitySummary>(`SELECT e.id,e.entity_type_id AS entityTypeId,et.name AS entityTypeName,et.is_active AS entityTypeActive,e.parent_node_id AS parentNodeId,n.name AS parentNodeName,e.name,e.description,e.row_version AS rowVersion,e.deleted_at AS deletedAt,e.deletion_batch_id AS deletionBatchId,e.updated_by AS updatedBy FROM entities e JOIN entity_types et ON et.id=e.entity_type_id JOIN nodes n ON n.id=e.parent_node_id WHERE e.deleted_at IS NOT NULL ORDER BY e.deleted_at DESC`);
     if (!this.accessControl) return rows.slice(offset, offset + limit);
     const visible: DeletedEntitySummary[] = [];
     for (const row of rows) {

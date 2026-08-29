@@ -11,6 +11,8 @@ export interface DeletedEntitySummary {
   description: string;
   rowVersion: number;
   deletedAt: Date;
+  /** Non-null only when this entity was deleted as a consequence of a node subtree deletion. */
+  deletionBatchId: string | null;
   updatedBy: string | null;
 }
 

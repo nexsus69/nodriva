@@ -11,6 +11,9 @@ export interface DeletedNodeSummary {
   rowVersion: number;
   deletedAt: Date;
   deletionBatchId: string | null;
+  isDeletionRoot: boolean;
+  affectedNodeCount: number;
+  affectedEntityCount: number;
 }
 
 export interface NodeRepository {

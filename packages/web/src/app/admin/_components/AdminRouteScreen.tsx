@@ -19,7 +19,7 @@ import { AdminOverviewScreen } from "./AdminOverviewScreen";
 import { AdminContentModuleScreen } from "../content/_components/AdminContentModuleScreen";
 
 const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
-  overview: () => <AdminOverviewScreen pathname="/admin" />,
+  overview: () => <AdminOverviewScreen />,
   "model.types": () => <AdminTypesPage />,
   "content.nodes": () => <AdminContentModuleScreen kind="node" />,
   "content.entities": () => <AdminContentModuleScreen kind="entity" />,
@@ -49,5 +49,5 @@ export function AdminRouteScreen() {
 
   const selectedModule = findAdminModuleByRoute(adminModuleRegistry.all(), pathname);
   const render = selectedModule ? MODULE_SCREENS[selectedModule.key] : undefined;
-  return render ? render() : <AdminOverviewScreen pathname={pathname} />;
+  return render ? render() : <AdminOverviewScreen />;
 }

@@ -1,80 +1,83 @@
 "use client";
 
-/** Renders the Admin Panel overview from the shared module registry. */
-import Link from "@/app/components/navigation/GuardedLink";
-import {
-  findAdminModuleByRoute,
-} from "@/adminPanel/AdminModule";
-import { adminModuleRegistry } from "@/adminPanel/AdminModuleRegistry";
-import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+/** Composes the administrative dashboard from independently reusable sections. */
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { AdminIcon } from "@/adminPanel/components/AdminIcon";
+import { AdminButton } from "@/adminPanel/components/AdminButton";
+import { AdminDashboardMetricCard } from "@/adminPanel/components/AdminDashboardMetricCard";
 import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { AdminOverviewAttentionSection } from "./AdminOverviewAttentionSection";
+import { AdminOverviewRecentActivitySection } from "./AdminOverviewRecentActivitySection";
+import { summarizeAdminOverview } from "./adminOverviewModel";
+import { useAdminOverview } from "./useAdminOverview";
 
-/** Presents the overview cards and the contextual module heading. */
-export function AdminOverviewScreen({ pathname }: { pathname: string }) {
+/** Uses the read-model controller and composes the dashboard without owning effects or calculations. */
+export function AdminOverviewScreen() {
   const { t } = useAppLocale();
-  const authorization = useAdminAuthorization();
-  const visibleModules = adminModuleRegistry.visible(authorization);
-  const selectedModule = findAdminModuleByRoute(
-    visibleModules,
-    pathname,
-  );
-  const isOverview = pathname === "/admin";
-  const groups = visibleModules.filter((module) => module.key !== "overview");
+  const overview = useAdminOverview();
+  const summary = summarizeAdminOverview({
+    capabilities: overview.capabilities.data,
+    workflows: overview.workflows.data,
+    nodeTypes: overview.nodeTypes.data,
+    entityTypes: overview.entityTypes.data,
+    auditRecords: overview.auditRecords.data,
+  });
 
   return (
-    <div className="space-y-7">
+    <section className="space-y-6">
       <AdminPageHeader
-        title={isOverview
-          ? t("admin.overviewTitle")
-          : t(selectedModule?.labelKey ?? selectedModule?.label ?? "admin.module")}
-        description={isOverview
-          ? t("admin.overviewDescription")
-          : t(selectedModule?.descriptionKey ?? selectedModule?.description ?? "admin.selectModule")}
-        icon={selectedModule?.icon ?? "dashboard"}
+        title={t("admin.overviewTitle")}
+        description={t("admin.overviewDescription")}
+        icon="dashboard"
+        actions={<AdminButton tone="secondary" compact icon="refresh" onClick={overview.refresh}>{t("admin.refresh")}</AdminButton>}
       />
-      {isOverview && (
-        <div className="grid gap-5 xl:grid-cols-2">
-          {groups.map((group) => (
-            <section key={group.key} className="border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-start gap-3 border-b border-slate-200 px-5 py-4">
-                <span className="flex size-9 shrink-0 items-center justify-center bg-violet-50 text-violet-700">
-                  <AdminIcon name={group.icon ?? "dashboard"} className="size-4.5" />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-slate-950">
-                    {t(group.labelKey ?? group.label)}
-                  </h2>
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {t(group.descriptionKey ?? group.description ?? "")}
-                  </p>
-                </div>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {(group.children ?? []).map((module) => (
-                  <Link
-                    key={module.key}
-                    href={module.route ?? "/admin"}
-                    className="group flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500"
-                  >
-                    <AdminIcon name={module.icon ?? group.icon ?? "dashboard"} className="size-4 shrink-0 text-slate-400 group-hover:text-violet-600" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium text-slate-800">
-                        {t(module.labelKey ?? module.label)}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-slate-500">
-                        {t(module.descriptionKey ?? module.description ?? "")}
-                      </span>
-                    </span>
-                    <AdminIcon name="chevron-right" className="size-4 text-slate-300 group-hover:text-violet-600" />
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+
+      {overview.capabilities.state !== "hidden" && (
+        <AdminOverviewAttentionSection capabilities={overview.capabilities} gaps={summary.requiredCapabilityGaps} />
       )}
-    </div>
+
+      <div className="grid gap-5 xl:grid-cols-3">
+        {overview.nodeTypes.state !== "hidden" || overview.entityTypes.state !== "hidden" ? (
+          <AdminDashboardMetricCard
+            title={t("admin.overviewDataModel")}
+            description={t("admin.overviewDataModelDescription")}
+            icon="schema"
+            href="/admin/types"
+            state={overview.nodeTypes.state !== "hidden" ? overview.nodeTypes.state : overview.entityTypes.state}
+            error={overview.nodeTypes.state !== "hidden" ? overview.nodeTypes.error : overview.entityTypes.error}
+            unavailableLabel={t("admin.overviewUnavailable")}
+          >
+            <p className="text-2xl font-semibold tracking-tight text-slate-950"><span>{summary.activeNodeTypeCount}</span><span className="mx-2 text-sm font-normal text-slate-400">{t("admin.overviewNodeTypes")}</span><span>{summary.activeEntityTypeCount}</span><span className="ml-2 text-sm font-normal text-slate-400">{t("admin.overviewEntityTypes")}</span></p>
+          </AdminDashboardMetricCard>
+        ) : null}
+        {overview.workflows.state !== "hidden" ? (
+          <AdminDashboardMetricCard
+            title={t("admin.workflows")}
+            description={t("admin.overviewWorkflowsDescription")}
+            icon="activity"
+            href="/admin/system/workflows"
+            state={overview.workflows.state}
+            error={overview.workflows.error}
+            unavailableLabel={t("admin.overviewUnavailable")}
+          >
+            <p className="text-2xl font-semibold tracking-tight text-slate-950">{summary.activeWorkflowCount}<span className="ml-2 text-sm font-normal text-slate-500">{t("admin.overviewActiveWorkflows")}</span></p>
+          </AdminDashboardMetricCard>
+        ) : null}
+        {overview.capabilities.state !== "hidden" ? (
+          <AdminDashboardMetricCard
+            title={t("admin.capabilities")}
+            description={t("admin.overviewCapabilitiesDescription")}
+            icon="settings"
+            href="/admin/system/config"
+            state={overview.capabilities.state}
+            error={overview.capabilities.error}
+            unavailableLabel={t("admin.overviewUnavailable")}
+          >
+            <p className="text-2xl font-semibold tracking-tight text-slate-950">{summary.enabledCapabilityCount}<span className="ml-2 text-sm font-normal text-slate-500">{t("admin.overviewEnabledCapabilities")}</span></p>
+          </AdminDashboardMetricCard>
+        ) : null}
+      </div>
+
+      {overview.auditRecords.state !== "hidden" && <AdminOverviewRecentActivitySection auditRecords={overview.auditRecords} />}
+    </section>
   );
 }

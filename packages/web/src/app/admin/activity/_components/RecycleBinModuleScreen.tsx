@@ -1,152 +1,87 @@
 "use client";
 
-/** Provides restore and purge workflows through the shared collection lifecycle. */
+/** Presents recoverable user operations rather than the individual records they affected. */
 import { useMemo } from "react";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
-import {
-  AdminCollectionScreen,
-  type AdminCollectionDefinition,
-} from "@/adminPanel/components/AdminCollectionScreen";
+import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { toRecycleOperations, type RecycleOperation } from "./recycleOperationModel";
 
-interface RecycleRow {
-  id: string;
-  kind: "node" | "entity";
-  name: string;
-  detail: string;
-  rowVersion: number;
-}
-
-async function unwrap<T>(
-  result: Promise<{
-    success: boolean;
-    data?: T;
-    error?: { message: string };
-  }>,
-): Promise<T> {
+async function unwrap<T>(result: Promise<{ success: boolean; data?: T; error?: { message: string } }>): Promise<T> {
   const resolved = await result;
-  if (!resolved.success || resolved.data === undefined) {
-    throw new Error(resolved.error?.message ?? "Administrative operation failed.");
-  }
+  if (!resolved.success || resolved.data === undefined) throw new Error(resolved.error?.message ?? "Administrative operation failed.");
   return resolved.data;
 }
 
-/** Renders the only collection whose actions span node and entity resources. */
+/** Gives the confirmation an explicit impact instead of pretending a batch is one record. */
+function operationImpact(operation: RecycleOperation, t: (key: string) => string): string {
+  if (operation.kind === "entity") return t("admin.recycleSingleEntityImpact");
+  return t("admin.recycleSubtreeImpact")
+    .replace("{nodes}", String(operation.affectedNodeCount))
+    .replace("{entities}", String(operation.affectedEntityCount));
+}
+
+/** Renders one causal recycle operation with restore/purge actions limited to its actual root. */
 export function RecycleBinModuleScreen() {
   const { t } = useAppLocale();
   const authorization = useAdminAuthorization();
-  const resource = useMemo(
-    () =>
-      defineAdminResource<RecycleRow>({
-        key: "recycle-bin",
-        moduleKey: "activity.recycle-bin",
-        label: t("admin.recycleBin"),
-        description: t("admin.recycleBinDescription"),
-        list: {
-          load: async () => {
-            const [nodes, entities] = await Promise.all([
-              unwrap(AppCache.admin.listDeletedNodes()),
-              unwrap(AppCache.admin.listDeletedEntities()),
-            ]);
-            return [
-              ...(nodes as Array<{
-                id: string;
-                name: string;
-                path: string;
-                rowVersion: number;
-              }>).map((row) => ({
-                id: row.id,
-                kind: "node" as const,
-                name: row.name,
-                detail: row.path,
-                rowVersion: row.rowVersion,
-              })),
-              ...(entities as Array<{
-                id: string;
-                name: string;
-                entityTypeName: string;
-                rowVersion: number;
-              }>).map((row) => ({
-                id: row.id,
-                kind: "entity" as const,
-                name: row.name,
-                detail: row.entityTypeName,
-                rowVersion: row.rowVersion,
-              })),
-            ];
-          },
-          columns: [
-            { key: "kind", label: t("admin.resourceKind"), render: (row) => row.kind },
-            { key: "name", label: t("admin.name"), render: (row) => row.name },
-            { key: "detail", label: t("admin.description"), render: (row) => row.detail },
-          ],
-          emptyLabel: t("admin.noRecords"),
-          loadingLabel: t("admin.loading"),
-        },
-      }),
-    [t],
-  );
+  const resource = useMemo(() => defineAdminResource<RecycleOperation>({
+    key: "recycle-bin",
+    moduleKey: "activity.recycle-bin",
+    label: t("admin.recycleBin"),
+    description: t("admin.recycleBinDescription"),
+    list: {
+      load: async () => {
+        const [nodes, entities] = await Promise.all([
+          unwrap(AppCache.admin.listDeletedNodes()),
+          unwrap(AppCache.admin.listDeletedEntities()),
+        ]);
+        return toRecycleOperations(nodes, entities);
+      },
+      columns: [
+        { key: "kind", label: t("admin.resourceKind"), render: (row) => row.kind === "node_subtree" ? t("admin.recycleSubtree") : t("admin.entity") },
+        { key: "name", label: t("admin.name"), render: (row) => row.name },
+        { key: "impact", label: t("admin.recycleImpact"), render: (row) => operationImpact(row, t) },
+        { key: "deletedAt", label: t("admin.recycleDeletedAt"), render: (row) => row.deletedAt },
+      ],
+      emptyLabel: t("admin.recycleBinEmpty"),
+      loadingLabel: t("admin.loading"),
+    },
+  }), [t]);
   const controller = useAdminResourceController(resource, undefined);
 
-  const execute = async (row: RecycleRow, operation: "restore" | "purge") => {
+  const execute = async (operation: RecycleOperation, action: "restore" | "purge") => {
     const confirmed = await requestConfirmation({
-      title: t(operation === "restore" ? "admin.restoreTitle" : "admin.purgeTitle"),
-      description: t(
-        operation === "restore"
-          ? "admin.restoreDescription"
-          : "admin.purgeDescription",
-      ),
-      confirmLabel: t(operation === "restore" ? "admin.restore" : "admin.purge"),
+      title: t(action === "restore" ? "admin.recycleRestoreTitle" : "admin.recyclePurgeTitle"),
+      description: `${operation.name}. ${operationImpact(operation, t)}`,
+      confirmLabel: t(action === "restore" ? "admin.recycleRestoreOperation" : "admin.recyclePurgeOperation"),
       cancelLabel: t("admin.cancel"),
-      tone: operation === "purge" ? "danger" : "neutral",
+      tone: action === "purge" ? "danger" : "neutral",
     });
     if (!confirmed) return;
 
-    await controller.controller.executeAction(
-      {
-        key: operation,
-        label: operation,
-        execute: async () => {
-          if (operation === "restore" && row.kind === "node") {
-            await unwrap(
-              AppCache.admin.restoreDeletedNode({
-                nodeId: row.id,
-                expectedRowVersion: row.rowVersion,
-              }),
-            );
-          } else if (operation === "restore") {
-            await unwrap(
-              AppCache.admin.restoreDeletedEntity({
-                entityId: row.id,
-                expectedRowVersion: row.rowVersion,
-              }),
-            );
-          } else if (row.kind === "node") {
-            await unwrap(
-              AppCache.admin.purgeDeletedNode({
-                nodeId: row.id,
-                confirmation: "ELIMINA DEFINITIVAMENTE",
-              }),
-            );
-          } else {
-            await unwrap(
-              AppCache.admin.purgeDeletedEntity({
-                entityId: row.id,
-                confirmation: "ELIMINA DEFINITIVAMENTE",
-              }),
-            );
-          }
-        },
+    await controller.controller.executeAction({
+      key: action,
+      label: action,
+      execute: async () => {
+        if (action === "restore" && operation.kind === "node_subtree") {
+          await unwrap(AppCache.admin.restoreDeletedNode({ nodeId: operation.id, expectedRowVersion: operation.rowVersion }));
+        } else if (action === "restore") {
+          await unwrap(AppCache.admin.restoreDeletedEntity({ entityId: operation.id, expectedRowVersion: operation.rowVersion }));
+        } else if (operation.kind === "node_subtree") {
+          await unwrap(AppCache.admin.purgeDeletedNode({ nodeId: operation.id, confirmation: "ELIMINA DEFINITIVAMENTE" }));
+        } else {
+          await unwrap(AppCache.admin.purgeDeletedEntity({ entityId: operation.id, confirmation: "ELIMINA DEFINITIVAMENTE" }));
+        }
       },
-      row,
-    );
+    }, operation);
   };
 
-  const definition: AdminCollectionDefinition<RecycleRow> = {
+  const definition: AdminCollectionDefinition<RecycleOperation> = {
     title: resource.label,
     description: resource.description,
     icon: "recycle",
@@ -158,25 +93,23 @@ export function RecycleBinModuleScreen() {
     emptyLabel: resource.list.emptyLabel,
     pagination: { stateKey: resource.moduleKey },
     actionMenuLabel: t("admin.actions"),
-    refreshLabel: t("admin.refresh"),
-    onRefresh: () => void controller.reload(),
+    rowLabel: (row) => row.name,
     actions: [
       {
         key: "restore",
-        label: t("admin.restore"),
+        label: t("admin.recycleRestoreOperation"),
         tone: "primary",
         onClick: (row) => void execute(row, "restore"),
-        hidden: (row) => !authorization.permissions.has(`${row.kind}.restore`),
+        hidden: (row) => !authorization.permissions.has(row.kind === "node_subtree" ? "node.restore" : "entity.restore"),
       },
       {
         key: "purge",
-        label: t("admin.purge"),
+        label: t("admin.recyclePurgeOperation"),
         tone: "danger",
         onClick: (row) => void execute(row, "purge"),
-        hidden: (row) => !authorization.permissions.has(`${row.kind}.purge`),
+        hidden: (row) => !authorization.permissions.has(row.kind === "node_subtree" ? "node.purge" : "entity.purge"),
       },
     ],
   };
-
   return <AdminCollectionScreen definition={definition} />;
 }
