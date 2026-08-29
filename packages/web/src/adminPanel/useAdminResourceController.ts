@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { AdminResourceDefinition } from "./AdminResourceDefinition";
 import { AdminResourceController } from "./AdminResourceController";
+import { refreshAdminCollection } from "./refreshAdminCollection";
 
 export function useAdminResourceController<
   TRow extends { id: string },
@@ -33,5 +34,6 @@ export function useAdminResourceController<
     ...snapshot,
     controller,
     reload: controller.loadList,
+    refresh: () => refreshAdminCollection(controller.loadList),
   };
 }

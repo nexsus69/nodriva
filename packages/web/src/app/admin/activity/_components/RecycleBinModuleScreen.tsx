@@ -93,6 +93,8 @@ export function RecycleBinModuleScreen() {
     emptyLabel: resource.list.emptyLabel,
     pagination: { stateKey: resource.moduleKey },
     actionMenuLabel: t("admin.actions"),
+    refreshLabel: t("admin.refresh"),
+    onRefresh: () => void controller.refresh(),
     rowLabel: (row) => row.name,
     actions: [
       {

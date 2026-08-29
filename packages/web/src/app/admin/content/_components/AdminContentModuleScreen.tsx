@@ -3,7 +3,6 @@
 /** Renders scoped node and entity catalogues through one reusable Admin contract. */
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import {
@@ -111,10 +110,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     },
     resultLabel: countLabel,
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => {
-      AppCache.admin.invalidate(isNode ? ["children"] : ["subtree-entities"]);
-      void collection.reload();
-    },
+    onRefresh: () => void collection.refresh(),
     onOpen: open,
     rowLabel: (row) => row.name,
     actionMenuLabel: t("admin.actions"),

@@ -215,7 +215,7 @@ export function PlacementPoliciesModuleScreen() {
     rowLabel: (row) => row.name,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void controller.reload(),
+    onRefresh: () => void controller.refresh(),
     pagination: { stateKey: resource.moduleKey },
     actions: [
       { key: "edit", label: t("admin.edit"), tone: "primary", onClick: openEdit, hidden: () => !canUpdate },

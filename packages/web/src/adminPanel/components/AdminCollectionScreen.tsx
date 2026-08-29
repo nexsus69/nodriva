@@ -16,6 +16,28 @@ import { AdminButton } from "./AdminButton";
 import { AdminPageHeader, type AdminBreadcrumbItem } from "./AdminPageHeader";
 import { AdminToolbar } from "./AdminToolbar";
 
+interface AdminClientPagination {
+  mode?: "client";
+  stateKey?: string;
+  pageSize?: number;
+  previousLabel?: string;
+  nextLabel?: string;
+  pageLabel?: (page: number, pageCount: number) => string;
+}
+
+interface AdminRemotePagination {
+  mode: "remote";
+  page: number;
+  pageCount: number;
+  onPageChange: (page: number) => void;
+}
+
+function isRemotePagination(
+  pagination: AdminClientPagination | AdminRemotePagination | undefined,
+): pagination is AdminRemotePagination {
+  return pagination?.mode === "remote";
+}
+
 export interface AdminCollectionDefinition<TRow extends { id: string }> {
   title: string;
   description: string;
@@ -29,6 +51,8 @@ export interface AdminCollectionDefinition<TRow extends { id: string }> {
   error: Error | null;
   loading: boolean;
   rows: readonly TRow[];
+  /** A filter section that is built separately from the collection shell. */
+  filterPanel?: ReactNode;
   toolbar?: ReactNode;
   search?: {
     value: string;
@@ -44,33 +68,33 @@ export interface AdminCollectionDefinition<TRow extends { id: string }> {
   rowLabel?: (row: TRow) => string;
   actionMenuLabel?: string;
   selectedRowId?: string;
-  /** Configures the shared client-side page window for collection rows. */
-  pagination?: {
-    stateKey?: string;
-    pageSize?: number;
-    previousLabel?: string;
-    nextLabel?: string;
-    pageLabel?: (page: number, pageCount: number) => string;
-  };
+  /** Supports the same collection shell for local and server-paged results. */
+  pagination?: AdminClientPagination | AdminRemotePagination;
 }
 
 /** Presents any admin collection while keeping loading and error behavior consistent. */
 export function AdminCollectionScreen<TRow extends { id: string }>(
   { definition }: { definition: AdminCollectionDefinition<TRow> },
 ) {
+  const paginationDefinition = definition.pagination;
+  const remotePagination = isRemotePagination(paginationDefinition)
+    ? paginationDefinition
+    : undefined;
+  const clientPagination: AdminClientPagination | undefined = isRemotePagination(paginationDefinition)
+    ? undefined
+    : paginationDefinition;
   const [sort, setSort] = useState<AdminTableSortState | null>(null);
   const sortedRows = useMemo(() => {
     return sortAdminRows(definition.rows, definition.columns, sort);
   }, [definition.columns, definition.rows, sort]);
   const pagination = useAdminPagination({
     total: sortedRows.length,
-    pageSize: definition.pagination?.pageSize,
-    stateKey: definition.pagination?.stateKey,
+    pageSize: clientPagination?.pageSize,
+    stateKey: clientPagination?.stateKey,
   });
-  const visibleRows = sortedRows.slice(
-    pagination.visibleRange.start,
-    pagination.visibleRange.end,
-  );
+  const visibleRows = remotePagination
+    ? sortedRows
+    : sortedRows.slice(pagination.visibleRange.start, pagination.visibleRange.end);
   return (
     <section className="space-y-6">
       <AdminPageHeader
@@ -84,6 +108,7 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
           </AdminButton>
         ) : undefined}
       />
+      {definition.filterPanel}
       {(definition.toolbar || definition.search || definition.resultLabel || definition.onRefresh) && (
         <AdminToolbar
           search={definition.search}
@@ -135,7 +160,15 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
         />
       )}
       {definition.loading && definition.rows.length > 0 && <p className="text-xs text-slate-400" aria-live="polite">{definition.loadingLabel}…</p>}
-      {!definition.loading &&
+      {remotePagination && remotePagination.pageCount > 1 && (
+        <AdminPagination
+          page={remotePagination.page}
+          pageCount={remotePagination.pageCount}
+          onPageChange={remotePagination.onPageChange}
+        />
+      )}
+      {!remotePagination &&
+        !definition.loading &&
         !definition.error &&
         definition.rows.length > pagination.pageSize && (
           <AdminPagination

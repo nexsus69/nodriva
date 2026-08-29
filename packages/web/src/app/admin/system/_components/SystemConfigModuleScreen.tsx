@@ -153,7 +153,7 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
       : (row as SystemSettingDto).displayName,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void collection.reload(),
+    onRefresh: () => void collection.refresh(),
     actions: [{ key: "edit", label: t("admin.edit"), tone: "primary", onClick: (row) => openEdit(row), hidden: () => !canUpdate }],
     pagination: { stateKey: resource.moduleKey },
   };

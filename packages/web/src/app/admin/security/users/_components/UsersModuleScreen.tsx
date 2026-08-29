@@ -303,7 +303,7 @@ export function UsersModuleScreen() {
     rowLabel: (row) => row.email,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void collection.reload(),
+    onRefresh: () => void collection.refresh(),
     pagination: { stateKey: resource.moduleKey },
     actions: [
       {

@@ -82,7 +82,7 @@ export function RolesModuleScreen() {
     rowLabel: (row) => row.name,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void controller.reload(),
+    onRefresh: () => void controller.refresh(),
     pagination: { stateKey: resource.moduleKey },
   };
 

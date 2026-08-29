@@ -142,7 +142,7 @@ export function WorkflowModuleScreen() {
     title: resource.label, description: resource.description, icon: "activity", columns: resource.list.columns, rows: collection.rows,
     loading: collection.loading, error: collection.error ?? (eventError ? new Error(eventError) : null), emptyLabel: resource.list.emptyLabel,
     loadingLabel: resource.list.loadingLabel, createLabel: t("admin.createWorkflow"), onCreate: canPublish ? () => surface.open({ mode: "create" }) : undefined,
-    refreshLabel: t("admin.refresh"), onRefresh: () => void collection.reload(), actionMenuLabel: t("admin.actions"), pagination: { stateKey: resource.moduleKey },
+    refreshLabel: t("admin.refresh"), onRefresh: () => void collection.refresh(), actionMenuLabel: t("admin.actions"), pagination: { stateKey: resource.moduleKey },
   };
   return <>{<AdminCollectionScreen definition={screen} />}{surface.isOpen && <AdminFormDialog title={t("admin.createWorkflow")} definition={definition} values={surface.values} pending={collection.pending} submitLabel={t("admin.publishWorkflow")} cancelLabel={t("admin.cancel")} onChange={updateFormValue} onSubmit={(event) => void publish(event)} onClose={() => void surface.close()}><p className="rounded border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">{t("admin.workflowAuditActionHelp")}</p></AdminFormDialog>}</>;
 }

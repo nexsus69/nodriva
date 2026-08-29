@@ -19,18 +19,13 @@ import type {
 } from "@dashboard/core";
 import {
   Alert,
-  EmptyState,
-  Skeleton,
-  SkeletonState,
   StatusBadge,
 } from "@/app/components/ui/feedback";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
+import { refreshAdminCollection } from "@/adminPanel/refreshAdminCollection";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { AdminSurfaceHost } from "@/adminPanel/components/AdminSurfaceHost";
-import { AdminPagination } from "@/adminPanel/components/AdminPagination";
-import { AdminTable, type AdminTableColumn } from "@/adminPanel/components/AdminTable";
-import { useAdminPagination } from "@/adminPanel/useAdminPagination";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import {
   FormRenderer,
@@ -41,10 +36,8 @@ import {
 import { TYPE_DETAIL_SURFACE, TypeDetailDrawer } from "./TypeDetailDrawer";
 import { CREATE_TYPE_SURFACE } from "./typesSurfaceDefinitions";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
-import { AdminButton } from "@/adminPanel/components/AdminButton";
-import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
-import { AdminToolbar } from "@/adminPanel/components/AdminToolbar";
 import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
+import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 
 type TypeForm = {
   typeKey: string;
@@ -123,6 +116,10 @@ function useTypesModule() {
     else setError(result.error ?? null);
     setLoading(false);
   }, [kind]);
+  const refresh = useCallback(
+    async () => refreshAdminCollection(load),
+    [load],
+  );
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -178,6 +175,7 @@ function useTypesModule() {
     error,
     loading,
     load,
+    refresh,
     form,
     setForm: formSurface.setValues,
     modalOpen: formSurface.isOpen,
@@ -190,80 +188,6 @@ function useTypesModule() {
     setCreateStep: (step: "basics" | "configuration") =>
       setModuleState(moduleKey, { createStep: step }),
   };
-}
-
-/** Renders the compact loading state without replacing the module layout. */
-function TypeTableSkeleton() {
-  const { t } = useAppLocale();
-  return (
-    <SkeletonState
-      label={t("admin.loading")}
-      className="divide-y divide-slate-100"
-    >
-      {Array.from({ length: 6 }, (_, index) => (
-        <div key={index} className="grid grid-cols-4 gap-4 px-5 py-5">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-3 w-20" />
-        </div>
-      ))}
-    </SkeletonState>
-  );
-}
-
-/** Renders the type collection with stable metadata columns and detail links. */
-function TypeTable({
-  kind,
-  types,
-  loading,
-  onOpen,
-}: {
-  kind: TypeKind;
-  types: readonly TypeListItemDto[];
-  loading: boolean;
-  onOpen: (type: TypeListItemDto) => void;
-}) {
-  const { t } = useAppLocale();
-  if (loading && types.length === 0) return <TypeTableSkeleton />;
-  if (types.length === 0)
-    return (
-      <EmptyState
-        title={t("admin.noTypes")}
-        description={t("admin.noTypesDescription")}
-      />
-    );
-  const columns: AdminTableColumn<TypeListItemDto>[] = [
-    {
-      key: "name",
-      label: t("admin.name"),
-      render: (type: TypeListItemDto) => (
-        <div>
-          <p className="font-semibold text-slate-800">
-            {type.name}
-            {type.isSystem && <span className="ml-2"><StatusBadge tone="warning">{t("admin.system")}</StatusBadge></span>}
-          </p>
-          {type.description && <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{type.description}</p>}
-        </div>
-      ),
-      sortValue: (type: TypeListItemDto) => type.name,
-    },
-    { key: "typeKey", label: t("admin.typeKey"), render: (type: TypeListItemDto) => type.typeKey, sortValue: (type: TypeListItemDto) => type.typeKey },
-    ...(kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—", sortValue: (type: TypeListItemDto) => type.storageTable }] : []),
-    { key: "fields", label: t("admin.fields"), render: (type: TypeListItemDto) => type.fieldCount, sortValue: (type: TypeListItemDto) => type.fieldCount },
-    { key: "version", label: t("admin.version"), render: (type: TypeListItemDto) => `${type.currentSchemaVersion} · ${type.rowVersion}`, sortValue: (type: TypeListItemDto) => type.currentSchemaVersion },
-    { key: "status", label: t("admin.status"), render: (type: TypeListItemDto) => <StatusBadge tone={type.isActive ? "success" : "danger"}>{type.isActive ? t("admin.active") : t("admin.disabled")}</StatusBadge> },
-  ];
-  return (
-    <AdminTable
-      rows={types}
-      columns={columns}
-      emptyLabel={t("admin.noTypes")}
-      onOpen={onOpen}
-      rowLabel={(type) => type.name}
-      actionMenuLabel={t("admin.actions")}
-    />
-  );
 }
 
 /** Builds the visual contract for creating either a node or an entity type. */
@@ -547,8 +471,6 @@ export default function AdminTypesPage() {
       ].some((value) => value.toLowerCase().includes(needle)),
     ).sort((left, right) => left.name.localeCompare(right.name));
   }, [controller.search, controller.types]);
-  const pagination = useAdminPagination({ total: filteredTypes.length, stateKey: `model.types.${controller.kind}` });
-  const visibleTypes = filteredTypes.slice(pagination.visibleRange.start, pagination.visibleRange.end);
   const countLabel = useMemo(
     () =>
       t("admin.typeCount")
@@ -560,87 +482,40 @@ export default function AdminTypesPage() {
     selectedResource?.moduleKey === "model.types" && selectedResource.resourceId
       ? selectedResource.resourceId.split(":")
       : null;
+  const definition: AdminCollectionDefinition<TypeListItemDto> = {
+    title: t("admin.typesTitle"),
+    description: t("admin.typesPageDescription"),
+    icon: "schema",
+    breadcrumbs: [{ label: t("admin.model") }],
+    createLabel: controller.kind === "node" ? t("admin.createNodeType") : t("admin.createEntityType"),
+    onCreate: canCreate ? controller.openCreate : undefined,
+    columns: [
+      { key: "name", label: t("admin.name"), render: (type) => <div><p className="font-semibold text-slate-800">{type.name}{type.isSystem && <span className="ml-2"><StatusBadge tone="warning">{t("admin.system")}</StatusBadge></span>}</p>{type.description && <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{type.description}</p>}</div>, sortValue: (type) => type.name },
+      { key: "typeKey", label: t("admin.typeKey"), render: (type) => type.typeKey, sortValue: (type) => type.typeKey },
+      ...(controller.kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—", sortValue: (type: TypeListItemDto) => type.storageTable }] : []),
+      { key: "fields", label: t("admin.fields"), render: (type) => type.fieldCount, sortValue: (type) => type.fieldCount },
+      { key: "version", label: t("admin.version"), render: (type) => `${type.currentSchemaVersion} · ${type.rowVersion}`, sortValue: (type) => type.currentSchemaVersion },
+      { key: "status", label: t("admin.status"), render: (type) => <StatusBadge tone={type.isActive ? "success" : "danger"}>{type.isActive ? t("admin.active") : t("admin.disabled")}</StatusBadge> },
+    ],
+    emptyLabel: t("admin.noTypes"),
+    loadingLabel: t("admin.loading"),
+    error: controller.error ? new Error(controller.error.message) : null,
+    loading: controller.loading,
+    rows: filteredTypes,
+    search: { value: controller.search, label: t("admin.searchTypes"), placeholder: t("admin.searchTypes"), onChange: controller.setSearch },
+    resultLabel: controller.loading ? t("admin.loading") : countLabel,
+    refreshLabel: t("admin.refreshTypes"),
+    onRefresh: () => void controller.refresh(),
+    toolbar: <div className="flex gap-1 bg-slate-100 p-1">{(["node", "entity"] as const).map((value) => <button key={value} type="button" onClick={() => { controller.setKind(value); controller.setSearch(""); }} className={`px-4 py-2 text-xs font-semibold transition ${controller.kind === value ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "node" ? t("admin.nodeTypes") : t("admin.entityTypes")}</button>)}</div>,
+    onOpen: (type) => selectResource({ moduleKey: "model.types", resourceId: `${type.kind}:${type.typeKey}` }),
+    rowLabel: (type) => type.name,
+    actionMenuLabel: t("admin.actions"),
+    pagination: { stateKey: `model.types.${controller.kind}` },
+  };
   return (
-    <div className="space-y-6">
-      <AdminPageHeader
-        title={t("admin.typesTitle")}
-        description={t("admin.typesPageDescription")}
-        icon="schema"
-        breadcrumbs={[{ label: t("admin.model") }]}
-        actions={canCreate ? (
-          <AdminButton tone="primary" icon="plus" onClick={controller.openCreate}>
-            {t("admin.createType")}
-          </AdminButton>
-        ) : undefined}
-      />
-      {selectedTypeResource ? (
-        <TypeDetailDrawer
-          kind={selectedTypeResource[0] as TypeKind}
-          typeKey={selectedTypeResource.slice(1).join(":")}
-          presentation={TYPE_DETAIL_SURFACE.presentation}
-          onClose={() => selectResource(null)}
-        />
-      ) : (
-        <section className="space-y-4">
-          <AdminToolbar
-            search={{
-              value: controller.search,
-              label: t("admin.searchTypes"),
-              placeholder: t("admin.searchTypes"),
-              onChange: controller.setSearch,
-            }}
-            meta={controller.loading ? t("admin.loading") : countLabel}
-            refreshLabel={t("admin.refreshTypes")}
-            onRefresh={() => void controller.load()}
-          >
-            <div className="flex gap-1 bg-slate-100 p-1">
-              {(["node", "entity"] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    controller.setKind(value);
-                    controller.setSearch("");
-                  }}
-                  className={`px-4 py-2 text-xs font-semibold transition ${controller.kind === value ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
-                >
-                  {value === "node"
-                    ? t("admin.nodeTypes")
-                    : t("admin.entityTypes")}
-                </button>
-              ))}
-            </div>
-          </AdminToolbar>
-          {controller.error && (
-            <div className="p-4">
-              <Alert tone="danger">
-                <div className="flex items-center justify-between gap-4">
-                  <span>{controller.error.message}</span>
-                  <button
-                    type="button"
-                    onClick={() => void controller.load()}
-                    className="shrink-0 font-semibold underline"
-                  >
-                    {t("admin.retry")}
-                  </button>
-                </div>
-              </Alert>
-            </div>
-          )}
-          <TypeTable
-            kind={controller.kind}
-            types={visibleTypes}
-            loading={controller.loading}
-            onOpen={(type) =>
-              selectResource({
-                moduleKey: "model.types",
-                resourceId: `${type.kind}:${type.typeKey}`,
-              })
-            }
-          />
-          {filteredTypes.length > pagination.pageSize && <AdminPagination page={pagination.page} pageCount={pagination.pageCount} onPageChange={pagination.setPage} />}
-        </section>
-      )}
+    <>
+      <AdminCollectionScreen definition={definition} />
+      {selectedTypeResource && <TypeDetailDrawer kind={selectedTypeResource[0] as TypeKind} typeKey={selectedTypeResource.slice(1).join(":")} presentation={TYPE_DETAIL_SURFACE.presentation} onClose={() => selectResource(null)} />}
       {controller.modalOpen && (
         <CreateTypeDrawer
           kind={controller.kind}
@@ -654,6 +529,6 @@ export default function AdminTypesPage() {
           onStepChange={controller.setCreateStep}
         />
       )}
-    </div>
+    </>
   );
 }
