@@ -5,8 +5,8 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
-  useSyncExternalStore,
   useTransition,
   type Dispatch,
   type FormEvent,
@@ -38,6 +38,7 @@ import { CREATE_TYPE_SURFACE } from "./typesSurfaceDefinitions";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
+import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
 
 type TypeForm = {
   typeKey: string;
@@ -51,6 +52,7 @@ const EMPTY_TYPE_FORM: TypeForm = {
   description: "",
   storageTable: "",
 };
+const TYPE_REALTIME_DEPENDENCIES = ["types", "type-detail", "type-definition"] as const;
 
 /** Loads and mutates model types through the shared administrative cache client. */
 function useTypesModule() {
@@ -60,11 +62,7 @@ function useTypesModule() {
   const [loading, setLoading] = useState(true);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
-  const cacheRevision = useSyncExternalStore(
-    AppCache.subscribe,
-    AppCache.getRevision,
-    () => 0,
-  );
+  const loadVersion = useRef(0);
   const moduleKey = "model.types";
   const moduleState = useAdminWorkspaceStore(
     (state) => state.moduleState[moduleKey],
@@ -109,9 +107,11 @@ function useTypesModule() {
 
   /** Fetches the selected type domain and exposes semantic API errors to the screen. */
   const load = useCallback(async () => {
+    const version = ++loadVersion.current;
     setLoading(true);
     setError(null);
     const result = await AppCache.admin.listTypes(kind);
+    if (version !== loadVersion.current) return;
     if (result.success && result.data) setTypes(result.data);
     else setError(result.error ?? null);
     setLoading(false);
@@ -124,7 +124,8 @@ function useTypesModule() {
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
-  }, [cacheRevision, load]);
+  }, [load]);
+  useAdminRealtimeCollectionRefresh(TYPE_REALTIME_DEPENDENCIES, load);
 
   /** Opens a fresh creation surface without sharing draft state with another module. */
   const openCreate = useCallback(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 /** Owns the filtered, server-paged audit-query lifecycle outside its screen. */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AuditFilterCatalogDto,
   AuditLogDetailDto,
@@ -12,9 +12,11 @@ import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminModuleState } from "@/adminPanel/useAdminModuleState";
 import { useAdminPagination } from "@/adminPanel/useAdminPagination";
 import { refreshAdminCollection } from "@/adminPanel/refreshAdminCollection";
+import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
 import { toAuditFilterQuery, type AuditFilterForm } from "./auditFilterModel";
 
 type Translate = (key: string, fallback?: string) => string;
+const AUDIT_REALTIME_DEPENDENCIES = ["audit"] as const;
 
 /** Keeps filter state, remote pagination, selection, and authoritative reloads coherent. */
 export function useAuditLog(t: Translate) {
@@ -25,6 +27,7 @@ export function useAuditLog(t: Translate) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [total, setTotal] = useState(0);
+  const requestVersion = useRef(0);
   const moduleDefaults = useMemo(
     () => ({ filters: {} as AuditFilterForm, selectedAuditId: "" }),
     [],
@@ -40,19 +43,22 @@ export function useAuditLog(t: Translate) {
     next: AuditFilterForm = filters,
     requestedPage = pagination.page,
   ) => {
+    const version = ++requestVersion.current;
     setLoading(true);
     try {
       const query = toAuditFilterQuery(next, requestedPage, pagination.pageSize);
       const result = await AppCache.admin.listAuditLogs(query);
       if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loadingAudit"));
+      if (version !== requestVersion.current) return;
       setRows(result.data.items);
       setTotal(result.data.total);
       pagination.setPage(result.data.page);
       setError(null);
     } catch (cause) {
+      if (version !== requestVersion.current) return;
       setError(cause instanceof Error ? cause : new Error(String(cause)));
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [filters, pagination, t]);
 
@@ -86,6 +92,10 @@ export function useAuditLog(t: Translate) {
   const openDetail = useCallback((row: AuditLogListItemDto) => {
     updateModuleState({ selectedAuditId: row.id });
   }, [updateModuleState]);
+  useAdminRealtimeCollectionRefresh(
+    AUDIT_REALTIME_DEPENDENCIES,
+    () => load(filters, pagination.page),
+  );
 
   return {
     users,

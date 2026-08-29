@@ -201,6 +201,7 @@ export function createRoleResource(
       update: ["role.update"],
     },
     list: {
+      realtimeDependencies: ["roles", "role"],
       load: async () => unwrap(AppCache.admin.listRoles()),
       columns,
       emptyLabel: t("admin.noRoles"),

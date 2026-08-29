@@ -16,6 +16,13 @@ interface AdminOutcome {
   auditActions: string[];
 }
 
+/** Finds the contextual type-creation entry point exposed by the model module. */
+function createTypeButton(page: Page) {
+  return page.getByRole("button", {
+    name: /^\+?\s*(?:Crea tipo(?: nodo| entità)?|Create (?:node |entity )?type)$/i,
+  });
+}
+
 async function login(page: Page, baseUrl: string): Promise<void> {
   await page.goto(`${baseUrl}/login`);
   await page.getByRole('textbox', { name: 'Email' }).fill(process.env.E2E_ADMIN_EMAIL!);
@@ -95,7 +102,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     loadedDetailViews.push('role');
 
     await page.goto(`${baseUrl}/admin/types`);
-    await page.getByRole('button', { name: /^\+?\s*Crea tipo$|^\+?\s*Create type$/i }).click();
+    await createTypeButton(page).click();
     const nodeTypeKeyInput = page.getByLabel(/Chiave tipo \*/i);
     const nodeTypeNameInput = page.getByLabel('Nome *');
     await nodeTypeKeyInput.fill(nodeTypeKey);
@@ -118,7 +125,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
       await expect(page.getByRole('button', { name: /Tipi entità|Entity types/i })).toBeVisible();
     }
     await page.getByRole('button', { name: /Tipi entità|Entity types/i }).click();
-    await page.getByRole('button', { name: /^\+?\s*Crea tipo$|^\+?\s*Create type$/i }).click();
+    await createTypeButton(page).click();
     await page.getByLabel(/Chiave tipo \*/i).fill(entityTypeKey);
     await page.getByLabel(/Nome \*/i).fill(entityTypeName);
     await page.getByRole('button', { name: /Avanti|Next/i }).click();

@@ -91,6 +91,7 @@ export function ScopesModuleScreen() {
       delete: ["scope.delete"],
     },
     list: {
+      realtimeDependencies: ["scope-assignments"],
       load: async () => {
         const result = await AppCache.admin.listScopeAssignments();
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loadingScopes"));

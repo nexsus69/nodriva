@@ -167,6 +167,7 @@ export function UsersModuleScreen() {
       delete: ["user.delete"],
     },
     list: {
+      realtimeDependencies: ["users"],
       load: async () => AppCache.users.listUsers(),
       columns: [
         { key: "email", label: t("admin.email"), render: (row) => row.email, sortValue: (row) => row.email },

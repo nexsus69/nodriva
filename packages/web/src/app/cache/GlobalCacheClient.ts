@@ -86,6 +86,7 @@ export class GlobalCacheClient {
   private realtimeConnectionState: RealtimeConnectionState = 'initialized';
   private realtimeCapabilityEnabled = true;
   private readonly realtimeStateSubscribers = new Set<() => void>();
+  private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
   private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
     (event) => this.applyRealtimeEvent(event),
@@ -194,6 +195,19 @@ export class GlobalCacheClient {
     this.realtimeStateSubscribers.add(subscriber);
     return () => this.realtimeStateSubscribers.delete(subscriber);
   };
+
+  /** Lets active admin collections reload only after an authorized realtime invalidation. */
+  public subscribeAdminRealtimeInvalidations = (
+    subscriber: (keys: readonly string[]) => void,
+  ): (() => void) => {
+    this.adminRealtimeInvalidationSubscribers.add(subscriber);
+    return () => this.adminRealtimeInvalidationSubscribers.delete(subscriber);
+  };
+
+  private invalidateAdminFromRealtime(keys: readonly string[]): void {
+    this.admin.invalidate([...keys]);
+    this.adminRealtimeInvalidationSubscribers.forEach((subscriber) => subscriber(keys));
+  }
 
   public setRealtimeEnabled = (enabled: boolean): void => {
     if (this.realtimeCapabilityEnabled === enabled) return;
@@ -318,7 +332,7 @@ export class GlobalCacheClient {
 
   private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
     if (event.metadataKind) {
-      this.invalidateMetadata(event.metadataKind);
+      this.invalidateMetadata(event.metadataKind, undefined, true);
       return;
     }
     if (event.subresourceKind === 'attachment') {
@@ -336,27 +350,34 @@ export class GlobalCacheClient {
       switch (event.resourceType) {
         case 'user':
           this.users.purge();
+          this.invalidateAdminFromRealtime(['users']);
           break;
         case 'role':
-          this.admin.invalidate(['roles', 'role']);
+          this.invalidateAdminFromRealtime(['roles', 'role']);
           break;
         case 'scope':
-          this.admin.invalidate(['scope-assignments']);
+          this.invalidateAdminFromRealtime(['scope-assignments']);
           break;
         case 'audit':
-          this.admin.invalidate(['audit']);
+          this.invalidateAdminFromRealtime(['audit', 'deleted-nodes', 'deleted-entities']);
           break;
         case 'system':
-          this.admin.invalidate(['capabilities', 'settings']);
+          this.invalidateAdminFromRealtime([
+            'capabilities',
+            'settings',
+            'workflow-definitions',
+            'workflow-event-types',
+            'workflow-action-types',
+          ]);
           break;
         case 'placement_policy':
-          this.admin.invalidate(['placement-policies', 'placement-policy']);
+          this.invalidateAdminFromRealtime(['placement-policies', 'placement-policy']);
           break;
         case 'node_type':
-          this.invalidateMetadata('node');
+          this.invalidateMetadata('node', undefined, true);
           break;
         case 'entity_type':
-          this.invalidateMetadata('entity');
+          this.invalidateMetadata('entity', undefined, true);
           break;
       }
       this.notifyCacheSubscribers();
@@ -382,6 +403,7 @@ export class GlobalCacheClient {
       // paginated/windowed collection. Membership changes have their own
       // change types and are the only entity events that require a reload.
       if (event.changeType !== 'updated') this.invalidateEntityViews();
+      this.invalidateAdminFromRealtime(['subtree-entities']);
     } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
       if (event.changeType === 'deleted') {
@@ -404,6 +426,7 @@ export class GlobalCacheClient {
         this.invalidateNodeHierarchyViews();
       }
       if (ids.length > 1) this.invalidateEntityViews();
+      this.invalidateAdminFromRealtime(['children', 'subtree-entities']);
     }
   }
 
@@ -422,7 +445,7 @@ export class GlobalCacheClient {
    * Metadata views are persistent, so invalidating only AdminCacheClient would
    * leave forms reading the previous type list indefinitely.
    */
-  public invalidateMetadata(kind: 'node' | 'entity', typeKey?: string): void {
+  public invalidateMetadata(kind: 'node' | 'entity', typeKey?: string, fromRealtime = false): void {
     this.metadata.invalidate(kind);
     const viewKey = ViewKeyBuilder.build({ viewType: 'METADATA_LIST', metadataType: kind });
     GlobalViewStore.invalidateDependency(
@@ -431,10 +454,12 @@ export class GlobalCacheClient {
     // Compatibility for a loading state created before the first catalogue
     // response has registered its dependency token.
     GlobalViewStore.delete(viewKey);
-    this.admin.invalidate([
+    const adminKeys = [
       'types',
       ...(typeKey ? [`type-detail:${kind}:${typeKey}`, `type-definition:${kind}:${typeKey}`] : ['type-detail', 'type-definition']),
-    ]);
+    ];
+    if (fromRealtime) this.invalidateAdminFromRealtime(adminKeys);
+    else this.admin.invalidate(adminKeys);
     this.notifyCacheSubscribers();
   }
 

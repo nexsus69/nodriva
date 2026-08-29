@@ -41,6 +41,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     permissions: { read: [isNode ? "node.read" : "entity.read"] },
     list: {
       load: isNode ? loadAdminNodeRows : loadAdminEntityRows,
+      realtimeDependencies: isNode ? ["children"] : ["subtree-entities"],
       columns: [
         {
           key: "name",

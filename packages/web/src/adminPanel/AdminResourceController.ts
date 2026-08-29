@@ -35,6 +35,7 @@ export class AdminResourceController<
   private snapshot: AdminResourceSnapshot<TRow, TDetail> =
     INITIAL_SNAPSHOT as AdminResourceSnapshot<TRow, TDetail>;
   private readonly subscribers = new Set<() => void>();
+  private listRequestVersion = 0;
 
   public constructor(
     private readonly definition: AdminResourceDefinition<
@@ -56,11 +57,14 @@ export class AdminResourceController<
   };
 
   public async loadList(): Promise<void> {
+    const requestVersion = ++this.listRequestVersion;
     this.patch({ loading: true, error: null });
     try {
       const rows = await this.definition.list.load();
+      if (requestVersion !== this.listRequestVersion) return;
       this.patch({ rows: [...rows], loading: false });
     } catch (reason) {
+      if (requestVersion !== this.listRequestVersion) return;
       this.patch({
         loading: false,
         error: toError(reason),

@@ -78,6 +78,7 @@ export function WorkflowModuleScreen() {
     key: "workflows", moduleKey: "system.workflows", label: t("admin.workflows"), description: t("admin.workflowsDescription"),
     permissions: { read: ["system.config.read"], create: ["system.config"] },
     list: {
+      realtimeDependencies: ["workflow-definitions"],
       load: async () => {
         const result = await AppCache.admin.listWorkflowDefinitions();
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loading"));

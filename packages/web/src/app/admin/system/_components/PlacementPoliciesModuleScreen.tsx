@@ -93,6 +93,7 @@ export function PlacementPoliciesModuleScreen() {
     description: t("admin.placementPoliciesDescription"),
     permissions: { read: ["system.config.read"], create: ["system.config"], update: ["system.config"], delete: ["system.config"] },
     list: {
+      realtimeDependencies: ["placement-policies", "placement-policy"],
       load: async () => {
         const result = await AppCache.admin.listPlacementPolicies();
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loading"));

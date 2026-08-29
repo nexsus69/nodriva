@@ -77,4 +77,24 @@ describe("AdminResourceController", () => {
     expect(controller.getSnapshot().loading).toBe(false);
     expect(controller.getSnapshot().error?.message).toBe("load failed");
   });
+
+  it("ignores an obsolete list response after a newer reload", async () => {
+    let resolveFirst!: (rows: readonly Row[]) => void;
+    const first = new Promise<readonly Row[]>((resolve) => { resolveFirst = resolve; });
+    const load = vi.fn()
+      .mockReturnValueOnce(first)
+      .mockResolvedValueOnce([{ id: "2", name: "Current" }]);
+    const definition = defineAdminResource<Row>({
+      key: "concurrent", moduleKey: "example.module", label: "Concurrent", description: "Concurrent",
+      list: { load, columns: [], emptyLabel: "Empty", loadingLabel: "Loading" },
+    });
+    const controller = new AdminResourceController(definition, undefined);
+
+    const obsolete = controller.loadList();
+    await controller.loadList();
+    resolveFirst([{ id: "1", name: "Obsolete" }]);
+    await obsolete;
+
+    expect(controller.getSnapshot().rows).toEqual([{ id: "2", name: "Current" }]);
+  });
 });

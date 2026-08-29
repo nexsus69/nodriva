@@ -70,6 +70,7 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
       update: ["system.config"],
     },
     list: {
+      realtimeDependencies: ["capabilities", "settings"],
       load: async () => {
         const result = kind === "capabilities" ? await AppCache.admin.listCapabilities() : await AppCache.admin.listSettings();
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loading"));

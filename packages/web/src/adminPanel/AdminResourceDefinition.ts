@@ -22,6 +22,8 @@ export interface AdminResourceAction<TRow, TContext = unknown>
 /** Defines the read side of an administrative resource. */
 export interface AdminResourceListDefinition<TRow extends { id: string }> {
   load: () => Promise<readonly TRow[]>;
+  /** Cache dependencies whose realtime invalidation requires a fresh list read. */
+  realtimeDependencies?: readonly string[];
   columns: readonly AdminTableColumn<TRow>[];
   emptyLabel: string;
   loadingLabel: string;

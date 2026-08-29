@@ -35,6 +35,7 @@ export function RecycleBinModuleScreen() {
     label: t("admin.recycleBin"),
     description: t("admin.recycleBinDescription"),
     list: {
+      realtimeDependencies: ["deleted-nodes", "deleted-entities"],
       load: async () => {
         const [nodes, entities] = await Promise.all([
           unwrap(AppCache.admin.listDeletedNodes()),
