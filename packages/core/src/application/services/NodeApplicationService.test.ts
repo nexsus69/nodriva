@@ -376,8 +376,9 @@ describe('NodeApplicationService', () => {
         siblingNode.id,
         cmd.actorUserId
       );
-      expect(mockAuditPort.record).toHaveBeenCalled();
+      expect(mockAuditPort.record).toHaveBeenCalledTimes(1);
       expect(mockRevisionPort.recordNodeRevision).toHaveBeenCalled();
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledTimes(1);
     });
 
     it('should throw NodeCyclicMoveError when moving a node under itself', async () => {
@@ -457,19 +458,51 @@ describe('NodeApplicationService', () => {
 
       expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.delete', node.id);
       expect(mockNodeRepository.softDeleteSubtree).toHaveBeenCalledWith(node.id, '00000000-0000-0000-0000-000000000001', 3, expect.any(String));
-      expect(mockAuditPort.record).toHaveBeenCalledTimes(2);
+      expect(mockAuditPort.record).toHaveBeenCalledTimes(1);
+      expect(mockAuditPort.record).toHaveBeenCalledWith(
+        '00000000-0000-0000-0000-000000000001',
+        'node.delete',
+        'node',
+        node.id,
+        node.id,
+        null,
+        { deletionBatchId: 'generated-uuid-789', affectedNodeCount: 2 },
+      );
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledTimes(1);
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledWith(expect.objectContaining({
+        eventType: 'record.deleted',
+        subject: { kind: 'node', id: node.id, scopeId: null },
+        idempotencyKey: `record.deleted:node:${node.id}:generated-uuid-789`,
+        payload: { deletionBatchId: 'generated-uuid-789', rootNodeId: node.id, affectedNodeCount: 2 },
+      }));
     });
 
     it('restores only the recorded deletion batch', async () => {
       const deleted = new Node('00000000-0000-0000-0000-000000000010', null, 'root', 'root', 0, 'type-123', 'Root', '', 4, new Date(), new Date(), new Date(), 'user-1', 'user-1', {});
       mockNodeRepository.findDeletedById = vi.fn().mockResolvedValue(deleted);
       mockNodeRepository.getDeletionBatchId = vi.fn().mockResolvedValue('00000000-0000-0000-0000-000000000099');
-      mockNodeRepository.restoreSubtree = vi.fn().mockResolvedValue([deleted.id]);
+      mockNodeRepository.restoreSubtree = vi.fn().mockResolvedValue([deleted.id, '00000000-0000-0000-0000-000000000011']);
 
       await service.restoreNode({ actorUserId: '00000000-0000-0000-0000-000000000001', actorSessionId: '00000000-0000-7000-8000-000000000001', nodeId: deleted.id, expectedRowVersion: 4 });
 
       expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.restore', deleted.id);
       expect(mockNodeRepository.restoreSubtree).toHaveBeenCalledWith(deleted.id, '00000000-0000-0000-0000-000000000001', 4, '00000000-0000-0000-0000-000000000099');
+      expect(mockAuditPort.record).toHaveBeenCalledWith(
+        '00000000-0000-0000-0000-000000000001',
+        'node.restore',
+        'node',
+        deleted.id,
+        deleted.id,
+        { deletionBatchId: '00000000-0000-0000-0000-000000000099' },
+        { deletionBatchId: '00000000-0000-0000-0000-000000000099', restoredNodeCount: 2 },
+      );
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledTimes(1);
+      expect(mockWorkflowEventPublisher.publish).toHaveBeenCalledWith(expect.objectContaining({
+        eventType: 'record.restored',
+        subject: { kind: 'node', id: deleted.id, scopeId: null },
+        idempotencyKey: `record.restored:node:${deleted.id}:00000000-0000-0000-0000-000000000099`,
+        payload: { deletionBatchId: '00000000-0000-0000-0000-000000000099', rootNodeId: deleted.id, restoredNodeCount: 2 },
+      }));
     });
 
     it('loads a deleted node only through the restore permission boundary', async () => {

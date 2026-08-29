@@ -46,6 +46,15 @@ row-version or batch metadata, and never copy a dynamic resource payload into
 the workflow event. The first four accept `node` and `entity` subjects;
 `hierarchy.moved` currently accepts `node`.
 
+A subtree delete or restore has exactly one causal audit record and workflow
+event: both refer to the node selected by the user, while descendants and
+contained entities are immutable consequences identified by `deletionBatchId`.
+The event payload contains the root identifier and affected-node count; it does
+not emit one generic record event per descendant. A hierarchy move follows the
+same causal rule: one `hierarchy.moved` event for the selected root, while
+per-node revisions remain internal history because every descendant path and
+row version changes.
+
 The catalogue is installed idempotently by PostgreSQL migration 036 and by the
 SQLite schema bootstrap. It creates no workflow definition and no external
 action: authorized administrators or module installers must explicitly

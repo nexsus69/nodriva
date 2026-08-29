@@ -399,17 +399,25 @@ export class NodeApplicationService {
       }
       const batchId = this.idGenerator.generate();
       const affectedIds = await this.nodeRepository.softDeleteSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
-      for (const affectedId of affectedIds) await this.auditPort.record(validatedCmd.actorUserId, 'node.delete', 'node', affectedId, node.id, null, { deletionBatchId: batchId });
-      for (const affectedId of affectedIds) {
-        await this.publishWorkflowEvent(
-          'record.deleted',
-          { kind: 'node', id: affectedId, scopeId: node.id },
-          validatedCmd.actorUserId,
-          validatedCmd.actorSessionId,
-          `record.deleted:node:${affectedId}:${batchId}`,
-          { deletionBatchId: batchId, rootNodeId: node.id },
-        );
-      }
+      // A subtree delete is one user intention. Its descendants are persisted
+      // consequences, not independent audit or workflow causes.
+      await this.auditPort.record(
+        validatedCmd.actorUserId,
+        'node.delete',
+        'node',
+        node.id,
+        node.id,
+        null,
+        { deletionBatchId: batchId, affectedNodeCount: affectedIds.length },
+      );
+      await this.publishWorkflowEvent(
+        'record.deleted',
+        { kind: 'node', id: node.id, scopeId: node.parentId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.deleted:node:${node.id}:${batchId}`,
+        { deletionBatchId: batchId, rootNodeId: node.id, affectedNodeCount: affectedIds.length },
+      );
     });
   }
 
@@ -446,17 +454,23 @@ export class NodeApplicationService {
       const batchId = await this.nodeRepository.getDeletionBatchId(node.id);
       if (!batchId) throw new ValidationError('The node has no subtree deletion batch.', { nodeId: ['Missing deletion batch.'] });
       const restoredIds = await this.nodeRepository.restoreSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
-      await this.auditPort.record(validatedCmd.actorUserId, 'node.restore', 'node', node.id, node.id, { deletionBatchId: batchId }, { restoredNodeIds: restoredIds });
-      for (const restoredId of restoredIds) {
-        await this.publishWorkflowEvent(
-          'record.restored',
-          { kind: 'node', id: restoredId, scopeId: node.parentId },
-          validatedCmd.actorUserId,
-          validatedCmd.actorSessionId,
-          `record.restored:node:${restoredId}:${batchId}`,
-          { deletionBatchId: batchId, rootNodeId: node.id },
-        );
-      }
+      await this.auditPort.record(
+        validatedCmd.actorUserId,
+        'node.restore',
+        'node',
+        node.id,
+        node.id,
+        { deletionBatchId: batchId },
+        { deletionBatchId: batchId, restoredNodeCount: restoredIds.length },
+      );
+      await this.publishWorkflowEvent(
+        'record.restored',
+        { kind: 'node', id: node.id, scopeId: node.parentId },
+        validatedCmd.actorUserId,
+        validatedCmd.actorSessionId,
+        `record.restored:node:${node.id}:${batchId}`,
+        { deletionBatchId: batchId, rootNodeId: node.id, restoredNodeCount: restoredIds.length },
+      );
     });
   }
 

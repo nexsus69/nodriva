@@ -77,6 +77,31 @@ curl http://localhost:3001/login
 Il realtime client deve usare `localhost:6001` (o l’hostname pubblico) per
 Soketi. Caddy inoltra anche l’upgrade WebSocket.
 
+## Avvio automatico al boot
+
+Il template [`ops/systemd/nodriva.service`](../ops/systemd/nodriva.service)
+avvia lo stack completo dopo Docker e `network-online.target`. Prima di
+eseguire Compose attende l'indirizzo configurato in `DASHBOARD_BIND_ADDRESS`:
+questo evita che il proxy fallisca il bind se la Wi-Fi ottiene l'IP dopo
+l'avvio del demone Docker.
+
+Installarlo sul server che usa il percorso del repository indicato nel
+template:
+
+```bash
+sudo install -m 0644 ops/systemd/nodriva.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now nodriva.service
+systemctl status nodriva.service
+```
+
+`web`, `prometheus` e gli altri servizi persistenti usano inoltre
+`restart: unless-stopped`. I job `db-migrate` e `db-seed` restano intenzionalmente
+one-shot: il service Compose li esegue e attende prima di avviare Web.
+
+Non usare `--remove-orphans` in questa unità: il secret manager Infisical è
+gestito da un Compose distinto ma condivide il project name Docker.
+
 ## Volumi persistenti
 
 - `dashboard_full_db_data`: database;
