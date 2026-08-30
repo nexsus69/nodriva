@@ -1,0 +1,34 @@
+services:
+  postgres-test:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: dashboard_ci_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dashboard-ci-admin
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - nodriva_postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dashboard_ci_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  bootstrap:
+    image: postgres:17
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      INTEGRATION_DATABASE_ADMIN_URL: postgresql://postgres:dashboard-ci-admin@postgres-test:5432/dashboard_ci_test
+      INTEGRATION_DATABASE_URL: postgresql://dashboard_ci_app:dashboard-ci-app@postgres-test:5432/dashboard_ci_test
+      INTEGRATION_DATABASE_APP_PASSWORD: dashboard-ci-app
+    volumes:
+      - .:/workspace:ro
+    working_dir: /workspace
+    entrypoint: ["bash", "scripts/postgres-test-bootstrap.sh"]
+    profiles: ["bootstrap"]
+
+volumes:
+  nodriva_postgres_test_data:

@@ -36,10 +36,10 @@ export class AuditPortPostgres implements AuditPort {
       actionKey,
       resourceKind,
       resourceId,
+      resourceLabel ?? null,
       nodeId,
       beforePayload ? JSON.stringify(beforePayload) : null,
       afterPayload ? JSON.stringify(afterPayload) : null,
-      resourceLabel ?? null,
     ]);
   }
 }
