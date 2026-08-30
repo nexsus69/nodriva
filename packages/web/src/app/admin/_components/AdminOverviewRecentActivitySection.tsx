@@ -4,7 +4,6 @@
 import type { AuditLogListItemDto } from "@dashboard/core";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { formatAdminDateTime } from "@/adminPanel/adminFormatters";
-import { AdminTechnicalIdentifier } from "@/adminPanel/components/AdminTechnicalIdentifier";
 import { AdminDashboardCard } from "@/adminPanel/components/AdminDashboardCard";
 import { AdminDashboardReadState } from "@/adminPanel/components/AdminDashboardReadState";
 import { auditResourceLabel, auditSemanticOption } from "../activity/_components/auditSemanticCatalog";
@@ -24,9 +23,8 @@ export function AdminOverviewRecentActivitySection({
         ) : (
           <ol className="divide-y divide-slate-100">
             {auditRecords.data.map((record) => (
-              <li key={record.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+              <li key={record.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="min-w-0 text-sm"><p className="font-medium text-slate-900">{auditSemanticOption(record.actionKey, "action", t).label}</p><p className="mt-0.5 truncate text-xs text-slate-500">{auditResourceLabel(record.resourceKind, record.resourceLabel, t)} · {record.actorEmail ?? record.actorUserId ?? "—"} · {formatAdminDateTime(record.createdAt, locale)}</p></div>
-                <AdminTechnicalIdentifier value={record.resourceId} />
               </li>
             ))}
           </ol>
