@@ -31,6 +31,11 @@ localized label remains authoritative and must always be rendered alongside it
 when space permits. A missing or unknown icon is a registry error, not a reason
 to fall back silently to the generic dashboard symbol.
 
+The Admin visual accent is configured once in `packages/web/src/app/globals.css`
+through the `--admin-accent-*` tokens on `.admin-page`. Navigation, buttons,
+focus rings, pagination, toolbars and dashboard cards must consume this shared
+accent contract; a component must not introduce a separate purple/blue palette.
+
 ## Settings ownership and optional capabilities
 
 System settings are technically generic, but each known setting is displayed
