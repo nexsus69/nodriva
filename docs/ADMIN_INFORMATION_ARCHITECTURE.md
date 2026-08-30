@@ -25,6 +25,12 @@ single executable definition of this tree. Sidebar navigation, overview links,
 module state and collection resources use its module keys and routes; a screen
 must not independently invent a second hierarchy.
 
+Every navigable module declares one icon from the shared `AdminIcon` vocabulary.
+The icon communicates the module's purpose in the rail and section header; the
+localized label remains authoritative and must always be rendered alongside it
+when space permits. A missing or unknown icon is a registry error, not a reason
+to fall back silently to the generic dashboard symbol.
+
 ## Settings ownership and optional capabilities
 
 System settings are technically generic, but each known setting is displayed

@@ -33,16 +33,17 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         labelKey: "admin.types",
         description: "Manage node and entity type definitions.",
         descriptionKey: "admin.typesDescription",
+        icon: "schema",
         order: 10,
         route: "/admin/model/types",
         requiredPermissions: ["node_type.read", "entity_type.read"],
         permissionMode: "any",
       },
       {
-        key: "model.placement-policies", label: "Placement policies", labelKey: "admin.placementPolicies", description: "Control where operational data can be placed.", descriptionKey: "admin.placementPoliciesDescription", order: 20, route: "/admin/model/placement-policies", requiredPermissions: ["system.config.read"],
+        key: "model.placement-policies", label: "Placement policies", labelKey: "admin.placementPolicies", description: "Control where operational data can be placed.", descriptionKey: "admin.placementPoliciesDescription", icon: "scope", order: 20, route: "/admin/model/placement-policies", requiredPermissions: ["system.config.read"],
       },
       {
-        key: "model.field-protection", label: "Field protection", labelKey: "admin.fieldProtection", description: "Configure field encryption.", descriptionKey: "admin.fieldProtectionDescription", order: 30, route: "/admin/model/field-protection", requiredPermissions: ["system.config.read"],
+        key: "model.field-protection", label: "Field protection", labelKey: "admin.fieldProtection", description: "Configure field encryption.", descriptionKey: "admin.fieldProtectionDescription", icon: "shield", order: 30, route: "/admin/model/field-protection", requiredPermissions: ["system.config.read"],
       },
     ],
   },
@@ -67,7 +68,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         requiredPermissions: ["node.read"],
       },
       {
-        key: "content.attachment-protection", label: "Attachment protection", labelKey: "admin.attachmentProtection", description: "Configure attachment security.", descriptionKey: "admin.attachmentProtectionDescription", order: 30, route: "/admin/content/attachment-protection", requiredPermissions: ["system.config.read"],
+        key: "content.attachment-protection", label: "Attachment protection", labelKey: "admin.attachmentProtection", description: "Configure attachment security.", descriptionKey: "admin.attachmentProtectionDescription", icon: "shield", order: 30, route: "/admin/content/attachment-protection", requiredPermissions: ["system.config.read"],
       },
       {
         key: "content.entities",
@@ -97,6 +98,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         labelKey: "admin.users",
         description: "Manage administrative identities and their access.",
         descriptionKey: "admin.usersDescription",
+        icon: "users",
         order: 10,
         route: "/admin/access/users",
         requiredPermissions: ["user.read"],
@@ -107,6 +109,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         labelKey: "admin.roles",
         description: "Manage reusable permission roles.",
         descriptionKey: "admin.rolesDescription",
+        icon: "roles",
         order: 20,
         route: "/admin/access/roles",
         requiredPermissions: ["role.read"],
@@ -117,6 +120,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         labelKey: "admin.scopes",
         description: "Manage user access assignments and propagation.",
         descriptionKey: "admin.scopesDescription",
+        icon: "scope",
         order: 30,
         route: "/admin/access/scopes",
         requiredPermissions: ["scope.read"],
@@ -138,6 +142,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
         labelKey: "admin.workflows",
         description: "Configure durable event-driven automations.",
         descriptionKey: "admin.workflowsDescription",
+        icon: "activity",
         order: 10,
         route: "/admin/automation/workflows",
         requiredPermissions: ["system.config.read"],
@@ -149,24 +154,24 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     order: 50,
     children: [
       {
-        key: "governance.audit", label: "Audit log", labelKey: "admin.auditLog", description: "Filter administrative events and inspect immutable changes.", descriptionKey: "admin.auditDescription",
+        key: "governance.audit", label: "Audit log", labelKey: "admin.auditLog", description: "Filter administrative events and inspect immutable changes.", descriptionKey: "admin.auditDescription", icon: "activity",
         order: 10,
         route: "/admin/governance/audit", requiredPermissions: ["audit.access"],
       },
       {
         key: "governance.audit-recording", label: "Audit recording", labelKey: "admin.auditRecording", description: "Configure audit evidence.", descriptionKey: "admin.auditRecordingDescription", order: 20, route: "/admin/governance/audit-recording",
-        requiredPermissions: ["system.config.read"],
+        requiredPermissions: ["system.config.read"], icon: "settings",
       },
-      { key: "governance.recycle-bin", label: "Recycle bin", labelKey: "admin.recycleBin", description: "Restore or permanently remove deleted resources.", descriptionKey: "admin.recycleBinDescription", order: 30, route: "/admin/governance/recycle-bin", requiredPermissions: ["node.restore", "entity.restore"], permissionMode: "any" },
+      { key: "governance.recycle-bin", label: "Recycle bin", labelKey: "admin.recycleBin", description: "Restore or permanently remove deleted resources.", descriptionKey: "admin.recycleBinDescription", icon: "recycle", order: 30, route: "/admin/governance/recycle-bin", requiredPermissions: ["node.restore", "entity.restore"], permissionMode: "any" },
     ],
   },
   {
     key: "platform", label: "Platform", labelKey: "admin.platform", description: "Configure runtime and global security.", descriptionKey: "admin.platformDescription", icon: "settings", order: 60, children: [
       {
-        key: "platform.runtime", label: "Runtime", labelKey: "admin.runtime", description: "Manage runtime capability status.", descriptionKey: "admin.runtimeDescription", order: 10, route: "/admin/platform/runtime", requiredPermissions: ["system.config.read"],
+        key: "platform.runtime", label: "Runtime", labelKey: "admin.runtime", description: "Manage runtime capability status.", descriptionKey: "admin.runtimeDescription", icon: "settings", order: 10, route: "/admin/platform/runtime", requiredPermissions: ["system.config.read"],
       },
-      { key: "platform.session-security", label: "Session security", labelKey: "admin.sessionSecurity", description: "Configure session inactivity.", descriptionKey: "admin.sessionSecurityDescription", order: 20, route: "/admin/platform/session-security", requiredPermissions: ["system.config.read"] },
-      { key: "platform.other-settings", label: "Other settings", labelKey: "admin.otherSettings", description: "Access settings that are not yet assigned to an administrative module.", descriptionKey: "admin.otherSettingsDescription", order: 30, route: "/admin/platform/other-settings", requiredPermissions: ["system.config.read"] },
+      { key: "platform.session-security", label: "Session security", labelKey: "admin.sessionSecurity", description: "Configure session inactivity.", descriptionKey: "admin.sessionSecurityDescription", icon: "shield", order: 20, route: "/admin/platform/session-security", requiredPermissions: ["system.config.read"] },
+      { key: "platform.other-settings", label: "Other settings", labelKey: "admin.otherSettings", description: "Access settings that are not yet assigned to an administrative module.", descriptionKey: "admin.otherSettingsDescription", icon: "settings", order: 30, route: "/admin/platform/other-settings", requiredPermissions: ["system.config.read"] },
     ],
   },
 ];

@@ -29,6 +29,23 @@ describe("AdminModuleRegistry", () => {
     }
   });
 
+  it("assigns a semantic icon to every navigable module", () => {
+    const allowedIcons = new Set([
+      "activity", "dashboard", "database", "entities", "external", "nodes",
+      "recycle", "roles", "schema", "settings", "shield", "scope", "users",
+    ]);
+    const visit = (modules: readonly typeof ADMIN_MODULES[number][]): void => {
+      for (const entry of modules) {
+        if (entry.route) {
+          expect(entry.icon, entry.key).toBeTruthy();
+          expect(allowedIcons.has(entry.icon!), entry.key).toBe(true);
+        }
+        if (entry.children) visit(entry.children);
+      }
+    };
+    visit(ADMIN_MODULES);
+  });
+
   it("sorts modules and children by order", () => {
     const registry = new AdminModuleRegistry([
       { key: "z", label: "Z", order: 20, route: "/z" },
