@@ -36,6 +36,12 @@ through the `--admin-accent-*` tokens on `.admin-page`. Navigation, buttons,
 focus rings, pagination, toolbars and dashboard cards must consume this shared
 accent contract; a component must not introduce a separate purple/blue palette.
 
+Le azioni di aggiornamento amministrative usano sempre `AdminRefreshButton`.
+Il componente centralizza icona, etichetta, callback e comportamento responsive:
+su viewport stretti mostra l'icona con `aria-label`, mentre da `sm` mostra anche
+il testo localizzato. Le schermate non devono ricreare un pulsante di refresh
+con una variante locale.
+
 ## Settings ownership and optional capabilities
 
 System settings are technically generic, but each known setting is displayed

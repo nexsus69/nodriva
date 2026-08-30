@@ -2,9 +2,9 @@
 
 /** Composes the administrative dashboard from independently reusable sections. */
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminDashboardMetricCard } from "@/adminPanel/components/AdminDashboardMetricCard";
 import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { AdminRefreshButton } from "@/adminPanel/components/AdminRefreshButton";
 import { AdminOverviewAttentionSection } from "./AdminOverviewAttentionSection";
 import { AdminOverviewRecentActivitySection } from "./AdminOverviewRecentActivitySection";
 import { summarizeAdminOverview } from "./adminOverviewModel";
@@ -28,7 +28,7 @@ export function AdminOverviewScreen() {
         title={t("admin.overviewTitle")}
         description={t("admin.overviewDescription")}
         icon="dashboard"
-        actions={<AdminButton tone="secondary" compact icon="refresh" onClick={overview.refresh}>{t("admin.refresh")}</AdminButton>}
+        actions={<AdminRefreshButton label={t("admin.refresh")} onRefresh={overview.refresh} />}
       />
 
       {overview.capabilities.state !== "hidden" && (

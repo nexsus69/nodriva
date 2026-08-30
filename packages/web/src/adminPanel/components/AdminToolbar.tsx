@@ -1,7 +1,7 @@
 /** Provides one compact toolbar contract for Admin collections. */
 import type { ReactNode } from "react";
-import { AdminButton } from "./AdminButton";
 import { AdminIcon } from "./AdminIcon";
+import { AdminRefreshButton } from "./AdminRefreshButton";
 
 /** Groups search, filter content, result metadata, and refresh behavior. */
 export function AdminToolbar({
@@ -40,9 +40,7 @@ export function AdminToolbar({
       {children && <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">{children}</div>}
       {meta && <div className="text-xs tabular-nums text-slate-500">{meta}</div>}
       {onRefresh && refreshLabel && (
-        <AdminButton tone="quiet" compact icon="refresh" onClick={onRefresh} aria-label={refreshLabel}>
-          <span className="hidden sm:inline">{refreshLabel}</span>
-        </AdminButton>
+        <AdminRefreshButton label={refreshLabel} onRefresh={onRefresh} />
       )}
     </div>
   );
