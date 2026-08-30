@@ -11,7 +11,6 @@ import {
 
 import { AuthResolver } from './auth/AuthResolver';
 import { runWithRealtimeOutbox } from '../../server/realtime';
-import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 import { mapAppErrorToApiErrorResponse, withSafeActionErrors } from './errorMapping';
 import type { ApiErrorResponse } from '@dashboard/core';
 
@@ -134,7 +133,6 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
     rowVersion: node.rowVersion,
     payload: node.payload,
   };
-  await publishAuditRealtimeChange({ resourceType: 'node', resourceId: node.id, changeType: 'created', actorUserId: cmd.actorUserId });
   return result;
   });
 }
@@ -164,7 +162,6 @@ export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUser
     rowVersion: node.rowVersion,
     payload: node.payload,
   };
-  await publishAuditRealtimeChange({ resourceType: 'node', resourceId: node.id, changeType: 'updated', actorUserId: cmd.actorUserId });
   return result;
   });
 }
@@ -189,7 +186,6 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
     affectedResourceIds: affectedNodeIds, data: toNodeDto(moved),
   }) : null);
   if (moved) {
-    await publishAuditRealtimeChange({ resourceType: 'node', resourceId: moved.id, changeType: 'moved', actorUserId: cmd.actorUserId });
     return toNodeDto(moved);
   }
   return moved;
@@ -231,7 +227,6 @@ export async function deleteNodeAction(input: DeleteNodeActionInput) {
         () => nodeService.deleteNode(cmd),
         () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
       );
-      await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId });
       if (lockingEnabled) {
         try {
           await lockService.unlock(reference, identity.userId, identity.sessionId, { scopeNodeId: existing.id });
@@ -263,7 +258,6 @@ export async function restoreNodeAction(input: Omit<RestoreNodeCommand, 'actorUs
       () => nodeService.restoreNode(cmd),
       () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId }),
     );
-    await publishAuditRealtimeChange({ resourceType: 'node', resourceId: input.nodeId, changeType: 'restored', actorUserId: identity.userId });
     return { restored: true };
   });
 }

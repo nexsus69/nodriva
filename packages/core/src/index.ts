@@ -38,11 +38,16 @@ export {
   AUDIT_ACTION_POLICY_CATALOG,
   AUDIT_LOCK_LIFECYCLE_SETTING,
 } from "./application/services/PolicyAuditRecorder.js";
+export { RealtimeAuditCollectionInvalidator, REALTIME_CAPABILITY_KEY } from "./application/services/RealtimeAuditCollectionInvalidator.js";
 export type {
   AuditActionPolicyDefinition,
   AuditEvent,
   AuditRecordingPolicy,
 } from "./application/services/PolicyAuditRecorder.js";
+export type {
+  AuditCollectionInvalidation,
+  AuditCollectionInvalidationPort,
+} from "./application/ports/AuditCollectionInvalidationPort.js";
 export type {
   ConfigurationDefinition,
   ConfigurationSource,

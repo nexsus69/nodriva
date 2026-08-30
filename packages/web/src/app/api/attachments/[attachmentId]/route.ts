@@ -1,7 +1,7 @@
+/** Downloads or deletes one authorized attachment and records its audit trail. */
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
 import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, isAttachmentAccessDenied } from '../attachmentAccess';
-import { publishAuditRealtimeChange } from '../../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../../server/realtime';
 
 type AttachmentRow = { id: string; resourceType: 'node' | 'entity'; resourceId: string; fieldKey: string; kind: 'file' | 'image'; fileName: string; mimeType: string; storageKey: string };
@@ -84,8 +84,6 @@ export const DELETE = auth(async (request, context: { params: Promise<{ attachme
       parentNodeId: attachment.resourceType === 'entity' ? access.scopeNodeId : null,
       subresourceKind: 'attachment',
     }).catch((error) => console.error('[Attachments] Realtime delete event failed', error));
-    void publishAuditRealtimeChange({ resourceType: attachment.resourceType, resourceId: attachment.id, changeType: 'deleted', actorUserId })
-      .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ deleted: true });
   } catch (error) {
     if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });

@@ -1,11 +1,15 @@
 /** Proves the first built-in workflow action writes an auditable canonical record trace. */
 import { afterEach, describe, expect, it } from 'vitest';
 import { AuditRecordWorkflowActionHandler } from '../../application/services/AuditRecordWorkflowActionHandler.js';
+import { PolicyAuditRecorder } from '../../application/services/PolicyAuditRecorder.js';
+import { RealtimeAuditCollectionInvalidator } from '../../application/services/RealtimeAuditCollectionInvalidator.js';
+import type { RuntimeConfigurationPort } from '../../application/ports/RuntimeConfigurationPort.js';
 import { WorkflowDefinitionService } from '../../application/services/WorkflowDefinitionService.js';
 import { WorkflowEventProcessor } from '../../application/services/WorkflowEventProcessor.js';
 import { WorkflowWorker } from '../../application/services/WorkflowWorker.js';
 import { AuditPortSqlite } from './AuditPortSqlite.js';
 import { AuditQueryPortSqlite } from './AuditQueryPortSqlite.js';
+import { RealtimeOutboxSqlite } from './RealtimeOutboxSqlite.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { TransactionPortSqlite } from './TransactionPortSqlite.js';
@@ -33,7 +37,21 @@ describe('SQLite audit workflow integration', () => {
       payload: { rowVersion: 1, privateValue: 'not audited' }, correlationId: 'session-1', idempotencyKey: 'record-created-node-1',
     });
 
-    const handler = new AuditRecordWorkflowActionHandler(new AuditPortSqlite(database));
+    const audit = new PolicyAuditRecorder(
+      new AuditPortSqlite(database),
+      { shouldRecord: async () => true },
+      new TransactionPortSqlite(database),
+      new RealtimeAuditCollectionInvalidator(
+        new RealtimeOutboxSqlite(database),
+        {
+          isCapabilityEnabled: async () => true,
+          getSetting: async <T>(_key: string, defaultValue: T): Promise<T> => defaultValue,
+        } satisfies RuntimeConfigurationPort,
+        { generate: () => 'workflow-audit-event-1' },
+        () => new Date('2026-08-30T12:00:00.000Z'),
+      ),
+    );
+    const handler = new AuditRecordWorkflowActionHandler(audit);
     const worker = new WorkflowWorker(repository, { find: (actionType) => actionType === handler.actionType ? handler : null });
     await expect(worker.runOnce('workflow-worker', 10)).resolves.toMatchObject({ claimedCount: 1, failedExecutionKeys: [] });
 
@@ -45,8 +63,30 @@ describe('SQLite audit workflow integration', () => {
       workflowId: 'record_history', workflowVersion: 1, executionKey: 'record_history:1:record-created-node-1:audit',
       eventId: 'record-event-1', eventType: 'record.created', correlationId: 'session-1',
     });
+    expect(database.get<{ event_payload: string }>(
+      "SELECT event_payload FROM realtime_event_outbox WHERE event_id='workflow-audit-event-1'",
+    )).toMatchObject({
+      event_payload: expect.stringContaining('"resourceType":"audit"'),
+    });
     await expect(new AuditQueryPortSqlite(database).listFilterCatalog()).resolves.toMatchObject({
       actionKeys: expect.arrayContaining(['workflow.audit.record']), resourceKinds: expect.arrayContaining(['node']),
     });
+  });
+
+  it('rolls back audit evidence when its durable invalidation fails', async () => {
+    const database = new SqliteDatabase();
+    databases.push(database);
+    ensureSqliteSchema(database);
+    const audit = new PolicyAuditRecorder(
+      new AuditPortSqlite(database),
+      { shouldRecord: async () => true },
+      new TransactionPortSqlite(database),
+      { invalidatePersistedAudit: async () => { throw new Error('outbox unavailable'); } },
+    );
+
+    await expect(audit.record(null, 'workflow.audit.record', 'node', 'node-1', null, null, null))
+      .rejects.toThrow('outbox unavailable');
+
+    expect(database.get("SELECT 1 AS present FROM audit_logs WHERE action_key='workflow.audit.record'")).toBeUndefined();
   });
 });

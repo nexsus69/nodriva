@@ -74,6 +74,7 @@ import {
   WorkflowEventProcessor,
   RuntimeAuditRecordingPolicy,
   PolicyAuditRecorder,
+  RealtimeAuditCollectionInvalidator,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -209,6 +210,13 @@ export const pusherEventBus = new PusherEventBus({
 export const realtimeOutbox = sqliteMode ? sqliteInfrastructure!.realtimeOutbox : new RealtimeOutboxPostgres(pgExecutor!);
 export const runtimeConfigPort = sqliteMode ? sqliteInfrastructure!.runtimeConfigurationPort : new RuntimeConfigurationPortPostgres(pgExecutor!);
 
+// UUID generator shared by application services and durable outbox events.
+export const idGenerator = {
+  generate(): string {
+    return crypto.randomUUID();
+  }
+};
+
 export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
   return runtimeConfigPort.isCapabilityEnabled('realtime');
 }
@@ -237,6 +245,8 @@ export const configService = new ConfigService(
 export const auditPort = new PolicyAuditRecorder(
   persistenceAuditPort,
   new RuntimeAuditRecordingPolicy(runtimeConfigPort),
+  transactionPort,
+  new RealtimeAuditCollectionInvalidator(realtimeOutbox, runtimeConfigPort, idGenerator),
 );
 export const accessControlPort = sqliteMode ? sqliteInfrastructure!.accessControlPort : new AccessControlPortPostgres(pgExecutor!);
 export const workflowAdminService = new WorkflowAdminApplicationService(
@@ -344,19 +354,13 @@ export const resourceRelationshipService = new ResourceRelationshipService(
   accessControlPort,
 );
 
-// Generatore di UUIDv7 per ID Port
-export const idGenerator = {
-  generate(): string {
-    return crypto.randomUUID();
-  }
-};
-
 export const lockService = new LockService(
   lockRepository,
   pusherEventBus,
   idGenerator,
   configService,
   auditPort,
+  transactionPort,
 );
 
 // Istanziamo i Service Layer concreti pronti per l'uso

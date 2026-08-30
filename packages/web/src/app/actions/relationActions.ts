@@ -6,7 +6,6 @@ import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse, withSafeActionErrors } from './errorMapping';
 import { ValidationError, type ApiErrorResponse, type NodeRepository, type TypeDomain } from '@dashboard/core';
 import { runWithRealtimeOutbox } from '../../server/realtime';
-import { publishAuditRealtimeChange } from '../../server/adminRealtime';
 
 export interface RelationCandidate {
   id: string;
@@ -286,12 +285,6 @@ export async function mutateIncomingRelationshipAction(input: {
             data: toEntityRelationDto(resource),
           }),
     );
-    await Promise.all(result.changedResources.map(({ domain, resource }) => publishAuditRealtimeChange({
-      resourceType: domain,
-      resourceId: resource.id,
-      changeType: 'updated',
-      actorUserId: identity.userId,
-    })));
     return result.changedResources.map(({ domain, resource }) => domain === 'node'
       ? toNodeRelationDto(resource)
       : toEntityRelationDto(resource));

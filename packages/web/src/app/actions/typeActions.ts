@@ -8,6 +8,7 @@ import {
   attachmentPolicyRepository,
   auditPort,
   configService,
+  transactionPort,
 } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import {
@@ -28,7 +29,7 @@ import {
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import { publishRealtimeChange } from '../../server/realtime';
-import { publishAdministrativeChange, publishAuditRealtimeChange } from '../../server/adminRealtime';
+import { publishAdministrativeChange } from '../../server/adminRealtime';
 import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 
@@ -47,7 +48,6 @@ async function publishMetadataChanged(kind: TypeKind, typeKey: string, actorUser
     actorUserId,
     metadataKind: kind,
   });
-  await publishAuditRealtimeChange({ resourceType: kind, resourceId: typeKey, changeType: 'updated', actorUserId });
 }
 
 export async function getNodeTypeAttachmentPolicyAction(nodeTypeId: string): Promise<{ success: boolean; mode?: AttachmentEncryptionMode; error?: ApiErrorResponse }> {
@@ -68,8 +68,15 @@ export async function updateNodeTypeAttachmentPolicyAction(nodeTypeId: string, m
     if (mode === 'enabled' && !(await configService.get<boolean>('attachments.encryptionEnabled'))) {
       return { success: false, error: { code: 'VALIDATION_ERROR', message: 'La cifratura allegati globale è disabilitata.' } };
     }
-    await withAdministrativeMutationLock({ resourceType: 'node_type', resourceId: nodeTypeId, permission: 'node_type.update', work: async () => attachmentPolicyRepository.setEncryptionMode(nodeTypeId, mode) });
-    await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
+    await withAdministrativeMutationLock({
+      resourceType: 'node_type',
+      resourceId: nodeTypeId,
+      permission: 'node_type.update',
+      work: async () => transactionPort.runInTransaction(async () => {
+        await attachmentPolicyRepository.setEncryptionMode(nodeTypeId, mode);
+        await auditPort.record(actorUserId, 'node_type.update_attachment_policy', 'node_type', nodeTypeId, null, null, { encryptionMode: mode });
+      }),
+    });
     await publishAdministrativeChange({ resourceType: 'node_type', resourceId: nodeTypeId, changeType: 'updated', actorUserId, data: { encryptionMode: mode } });
     return { success: true, mode };
   } catch (err) {

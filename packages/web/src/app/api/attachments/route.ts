@@ -1,9 +1,9 @@
+/** Serves and creates authorized attachments with transactional audit evidence. */
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 import { auth } from '../../../auth';
 import { authenticatedUser, assertAttachmentAccess, assertAttachmentField, isAttachmentAccessDenied, parseAttachmentTarget } from './attachmentAccess';
-import { publishAuditRealtimeChange } from '../../../server/adminRealtime';
 import { publishRealtimeChange } from '../../../server/realtime';
 
 class AttachmentQuotaExceededError extends Error {}
@@ -100,8 +100,6 @@ export const POST = auth(async (request) => {
       parentNodeId: target.resourceType === 'entity' ? access.scopeNodeId : null,
       subresourceKind: 'attachment',
     }).catch((error) => console.error('[Attachments] Realtime upload event failed', error));
-    void publishAuditRealtimeChange({ resourceType: target.resourceType, resourceId: attachmentId, changeType: 'created', actorUserId })
-      .catch((error) => console.error('[Attachments] Realtime audit event failed', error));
     return NextResponse.json({ id: attachmentId, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes });
   } catch (error) {
     if (isAttachmentAccessDenied(error)) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });

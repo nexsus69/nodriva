@@ -23,8 +23,6 @@ vi.mock('../../server/realtime', () => ({
   runWithRealtimeOutbox: (operation: () => Promise<unknown>) => operation(),
 }));
 
-vi.mock('../../server/adminRealtime', () => ({ publishAuditRealtimeChange: vi.fn() }));
-
 vi.mock('./auth/AuthResolver', () => ({
   AuthResolver: { resolveActorIdentity: mocks.resolveActorIdentity },
 }));

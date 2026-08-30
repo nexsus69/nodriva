@@ -26,6 +26,20 @@ un segnale utile di contesa, il secondo è una mutation amministrativa.
 L'impostazione non modifica persistenza, TTL, ownership, `rowVersion`, rilascio
 o notifiche realtime dei lock.
 
+## Invalidazione realtime dell'Audit Log
+
+Ogni evento audit che supera la policy e viene effettivamente persistito genera
+nella stessa transazione un'invalidazione generica della collection `audit`
+nell'outbox realtime. I producer (lock, workflow, allegati e mutation delle
+risorse) non pubblicano invalidazioni audit proprie: registrano soltanto
+l'evento semantico tramite `PolicyAuditRecorder`.
+
+Se la policy sopprime l'evento, non vengono scritti né il record audit né
+l'evento outbox. Se la capability realtime è disabilitata, l'audit conserva il
+medesimo risultato persistente ma non viene accodata una notifica che il
+profilo non può consegnare. Nel profilo completo il worker pubblica l'evento
+solo dopo il commit; la UI coalesca le invalidazioni della collection visibile.
+
 ## Estensione
 
 Per rendere configurabile un'altra famiglia di eventi si aggiunge una

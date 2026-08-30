@@ -1,6 +1,8 @@
 /** Applies the authoritative audit policy before delegating persistence to an adapter. */
 import type { AuditPort } from "../ports/AuditPort.js";
+import type { AuditCollectionInvalidationPort } from "../ports/AuditCollectionInvalidationPort.js";
 import type { RuntimeConfigurationPort } from "../ports/RuntimeConfigurationPort.js";
+import type { TransactionPort } from "../ports/TransactionPort.js";
 
 export const AUDIT_LOCK_LIFECYCLE_SETTING = "audit.recordLockLifecycle";
 
@@ -74,6 +76,8 @@ export class PolicyAuditRecorder implements AuditPort {
   public constructor(
     private readonly destination: AuditPort,
     private readonly policy: AuditRecordingPolicy,
+    private readonly transactions: TransactionPort,
+    private readonly collectionInvalidation: AuditCollectionInvalidationPort,
   ) {}
 
   public async record(
@@ -86,14 +90,21 @@ export class PolicyAuditRecorder implements AuditPort {
     afterPayload: Record<string, unknown> | null,
   ): Promise<void> {
     if (!await this.policy.shouldRecord({ actionKey, resourceKind, resourceId })) return;
-    await this.destination.record(
-      actorUserId,
-      actionKey,
-      resourceKind,
-      resourceId,
-      nodeId,
-      beforePayload,
-      afterPayload,
-    );
+    await this.transactions.runInTransaction(async () => {
+      await this.destination.record(
+        actorUserId,
+        actionKey,
+        resourceKind,
+        resourceId,
+        nodeId,
+        beforePayload,
+        afterPayload,
+      );
+      await this.collectionInvalidation.invalidatePersistedAudit({
+        actorUserId,
+        resourceKind,
+        resourceId,
+      });
+    });
   }
 }

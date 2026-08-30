@@ -1,3 +1,4 @@
+/** Verifies lock audit transactions and post-commit realtime notifications. */
 import { describe, expect, it, vi } from 'vitest';
 import { LockService } from './LockService.js';
 import { Lock } from '../../domain/models/Lock.js';
@@ -9,6 +10,7 @@ import {
 import type { LockRepository } from '../ports/LockRepository.js';
 import type { LockEventBus } from '../ports/LockEventBus.js';
 import type { AuditPort } from '../ports/AuditPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
 
 const RESOURCE_ID = '00000000-0000-0000-0000-000000000001';
 const ACTOR_ID = '00000000-0000-0000-0000-000000000002';
@@ -29,7 +31,14 @@ function createService(lock: Lock | null) {
     publishLockForceReleased: vi.fn().mockResolvedValue(undefined),
   };
   const auditPort: AuditPort = { record: vi.fn().mockResolvedValue(undefined) };
-  return { service: new LockService(repository, eventBus, { generate: () => 'lock-id' }, 120, auditPort), repository, auditPort };
+  const transactions: TransactionPort = { runInTransaction: vi.fn(async <T>(work: () => Promise<T>) => work()) };
+  return {
+    service: new LockService(repository, eventBus, { generate: () => 'lock-id' }, 120, auditPort, transactions),
+    repository,
+    auditPort,
+    eventBus,
+    transactions,
+  };
 }
 
 describe('LockService.requireOwnedLock', () => {
@@ -115,6 +124,7 @@ describe('LockService audit events', () => {
     expect(context.auditPort.record).toHaveBeenCalledWith(ACTOR_ID, 'lock.acquire', 'node', RESOURCE_ID, RESOURCE_ID, null, expect.objectContaining({ lockId: lock.id }));
     expect(context.auditPort.record).toHaveBeenCalledWith(ACTOR_ID, 'lock.release', 'node', RESOURCE_ID, RESOURCE_ID, { sessionId: ACTOR_SESSION_ID }, null);
     expect(context.auditPort.record).toHaveBeenCalledTimes(2);
+    expect(context.transactions.runInTransaction).toHaveBeenCalledTimes(2);
   });
 
   it('audits a rejected acquisition conflict and preserves the error', async () => {
@@ -133,6 +143,16 @@ describe('LockService audit events', () => {
     await context.service.forceUnlock({ resourceType: 'node', resourceId: RESOURCE_ID }, { scopeNodeId: RESOURCE_ID });
 
     expect(context.auditPort.record).toHaveBeenCalledWith(null, 'lock.force_release', 'node', RESOURCE_ID, RESOURCE_ID, null, { reason: 'administrative_release' });
+  });
+
+  it('does not publish a successful lock event when its transactional audit fails', async () => {
+    const context = createService(null);
+    vi.mocked(context.auditPort.record).mockRejectedValueOnce(new Error('audit unavailable'));
+
+    await expect(context.service.lock({ resourceType: 'node', resourceId: RESOURCE_ID }, ACTOR_ID, ACTOR_SESSION_ID))
+      .rejects.toThrow('audit unavailable');
+
+    expect(context.eventBus.publishLockAcquired).not.toHaveBeenCalled();
   });
 
   it('audits acquisition and release for administrative resources', async () => {
