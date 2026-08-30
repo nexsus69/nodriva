@@ -3,7 +3,8 @@
 /** Composes the audit filters, results, and immutable detail surface. */
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import type { AuditLogListItemDto } from "@dashboard/core";
-import { formatAdminDateTime, formatAdminTechnicalIdentifier } from "@/adminPanel/adminFormatters";
+import { formatAdminDateTime } from "@/adminPanel/adminFormatters";
+import { AdminTechnicalIdentifier } from "@/adminPanel/components/AdminTechnicalIdentifier";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AuditFilterPanel } from "./AuditFilterPanel";
 import { AuditLogDetailDrawer } from "./AuditLogDetailDrawer";
@@ -20,7 +21,7 @@ export function AuditModuleScreen() {
     breadcrumbs: [{ label: t("admin.activity") }],
     columns: [
       { key: "action", label: t("admin.action"), render: (row) => auditSemanticOption(row.actionKey, "action", t).label, sortValue: (row) => row.actionKey },
-      { key: "resource", label: t("admin.resourceKind"), render: (row) => <span title={row.resourceId}>{auditSemanticOption(row.resourceKind, "resource", t).label}: <span className="font-mono">{formatAdminTechnicalIdentifier(row.resourceId)}</span></span> },
+      { key: "resource", label: t("admin.resourceKind"), render: (row) => <span>{auditSemanticOption(row.resourceKind, "resource", t).label}: <AdminTechnicalIdentifier value={row.resourceId} /></span> },
       { key: "actor", label: t("admin.actor"), render: (row) => row.actorEmail ?? row.actorUserId ?? "—" },
       { key: "createdAt", label: t("admin.createdAt"), render: (row) => formatAdminDateTime(row.createdAt, locale) },
     ],

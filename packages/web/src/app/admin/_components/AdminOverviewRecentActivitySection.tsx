@@ -3,7 +3,8 @@
 /** Presents an authorized, compact audit feed without duplicating audit-query behavior. */
 import type { AuditLogListItemDto } from "@dashboard/core";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { formatAdminDateTime, formatAdminTechnicalIdentifier } from "@/adminPanel/adminFormatters";
+import { formatAdminDateTime } from "@/adminPanel/adminFormatters";
+import { AdminTechnicalIdentifier } from "@/adminPanel/components/AdminTechnicalIdentifier";
 import { AdminDashboardCard } from "@/adminPanel/components/AdminDashboardCard";
 import { AdminDashboardReadState } from "@/adminPanel/components/AdminDashboardReadState";
 import { auditSemanticOption } from "../activity/_components/auditSemanticCatalog";
@@ -25,7 +26,7 @@ export function AdminOverviewRecentActivitySection({
             {auditRecords.data.map((record) => (
               <li key={record.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                 <div className="min-w-0 text-sm"><p className="font-medium text-slate-900">{auditSemanticOption(record.actionKey, "action", t).label}</p><p className="mt-0.5 truncate text-xs text-slate-500">{auditSemanticOption(record.resourceKind, "resource", t).label} · {record.actorEmail ?? record.actorUserId ?? "—"} · {formatAdminDateTime(record.createdAt, locale)}</p></div>
-                <span className="shrink-0 font-mono text-xs text-slate-500" title={record.resourceId}>{formatAdminTechnicalIdentifier(record.resourceId)}</span>
+                <AdminTechnicalIdentifier value={record.resourceId} />
               </li>
             ))}
           </ol>

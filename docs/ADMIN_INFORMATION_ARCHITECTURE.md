@@ -46,7 +46,8 @@ Date e identificativi tecnici nelle superfici amministrative passano dai
 formatter condivisi in `packages/web/src/adminPanel/adminFormatters.ts`. Le
 date ISO persistite sono convertite nella lingua attiva con anno a quattro
 cifre; gli identificativi lunghi sono abbreviati solo nella resa visiva,
-conservando il valore completo nel tooltip e nel contratto dati. Un UUID non
+conservando il valore completo nel contratto dati e rendendolo copiabile dal
+dettaglio audit; il tooltip è solo un aiuto aggiuntivo su desktop. Un UUID non
 deve essere usato come unica descrizione umana della risorsa: quando il
 contratto fornirà un'etichetta descrittiva, questa precederà l'identificativo;
 in sua assenza il fallback tecnico resta esplicito e non ambiguo.
