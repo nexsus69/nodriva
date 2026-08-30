@@ -1,6 +1,6 @@
 import { AdminButton } from "./AdminButton";
 
-/** Provides the shared responsive contract for administrative refresh actions. */
+/** Provides the shared visual and interaction contract for administrative refresh actions. */
 export function AdminRefreshButton({
   label,
   onRefresh,
@@ -9,8 +9,15 @@ export function AdminRefreshButton({
   onRefresh: () => void;
 }) {
   return (
-    <AdminButton tone="quiet" compact icon="refresh" onClick={onRefresh} aria-label={label}>
-      <span className="hidden sm:inline">{label}</span>
+    <AdminButton
+      tone="quiet"
+      compact
+      icon="refresh"
+      onClick={onRefresh}
+      aria-label={label}
+      className="w-fit whitespace-nowrap"
+    >
+      <span>{label}</span>
     </AdminButton>
   );
 }
