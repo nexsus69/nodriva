@@ -16,6 +16,7 @@ interface AuditLogListRow {
   actionKey: string;
   resourceKind: string;
   resourceId: string;
+  resourceLabel: string | null;
   nodeId: string | null;
   createdAt: Date;
   fullCount: number;
@@ -100,6 +101,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
         a.action_key AS "actionKey",
         a.resource_kind AS "resourceKind",
         a.resource_id AS "resourceId",
+        a.resource_label AS "resourceLabel",
         a.node_id AS "nodeId",
         a.created_at AS "createdAt",
         COUNT(*) OVER() AS "fullCount"
@@ -123,6 +125,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       actionKey: r.actionKey,
       resourceKind: r.resourceKind,
       resourceId: r.resourceId,
+      resourceLabel: r.resourceLabel ?? null,
       nodeId: r.nodeId ?? null,
       createdAt: new Date(r.createdAt).toISOString(),
     }));
@@ -145,6 +148,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
         a.action_key AS "actionKey",
         a.resource_kind AS "resourceKind",
         a.resource_id AS "resourceId",
+        a.resource_label AS "resourceLabel",
         a.node_id AS "nodeId",
         a.before_payload AS "beforePayload",
         a.after_payload AS "afterPayload",
@@ -166,6 +170,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       actionKey: r.actionKey,
       resourceKind: r.resourceKind,
       resourceId: r.resourceId,
+      resourceLabel: r.resourceLabel ?? null,
       nodeId: r.nodeId ?? null,
       beforePayload: r.beforePayload ?? null,
       afterPayload: r.afterPayload ?? null,

@@ -68,6 +68,14 @@ describe("PolicyAuditRecorder", () => {
     expect(invalidatePersistedAudit).toHaveBeenCalledWith({ actorUserId: "user-1", resourceKind: "node", resourceId: "node-1" });
   });
 
+  it("persists the optional human-readable resource label", async () => {
+    const { recorder } = createRecorder(true);
+
+    await recorder.record("user-1", "system.update_setting", "system_setting", "setting-1", null, null, { value: "on" }, "Impostazioni audit");
+
+    expect(record).toHaveBeenCalledWith("user-1", "system.update_setting", "system_setting", "setting-1", null, null, { value: "on" }, "Impostazioni audit");
+  });
+
   it("does not invalidate when audit persistence fails", async () => {
     const { recorder } = createRecorder(true);
     record.mockRejectedValueOnce(new Error("audit write failed"));

@@ -1,3 +1,4 @@
+/** Verifies PostgreSQL governance adapters preserve their application contracts. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuditPortPostgres } from './AuditPortPostgres.js';
 import { RevisionPortPostgres } from './RevisionPortPostgres.js';
@@ -30,7 +31,8 @@ describe('Governance and Security PostgreSQL Adapters', () => {
         'node-id-1',
         'parent-id-1',
         { status: 'old' },
-        { status: 'new' }
+        { status: 'new' },
+        'Nodo principale'
       );
 
       expect(mockExecutor.query).toHaveBeenCalledWith(
@@ -43,6 +45,7 @@ describe('Governance and Security PostgreSQL Adapters', () => {
           'parent-id-1',
           JSON.stringify({ status: 'old' }),
           JSON.stringify({ status: 'new' }),
+          'Nodo principale',
         ]
       );
     });
@@ -53,7 +56,7 @@ describe('Governance and Security PostgreSQL Adapters', () => {
 
       expect(mockExecutor.query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO audit_logs'),
-        ['user-1', 'node.delete', 'node', 'node-id-1', null, null, null]
+        ['user-1', 'node.delete', 'node', 'node-id-1', null, null, null, null]
       );
     });
   });

@@ -6,6 +6,7 @@ export interface AuditLogListItemDto {
   actionKey: string;
   resourceKind: string;
   resourceId: string;
+  resourceLabel?: string | null;
   nodeId: string | null;
   createdAt: string;
 }

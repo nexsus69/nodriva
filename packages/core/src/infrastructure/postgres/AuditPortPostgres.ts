@@ -15,7 +15,8 @@ export class AuditPortPostgres implements AuditPort {
     resourceId: string,
     nodeId: string | null,
     beforePayload: Record<string, unknown> | null,
-    afterPayload: Record<string, unknown> | null
+    afterPayload: Record<string, unknown> | null,
+    resourceLabel?: string | null,
   ): Promise<void> {
     const query = `
       INSERT INTO audit_logs (
@@ -23,10 +24,11 @@ export class AuditPortPostgres implements AuditPort {
         action_key,
         resource_kind,
         resource_id,
+        resource_label,
         node_id,
         before_payload,
         after_payload
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `;
 
     await this.executor.query(query, [
@@ -37,6 +39,7 @@ export class AuditPortPostgres implements AuditPort {
       nodeId,
       beforePayload ? JSON.stringify(beforePayload) : null,
       afterPayload ? JSON.stringify(afterPayload) : null,
+      resourceLabel ?? null,
     ]);
   }
 }

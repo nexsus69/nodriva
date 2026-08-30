@@ -88,10 +88,11 @@ export class PolicyAuditRecorder implements AuditPort {
     nodeId: string | null,
     beforePayload: Record<string, unknown> | null,
     afterPayload: Record<string, unknown> | null,
+    resourceLabel?: string | null,
   ): Promise<void> {
     if (!await this.policy.shouldRecord({ actionKey, resourceKind, resourceId })) return;
     await this.transactions.runInTransaction(async () => {
-      await this.destination.record(
+      const args: Parameters<AuditPort["record"]> = [
         actorUserId,
         actionKey,
         resourceKind,
@@ -99,7 +100,9 @@ export class PolicyAuditRecorder implements AuditPort {
         nodeId,
         beforePayload,
         afterPayload,
-      );
+      ];
+      if (resourceLabel !== undefined) args.push(resourceLabel);
+      await this.destination.record(...args);
       await this.collectionInvalidation.invalidatePersistedAudit({
         actorUserId,
         resourceKind,

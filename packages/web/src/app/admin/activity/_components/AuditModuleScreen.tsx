@@ -21,7 +21,7 @@ export function AuditModuleScreen() {
     breadcrumbs: [{ label: t("admin.activity") }],
     columns: [
       { key: "action", label: t("admin.action"), render: (row) => auditSemanticOption(row.actionKey, "action", t).label, sortValue: (row) => row.actionKey },
-      { key: "resource", label: t("admin.resourceKind"), render: (row) => <span>{auditSemanticOption(row.resourceKind, "resource", t).label}: <AdminTechnicalIdentifier value={row.resourceId} /></span> },
+      { key: "resource", label: t("admin.resourceKind"), render: (row) => <span>{auditSemanticOption(row.resourceKind, "resource", t).label}{row.resourceLabel ? ` · ${row.resourceLabel}` : ""}: <AdminTechnicalIdentifier value={row.resourceId} /></span> },
       { key: "actor", label: t("admin.actor"), render: (row) => row.actorEmail ?? row.actorUserId ?? "—" },
       { key: "createdAt", label: t("admin.createdAt"), render: (row) => formatAdminDateTime(row.createdAt, locale) },
     ],

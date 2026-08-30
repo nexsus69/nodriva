@@ -1,3 +1,4 @@
+/** Orchestrates authorized system configuration changes and their audit evidence. */
 import type { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
 import type { AuditPort } from '../ports/AuditPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
@@ -54,7 +55,8 @@ export class SystemAdminApplicationService {
           capabilityId,
           null,
           null,
-          { capabilityKey: v.capabilityKey, status: v.status }
+          { capabilityKey: v.capabilityKey, status: v.status },
+          v.capabilityKey
         );
       }
     });
@@ -84,7 +86,8 @@ export class SystemAdminApplicationService {
           settingId,
           null,
           null,
-          { settingKey: v.settingKey, valueText: v.settingValueText }
+          { settingKey: v.settingKey, valueText: v.settingValueText },
+          v.settingKey
         );
       }
     });
@@ -126,7 +129,8 @@ export class SystemAdminApplicationService {
         policyId,
         null,
         null,
-        { policyKey: v.policyKey, name: v.name, policyMode: v.policyMode }
+        { policyKey: v.policyKey, name: v.name, policyMode: v.policyMode },
+        v.name
       );
 
       const created = await this.systemConfigRepository.getPlacementPolicyByKey(v.policyKey);
@@ -155,7 +159,8 @@ export class SystemAdminApplicationService {
         policyId,
         null,
         null,
-        { policyKey: v.policyKey, name: v.name, policyMode: v.policyMode }
+        { policyKey: v.policyKey, name: v.name, policyMode: v.policyMode },
+        v.name
       );
 
       const updated = await this.systemConfigRepository.getPlacementPolicyByKey(v.policyKey);
@@ -181,7 +186,8 @@ export class SystemAdminApplicationService {
         policyId,
         null,
         null,
-        { policyKey: v.policyKey }
+        { policyKey: v.policyKey },
+        v.policyKey
       );
     });
   }
@@ -214,7 +220,8 @@ export class SystemAdminApplicationService {
         policy.id,
         null,
         null,
-        { ruleType: v.ruleType, targetNodeId: v.targetNodeId, targetNodeTypeId: v.targetNodeTypeId }
+        { ruleType: v.ruleType, targetNodeId: v.targetNodeId, targetNodeTypeId: v.targetNodeTypeId },
+        v.policyKey
       );
     });
   }
@@ -232,7 +239,8 @@ export class SystemAdminApplicationService {
         v.ruleId,
         null,
         null,
-        null
+        null,
+        v.ruleId
       );
     });
   }

@@ -48,9 +48,9 @@ date ISO persistite sono convertite nella lingua attiva con anno a quattro
 cifre; gli identificativi lunghi sono abbreviati solo nella resa visiva,
 conservando il valore completo nel contratto dati e rendendolo copiabile dal
 dettaglio audit; il tooltip è solo un aiuto aggiuntivo su desktop. Un UUID non
-deve essere usato come unica descrizione umana della risorsa: quando il
-contratto fornirà un'etichetta descrittiva, questa precederà l'identificativo;
-in sua assenza il fallback tecnico resta esplicito e non ambiguo.
+deve essere usato come unica descrizione umana quando il record contiene una
+`resourceLabel`: l'etichetta precede l'identificativo; per gli audit storici o
+le risorse senza etichetta il fallback tecnico resta esplicito e non ambiguo.
 
 ## Settings ownership and optional capabilities
 

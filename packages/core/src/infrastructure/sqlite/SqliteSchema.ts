@@ -134,6 +134,7 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       action_key TEXT NOT NULL,
       resource_kind TEXT NOT NULL,
       resource_id TEXT NOT NULL,
+      resource_label TEXT,
       node_id TEXT,
       before_payload TEXT,
       after_payload TEXT,
@@ -456,6 +457,7 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
     }
   }
   if (!database.hasColumn('entity_types', 'placement_policy_id')) database.exec('ALTER TABLE entity_types ADD COLUMN placement_policy_id TEXT');
+  if (!database.hasColumn('audit_logs', 'resource_label')) database.exec('ALTER TABLE audit_logs ADD COLUMN resource_label TEXT');
 
   database.exec(`
     UPDATE node_type_fields

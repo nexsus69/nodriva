@@ -38,15 +38,15 @@ describeIntegration('PostgreSQL generic audit reference', () => {
   });
 
   it('preserves a non-Nodriva subject kind and non-UUID resource identifier', async () => {
-    await new AuditPortPostgres(applicationExecutor).record(null, actionKey, 'asset', resourceId, null, null, { source: 'workflow' });
+    await new AuditPortPostgres(applicationExecutor).record(null, actionKey, 'asset', resourceId, null, null, { source: 'workflow' }, 'Workflow asset');
     await expect(new AuditQueryPortPostgres(applicationExecutor).listFilterCatalog()).resolves.toMatchObject({
       actionKeys: expect.arrayContaining([actionKey]), resourceKinds: expect.arrayContaining(['asset']),
     });
-    const result = await adminExecutor.query<{ resource_kind: string; resource_id: string; after_payload: { source: string } }>(
-      'SELECT resource_kind, resource_id, after_payload FROM audit_logs WHERE action_key=$1 AND resource_id=$2',
+    const result = await adminExecutor.query<{ resource_kind: string; resource_id: string; resource_label: string; after_payload: { source: string } }>(
+      'SELECT resource_kind, resource_id, resource_label, after_payload FROM audit_logs WHERE action_key=$1 AND resource_id=$2',
       [actionKey, resourceId],
     );
-    expect(result.rows).toEqual([{ resource_kind: 'asset', resource_id: resourceId, after_payload: { source: 'workflow' } }]);
+    expect(result.rows).toEqual([{ resource_kind: 'asset', resource_id: resourceId, resource_label: 'Workflow asset', after_payload: { source: 'workflow' } }]);
   });
 
   it('commits audit evidence and its collection invalidation in one PostgreSQL transaction', async () => {

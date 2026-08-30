@@ -1,3 +1,4 @@
+/** Verifies system configuration mutations and their audit labels. */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SystemAdminApplicationService } from './SystemAdminApplicationService.js';
 import type { SystemConfigRepository } from '../ports/SystemConfigRepository.js';
@@ -84,7 +85,8 @@ describe('SystemAdminApplicationService', () => {
       '00000000-0000-0000-0000-000000000099',
       null,
       null,
-      expect.any(Object)
+      expect.any(Object),
+      'locking'
     );
   });
 
@@ -104,7 +106,8 @@ describe('SystemAdminApplicationService', () => {
       '00000000-0000-0000-0000-000000000098',
       null,
       null,
-      expect.any(Object)
+      expect.any(Object),
+      'active_profile'
     );
   });
 

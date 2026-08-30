@@ -16,6 +16,7 @@ type AuditRow = {
   actionKey: string;
   resourceKind: string;
   resourceId: string;
+  resourceLabel: string | null;
   nodeId: string | null;
   beforePayload: string | null;
   afterPayload: string | null;
@@ -64,7 +65,7 @@ export class AuditQueryPortSqlite implements AuditQueryPort {
     const rows = this.database.all<AuditRow>(
       `SELECT a.id, a.actor_user_id AS actorUserId, u.email AS actorEmail,
               a.action_key AS actionKey, a.resource_kind AS resourceKind,
-              a.resource_id AS resourceId, a.node_id AS nodeId,
+              a.resource_id AS resourceId, a.resource_label AS resourceLabel, a.node_id AS nodeId,
               a.occurred_at AS createdAt, COUNT(*) OVER() AS total
          FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_user_id
          ${where} ORDER BY a.occurred_at DESC LIMIT ? OFFSET ?`,
@@ -84,7 +85,7 @@ export class AuditQueryPortSqlite implements AuditQueryPort {
     const row = this.database.get<AuditRow>(
       `SELECT a.id, a.actor_user_id AS actorUserId, u.email AS actorEmail,
               a.action_key AS actionKey, a.resource_kind AS resourceKind,
-              a.resource_id AS resourceId, a.node_id AS nodeId,
+              a.resource_id AS resourceId, a.resource_label AS resourceLabel, a.node_id AS nodeId,
               a.before_payload AS beforePayload, a.after_payload AS afterPayload,
               a.occurred_at AS createdAt
          FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_user_id
@@ -106,6 +107,7 @@ export class AuditQueryPortSqlite implements AuditQueryPort {
       actionKey: row.actionKey,
       resourceKind: row.resourceKind,
       resourceId: row.resourceId,
+      resourceLabel: row.resourceLabel ?? null,
       nodeId: row.nodeId,
       createdAt: new Date(row.createdAt).toISOString(),
     };

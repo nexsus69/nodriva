@@ -475,6 +475,7 @@ CREATE TABLE audit_logs (
   action_key VARCHAR(150) NOT NULL,
   resource_kind TEXT NOT NULL,
   resource_id TEXT NOT NULL,
+  resource_label TEXT NULL,
   node_id UUID NULL REFERENCES nodes(id) ON DELETE SET NULL,
   before_payload JSONB NULL,
   after_payload JSONB NULL,
