@@ -42,6 +42,15 @@ dimensionamento: mostra sempre l'etichetta localizzata insieme all'icona e
 mantiene una larghezza compatta uniforme anche dentro le toolbar. Le schermate
 non devono ricreare un pulsante di refresh con una variante locale.
 
+Date e identificativi tecnici nelle superfici amministrative passano dai
+formatter condivisi in `packages/web/src/adminPanel/adminFormatters.ts`. Le
+date ISO persistite sono convertite nella lingua attiva con anno a quattro
+cifre; gli identificativi lunghi sono abbreviati solo nella resa visiva,
+conservando il valore completo nel tooltip e nel contratto dati. Un UUID non
+deve essere usato come unica descrizione umana della risorsa: quando il
+contratto fornirà un'etichetta descrittiva, questa precederà l'identificativo;
+in sua assenza il fallback tecnico resta esplicito e non ambiguo.
+
 ## Settings ownership and optional capabilities
 
 System settings are technically generic, but each known setting is displayed
