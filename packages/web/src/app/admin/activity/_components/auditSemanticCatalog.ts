@@ -24,6 +24,26 @@ export function auditSemanticOption(
   };
 }
 
+/** Resolves an audit subject label once for every audit surface. */
+export function auditResourceLabel(
+  resourceKind: string,
+  resourceLabel: string | null | undefined,
+  t: Translate,
+): string {
+  const fallback = auditSemanticOption(resourceKind, "resource", t).label;
+  const value = resourceLabel?.trim();
+  if (!value) return fallback;
+
+  const catalogKind = resourceKind === "system_setting"
+    ? "setting"
+    : resourceKind === "runtime_capability"
+      ? "capability"
+      : null;
+  if (!catalogKind) return value;
+
+  return t(`admin.catalog.${catalogKind}.${value}`, value);
+}
+
 /** Uses a readable fallback for future modules whose vocabulary has not yet been localized. */
 function title(value: string): string {
   return value.length === 0 ? value : `${value[0]?.toUpperCase()}${value.slice(1)}`;
