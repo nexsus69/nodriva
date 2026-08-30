@@ -52,7 +52,7 @@ function ModuleTree({
             )}
           </>
         );
-        const className = `flex min-h-9 w-full items-center gap-2.5 px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-500 ${active ? "bg-violet-50 text-violet-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`;
+        const className = `flex min-h-9 w-full items-center gap-2.5 px-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500 ${active ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"}`;
 
         return (
           <div key={module.key}>
@@ -107,7 +107,7 @@ function RailTarget({
   onClick: () => void;
   href?: string;
 }) {
-  const className = `group relative flex size-11 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${selected ? "bg-violet-500 text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"}`;
+  const className = `group relative flex size-11 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white ${selected ? "bg-blue-600 text-white" : "text-slate-400 hover:bg-white/10 hover:text-white"}`;
   const content = (
     <>
       <AdminIcon name={icon} className="size-5" />
@@ -186,7 +186,7 @@ export function AdminPanelSidebar({
             href="/admin"
             onClick={onClose}
             aria-label={t("admin.panel")}
-            className="flex size-14 items-center justify-center bg-violet-600 text-sm font-bold text-white"
+            className="flex size-14 items-center justify-center bg-blue-600 text-2xl font-black leading-none text-white"
           >
             N
           </Link>
@@ -218,7 +218,7 @@ export function AdminPanelSidebar({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-14 items-center justify-between border-b border-slate-200 px-4">
             <div className="flex min-w-0 items-center gap-2.5">
-              <AdminIcon name={activeRoot?.icon ?? "dashboard"} className="size-4 shrink-0 text-violet-600" />
+              <AdminIcon name={activeRoot?.icon ?? "dashboard"} className="size-4 shrink-0 text-blue-600" />
               <p className="truncate text-sm font-semibold text-slate-950">
                 {activeRoot ? t(activeRoot.labelKey ?? activeRoot.label) : t("admin.panel")}
               </p>

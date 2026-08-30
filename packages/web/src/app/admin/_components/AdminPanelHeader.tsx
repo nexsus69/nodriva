@@ -19,7 +19,7 @@ export function AdminPanelHeader({
         type="button"
         onClick={onOpenSidebar}
         aria-label={t("admin.openMenu")}
-        className="flex size-9 items-center justify-center border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 lg:hidden"
+        className="flex size-9 items-center justify-center border border-slate-200 text-slate-600 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:hidden"
       >
         <AdminIcon name="menu" className="size-4" />
       </button>
@@ -29,7 +29,7 @@ export function AdminPanelHeader({
       <LocaleSwitcher />
       <div className="hidden h-6 w-px bg-slate-200 sm:block" />
       <div className="flex min-w-0 items-center gap-2" title={email}>
-        <span className="flex size-7 shrink-0 items-center justify-center bg-violet-100 text-[11px] font-bold uppercase text-violet-700">
+        <span className="flex size-7 shrink-0 items-center justify-center bg-blue-100 text-[11px] font-bold uppercase text-blue-700">
           {email.slice(0, 1)}
         </span>
         <span className="hidden max-w-48 truncate text-xs text-slate-500 md:block">
