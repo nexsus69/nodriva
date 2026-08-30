@@ -7,6 +7,7 @@ import { AdminIcon } from "@/adminPanel/components/AdminIcon";
 import { adminModuleRegistry } from "@/adminPanel/AdminModuleRegistry";
 import {
   findAdminModuleByRoute,
+  isAdminModuleRouteMatch,
   type AdminModule,
 } from "@/adminPanel/AdminModule";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
@@ -35,11 +36,7 @@ function ModuleTree({
         const hasChildren = Boolean(module.children?.length);
         const expanded = expandedModuleKeys.includes(module.key);
         const active = activeModuleKey === module.key || Boolean(
-          module.route && (
-            module.route === "/admin"
-              ? pathname === module.route
-              : pathname.startsWith(module.route)
-          ),
+          module.route && isAdminModuleRouteMatch(module.route, pathname),
         );
         const content = (
           <>

@@ -77,7 +77,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
       ['/admin/model/field-protection', /Field protection|Protezione campi/i],
       ['/admin/automation/workflows', /Workflows|Workflow/i],
       ['/admin/governance/audit', /Audit log|Log audit/i],
-      ['/admin/governance/audit-recording', /Audit recording|Registrazione audit/i],
+      ['/admin/governance/audit-recording', /Audit settings|Impostazioni audit/i],
       ['/admin/governance/recycle-bin', /Recycle bin|Cestino/i],
       ['/admin/platform/runtime', /Runtime and integrations|Runtime e integrazioni/i],
       ['/admin/platform/session-security', /Session security|Sicurezza sessione/i],

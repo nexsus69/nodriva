@@ -17,8 +17,8 @@ The administration workspace is organized by the intent of the administrator:
 | Content | Nodes, entities, attachment protection | `/admin/content/*` |
 | Access | Users, roles, scopes | `/admin/access/*` |
 | Automation | Workflows | `/admin/automation/*` |
-| Governance | Audit log, audit recording, recycle bin | `/admin/governance/*` |
-| Platform | Runtime and integrations, session security, other settings | `/admin/platform/*` |
+| Governance | Audit log, audit settings, recycle bin | `/admin/governance/*` |
+| Settings | Runtime and integrations, session security, other settings | `/admin/platform/*` |
 
 The registry in `packages/web/src/adminPanel/AdminModuleRegistry.ts` is the
 single executable definition of this tree. Sidebar navigation, overview links,
@@ -43,7 +43,7 @@ where its operational purpose belongs:
 | `audit.recordLockLifecycle` | Governance → Audit recording |
 | `session.idleTimeoutSeconds` | Platform → Session security |
 
-`Platform → Other settings` is an explicit fallback for settings introduced by
+`Settings → Other settings` is an explicit fallback for settings introduced by
 a deployment or a later version before they receive a semantic owner. It shows
 only unclassified keys, so it is not a second generic settings area. A missing,
 disabled or unsupported optional capability must render as its normal runtime

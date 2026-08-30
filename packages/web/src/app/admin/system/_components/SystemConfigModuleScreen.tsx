@@ -22,6 +22,14 @@ type SystemRow = RuntimeCapabilityDto | SystemSettingDto;
 type SystemForm = { status?: string; valueText?: string };
 export type SystemSettingsSection = "field-protection" | "attachment-protection" | "audit-recording" | "session-security" | "other-settings";
 
+const SETTING_SECTION_ICONS: Record<SystemSettingsSection, "settings" | "shield"> = {
+  "field-protection": "shield",
+  "attachment-protection": "shield",
+  "audit-recording": "settings",
+  "session-security": "shield",
+  "other-settings": "settings",
+};
+
 const SETTING_SECTIONS: Record<SystemSettingsSection, { moduleKey: string; titleKey: string; descriptionKey: string; settingKeys?: readonly string[] }> = {
   "field-protection": { moduleKey: "model.field-protection", titleKey: "admin.fieldProtection", descriptionKey: "admin.fieldProtectionDescription", settingKeys: ["data.fieldsEncryptionEnabled"] },
   "attachment-protection": { moduleKey: "content.attachment-protection", titleKey: "admin.attachmentProtection", descriptionKey: "admin.attachmentProtectionDescription", settingKeys: ["attachments.antivirusEnabled", "attachments.encryptionEnabled"] },
@@ -171,7 +179,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
   const definitionForScreen: AdminCollectionDefinition<SystemRow> = {
     title: resource.label,
     description: resource.description,
-    icon: "settings",
+    icon: kind === "capabilities" ? "settings" : settingsSection ? SETTING_SECTION_ICONS[section!] : "settings",
     columns: resource.list.columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,

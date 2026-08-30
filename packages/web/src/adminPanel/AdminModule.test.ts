@@ -1,6 +1,6 @@
 /** Verifies recursive module contracts, ordering, lookup, and authorization projections. */
 import { describe, expect, it } from "vitest";
-import { findAdminModuleByRoute } from "./AdminModule";
+import { findAdminModuleByRoute, isAdminModuleRouteMatch } from "./AdminModule";
 import { ADMIN_MODULES, AdminModuleRegistry } from "./AdminModuleRegistry";
 
 describe("AdminModuleRegistry", () => {
@@ -44,6 +44,20 @@ describe("AdminModuleRegistry", () => {
       }
     };
     visit(ADMIN_MODULES);
+  });
+
+  it("keeps the primary automation, governance, and settings icons distinct", () => {
+    const registry = new AdminModuleRegistry();
+    expect(registry.find("automation")?.icon).toBe("activity");
+    expect(registry.find("governance")?.icon).toBe("shield");
+    expect(registry.find("platform")?.labelKey).toBe("admin.settings");
+    expect(registry.find("platform")?.icon).toBe("settings");
+  });
+
+  it("matches route segments instead of shorter sibling prefixes", () => {
+    expect(isAdminModuleRouteMatch("/admin/governance/audit", "/admin/governance/audit-recording")).toBe(false);
+    expect(isAdminModuleRouteMatch("/admin/governance/audit", "/admin/governance/audit/detail")).toBe(true);
+    expect(findAdminModuleByRoute(ADMIN_MODULES, "/admin/governance/audit-recording")?.key).toBe("governance.audit-recording");
   });
 
   it("sorts modules and children by order", () => {

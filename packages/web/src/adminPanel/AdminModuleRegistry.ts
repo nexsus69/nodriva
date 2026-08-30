@@ -150,7 +150,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     ],
   },
   {
-    key: "governance", label: "Governance", labelKey: "admin.governance", description: "Review evidence and lifecycle controls.", descriptionKey: "admin.governanceDescription", icon: "activity",
+    key: "governance", label: "Governance", labelKey: "admin.governance", description: "Review evidence and lifecycle controls.", descriptionKey: "admin.governanceDescription", icon: "shield",
     order: 50,
     children: [
       {
@@ -166,7 +166,7 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     ],
   },
   {
-    key: "platform", label: "Platform", labelKey: "admin.platform", description: "Configure runtime and global security.", descriptionKey: "admin.platformDescription", icon: "settings", order: 60, children: [
+    key: "platform", label: "Settings", labelKey: "admin.settings", description: "Configure runtime and global security.", descriptionKey: "admin.platformDescription", icon: "settings", order: 60, children: [
       {
         key: "platform.runtime", label: "Runtime", labelKey: "admin.runtime", description: "Manage runtime capability status.", descriptionKey: "admin.runtimeDescription", icon: "settings", order: 10, route: "/admin/platform/runtime", requiredPermissions: ["system.config.read"],
       },

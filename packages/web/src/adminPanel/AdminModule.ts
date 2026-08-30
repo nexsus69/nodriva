@@ -64,6 +64,13 @@ export function sortAdminModules(
     }));
 }
 
+/** Matches a canonical route without confusing a shorter sibling prefix. */
+export function isAdminModuleRouteMatch(route: string, pathname: string): boolean {
+  return route === "/admin"
+    ? pathname === route
+    : pathname === route || pathname.startsWith(`${route}/`);
+}
+
 /** Filters a module tree while retaining authorized parents of visible children. */
 export function filterAdminModules(
   modules: readonly AdminModule[],
@@ -99,9 +106,7 @@ export function findAdminModuleByRoute(
 ): AdminModule | null {
   const candidates = modules.flatMap((node) => [
     ...(node.route &&
-    (node.route === "/admin"
-      ? pathname === node.route
-      : pathname.startsWith(node.route))
+    isAdminModuleRouteMatch(node.route, pathname)
       ? [node]
       : []),
     ...(node.children
