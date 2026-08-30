@@ -2,6 +2,7 @@
 
 /** Adapts type-field semantics to the reusable AdminTable surface. */
 import type { FieldDto } from "@dashboard/core";
+import { fieldDataTypeOption } from "@/adminPanel/adminSemanticCatalog";
 import { AdminTable } from "@/adminPanel/components/AdminTable";
 
 export function TypeFieldTable({
@@ -41,7 +42,7 @@ export function TypeFieldTable({
       key: "type",
       label: t("admin.dataType"),
       render: (field: FieldDto) => (
-        <span className="text-slate-600">{field.dataType}</span>
+        <span className="text-slate-600">{fieldDataTypeOption(field.dataType, t).label}</span>
       ),
     },
     {
@@ -97,6 +98,7 @@ export function TypeFieldTable({
         columns={columns}
         actions={actions}
         emptyLabel={t("admin.noFields")}
+        actionMenuLabel={t("admin.actions")}
       />
     </section>
   );

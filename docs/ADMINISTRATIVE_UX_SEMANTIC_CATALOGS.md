@@ -118,5 +118,12 @@ Workflow configuration uses the same selector primitive for event and action
 catalogues. It collects a human name first, proposes a `snake_case` key, keeps
 technical-key customization explicit, and preserves the form draft in the
 admin workspace. Role creation follows the same name-first and generated-key
-pattern. Other modules remain scheduled incremental conversions, rather than
-being silently treated as compliant.
+pattern.
+
+The type-field catalogue, runtime capabilities, runtime settings and
+permissions now resolve their finite system values in the shared Web semantic
+catalogue. The backend continues to return the persisted technical key and
+legacy display data; the UI maps known keys to the selected locale and retains
+the persisted label and description only as an explicit fallback for historic
+or externally supplied entries. User-authored names and descriptions remain
+user content and are never silently translated.

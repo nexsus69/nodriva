@@ -31,7 +31,7 @@ export function RecycleBinModuleScreen() {
   const authorization = useAdminAuthorization();
   const resource = useMemo(() => defineAdminResource<RecycleOperation>({
     key: "recycle-bin",
-    moduleKey: "activity.recycle-bin",
+    moduleKey: "governance.recycle-bin",
     label: t("admin.recycleBin"),
     description: t("admin.recycleBinDescription"),
     list: {

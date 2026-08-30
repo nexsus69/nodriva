@@ -1,5 +1,6 @@
 /** Verifies recursive module contracts, ordering, lookup, and authorization projections. */
 import { describe, expect, it } from "vitest";
+import { findAdminModuleByRoute } from "./AdminModule";
 import { ADMIN_MODULES, AdminModuleRegistry } from "./AdminModuleRegistry";
 
 describe("AdminModuleRegistry", () => {
@@ -7,7 +8,25 @@ describe("AdminModuleRegistry", () => {
     const registry = new AdminModuleRegistry();
 
     expect(registry.find("model")?.children?.[0]?.key).toBe("model.types");
-    expect(registry.find("model.types")?.route).toBe("/admin/types");
+    expect(registry.find("model.types")?.route).toBe("/admin/model/types");
+  });
+
+  it("does not retain routes replaced by the controlled information-architecture break", () => {
+    const modules = new AdminModuleRegistry().all();
+
+    for (const route of [
+      "/admin/types",
+      "/admin/users",
+      "/admin/security/roles",
+      "/admin/security/scopes",
+      "/admin/system/config",
+      "/admin/system/settings",
+      "/admin/system/placement-policies",
+      "/admin/audit",
+      "/admin/recycle-bin",
+    ]) {
+      expect(findAdminModuleByRoute(modules, route)).toBeNull();
+    }
   });
 
   it("sorts modules and children by order", () => {

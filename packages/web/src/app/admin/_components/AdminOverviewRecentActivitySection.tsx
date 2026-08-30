@@ -15,7 +15,7 @@ export function AdminOverviewRecentActivitySection({
 }) {
   const { t } = useAppLocale();
   return (
-    <AdminDashboardCard title={t("admin.overviewRecentActivity")} description={t("admin.overviewRecentActivityDescription")} icon="activity" href="/admin/audit">
+    <AdminDashboardCard title={t("admin.overviewRecentActivity")} description={t("admin.overviewRecentActivityDescription")} icon="activity" href="/admin/governance/audit">
       <AdminDashboardReadState state={auditRecords.state} error={auditRecords.error} unavailableLabel={t("admin.overviewUnavailable")}>
         {auditRecords.data.length === 0 ? (
           <p className="text-sm text-slate-500">{t("admin.overviewNoRecentActivity")}</p>

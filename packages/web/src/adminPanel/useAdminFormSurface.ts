@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useMemo } from "react";
 import type { SetStateAction } from "react";
 import {
@@ -5,6 +7,7 @@ import {
   type AdminSurfaceState,
 } from "./AdminWorkspaceStore";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
+import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { useUnsavedChanges } from "@/app/navigation/NavigationBlocker";
 
 /** Defines how a form surface treats an unsaved draft when it is closed. */
@@ -42,11 +45,16 @@ export function useAdminFormSurface<T extends object>({
   initialValues,
   closePolicy = "discard",
   confirmOnDiscard = false,
-  confirmTitle = "Discard unsaved changes?",
-  confirmDescription = "Your changes will be removed from this form.",
-  confirmConfirmLabel = "Discard changes",
-  confirmCancelLabel = "Keep editing",
+  confirmTitle,
+  confirmDescription,
+  confirmConfirmLabel,
+  confirmCancelLabel,
 }: AdminFormSurfaceOptions<T>) {
+  const { t } = useAppLocale();
+  const resolvedConfirmTitle = confirmTitle ?? t("admin.discardTitle");
+  const resolvedConfirmDescription = confirmDescription ?? t("admin.discardDescription");
+  const resolvedConfirmConfirmLabel = confirmConfirmLabel ?? t("admin.discardChanges");
+  const resolvedConfirmCancelLabel = confirmCancelLabel ?? t("admin.keepEditing");
   const draft = useAdminWorkspaceStore((state) => state.drafts[draftKey]);
   const surface = useAdminWorkspaceStore((state) => state.surface);
   const openSurface = useAdminWorkspaceStore((state) => state.openSurface);
@@ -122,10 +130,10 @@ export function useAdminFormSurface<T extends object>({
         if (
           confirmOnDiscard &&
           !(await requestConfirmation({
-            title: confirmTitle,
-            description: confirmDescription,
-            confirmLabel: confirmConfirmLabel,
-            cancelLabel: confirmCancelLabel,
+            title: resolvedConfirmTitle,
+            description: resolvedConfirmDescription,
+            confirmLabel: resolvedConfirmConfirmLabel,
+            cancelLabel: resolvedConfirmCancelLabel,
             tone: "danger",
           }))
         ) {
@@ -138,15 +146,15 @@ export function useAdminFormSurface<T extends object>({
     return true;
   }, [
     closePolicy,
-    confirmCancelLabel,
-    confirmConfirmLabel,
-    confirmDescription,
     confirmOnDiscard,
-    confirmTitle,
     closeSurface,
     draftKey,
     isDirty,
     removeDraft,
+    resolvedConfirmCancelLabel,
+    resolvedConfirmConfirmLabel,
+    resolvedConfirmDescription,
+    resolvedConfirmTitle,
   ]);
 
   /** Completes a successful mutation and always removes its draft. */

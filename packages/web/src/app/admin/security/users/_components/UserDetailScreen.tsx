@@ -106,7 +106,7 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
     if (!(await profileSurface.close())) return;
     if (!(await passwordSurface.close())) return;
     if (onClose) onClose();
-    else router.push("/admin/users");
+    else router.push("/admin/access/users");
   };
   return (
     <section className="space-y-6">

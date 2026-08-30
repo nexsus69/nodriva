@@ -36,7 +36,7 @@ export function AdminOverviewAttentionSection({
               {gaps.map((capability) => (
                 <li key={capability.id} className="flex items-center justify-between gap-4 text-sm">
                   <span><strong className="font-medium text-slate-900">{capability.name}</strong><span className="ml-2 text-slate-500">{capability.description}</span></span>
-                  <Link href="/admin/system/config" className="shrink-0 font-semibold text-violet-700 hover:text-violet-900">{t("admin.overviewReview")}</Link>
+                  <Link href="/admin/platform/runtime" className="shrink-0 font-semibold text-violet-700 hover:text-violet-900">{t("admin.overviewReview")}</Link>
                 </li>
               ))}
             </ul>

@@ -66,17 +66,22 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     );
 
     const sections: Array<[string, RegExp]> = [
-      ['/admin/users', /Users|Utenti/i],
-      ['/admin/security/roles', /Roles|Ruoli/i],
-      ['/admin/security/scopes', /Scopes|Ambiti/i],
-      ['/admin/types', /Tipi/i],
+      ['/admin/access/users', /Users|Utenti/i],
+      ['/admin/access/roles', /Roles|Ruoli/i],
+      ['/admin/access/scopes', /Scopes|Ambiti/i],
+      ['/admin/model/types', /Tipi/i],
       ['/admin/content/nodes', /Nodes|Nodi/i],
       ['/admin/content/entities', /Entities|Entità/i],
-      ['/admin/system/config', /Capabilities|Capability/i],
-      ['/admin/system/settings', /System settings|Impostazioni di sistema/i],
-      ['/admin/system/placement-policies', /Placement policies|Politiche di posizionamento/i],
-      ['/admin/audit', /Audit log|Log audit/i],
-      ['/admin/recycle-bin', /Recycle bin|Cestino/i],
+      ['/admin/content/attachment-protection', /Attachment protection|Protezione allegati/i],
+      ['/admin/model/placement-policies', /Placement policies|Politiche di posizionamento/i],
+      ['/admin/model/field-protection', /Field protection|Protezione campi/i],
+      ['/admin/automation/workflows', /Workflows|Workflow/i],
+      ['/admin/governance/audit', /Audit log|Log audit/i],
+      ['/admin/governance/audit-recording', /Audit recording|Registrazione audit/i],
+      ['/admin/governance/recycle-bin', /Recycle bin|Cestino/i],
+      ['/admin/platform/runtime', /Runtime and integrations|Runtime e integrazioni/i],
+      ['/admin/platform/session-security', /Session security|Sicurezza sessione/i],
+      ['/admin/platform/other-settings', /Other settings|Altre impostazioni/i],
     ];
     const loadedSections: string[] = [];
     for (const [path, heading] of sections) {
@@ -86,7 +91,17 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
       loadedSections.push(path);
     }
 
-    await page.goto(`${baseUrl}/admin/security/roles`);
+    for (const retiredPath of ['/admin/types', '/admin/users', '/admin/security/roles', '/admin/system/config', '/admin/audit']) {
+      await page.goto(`${baseUrl}${retiredPath}`);
+      await expect(page.getByRole('heading', { name: /Administrative module unavailable|Modulo amministrativo non disponibile/i })).toBeVisible();
+    }
+
+    await page.goto(`${baseUrl}/admin/platform/runtime`);
+    await expect(page.getByText(/Realtime synchronization|Sincronizzazione realtime/i)).toBeVisible();
+    await page.goto(`${baseUrl}/admin/governance/audit-recording`);
+    await expect(page.getByText(/Record ordinary lock activity|Registra attività lock ordinaria/i)).toBeVisible();
+
+    await page.goto(`${baseUrl}/admin/access/roles`);
     await page.getByRole('button', { name: /^\+?\s*Crea ruolo$|^\+?\s*Create role$/i }).click();
     const roleNameInput = page.getByLabel(/Nome \*/i);
     const roleKeyInput = page.getByLabel(/Chiave ruolo \*/i);
@@ -99,9 +114,10 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await page.getByRole('row', { name: roleName }).click();
     await expect(page.getByRole('heading', { name: roleName })).toBeVisible();
     await expect(page.getByRole('checkbox').first()).toBeVisible();
+    await expect(page.getByText(/Node · Read|Nodo · Lettura/i)).toBeVisible();
     loadedDetailViews.push('role');
 
-    await page.goto(`${baseUrl}/admin/types`);
+    await page.goto(`${baseUrl}/admin/model/types`);
     await createTypeButton(page).click();
     const nodeTypeKeyInput = page.getByLabel(/Chiave tipo \*/i);
     const nodeTypeNameInput = page.getByLabel('Nome *');
@@ -115,9 +131,14 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     const createdNodeTypeVisible = await page.getByText(nodeTypeKey, { exact: true }).isVisible();
     await page.getByRole('row', { name: nodeTypeName }).click();
     await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
+    await page.getByRole('button', { name: /Fields \(0\)|Campi \(0\)/i }).click();
+    await page.getByRole('button', { name: /Add field|Aggiungi campo/i }).click();
+    await page.getByRole('combobox', { name: /Data type|Tipo dato/i }).click();
+    await expect(page.getByRole('option', { name: /Date and time|Data e ora/i })).toBeVisible();
+    await page.getByRole('dialog').locator('button:not([aria-label])').filter({ hasText: /Cancel|Annulla/i }).click();
     loadedDetailViews.push('node-type');
 
-    await page.goto(`${baseUrl}/admin/types`);
+    await page.goto(`${baseUrl}/admin/model/types`);
     await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
     const backToTypeList = page.getByRole('button', { name: /Torna alla lista|Back to list/i }).first();
     if (await backToTypeList.isVisible()) {
@@ -141,7 +162,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await expect(page.getByRole('heading', { name: 'Admin parity root' })).toBeVisible();
     loadedDetailViews.push('node');
 
-    await page.goto(`${baseUrl}/admin/audit`);
+    await page.goto(`${baseUrl}/admin/governance/audit`);
     const expectedActions = [
       { value: 'security.create_role', label: /Sicurezza · Creazione|Security · Created/i },
       { value: 'type_admin.create_type', label: /Tipo · Amministrazione · Creazione · Tipo|Type · Administration · Created · Type/i },
@@ -175,17 +196,22 @@ test.describe('admin panel SQLite/PostgreSQL parity', () => {
     expect(postgres).toEqual(sqlite);
     expect(sqlite).toMatchObject({
       loadedSections: [
-        '/admin/users',
-        '/admin/security/roles',
-        '/admin/security/scopes',
-        '/admin/types',
+        '/admin/access/users',
+        '/admin/access/roles',
+        '/admin/access/scopes',
+        '/admin/model/types',
         '/admin/content/nodes',
         '/admin/content/entities',
-        '/admin/system/config',
-        '/admin/system/settings',
-        '/admin/system/placement-policies',
-        '/admin/audit',
-        '/admin/recycle-bin',
+        '/admin/content/attachment-protection',
+        '/admin/model/placement-policies',
+        '/admin/model/field-protection',
+        '/admin/automation/workflows',
+        '/admin/governance/audit',
+        '/admin/governance/audit-recording',
+        '/admin/governance/recycle-bin',
+        '/admin/platform/runtime',
+        '/admin/platform/session-security',
+        '/admin/platform/other-settings',
       ],
       createdRoleVisible: true,
       createdNodeTypeVisible: true,

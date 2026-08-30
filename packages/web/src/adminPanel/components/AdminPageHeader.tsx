@@ -1,5 +1,8 @@
+"use client";
+
 /** Renders consistent Admin hierarchy, breadcrumbs, and primary actions. */
 import type { ReactNode } from "react";
+import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { AdminIcon } from "./AdminIcon";
 
 export interface AdminBreadcrumbItem {
@@ -21,11 +24,12 @@ export function AdminPageHeader({
   breadcrumbs?: readonly AdminBreadcrumbItem[];
   actions?: ReactNode;
 }) {
+  const { t } = useAppLocale();
   return (
     <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
         {breadcrumbs.length > 0 && (
-          <nav aria-label="Breadcrumb" className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <nav aria-label={t("admin.breadcrumb")} className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
             {breadcrumbs.map((item, index) => (
               <span key={`${item.label}-${index}`} className="inline-flex items-center gap-1.5">
                 {index > 0 && <AdminIcon name="chevron-right" className="size-3 text-slate-300" />}

@@ -21,7 +21,7 @@ test.describe('administrative lock lifecycle', () => {
     const second = await browser.newContext();
     const firstPage = await first.newPage();
     const secondPage = await second.newPage();
-    const detailUrl = `/admin/users/${process.env.E2E_USER_ID}`;
+    const detailUrl = `/admin/access/users/${process.env.E2E_USER_ID}`;
 
     try {
       await Promise.all([login(firstPage), login(secondPage)]);

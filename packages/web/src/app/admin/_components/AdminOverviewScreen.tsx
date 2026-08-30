@@ -41,7 +41,7 @@ export function AdminOverviewScreen() {
             title={t("admin.overviewDataModel")}
             description={t("admin.overviewDataModelDescription")}
             icon="schema"
-            href="/admin/types"
+            href="/admin/model/types"
             state={overview.nodeTypes.state !== "hidden" ? overview.nodeTypes.state : overview.entityTypes.state}
             error={overview.nodeTypes.state !== "hidden" ? overview.nodeTypes.error : overview.entityTypes.error}
             unavailableLabel={t("admin.overviewUnavailable")}
@@ -54,7 +54,7 @@ export function AdminOverviewScreen() {
             title={t("admin.workflows")}
             description={t("admin.overviewWorkflowsDescription")}
             icon="activity"
-            href="/admin/system/workflows"
+            href="/admin/automation/workflows"
             state={overview.workflows.state}
             error={overview.workflows.error}
             unavailableLabel={t("admin.overviewUnavailable")}
@@ -67,7 +67,7 @@ export function AdminOverviewScreen() {
             title={t("admin.capabilities")}
             description={t("admin.overviewCapabilitiesDescription")}
             icon="settings"
-            href="/admin/system/config"
+            href="/admin/platform/runtime"
             state={overview.capabilities.state}
             error={overview.capabilities.error}
             unavailableLabel={t("admin.overviewUnavailable")}

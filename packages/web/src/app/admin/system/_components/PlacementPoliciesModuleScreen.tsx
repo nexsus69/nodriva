@@ -30,7 +30,7 @@ const RULE_TYPES: RuleType[] = ["allow_node_type", "deny_node_type", "allow_node
 
 const POLICY_DETAIL_SURFACE = defineAdminSurface({
   key: "policy-detail",
-  moduleKey: "system.placement-policies",
+  moduleKey: "model.placement-policies",
   tabs: [],
   initialTab: "",
   presentation: "drawer",
@@ -42,7 +42,7 @@ const POLICY_DETAIL_SURFACE = defineAdminSurface({
 /** Builds the policy editor used for both create and update operations. */
 function createPolicyForm(t: (key: string) => string, editing: boolean): FormDefinition<PolicyForm> {
   return defineForm({
-    key: "admin.system.placement-policy.form",
+    key: "admin.model.placement-policy.form",
     version: "2",
     validationMessages: createValidationMessages(t),
     fields: [
@@ -63,7 +63,7 @@ function createPolicyForm(t: (key: string) => string, editing: boolean): FormDef
 /** Builds the rule editor with the same hierarchical node selector used by scope forms. */
 function createRuleForm(t: (key: string) => string, nodes: readonly ScopeNodeOption[], typeOptions: Array<{ value: string; label: string }>, nodesLoading: boolean): FormDefinition<RuleForm> {
   return defineForm({
-    key: "admin.system.placement-policy.rule-form",
+    key: "admin.model.placement-policy.rule-form",
     version: "2",
     validationMessages: createValidationMessages(t),
     fields: [
@@ -85,10 +85,10 @@ export function PlacementPoliciesModuleScreen() {
   const [nodes, setNodes] = useState<readonly ScopeNodeOption[]>([]);
   const [nodesLoading, setNodesLoading] = useState(true);
   const [typeOptions, setTypeOptions] = useState<Array<{ value: string; label: string }>>([]);
-  const [moduleState, updateModuleState] = useAdminModuleState("system.placement-policies", { detailPolicyKey: "" });
+  const [moduleState, updateModuleState] = useAdminModuleState("model.placement-policies", { detailPolicyKey: "" });
   const resource = useMemo(() => defineAdminResource<PlacementPolicyListItemDto>({
     key: "placement-policies",
-    moduleKey: "system.placement-policies",
+    moduleKey: "model.placement-policies",
     label: t("admin.placementPolicies"),
     description: t("admin.placementPoliciesDescription"),
     permissions: { read: ["system.config.read"], create: ["system.config"], update: ["system.config"], delete: ["system.config"] },
@@ -113,8 +113,8 @@ export function PlacementPoliciesModuleScreen() {
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const canDelete = canUseAdminResourceOperation(resource, "delete", authorization.permissions);
-  const policySurface = useAdminFormSurface<PolicyForm>({ moduleKey: resource.moduleKey, surfaceKey: "policy-form", surfaceKind: "drawer", draftKey: "admin.system.placement-policy.form", formVersion: "2", initialValues: EMPTY_POLICY, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
-  const ruleSurface = useAdminFormSurface<RuleForm>({ moduleKey: resource.moduleKey, surfaceKey: "rule-form", surfaceKind: "modal", draftKey: "admin.system.placement-policy.rule-form", formVersion: "2", initialValues: EMPTY_RULE, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
+  const policySurface = useAdminFormSurface<PolicyForm>({ moduleKey: resource.moduleKey, surfaceKey: "policy-form", surfaceKind: "drawer", draftKey: "admin.model.placement-policy.form", formVersion: "2", initialValues: EMPTY_POLICY, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
+  const ruleSurface = useAdminFormSurface<RuleForm>({ moduleKey: resource.moduleKey, surfaceKey: "rule-form", surfaceKind: "modal", draftKey: "admin.model.placement-policy.rule-form", formVersion: "2", initialValues: EMPTY_RULE, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
   const editing = policySurface.mode === "edit" && policySurface.resourceId ? controller.rows.find((row) => row.id === policySurface.resourceId) ?? null : null;
   const policyDefinition = useMemo(() => createPolicyForm(t, policySurface.mode === "edit"), [policySurface.mode, t]);
   const ruleDefinition = useMemo(() => createRuleForm(t, nodes, typeOptions, nodesLoading), [nodes, nodesLoading, t, typeOptions]);

@@ -225,7 +225,7 @@ function buildTypeFormDefinition(
       type: "text",
       label: t("admin.name"),
       required: true,
-      placeholder: "Project task",
+      placeholder: t("admin.typeNamePlaceholder"),
       layout: { row: "identity", colSpan: 1, order: 2 },
         validation: {},
     },

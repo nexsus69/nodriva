@@ -17,7 +17,7 @@ test.describe('protezione modifiche non salvate', () => {
 
   test('mantiene i dati admin quando la chiusura del form viene annullata', async ({ page }) => {
     await login(page);
-    await page.goto('/admin/users');
+    await page.goto('/admin/access/users');
     await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
     const email = page.getByLabel('Email Utente *');
     await email.fill('bozza@example.test');
@@ -38,7 +38,7 @@ test.describe('protezione modifiche non salvate', () => {
   test('chiede conferma anche usando la cronologia del browser', async ({ page }) => {
     await login(page);
     await page.goto('/admin');
-    await page.goto('/admin/users');
+    await page.goto('/admin/access/users');
     await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
     await page.getByLabel('Email Utente *').fill('cronologia@example.test');
 

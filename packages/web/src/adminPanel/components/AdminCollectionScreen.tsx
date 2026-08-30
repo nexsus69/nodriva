@@ -66,7 +66,7 @@ export interface AdminCollectionDefinition<TRow extends { id: string }> {
   onCreate?: () => void;
   onOpen?: (row: TRow) => void;
   rowLabel?: (row: TRow) => string;
-  actionMenuLabel?: string;
+  actionMenuLabel: string;
   selectedRowId?: string;
   /** Supports the same collection shell for local and server-paged results. */
   pagination?: AdminClientPagination | AdminRemotePagination;

@@ -9,6 +9,7 @@ import {
 import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
 import type { AdminTableColumn } from "@/adminPanel/components/AdminTable";
+import { permissionSemanticEntry } from "@/adminPanel/adminSemanticCatalog";
 
 export type RoleForm = {
   roleKey: string;
@@ -43,8 +44,8 @@ export function createRolePermissionForm(
       ...permissions.map((permission, index) => ({
       name: permissionFieldName(permission.id),
       type: "boolean" as const,
-      label: permission.name,
-      description: permission.permissionKey,
+      label: permissionSemanticEntry(permission, t).label,
+      description: permissionSemanticEntry(permission, t).description,
       disabled: readOnly,
       layout: {
         row: `permission-row-${Math.floor(index / 2)}`,

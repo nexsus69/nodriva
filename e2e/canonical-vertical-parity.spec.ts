@@ -84,9 +84,9 @@ async function waitForClientControls(page: Page): Promise<void> {
 }
 
 async function createType(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
-  await page.goto(`${baseUrl}/admin/types`);
+  await page.goto(`${baseUrl}/admin/model/types`);
   await expect(page.getByRole('row').filter({ hasText: 'admin_parity_root' })).toBeVisible();
-  await page.getByRole('button', { name: /^\+?\s*Crea tipo$/i }).click();
+  await page.getByRole('button', { name: /^\+?\s*Crea tipo(?: nodo| entità)?$/i }).click();
   await page.getByLabel('Chiave tipo *').fill(names.nodeTypeKey);
   await page.getByLabel('Nome *').fill(names.nodeTypeName);
   await expect(page.getByLabel('Nome *')).toHaveValue(names.nodeTypeName);
@@ -95,7 +95,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await expect(page.getByText(names.nodeTypeKey, { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /Tipi entità|Entity types/i }).click();
-  await page.getByRole('button', { name: /^\+?\s*Crea tipo$/i }).click();
+  await page.getByRole('button', { name: /^\+?\s*Crea tipo(?: nodo| entità)?$/i }).click();
   await page.getByLabel('Chiave tipo *').fill(names.entityTypeKey);
   await page.getByLabel('Nome *').fill(names.entityTypeName);
   await page.getByRole('button', { name: 'Avanti' }).click();
@@ -104,7 +104,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
   await page.getByRole('row', { name: names.entityTypeName }).click();
   await expect(page.getByRole('heading', { name: names.entityTypeName })).toBeVisible();
-  await page.getByRole('button', { name: /Campi/ }).click();
+  await page.getByRole('button', { name: /^Campi \(\d+\)$/ }).click();
 
   await addField(page, { key: 'status', label: 'Status', dataType: 'enum' });
   await addField(page, {
@@ -124,7 +124,11 @@ async function addField(page: Page, options: {
   await page.getByRole('button', { name: /Aggiungi campo/i }).click();
   await page.getByLabel('Chiave campo *').fill(options.key);
   await page.getByLabel('Nome colonna *').fill(options.key);
-  await selectApplicationOption(page, /Tipo dato/, options.dataType);
+  await selectApplicationOption(
+    page,
+    /Tipo dato/,
+    options.dataType === 'enum' ? /^(Scelta|Choice)(?:\s|$)/ : /^(Relazione|Relationship)(?:\s|$)/,
+  );
   if (options.dataType === 'enum') {
     await selectApplicationOption(page, /Modalità enum/, /Opzioni gestite/);
   } else {
@@ -156,7 +160,7 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
 }
 
 async function createOperatorAccess(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
-  await page.goto(`${baseUrl}/admin/security/roles`);
+  await page.goto(`${baseUrl}/admin/access/roles`);
   await page.getByRole('button', { name: /^\+?\s*Crea ruolo$/i }).click();
   await page.getByLabel('Nome *').fill(names.roleName);
   await expect(page.getByLabel('Chiave ruolo *')).toHaveValue(names.roleKey);
@@ -167,7 +171,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   }
   await page.getByRole('button', { name: 'Salva permessi' }).click();
 
-  await page.goto(`${baseUrl}/admin/users`);
+  await page.goto(`${baseUrl}/admin/access/users`);
   await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^\+?\s*Crea utente$/i }).click();
   await expect(
@@ -290,7 +294,7 @@ async function exerciseInverseRelationReplacementReview(
 }
 
 async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: string): Promise<{ restored: boolean; actions: string[] }> {
-  await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
+  await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
   const deletedItem = adminPage.getByRole('row').filter({ hasText: entityName });
   await expect(deletedItem).toBeVisible();
   await deletedItem.getByRole('button', { name: /Azioni|Actions/i }).click();
@@ -298,7 +302,7 @@ async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: str
   await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina' }).click();
   await expect(adminPage.getByText(entityName, { exact: true })).toHaveCount(0);
 
-  await adminPage.goto(`${baseUrl}/admin/audit`);
+  await adminPage.goto(`${baseUrl}/admin/governance/audit`);
   await waitForClientControls(adminPage);
   const expected = ['node.create', 'entity.create', 'entity.update', 'entity.delete', 'entity.restore'];
   const semanticLabels: Record<string, RegExp> = {
@@ -396,7 +400,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
     await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
 
-    await adminPage.goto(`${baseUrl}/admin/recycle-bin`);
+    await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
     const subtreeOperation = adminPage.getByRole('row').filter({ hasText: names.childName });
     await expect(subtreeOperation).toContainText('Nodo e contenuto');
     await expect(adminPage.getByText(names.firstEntityName, { exact: true })).toHaveCount(0);

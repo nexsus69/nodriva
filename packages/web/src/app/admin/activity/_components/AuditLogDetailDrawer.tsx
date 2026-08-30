@@ -7,7 +7,7 @@ import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
 import { auditSemanticOption } from "./auditSemanticCatalog";
 
-const SURFACE = defineAdminSurface({ key: "audit-detail", moduleKey: "activity.audit", tabs: [], initialTab: "", presentation: "drawer", placement: "right", size: "xl", appearance: "light", initialState: {} });
+const SURFACE = defineAdminSurface({ key: "audit-detail", moduleKey: "governance.audit", tabs: [], initialTab: "", presentation: "drawer", placement: "right", size: "xl", appearance: "light", initialState: {} });
 type Translate = (key: string, fallback?: string) => string;
 
 export function AuditLogDetailDrawer({ detail, t, onClose }: { detail: AuditLogDetailDto; t: Translate; onClose: () => void }) {

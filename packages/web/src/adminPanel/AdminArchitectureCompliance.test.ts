@@ -79,4 +79,13 @@ describe("Admin Panel architecture", () => {
       Object.keys(APP_MESSAGES.it).sort(),
     );
   });
+
+  it("does not leave English UI fallbacks in shared Admin primitives", () => {
+    expect(fs.readFileSync(path.join(WEB_ROOT, "adminPanel/components/AdminTable.tsx"), "utf8"))
+      .not.toContain('actionMenuLabel = "Actions"');
+    expect(fs.readFileSync(path.join(WEB_ROOT, "adminPanel/components/AdminPageHeader.tsx"), "utf8"))
+      .not.toContain('aria-label="Breadcrumb"');
+    expect(fs.readFileSync(path.join(WEB_ROOT, "adminPanel/useAdminFormSurface.ts"), "utf8"))
+      .not.toContain('confirmTitle = "Discard unsaved changes?"');
+  });
 });

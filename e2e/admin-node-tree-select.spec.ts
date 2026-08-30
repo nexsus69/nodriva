@@ -26,7 +26,7 @@ test.describe("definition-driven node tree selector", () => {
 
   test("supports drag, direct selection, and draft restoration", async ({ page }) => {
     await login(page);
-    await page.goto("/admin/security/scopes");
+    await page.goto("/admin/access/scopes");
     await page.getByRole("button", {
       name: /^\+?\s*(Crea ambito|Create scope)$/i,
     }).click();
@@ -54,7 +54,7 @@ test.describe("definition-driven node tree selector", () => {
 
   test("restores multiple user scope rows and their selected nodes", async ({ page }) => {
     await login(page);
-    await page.goto("/admin/users");
+    await page.goto("/admin/access/users");
     await page.getByRole("button", {
       name: /^\+?\s*(Crea utente|Create user)$/i,
     }).click();

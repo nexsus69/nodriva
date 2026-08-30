@@ -33,11 +33,11 @@ export function useAuditLog(t: Translate) {
     [],
   );
   const [moduleState, updateModuleState] = useAdminModuleState(
-    "activity.audit",
+    "governance.audit",
     moduleDefaults,
   );
   const filters = moduleState.filters;
-  const pagination = useAdminPagination({ total, stateKey: "activity.audit" });
+  const pagination = useAdminPagination({ total, stateKey: "governance.audit" });
 
   const load = useCallback(async (
     next: AuditFilterForm = filters,

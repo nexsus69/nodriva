@@ -13,9 +13,25 @@ import { canUseAdminResourceOperation, defineAdminResource } from "@/adminPanel/
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import {
+  runtimeCapabilitySemanticEntry,
+  systemSettingSemanticEntry,
+} from "@/adminPanel/adminSemanticCatalog";
 
 type SystemRow = RuntimeCapabilityDto | SystemSettingDto;
 type SystemForm = { status?: string; valueText?: string };
+export type SystemSettingsSection = "field-protection" | "attachment-protection" | "audit-recording" | "session-security" | "other-settings";
+
+const SETTING_SECTIONS: Record<SystemSettingsSection, { moduleKey: string; titleKey: string; descriptionKey: string; settingKeys?: readonly string[] }> = {
+  "field-protection": { moduleKey: "model.field-protection", titleKey: "admin.fieldProtection", descriptionKey: "admin.fieldProtectionDescription", settingKeys: ["data.fieldsEncryptionEnabled"] },
+  "attachment-protection": { moduleKey: "content.attachment-protection", titleKey: "admin.attachmentProtection", descriptionKey: "admin.attachmentProtectionDescription", settingKeys: ["attachments.antivirusEnabled", "attachments.encryptionEnabled"] },
+  "audit-recording": { moduleKey: "governance.audit-recording", titleKey: "admin.auditRecording", descriptionKey: "admin.auditRecordingDescription", settingKeys: ["audit.recordLockLifecycle"] },
+  "session-security": { moduleKey: "platform.session-security", titleKey: "admin.sessionSecurity", descriptionKey: "admin.sessionSecurityDescription", settingKeys: ["session.idleTimeoutSeconds"] },
+  "other-settings": { moduleKey: "platform.other-settings", titleKey: "admin.otherSettings", descriptionKey: "admin.otherSettingsDescription" },
+};
+
+const CLASSIFIED_SETTING_KEYS = Object.values(SETTING_SECTIONS)
+  .flatMap((section) => section.settingKeys ?? []);
 
 /** Defines the status/value form used by both editable system collections. */
 function systemForm(t: (key: string) => string, key: "capabilities" | "settings", setting?: SystemSettingDto): FormDefinition<SystemForm> {
@@ -36,18 +52,19 @@ function systemSettingField(
   t: (key: string) => string,
   setting?: SystemSettingDto,
 ): FormFieldSchema {
+  const semantic = setting ? systemSettingSemanticEntry(setting, t) : null;
   const common = {
     name: "valueText",
-    label: setting?.displayName ?? t("admin.value"),
+    label: semantic?.label ?? t("admin.value"),
     required: true,
-    description: setting?.description,
+    description: semantic?.description,
   };
   if (setting?.valueType === "json") return { ...common, type: "textarea", rows: 4 };
   if (setting?.valueType === "boolean") {
     return {
       ...common,
       type: "select",
-      options: [{ value: "true", label: "true" }, { value: "false", label: "false" }],
+      options: [{ value: "true", label: t("admin.yes") }, { value: "false", label: t("admin.no") }],
     };
   }
   if (setting?.valueType === "integer" || setting?.valueType === "decimal") {
@@ -57,14 +74,16 @@ function systemSettingField(
 }
 
 /** Provides editable capability and setting collections through one screen contract. */
-export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "settings" }) {
+export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilities" | "settings"; section?: SystemSettingsSection }) {
   const { t } = useAppLocale();
+  const settingsSection = kind === "settings" && section ? SETTING_SECTIONS[section] : null;
+  const moduleKey = kind === "capabilities" ? "platform.runtime" : settingsSection?.moduleKey ?? "platform.settings";
   const authorization = useAdminAuthorization();
   const resource = useMemo(() => defineAdminResource<SystemRow>({
     key: kind,
-    moduleKey: `system.${kind}`,
-    label: kind === "capabilities" ? t("admin.capabilities") : t("admin.systemSettings"),
-    description: kind === "capabilities" ? t("admin.capabilitiesDescription") : t("admin.systemSettingsDescription"),
+    moduleKey,
+    label: kind === "capabilities" ? t("admin.runtime") : t(settingsSection?.titleKey ?? "admin.systemSettings"),
+    description: kind === "capabilities" ? t("admin.runtimeDescription") : t(settingsSection?.descriptionKey ?? "admin.systemSettingsDescription"),
     permissions: {
       read: ["system.config.read"],
       update: ["system.config"],
@@ -74,23 +93,34 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
       load: async () => {
         const result = kind === "capabilities" ? await AppCache.admin.listCapabilities() : await AppCache.admin.listSettings();
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loading"));
-        return result.data as SystemRow[];
+        const rows = result.data as SystemRow[];
+        return kind === "settings" && settingsSection
+          ? rows.filter((row) => settingsSection.settingKeys
+            ? settingsSection.settingKeys.includes((row as SystemSettingDto).settingKey)
+            : !CLASSIFIED_SETTING_KEYS.includes((row as SystemSettingDto).settingKey))
+          : rows;
       },
       columns: kind === "capabilities"
         ? [
-            { key: "name", label: t("admin.name"), render: (row) => (row as RuntimeCapabilityDto).name },
+            { key: "name", label: t("admin.name"), render: (row) => {
+              const semantic = runtimeCapabilitySemanticEntry(row as RuntimeCapabilityDto, t);
+              return <div><p className="font-medium text-slate-900">{semantic.label}</p><p className="mt-0.5 text-xs text-slate-500">{semantic.description}</p></div>;
+            } },
             { key: "key", label: t("admin.key"), render: (row) => (row as RuntimeCapabilityDto).capabilityKey },
-            { key: "status", label: t("admin.status"), render: (row) => (row as RuntimeCapabilityDto).currentStatus },
+            { key: "status", label: t("admin.status"), render: (row) => t(`admin.${(row as RuntimeCapabilityDto).currentStatus}`) },
           ]
         : [
-            { key: "name", label: t("admin.name"), render: (row) => (row as SystemSettingDto).displayName },
+            { key: "name", label: t("admin.name"), render: (row) => {
+              const semantic = systemSettingSemanticEntry(row as SystemSettingDto, t);
+              return <div><p className="font-medium text-slate-900">{semantic.label}</p><p className="mt-0.5 text-xs text-slate-500">{semantic.description}</p></div>;
+            } },
             { key: "key", label: t("admin.key"), render: (row) => (row as SystemSettingDto).settingKey },
             { key: "value", label: t("admin.value"), render: (row) => (row as SystemSettingDto).isSecret ? "••••••" : (row as SystemSettingDto).valueText ?? "—" },
           ],
       emptyLabel: t("admin.noRecords"),
       loadingLabel: t("admin.loading"),
     },
-  }), [kind, t]);
+  }), [kind, moduleKey, settingsSection, t]);
   const collection = useAdminResourceController(resource, undefined);
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const surface = useAdminWorkspaceStore((state) => state.surface);
@@ -103,7 +133,7 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
     moduleKey: resource.moduleKey,
     surfaceKey: "edit",
     surfaceKind: "modal",
-    draftKey: `admin.system.${kind}.edit`,
+    draftKey: `admin.${resource.moduleKey}.edit`,
     formVersion: definition.version,
     initialValues: {},
     closePolicy: "discard",
@@ -150,8 +180,8 @@ export function SystemConfigModuleScreen({ kind }: { kind: "capabilities" | "set
     error: collection.error,
     onOpen: canUpdate ? openEdit : undefined,
     rowLabel: (row) => kind === "capabilities"
-      ? (row as RuntimeCapabilityDto).name
-      : (row as SystemSettingDto).displayName,
+      ? runtimeCapabilitySemanticEntry(row as RuntimeCapabilityDto, t).label
+      : systemSettingSemanticEntry(row as SystemSettingDto, t).label,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
     onRefresh: () => void collection.refresh(),

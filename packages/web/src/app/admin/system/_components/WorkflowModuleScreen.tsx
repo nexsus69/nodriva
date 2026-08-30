@@ -38,7 +38,7 @@ function workflowForm(
   customKey: boolean,
 ): FormDefinition<WorkflowForm> {
   return defineForm({
-    key: "admin.system.workflows.publish", version: "2", validationMessages: createValidationMessages(t),
+    key: "admin.automation.workflows.publish", version: "2", validationMessages: createValidationMessages(t),
     layout: { columns: 2, gap: "normal" },
     fields: [
       { name: "name", type: "text", label: t("admin.workflowName"), description: t("admin.workflowNameHelp"), required: true, layout: { colSpan: 2 } },
@@ -75,7 +75,7 @@ export function WorkflowModuleScreen() {
   const authorization = useAdminAuthorization();
   const canPublish = authorization.permissions.has("system.config");
   const resource = useMemo(() => defineAdminResource<WorkflowRow>({
-    key: "workflows", moduleKey: "system.workflows", label: t("admin.workflows"), description: t("admin.workflowsDescription"),
+    key: "workflows", moduleKey: "automation.workflows", label: t("admin.workflows"), description: t("admin.workflowsDescription"),
     permissions: { read: ["system.config.read"], create: ["system.config"] },
     list: {
       realtimeDependencies: ["workflow-definitions"],
@@ -106,7 +106,7 @@ export function WorkflowModuleScreen() {
     });
   }, [t]);
   const surface = useAdminFormSurface<WorkflowForm>({
-    moduleKey: resource.moduleKey, surfaceKey: "publish", surfaceKind: "modal", draftKey: "admin.workflows.publish", formVersion: "2",
+    moduleKey: resource.moduleKey, surfaceKey: "publish", surfaceKind: "modal", draftKey: "admin.automation.workflows.publish", formVersion: "2",
     initialValues: { version: 1, active: true, actionType: "audit.record", conditionOperator: "equals" }, closePolicy: "discard", confirmOnDiscard: true,
     confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing"),
   });

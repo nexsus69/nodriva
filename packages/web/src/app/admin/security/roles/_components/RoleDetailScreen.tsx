@@ -100,7 +100,7 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
   const returnToList = async () => {
     if (!(await formSurface.close())) return;
     if (onClose) onClose();
-    else router.push("/admin/security/roles");
+    else router.push("/admin/access/roles");
   };
 
   return (

@@ -204,7 +204,7 @@ export function AdminTable<TRow extends { id: string }>({
   emptyLabel,
   onOpen,
   rowLabel,
-  actionMenuLabel = "Actions",
+  actionMenuLabel,
   selectedRowId,
   sort: controlledSort,
   onSortChange,
@@ -215,7 +215,7 @@ export function AdminTable<TRow extends { id: string }>({
   emptyLabel: string;
   onOpen?: (row: TRow) => void;
   rowLabel?: (row: TRow) => string;
-  actionMenuLabel?: string;
+  actionMenuLabel: string;
   selectedRowId?: string;
   sort?: AdminTableSortState | null;
   onSortChange?: (sort: AdminTableSortState) => void;

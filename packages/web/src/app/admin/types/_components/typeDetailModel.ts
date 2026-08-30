@@ -3,6 +3,7 @@ import {
   createValidationMessages,
   type FormDefinition,
 } from "@/app/components/ui/forms";
+import { fieldDataTypeOption } from "@/adminPanel/adminSemanticCatalog";
 
 /** Represents the editable values shared by create and update field surfaces. */
 export type FieldForm = {
@@ -154,7 +155,7 @@ export function buildFieldDefinition(
         name: "dataType",
         type: "select",
         label: t("admin.dataType"),
-        options: DATA_TYPES.map((value) => ({ value, label: value })),
+        options: DATA_TYPES.map((value) => fieldDataTypeOption(value, t)),
         layout: { row: "configuration", colSpan: 2, order: 1 },
       },
       {
