@@ -131,6 +131,46 @@ Prima di modificare cache, fetch o resolver per un'anomalia UI, verificare in
 ordine: persistenza/risposta, scrittura canonica, notifica, memoizzazione e
 rendering. La modifica deve fermarsi al primo livello che fallisce.
 
+## Contratto progettuale obbligatorio per componenti e hook
+
+Prima di introdurre o modificare in modo sostanziale un componente, uno screen
+o un hook che rappresenta dati, la relativa responsabilità deve dichiarare per
+iscritto i punti seguenti. La dichiarazione può appartenere al documento del
+modulo quando serve a più componenti; non va ripetuta come commento meccanico
+in ogni file.
+
+1. **Responsabilità e boundary:** quale informazione o interazione possiede e
+   quale layer/controller ne orchestra gli effetti.
+2. **Fonte autorevole:** Server Action/API, read model e cache/coordinator
+   attraverso cui il dato viene letto; un componente non crea una cache locale
+   parallela per dati condivisi.
+3. **Accesso ed errori:** permesso richiesto e distinzione osservabile fra dato
+   vuoto, diniego applicativo, guasto infrastrutturale e retry.
+4. **Strategia di aggiornamento:** scegliere esplicitamente una sola semantica
+   primaria fra dato statico, refresh manuale, fonte osservabile o invalidazione
+   realtime. Una collection visibile che può diventare obsoleta durante la
+   permanenza nella pagina dichiara le proprie dipendenze semantiche e usa il
+   lifecycle condiviso di refresh; per esempio `['audit']` o `['types']`.
+5. **Mutazioni e concorrenza:** indicare se una mutazione aggiorna una
+   proiezione locale, invalida la vista o richiede un reload autorevole, e
+   mantenere backend, lock e `rowVersion` come fonte di verità.
+6. **Capability opzionali:** per ogni integrazione configurabile indicare il
+   comportamento con capability attiva, disattivata e non disponibile. Una
+   capability deliberatamente disattivata è uno stato operativo previsto, non
+   un errore: la funzionalità comune resta utilizzabile con il suo fallback
+   esplicito, senza chiamate all'integrazione assente né messaggi di guasto.
+7. **Lifecycle visivo:** definire loading, dati precedenti durante un refresh,
+   stato vuoto, errore, retry e ritorno dal background quando applicabili.
+8. **Verifica:** aggiungere test proporzionati al contratto, inclusi per dati
+   condivisi primo caricamento, aggiornamento della fonte, notifica e DOM
+   aggiornato; per capability opzionali coprire anche il percorso disattivato.
+
+La regola non impone realtime a ogni componente. Il realtime è soltanto una
+strategia di aggiornamento: quando è configurato, il componente dichiara la
+collection da invalidare e rilegge dal backend; quando non è configurato,
+mantiene il comportamento funzionale comune tramite caricamento iniziale e
+refresh esplicito o altra strategia dichiarata.
+
 ## Composizione delle route
 
 I file App Router `page.tsx` e `layout.tsx` sono entry point sottili. Possono
