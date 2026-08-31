@@ -18,6 +18,7 @@ import { TypeFieldDialog } from "./TypeFieldDialog";
 import { TypeFieldTable } from "./TypeFieldTable";
 import { ADMIN_THEME } from "@/Theme";
 import { formatAdminDateTime } from "@/adminPanel/adminFormatters";
+import { localizeApiError } from "@/app/errors/localizeApiError";
 
 export const TYPE_DETAIL_SURFACE = defineAdminSurface({
   key: "detail",
@@ -175,7 +176,7 @@ export function TypeDetailDrawer({
           closeLabel={presentation === "inline" ? t("admin.backToList") : t("admin.cancel")}
           closeIcon={presentation === "inline" ? "arrow-left" : "close"}
           onClose={close}
-          className={presentation === "inline" ? "-mx-4 -mt-4 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8" : ""}
+          className={presentation === "inline" ? "-mx-4 sm:-mx-6 lg:-mx-8" : ""}
           tabs={[
             { key: "settings", label: t("admin.settings") },
             { key: "fields", label: `${t("admin.fields")} (${controller.detail?.fields.length ?? 0})` },
@@ -191,10 +192,10 @@ export function TypeDetailDrawer({
             </>
           )}
           {controller.error && (
-            <Alert tone="danger">{controller.error.message}</Alert>
+            <Alert tone="danger">{localizeApiError(controller.error, t)}</Alert>
           )}
-          {controller.formError && (
-            <Alert tone="danger">{controller.formError.message}</Alert>
+          {controller.formError && !fieldDialogOpen && (
+            <Alert tone="danger">{localizeApiError(controller.formError, t)}</Alert>
           )}
           {!controller.loading &&
             controller.detail &&
@@ -248,6 +249,7 @@ export function TypeDetailDrawer({
           field={field}
           editing={Boolean(editingFieldId)}
           pending={controller.pending}
+          error={controller.formError}
           t={t}
           onChange={(name, value) =>
             fieldForm.setValues((current) => ({ ...current, [name]: value }))

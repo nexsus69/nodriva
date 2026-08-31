@@ -84,6 +84,8 @@ export function useTypeDetailController(
             isRequired: field.isRequired,
             isUnique: field.isUnique,
             isIndexed: field.isIndexed,
+            defaultValueText: field.defaultValueText || null,
+            encryptionMode: field.encryptionMode,
             expectedTypeRowVersion: detail.rowVersion,
           }),
         );

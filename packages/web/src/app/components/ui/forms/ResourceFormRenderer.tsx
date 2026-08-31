@@ -44,6 +44,7 @@ export type ResourceFormFieldDefinition = Omit<
   enumOptions?: readonly ResourceFormOption[];
   relationTargetDomain?: "node" | "entity" | null;
   relationTargetTypeKey?: string | null;
+  encryptionCapabilityEnabled?: boolean;
 };
 
 /** Preserves optional active-state metadata while remaining a form option. */
@@ -101,6 +102,10 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "boolean",
         label: field.label,
+        encryptionMode: field.encryptionMode,
+        description: field.encryptionMode === "encrypted" && field.encryptionCapabilityEnabled === false
+          ? "La cifratura globale è disabilitata: il nuovo valore verrà memorizzato in chiaro."
+          : undefined,
         layout: options[field.fieldKey]?.layout,
       };
     if (dataType === "file" || dataType === "image")
@@ -108,6 +113,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "attachment",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         kind: dataType,
         layout: options[field.fieldKey]?.layout,
@@ -118,6 +124,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "relation",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         resourceType: relationTarget.resourceType,
         typeKey: relationTarget.typeKey,
@@ -129,6 +136,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "select",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         options: dataType === "enum"
           ? resolveEnumOptions(field, options)
@@ -140,6 +148,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "date",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         layout: options[field.fieldKey]?.layout,
       };
@@ -165,6 +174,7 @@ export function buildResourceFormSchema(
             name: field.fieldKey,
             type: "number",
             label: field.label,
+            encryptionMode: field.encryptionMode,
             required: field.isRequired,
             layout: options[field.fieldKey]?.layout,
           };
@@ -173,6 +183,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "textarea",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         rows: 4,
         layout: options[field.fieldKey]?.layout,
@@ -182,6 +193,7 @@ export function buildResourceFormSchema(
         name: field.fieldKey,
         type: "text",
         label: field.label,
+        encryptionMode: field.encryptionMode,
         required: field.isRequired,
         placeholder: "UUID",
         layout: options[field.fieldKey]?.layout,
@@ -190,19 +202,30 @@ export function buildResourceFormSchema(
       name: field.fieldKey,
       type: "text",
       label: field.label,
+      encryptionMode: field.encryptionMode,
       required: field.isRequired,
       layout: options[field.fieldKey]?.layout,
     };
   });
 
-  return schema.map(withoutUndefinedLayout);
+  return schema.map((definition) => withoutUndefinedLayout({
+    ...definition,
+    description: definition.description ?? encryptionWarning(fields.find((field) => field.fieldKey === definition.name)),
+  }));
+}
+
+function encryptionWarning(field: ResourceFormFieldDefinition | undefined): string | undefined {
+  return field?.encryptionMode === "encrypted" && field.encryptionCapabilityEnabled === false
+    ? "La cifratura globale è disabilitata: il nuovo valore verrà memorizzato in chiaro."
+    : undefined;
 }
 
 /** Keeps generated schemas structurally stable when a caller has no layout override. */
 function withoutUndefinedLayout(field: FormFieldSchema): FormFieldSchema {
-  if (field.layout !== undefined) return field;
-  const schema = { ...field } as { layout?: FormFieldLayout } & FormFieldSchema;
-  delete schema.layout;
+  const schema = { ...field } as { layout?: FormFieldLayout; description?: string; encryptionMode?: FormFieldSchema["encryptionMode"] } & FormFieldSchema;
+  if (schema.layout === undefined) delete schema.layout;
+  if (schema.description === undefined) delete schema.description;
+  if (schema.encryptionMode === "plaintext" || schema.encryptionMode === undefined) delete schema.encryptionMode;
   return schema as FormFieldSchema;
 }
 

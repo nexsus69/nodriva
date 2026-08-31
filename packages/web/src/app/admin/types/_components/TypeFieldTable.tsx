@@ -54,6 +54,7 @@ export function TypeFieldTable({
             field.isRequired && t("admin.requiredField"),
             field.isUnique && t("admin.uniqueField"),
             field.isIndexed && t("admin.indexedField"),
+            field.encryptionMode === "encrypted" && `🔒 ${t("admin.encrypted")}`,
           ]
             .filter(Boolean)
             .join(" · ") || "—"}

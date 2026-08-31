@@ -154,6 +154,8 @@ interface FormFieldBase {
   disabled?: boolean;
   validation?: FormFieldValidation;
   layout?: FormFieldLayout;
+  /** Metadata marker rendered consistently for encrypted dynamic fields. */
+  encryptionMode?: "plaintext" | "encrypted";
 }
 
 /** Describes the supported field controls and their control-specific options. */

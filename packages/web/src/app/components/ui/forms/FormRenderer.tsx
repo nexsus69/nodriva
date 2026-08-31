@@ -232,6 +232,11 @@ function FormField({
           showLabel
           onChange={onChange}
         />
+        {field.encryptionMode === "encrypted" && (
+          <span className="mt-1 block text-[11px] font-semibold text-amber-700" title="Campo cifrato" aria-label="Campo cifrato">
+            🔒 Campo cifrato
+          </span>
+        )}
         {field.description && (
           <p className={`mt-1 text-[11px] font-normal ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
             {field.description}
@@ -347,6 +352,11 @@ function FormField({
       className={`${labelLayoutClass(labelPosition)} ${field.layout?.className ?? ""}`}
     >
       <div>{label}</div>
+      {field.encryptionMode === "encrypted" && (
+        <span className="mb-1 block text-[11px] font-semibold text-amber-700" title="Campo cifrato" aria-label="Campo cifrato">
+          🔒 Campo cifrato
+        </span>
+      )}
       {control}
       {field.description && (
         <p className={`mt-1 text-[11px] leading-4 ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>

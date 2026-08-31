@@ -17,6 +17,8 @@ export interface ResourceFieldDefinition {
   relationSourceCardinality?: 'one' | 'many';
   relationTargetIsUnique?: boolean;
   relationInverseLabel?: string | null;
+  encryptionMode: 'plaintext' | 'encrypted';
+  encryptionCapabilityEnabled?: boolean;
 }
 
 export function resourceTypeReference(resourceType: TypeDomain, typeKey: string): ResourceTypeReference {

@@ -3,6 +3,7 @@
 /** Provides the generic modal shell for any definition-driven administrative form. */
 import type { FormEvent, ReactNode } from "react";
 import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
+import { Alert } from "@/app/components/ui/feedback";
 import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "./AdminSurfaceHost";
 import { AdminSurfaceHeader } from "./AdminSurfaceHeader";
@@ -33,6 +34,7 @@ export function AdminFormDialog({
   onClose,
   surface = ADMIN_FORM_DIALOG_SURFACE,
   children,
+  error,
 }: {
   title: string;
   definition: FormDefinition;
@@ -45,6 +47,7 @@ export function AdminFormDialog({
   onClose: () => void;
   surface?: AdminSurfaceDefinition;
   children?: ReactNode;
+  error?: string;
 }) {
   return (
     <AdminSurfaceHost
@@ -61,6 +64,7 @@ export function AdminFormDialog({
           appearance={ADMIN_THEME.appearance}
         />
         <div className="p-6">
+        {error && <Alert tone="danger" className="mb-4">{error}</Alert>}
         <FormRenderer
           definition={definition}
           values={values}

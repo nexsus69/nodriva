@@ -208,7 +208,6 @@ export function buildFieldDefinition(
           { value: "plaintext", label: t("admin.plaintext") },
           { value: "encrypted", label: t("admin.encrypted") },
         ],
-        disabled: options.relationConfigurationDisabled,
         layout: { row: "advanced", colSpan: 1, order: 2 },
       },
       {

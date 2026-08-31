@@ -115,7 +115,12 @@ export class AdminCacheClient {
     this.write(['capabilities'], () => systemActions.updateCapabilityStatusAction(cmd));
   public listSettings = () => this.read('settings', systemActions.listSettingsAction);
   public updateSetting = (cmd: Parameters<typeof systemActions.updateSettingAction>[0]) =>
-    this.write(['settings'], () => systemActions.updateSettingAction(cmd));
+    this.write(
+      cmd.settingKey === 'data.fieldsEncryptionEnabled'
+        ? ['settings', 'type-definition', 'type-detail']
+        : ['settings'],
+      () => systemActions.updateSettingAction(cmd),
+    );
   public listPlacementPolicies = () => this.read('placement-policies', systemActions.listPlacementPoliciesAction);
   public getPlacementPolicyByKey = (key: string) =>
     this.read(`placement-policy:${key}`, () => systemActions.getPlacementPolicyByKeyAction(key));

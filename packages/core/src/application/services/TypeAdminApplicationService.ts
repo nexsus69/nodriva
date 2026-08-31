@@ -304,6 +304,9 @@ export class TypeAdminApplicationService {
     if (v.encryptionMode === 'encrypted' && this.configService && !(await this.configService.get<boolean>('data.fieldsEncryptionEnabled'))) {
       throw new TypeAdminValidationError('Field encryption is globally disabled.', { encryptionMode: ['Enable data.fieldsEncryptionEnabled before selecting encrypted.'] });
     }
+    if (v.encryptionMode === 'encrypted' && (v.isUnique || v.isIndexed)) {
+      throw new TypeAdminValidationError('Encrypted fields cannot be unique or indexed.', { encryptionMode: ['Encrypted fields cannot be unique or indexed.'] });
+    }
 
     const { field, typeKey } = await this.transactionPort.runInTransaction(async () => {
       const type = await this.loadAndGuardType(v.domain, v.typeId, v.expectedTypeRowVersion);
@@ -390,6 +393,14 @@ export class TypeAdminApplicationService {
       }
       if (existing.isSystem) {
         throw new SystemFieldModificationError(v.fieldId, v.domain);
+      }
+      const nextEncryptionMode = v.encryptionMode ?? existing.encryptionMode;
+      if (nextEncryptionMode === 'encrypted' && ((v.isUnique ?? existing.isUnique) || (v.isIndexed ?? existing.isIndexed))) {
+        throw new TypeAdminValidationError('Encrypted fields cannot be unique or indexed.', { encryptionMode: ['Encrypted fields cannot be unique or indexed.'] });
+      }
+      if (existing.encryptionMode === 'encrypted' && nextEncryptionMode === 'plaintext'
+        && await this.adminRepository.hasEncryptedValuesInField(v.domain, type.id, existing.fieldKey)) {
+        throw new TypeAdminValidationError('Encrypted values still exist for this field.', { encryptionMode: ['Decrypt or remove existing encrypted values before switching to plaintext.'] });
       }
 
       if (['file', 'image'].includes(existing.dataType.toLowerCase()) && (v.isRequired || v.isUnique || v.isIndexed || v.defaultValueText !== undefined && v.defaultValueText !== null)) {

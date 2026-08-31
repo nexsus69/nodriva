@@ -18,3 +18,15 @@ Locale tags are normalized through the shared Core contract in
 New errors must add a stable code/key and parameters before adding translated
 text. Existing Italian error strings remain compatibility fallbacks while the
 boundary mapper is migrated to the catalog incrementally.
+
+## Web presentation
+
+The Web client resolves `ApiErrorResponse.messageKey` (or the stable error
+`code` fallback) through the single `localizeApiError` resolver in
+`packages/web/src/app/errors/localizeApiError.ts`. Forms and administrative
+screens must not render `error.message` directly when a localized resolver is
+available; unknown historical codes may use the safe server fallback.
+
+Validation rejections are not audit events: only mutations that are actually
+persisted are recorded in the audit stream. Authorization or abuse telemetry,
+if introduced later, must use a separate security-event contract.

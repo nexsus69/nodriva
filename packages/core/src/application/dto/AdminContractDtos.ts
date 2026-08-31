@@ -322,7 +322,9 @@ export interface ApiErrorResponse {
     | "AUTH_UNAUTHORIZED"
     | "NOT_FOUND"
     | "INTERNAL_ERROR"
-    | "UNKNOWN_ERROR";
+    | "UNKNOWN_ERROR"
+    | "FIELD_ENCRYPTED_VALUES_EXIST"
+    | "FIELD_ENCRYPTION_DISABLED";
   message: string;
   /** Stable key used to render the message in the requested locale. */
   messageKey?: string;

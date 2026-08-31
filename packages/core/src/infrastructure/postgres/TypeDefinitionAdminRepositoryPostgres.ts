@@ -546,6 +546,18 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
     return result.rows.length > 0;
   }
 
+  async hasEncryptedValuesInField(domain: TypeDomain, typeId: string, fieldKey: string): Promise<boolean> {
+    const cfg = DOMAIN_TABLES[domain];
+    const result = await this.executor.query(
+      `SELECT 1 FROM resource_field_ciphertexts c
+       JOIN ${cfg.instancesTable} i ON i.id = c.resource_id
+       WHERE c.resource_type = $1 AND c.field_key = $2
+         AND i.${cfg.instanceTypeForeignKey} = $3 AND i.deleted_at IS NULL LIMIT 1`,
+      [domain, fieldKey, typeId],
+    );
+    return result.rows.length > 0;
+  }
+
   async hasValuesInField(domain: TypeDomain, typeId: string, fieldKey: string, columnName: string): Promise<boolean> {
     if (domain === 'node') {
       const attachmentResult = await this.executor.query<{ data_type: string }>(

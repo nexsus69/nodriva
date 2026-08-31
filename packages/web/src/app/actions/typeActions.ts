@@ -109,6 +109,7 @@ export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string)
   );
   const definition = await typeReader.readDefinition(domain, typeKey);
   if (!definition) return null;
+  const encryptionCapabilityEnabled = await configService.get<boolean>('data.fieldsEncryptionEnabled');
   return {
     id: definition.id,
     domain: definition.domain,
@@ -130,6 +131,7 @@ export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string)
       enumOptions: f.enumOptions,
       enumMode: f.enumMode,
       encryptionMode: f.encryptionMode,
+      encryptionCapabilityEnabled,
       constraints: f.constraints.map((c) => ({
         constraintType: c.constraintType,
         constraintValueText: c.value,
