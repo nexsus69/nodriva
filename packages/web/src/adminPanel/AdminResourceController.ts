@@ -58,7 +58,10 @@ export class AdminResourceController<
 
   public async loadList(): Promise<void> {
     const requestVersion = ++this.listRequestVersion;
-    this.patch({ loading: true, error: null });
+    // Keep visible rows stable during refreshes; `loading` is reserved for the
+    // initial empty collection so screens do not flash a loading footer after
+    // every mutation or realtime invalidation.
+    this.patch({ loading: this.snapshot.rows.length === 0, error: null });
     try {
       const rows = await this.definition.list.load();
       if (requestVersion !== this.listRequestVersion) return;

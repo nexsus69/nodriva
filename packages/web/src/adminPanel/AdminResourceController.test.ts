@@ -78,6 +78,27 @@ describe("AdminResourceController", () => {
     expect(controller.getSnapshot().error?.message).toBe("load failed");
   });
 
+  it("keeps the collection visible while refreshing an already loaded list", async () => {
+    let resolveRefresh!: (rows: readonly Row[]) => void;
+    const refresh = new Promise<readonly Row[]>((resolve) => { resolveRefresh = resolve; });
+    const load = vi.fn()
+      .mockResolvedValueOnce([{ id: "1", name: "Initial" }])
+      .mockReturnValueOnce(refresh);
+    const definition = defineAdminResource<Row>({
+      key: "refreshing", moduleKey: "example.module", label: "Refreshing", description: "Refreshing",
+      list: { load, columns: [], emptyLabel: "Empty", loadingLabel: "Loading" },
+    });
+    const controller = new AdminResourceController(definition, undefined);
+
+    await controller.loadList();
+    const pending = controller.loadList();
+    expect(controller.getSnapshot().loading).toBe(false);
+    expect(controller.getSnapshot().rows).toEqual([{ id: "1", name: "Initial" }]);
+    resolveRefresh([{ id: "2", name: "Updated" }]);
+    await pending;
+    expect(controller.getSnapshot().rows).toEqual([{ id: "2", name: "Updated" }]);
+  });
+
   it("ignores an obsolete list response after a newer reload", async () => {
     let resolveFirst!: (rows: readonly Row[]) => void;
     const first = new Promise<readonly Row[]>((resolve) => { resolveFirst = resolve; });

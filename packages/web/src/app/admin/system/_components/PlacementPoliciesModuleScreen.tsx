@@ -19,6 +19,7 @@ import { useAdminResourceController } from "@/adminPanel/useAdminResourceControl
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
+import { ADMIN_THEME } from "@/Theme";
 
 type PolicyForm = { policyKey: string; name: string; description: string; policyMode: string };
 type RuleForm = { ruleType: RuleType; targetNodeId: string; targetNodeTypeId: string; comparator: string; valueText: string };
@@ -35,7 +36,7 @@ const POLICY_DETAIL_SURFACE = defineAdminSurface({
   initialTab: "",
   presentation: "drawer",
   placement: "right",
-  appearance: "light",
+  appearance: ADMIN_THEME.appearance,
   initialState: {},
 });
 

@@ -3,6 +3,7 @@ export { DynamicFieldsForm } from "./DynamicFieldsForm";
 export type { DynamicField, DynamicFieldsFormProps } from "./DynamicFieldsForm";
 export { RelationPicker } from "./RelationPicker";
 export { CustomSelect } from "./CustomSelect";
+export { ToggleSwitch } from "./ToggleSwitch";
 export { NodeTreeSelect, buildFormTree } from "./NodeTreeSelect";
 export type { FormTreeBranch } from "./NodeTreeSelect";
 export { RelationValue } from "./RelationValue";

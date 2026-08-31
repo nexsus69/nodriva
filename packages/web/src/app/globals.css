@@ -168,6 +168,7 @@ body {
   .admin-mobile-cards tbody,
   .admin-mobile-cards tr,
   .admin-mobile-cards td { display: block; width: 100%; }
+  .admin-mobile-cards { min-width: 0; }
   .admin-mobile-cards thead { display: none; }
   .admin-mobile-cards tbody { padding: .5rem; }
   .admin-mobile-cards tr {

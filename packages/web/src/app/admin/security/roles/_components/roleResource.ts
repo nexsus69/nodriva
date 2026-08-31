@@ -10,6 +10,7 @@ import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { defineAdminSurface } from "@/adminPanel/AdminSurfaceDefinition";
 import type { AdminTableColumn } from "@/adminPanel/components/AdminTable";
 import { permissionSemanticEntry } from "@/adminPanel/adminSemanticCatalog";
+import { ADMIN_THEME } from "@/Theme";
 
 export type RoleForm = {
   roleKey: string;
@@ -95,7 +96,7 @@ export const ROLE_CREATE_SURFACE = defineAdminSurface({
   initialTab: "",
   presentation: "drawer",
   placement: "right",
-  appearance: "light",
+  appearance: ADMIN_THEME.appearance,
   initialState: {},
 });
 

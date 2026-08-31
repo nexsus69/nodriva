@@ -15,6 +15,7 @@ import { PlacementPoliciesModuleScreen } from "../system/_components/PlacementPo
 import { SystemConfigModuleScreen } from "../system/_components/SystemConfigModuleScreen";
 import { WorkflowModuleScreen } from "../system/_components/WorkflowModuleScreen";
 import AdminTypesPage from "../types/_components/TypesModuleScreen";
+import { TypeDetailPage } from "../types/_components/TypeDetailPage";
 import { AdminOverviewScreen } from "./AdminOverviewScreen";
 import { AdminContentModuleScreen } from "../content/_components/AdminContentModuleScreen";
 import Link from "@/app/components/navigation/GuardedLink";
@@ -50,12 +51,19 @@ export function AdminRouteScreen() {
   const pathname = usePathname();
   const rolePrefix = "/admin/access/roles/";
   const userPrefix = "/admin/access/users/";
+  const typePrefix = "/admin/model/types/";
 
   if (pathname.startsWith(rolePrefix)) {
     return <RoleDetailScreen roleKey={pathname.slice(rolePrefix.length)} />;
   }
   if (pathname.startsWith(userPrefix)) {
     return <UserDetailScreen userId={pathname.slice(userPrefix.length)} />;
+  }
+  if (pathname.startsWith(typePrefix)) {
+    const [kind, ...encodedTypeKey] = pathname.slice(typePrefix.length).split("/");
+    if ((kind === "node" || kind === "entity") && encodedTypeKey.length > 0) {
+      return <TypeDetailPage kind={kind} typeKey={decodeURIComponent(encodedTypeKey.join("/"))} />;
+    }
   }
 
   const selectedModule = findAdminModuleByRoute(adminModuleRegistry.all(), pathname);

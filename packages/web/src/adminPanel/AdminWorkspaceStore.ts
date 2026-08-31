@@ -89,7 +89,11 @@ export const useAdminWorkspaceStore = create<AdminWorkspaceState>()(
             ? { userId }
             : { ...DEFAULT_ADMIN_WORKSPACE_STATE, userId },
         ),
-      setActiveModule: (activeModuleKey) => set({ activeModuleKey }),
+      setActiveModule: (activeModuleKey) => set((state) =>
+        state.activeModuleKey === activeModuleKey
+          ? { activeModuleKey }
+          : { activeModuleKey, selectedResource: null, surface: null },
+      ),
       expandModule: (moduleKey) =>
         set((state) => ({
           expandedModuleKeys: state.expandedModuleKeys.includes(moduleKey)

@@ -77,6 +77,18 @@ describe("Admin workspace store", () => {
     });
   });
 
+  it("clears selected resources and open surfaces when changing module", () => {
+    const store = useAdminWorkspaceStore.getState();
+    store.setActiveModule("model.types");
+    store.selectResource({ moduleKey: "model.types", resourceId: "node:project" });
+    store.openSurface({ kind: "drawer", key: "type-detail", moduleKey: "model.types" });
+
+    store.setActiveModule("content.nodes");
+
+    expect(useAdminWorkspaceStore.getState().selectedResource).toBeNull();
+    expect(useAdminWorkspaceStore.getState().surface).toBeNull();
+  });
+
   it("persists module-local navigation state through the shared contract", () => {
     const store = useAdminWorkspaceStore.getState();
     store.setModuleState("model.types", { kind: "entity" });

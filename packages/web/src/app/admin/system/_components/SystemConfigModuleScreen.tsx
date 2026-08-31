@@ -4,7 +4,7 @@
 import { useMemo, type FormEvent } from "react";
 import type { RuntimeCapabilityDto, SystemSettingDto } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
-import { createValidationMessages, defineForm, type FormDefinition, type FormFieldSchema } from "@/app/components/ui/forms";
+import { createValidationMessages, defineForm, ToggleSwitch, type FormDefinition, type FormFieldSchema } from "@/app/components/ui/forms";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
@@ -19,7 +19,7 @@ import {
 } from "@/adminPanel/adminSemanticCatalog";
 
 type SystemRow = RuntimeCapabilityDto | SystemSettingDto;
-type SystemForm = { status?: string; valueText?: string };
+type SystemForm = { status?: string; valueText?: string | boolean };
 export type SystemSettingsSection = "field-protection" | "attachment-protection" | "audit-recording" | "session-security" | "other-settings";
 
 const SETTING_SECTION_ICONS: Record<SystemSettingsSection, "settings" | "shield"> = {
@@ -69,11 +69,7 @@ function systemSettingField(
   };
   if (setting?.valueType === "json") return { ...common, type: "textarea", rows: 4 };
   if (setting?.valueType === "boolean") {
-    return {
-      ...common,
-      type: "select",
-      options: [{ value: "true", label: t("admin.yes") }, { value: "false", label: t("admin.no") }],
-    };
+    return { ...common, type: "boolean" };
   }
   if (setting?.valueType === "integer" || setting?.valueType === "decimal") {
     return { ...common, type: "number" };
@@ -137,6 +133,49 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     : null;
   const setting = editing && kind === "settings" ? editing as SystemSettingDto : undefined;
   const definition = useMemo(() => systemForm(t, kind, setting), [kind, setting, t]);
+  const columns = useMemo(() => {
+    if (kind === "capabilities") return resource.list.columns;
+    return [
+      resource.list.columns[0],
+      resource.list.columns[1],
+      {
+        key: "value",
+        label: t("admin.value"),
+        render: (row: SystemRow) => {
+          const current = row as SystemSettingDto;
+          if (current.valueType !== "boolean") return current.isSecret ? "••••••" : current.valueText ?? "—";
+          return (
+            <ToggleSwitch
+              checked={current.valueText === "true"}
+              disabled={!canUpdate}
+              label={systemSettingSemanticEntry(current, t).label}
+              onLabel={t("admin.yes")}
+              offLabel={t("admin.no")}
+              className="w-[4.5rem]"
+              onChange={(next) => {
+                if (collection.pending) return;
+                void collection.controller.executeAction(
+                  {
+                    key: "toggle-setting",
+                    label: t("admin.saveChanges"),
+                    execute: async () => {
+                      const result = await AppCache.admin.updateSetting({
+                        settingKey: current.settingKey,
+                        settingValueText: String(next),
+                        expectedRowVersion: current.rowVersion,
+                      });
+                      if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
+                    },
+                  },
+                  current,
+                );
+              }}
+            />
+          );
+        },
+      },
+    ];
+  }, [canUpdate, collection.controller, collection.pending, kind, resource.list.columns, t]);
   const formSurface = useAdminFormSurface<SystemForm>({
     moduleKey: resource.moduleKey,
     surfaceKey: "edit",
@@ -155,7 +194,9 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     formSurface.complete();
     formSurface.initialize(kind === "capabilities"
       ? { status: (row as RuntimeCapabilityDto).currentStatus }
-      : { valueText: (row as SystemSettingDto).valueText ?? "" });
+      : { valueText: (row as SystemSettingDto).valueType === "boolean"
+        ? (row as SystemSettingDto).valueText === "true"
+        : (row as SystemSettingDto).valueText ?? "" });
     formSurface.open({ mode: "edit", resourceId: row.id });
   };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -180,7 +221,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     title: resource.label,
     description: resource.description,
     icon: kind === "capabilities" ? "settings" : settingsSection ? SETTING_SECTION_ICONS[section!] : "settings",
-    columns: resource.list.columns,
+    columns,
     loadingLabel: resource.list.loadingLabel,
     emptyLabel: resource.list.emptyLabel,
     rows: collection.rows,

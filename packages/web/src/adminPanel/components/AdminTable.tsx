@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { AdminIcon } from "./AdminIcon";
 
 export interface AdminTableColumn<TRow> {
@@ -79,12 +80,16 @@ function AdminRowActions<TRow>({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     if (!open) return undefined;
     const close = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!rootRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
     document.addEventListener("pointerdown", close);
     return () => {
@@ -93,11 +98,36 @@ function AdminRowActions<TRow>({
     };
   }, [open]);
 
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return undefined;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuHeight = actions.length * 36 + 16;
+    const menuWidth = 176;
+    const top = rect.bottom + 4 + menuHeight <= window.innerHeight
+      ? rect.bottom + 4
+      : Math.max(8, rect.top - menuHeight - 4);
+    const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
+    setMenuPosition({ top, left });
+    return undefined;
+  }, [actions.length, open]);
+
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const closeOnViewportChange = () => setOpen(false);
+    window.addEventListener("resize", closeOnViewportChange);
+    window.addEventListener("scroll", closeOnViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", closeOnViewportChange);
+      window.removeEventListener("scroll", closeOnViewportChange, true);
+    };
+  }, [open]);
+
   if (actions.length === 0) return null;
 
   return (
     <div ref={rootRef} className="relative inline-flex">
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
         aria-haspopup="menu"
@@ -108,12 +138,14 @@ function AdminRowActions<TRow>({
         }}
         className="flex size-8 items-center justify-center border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
       >
-        <AdminIcon name="more" className="size-4" />
+        <AdminIcon name="more" className="size-5" />
       </button>
-      {open && (
+      {open && menuPosition && typeof document !== "undefined" && createPortal(
         <div
+          ref={menuRef}
           role="menu"
-          className="absolute right-0 top-9 z-30 min-w-44 border border-slate-200 bg-white p-1.5 text-left shadow-xl shadow-slate-900/10"
+          style={{ position: "fixed", top: menuPosition.top, left: menuPosition.left, width: 176 }}
+          className="z-[100] border border-slate-200 bg-white p-1.5 text-left shadow-xl shadow-slate-900/10"
         >
           {actions.map((action) => (
             <button
@@ -131,7 +163,8 @@ function AdminRowActions<TRow>({
               {action.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -158,6 +191,7 @@ function AdminTableRowBase<TRow extends { id: string }>({
   const visibleActions = actions?.filter((action) => !action.hidden?.(row)) ?? [];
   const activate = () => onOpen?.(row);
   const handleKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+    if (event.target !== event.currentTarget) return;
     if (!onOpen || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
     activate();

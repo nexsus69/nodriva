@@ -21,12 +21,11 @@ describe("FormRenderer", () => {
     expect(markup).toContain("Email");
     expect(markup).toContain("user@example.com");
     expect(markup).toContain("Admin");
-    expect(markup).toContain('type="checkbox"');
-    expect(markup).toContain("checked");
+    expect(markup).toContain('role="switch"');
+    expect(markup).toContain('aria-checked="true"');
     expect(markup).toContain('for="form-field-email"');
     expect(markup).toContain('id="form-field-email"');
-    expect(markup).toContain('for="form-field-isAdmin"');
-    expect(markup).toContain('id="form-field-isAdmin"');
+    expect(markup).toContain('aria-label="Admin"');
   });
 
   it("renders boolean descriptions and preserves read-only state", () => {

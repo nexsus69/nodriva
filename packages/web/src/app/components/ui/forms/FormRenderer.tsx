@@ -3,6 +3,7 @@ import { PasswordInput } from "./PasswordInput";
 import { AttachmentInput } from "./AttachmentInput";
 import { RelationPicker } from "./RelationPicker";
 import { CustomSelect } from "./CustomSelect";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { NodeTreeSelect } from "./NodeTreeSelect";
 import type {
   FormDefinition,
@@ -223,28 +224,20 @@ function FormField({
     rules.some((rule) => rule.kind === "required");
   if (field.type === "boolean") {
     return (
-      <label
-        htmlFor={fieldId}
-        className={`flex items-center gap-2 pt-2 text-xs ${theme === "light" ? "text-slate-700" : "text-slate-300"} ${field.layout?.className ?? ""}`}
-      >
-        <input
-          id={fieldId}
-          name={field.name}
-          type="checkbox"
+      <div className={`pt-2 text-xs ${theme === "light" ? "text-slate-700" : "text-slate-300"} ${field.layout?.className ?? ""}`}>
+        <ToggleSwitch
           checked={Boolean(value)}
           disabled={field.disabled}
-          onChange={(event) => onChange(event.target.checked)}
-          className={`rounded text-indigo-600 focus:ring-indigo-500 ${theme === "light" ? "border-slate-300 bg-white" : "border-slate-800 bg-slate-900"}`}
+          label={`${field.label}${isRequired ? " *" : ""}`}
+          showLabel
+          onChange={onChange}
         />
-        <span>
-          {field.label}{isRequired ? " *" : ""}
-          {field.description && (
-            <span className={`ml-2 text-[11px] font-normal ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
-              {field.description}
-            </span>
-          )}
-        </span>
-      </label>
+        {field.description && (
+          <p className={`mt-1 text-[11px] font-normal ${theme === "light" ? "text-slate-500" : "text-slate-400"}`}>
+            {field.description}
+          </p>
+        )}
+      </div>
     );
   }
 

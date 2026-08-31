@@ -12,6 +12,7 @@ import {
   type FormEvent,
   type SetStateAction,
 } from "react";
+import { useRouter } from "next/navigation";
 import type {
   ApiErrorResponse,
   TypeKind,
@@ -33,12 +34,12 @@ import {
   type FormDefinition,
   type FormFieldSchema,
 } from "@/app/components/ui/forms";
-import { TYPE_DETAIL_SURFACE, TypeDetailDrawer } from "./TypeDetailDrawer";
 import { CREATE_TYPE_SURFACE } from "./typesSurfaceDefinitions";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { ADMIN_THEME } from "@/Theme";
 
 type TypeForm = {
   typeKey: string;
@@ -392,7 +393,7 @@ function CreateTypeDrawer({
             : t("admin.typeStepConfiguration")}
           closeLabel={t("admin.cancel")}
           onClose={onClose}
-          appearance="dark"
+          appearance={ADMIN_THEME.appearance}
         />
         {error && (
           <Alert tone="danger" className="mt-5">
@@ -413,8 +414,8 @@ function CreateTypeDrawer({
         )}
         <div className="p-6">
           {step === "configuration" && (
-            <div className="mb-5 border border-slate-800 bg-slate-900/60 p-4 text-xs text-slate-300">
-              <p className="font-semibold text-slate-100">
+            <div className="mb-5 border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
+              <p className="font-semibold text-slate-900">
                 {t("admin.typeSummary")}
               </p>
               <p className="mt-2">
@@ -430,6 +431,7 @@ function CreateTypeDrawer({
           <FormRenderer
             definition={definition}
             values={{ ...form }}
+            theme={ADMIN_THEME.form}
             onChange={(name, value) =>
               setForm((current) => ({ ...current, [name]: value }))
             }
@@ -451,15 +453,10 @@ function CreateTypeDrawer({
 /** Composes the first functional model module inside the rebuilt Admin Panel shell. */
 export default function AdminTypesPage() {
   const controller = useTypesModule();
+  const router = useRouter();
   const { t } = useAppLocale();
   const authorization = useAdminAuthorization();
   const canCreate = authorization.permissions.has(`${controller.kind}_type.create`);
-  const selectedResource = useAdminWorkspaceStore(
-    (state) => state.selectedResource,
-  );
-  const selectResource = useAdminWorkspaceStore(
-    (state) => state.selectResource,
-  );
   const filteredTypes = useMemo(() => {
     const needle = controller.search.trim().toLowerCase();
     if (!needle) return controller.types;
@@ -479,10 +476,6 @@ export default function AdminTypesPage() {
         .replace("{total}", String(controller.types.length)),
     [controller.types.length, filteredTypes.length, t],
   );
-  const selectedTypeResource =
-    selectedResource?.moduleKey === "model.types" && selectedResource.resourceId
-      ? selectedResource.resourceId.split(":")
-      : null;
   const definition: AdminCollectionDefinition<TypeListItemDto> = {
     title: t("admin.typesTitle"),
     description: t("admin.typesPageDescription"),
@@ -495,7 +488,7 @@ export default function AdminTypesPage() {
       { key: "typeKey", label: t("admin.typeKey"), render: (type) => type.typeKey, sortValue: (type) => type.typeKey },
       ...(controller.kind === "entity" ? [{ key: "storage", label: t("admin.storageTable"), render: (type: TypeListItemDto) => type.storageTable ?? "—", sortValue: (type: TypeListItemDto) => type.storageTable }] : []),
       { key: "fields", label: t("admin.fields"), render: (type) => type.fieldCount, sortValue: (type) => type.fieldCount },
-      { key: "version", label: t("admin.version"), render: (type) => `${type.currentSchemaVersion} · ${type.rowVersion}`, sortValue: (type) => type.currentSchemaVersion },
+      { key: "version", label: t("admin.version"), render: (type) => <div className="text-xs leading-5"><div><span className="text-slate-500">{t("admin.schemaVersion")}:</span> {type.currentSchemaVersion}</div><div><span className="text-slate-500">{t("admin.recordRevision")}:</span> {type.rowVersion}</div></div>, sortValue: (type) => type.currentSchemaVersion },
       { key: "status", label: t("admin.status"), render: (type) => <StatusBadge tone={type.isActive ? "success" : "danger"}>{type.isActive ? t("admin.active") : t("admin.disabled")}</StatusBadge> },
     ],
     emptyLabel: t("admin.noTypes"),
@@ -508,7 +501,7 @@ export default function AdminTypesPage() {
     refreshLabel: t("admin.refreshTypes"),
     onRefresh: () => void controller.refresh(),
     toolbar: <div className="flex gap-1 bg-slate-100 p-1">{(["node", "entity"] as const).map((value) => <button key={value} type="button" onClick={() => { controller.setKind(value); controller.setSearch(""); }} className={`px-4 py-2 text-xs font-semibold transition ${controller.kind === value ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}>{value === "node" ? t("admin.nodeTypes") : t("admin.entityTypes")}</button>)}</div>,
-    onOpen: (type) => selectResource({ moduleKey: "model.types", resourceId: `${type.kind}:${type.typeKey}` }),
+    onOpen: (type) => router.push(`/admin/model/types/${type.kind}/${encodeURIComponent(type.typeKey)}`),
     rowLabel: (type) => type.name,
     actionMenuLabel: t("admin.actions"),
     pagination: { stateKey: `model.types.${controller.kind}` },
@@ -516,7 +509,6 @@ export default function AdminTypesPage() {
   return (
     <>
       <AdminCollectionScreen definition={definition} />
-      {selectedTypeResource && <TypeDetailDrawer kind={selectedTypeResource[0] as TypeKind} typeKey={selectedTypeResource.slice(1).join(":")} presentation={TYPE_DETAIL_SURFACE.presentation} onClose={() => selectResource(null)} />}
       {controller.modalOpen && (
         <CreateTypeDrawer
           kind={controller.kind}

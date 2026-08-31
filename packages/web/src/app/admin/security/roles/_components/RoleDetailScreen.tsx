@@ -20,6 +20,7 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { canUseAdminResourceOperation } from "@/adminPanel/AdminResourceDefinition";
 import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { ADMIN_THEME } from "@/Theme";
 
 /** Provides a reload-safe permission editor for one role. */
 export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClose?: () => void }) {
@@ -143,7 +144,7 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
             pendingLabel={t("admin.saving")}
             cancelLabel={t("admin.backToRoles")}
             onCancel={() => void returnToList()}
-            theme="light"
+            theme={ADMIN_THEME.form}
           />
         </section>
       )}

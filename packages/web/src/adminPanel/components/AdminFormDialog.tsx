@@ -6,6 +6,7 @@ import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
 import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "./AdminSurfaceHost";
 import { AdminSurfaceHeader } from "./AdminSurfaceHeader";
+import { ADMIN_THEME } from "@/Theme";
 
 /** Default surface configuration used by form dialogs without a custom layout. */
 export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
@@ -16,7 +17,7 @@ export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
   presentation: "modal",
   placement: "center",
   size: "md",
-  appearance: "light",
+  appearance: ADMIN_THEME.appearance,
   initialState: {},
 };
 
@@ -57,7 +58,7 @@ export function AdminFormDialog({
           titleId="admin-form-dialog-title"
           closeLabel={cancelLabel}
           onClose={onClose}
-          appearance={surface.appearance}
+          appearance={ADMIN_THEME.appearance}
         />
         <div className="p-6">
         <FormRenderer
@@ -66,7 +67,7 @@ export function AdminFormDialog({
           onChange={onChange}
           onSubmit={onSubmit}
           isPending={pending}
-          theme={surface.appearance === "light" ? "light" : "dark"}
+          theme={ADMIN_THEME.form}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}
           onCancel={onClose}

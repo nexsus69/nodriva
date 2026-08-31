@@ -97,6 +97,7 @@ export function TypeFieldTable({
         rows={fields}
         columns={columns}
         actions={actions}
+        onOpen={onEdit}
         emptyLabel={t("admin.noFields")}
         actionMenuLabel={t("admin.actions")}
       />

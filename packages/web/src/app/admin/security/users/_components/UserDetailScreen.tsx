@@ -11,6 +11,7 @@ import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { useRouter } from "next/navigation";
 import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
+import { ADMIN_THEME } from "@/Theme";
 
 type ProfileForm = Record<string, unknown>;
 type PasswordForm = { password: string };
@@ -135,7 +136,7 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
             submitDisabled={!profileSurface.isDirty}
             submitLabel={t("admin.saveChanges")}
             pendingLabel={t("admin.saving")}
-            theme="light"
+            theme={ADMIN_THEME.form}
           />
         </section>
       )}
@@ -154,7 +155,7 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
           isPending={pending}
           submitLabel={t("admin.resetPassword")}
           pendingLabel={t("admin.saving")}
-          theme="light"
+            theme={ADMIN_THEME.form}
         />
       </section>
     </section>

@@ -16,6 +16,8 @@ import { buildMetadataDefinition, EMPTY_FIELD, type FieldForm } from "./typeDeta
 import { useTypeDetailController } from "./useTypeDetailController";
 import { TypeFieldDialog } from "./TypeFieldDialog";
 import { TypeFieldTable } from "./TypeFieldTable";
+import { ADMIN_THEME } from "@/Theme";
+import { formatAdminDateTime } from "@/adminPanel/adminFormatters";
 
 export const TYPE_DETAIL_SURFACE = defineAdminSurface({
   key: "detail",
@@ -24,7 +26,7 @@ export const TYPE_DETAIL_SURFACE = defineAdminSurface({
   initialTab: "settings",
   presentation: "inline",
   placement: "right",
-  appearance: "light",
+  appearance: ADMIN_THEME.appearance,
   initialState: {
     activeTab: "settings" as "settings" | "fields",
     isDialogOpen: false,
@@ -44,7 +46,7 @@ export function TypeDetailDrawer({
   onClose: () => void;
   presentation?: "drawer" | "inline" | "modal";
 }) {
-  const { t } = useAppLocale();
+  const { locale, t } = useAppLocale();
   const controller = useTypeDetailController(kind, typeKey, t);
   const surface = useAdminSurface(TYPE_DETAIL_SURFACE);
   const activeTab = surface.activeTab;
@@ -173,6 +175,7 @@ export function TypeDetailDrawer({
           closeLabel={presentation === "inline" ? t("admin.backToList") : t("admin.cancel")}
           closeIcon={presentation === "inline" ? "arrow-left" : "close"}
           onClose={close}
+          className={presentation === "inline" ? "-mx-4 -mt-4 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8" : ""}
           tabs={[
             { key: "settings", label: t("admin.settings") },
             { key: "fields", label: `${t("admin.fields")} (${controller.detail?.fields.length ?? 0})` },
@@ -196,9 +199,17 @@ export function TypeDetailDrawer({
           {!controller.loading &&
             controller.detail &&
             activeTab === "settings" && (
+              <>
+              <dl className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm sm:grid-cols-4">
+                <div><dt className="text-xs text-slate-500">{t("admin.schemaVersion")}</dt><dd className="font-semibold text-slate-900">{controller.detail.currentSchemaVersion}</dd></div>
+                <div><dt className="text-xs text-slate-500">{t("admin.recordRevision")}</dt><dd className="font-semibold text-slate-900">{controller.detail.rowVersion}</dd></div>
+                <div><dt className="text-xs text-slate-500">{t("admin.status")}</dt><dd className="font-semibold text-slate-900">{controller.detail.isActive ? t("admin.active") : t("admin.disabled")}</dd></div>
+                <div><dt className="text-xs text-slate-500">{t("admin.lastModified")}</dt><dd className="font-semibold text-slate-900">{formatAdminDateTime(controller.detail.updatedAt, locale)}</dd></div>
+              </dl>
               <FormRenderer
                 definition={buildMetadataDefinition(t)}
                 values={metadataForm.values}
+                theme={ADMIN_THEME.form}
                 onChange={(name, value) =>
                   metadataForm.setValues((current) => ({
                     ...current,
@@ -215,15 +226,16 @@ export function TypeDetailDrawer({
                 cancelLabel={t("admin.cancel")}
                 onCancel={() => void close()}
               />
+              </>
             )}
           {!controller.loading &&
             controller.detail &&
             activeTab === "fields" && (
-              <TypeFieldTable
-                fields={controller.detail.fields}
-                t={t}
-                onAdd={openAddField}
-                onEdit={openEditField}
+                <TypeFieldTable
+                  fields={controller.detail.fields}
+                  t={t}
+                  onAdd={openAddField}
+                  onEdit={openEditField}
                 onDelete={(item) => void controller.removeField(item)}
                 onMove={(item, direction) =>
                   void controller.moveField(item.id, direction)

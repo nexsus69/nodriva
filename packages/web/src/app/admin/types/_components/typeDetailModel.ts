@@ -2,6 +2,7 @@ import type { FieldDataType } from "@dashboard/core";
 import {
   createValidationMessages,
   type FormDefinition,
+  type FormFieldSchema,
 } from "@/app/components/ui/forms";
 import { fieldDataTypeOption } from "@/adminPanel/adminSemanticCatalog";
 
@@ -88,8 +89,22 @@ export function buildMetadataDefinition(
 /** Builds the localized field definition used by both add and edit dialogs. */
 export function buildFieldDefinition(
   t: (key: string) => string,
-  options: { relationConfigurationDisabled?: boolean } = {},
+  options: { dataType: FieldDataType; relationConfigurationDisabled?: boolean },
 ): FormDefinition {
+  const visibleField = (field: FormFieldSchema): boolean => {
+    const dataType = options.dataType.toLowerCase();
+    const relationControls = new Set([
+      "relationTargetDomain",
+      "relationTargetTypeKey",
+      "relationSourceCardinality",
+      "relationTargetIsUnique",
+      "relationInverseLabel",
+    ]);
+    if (relationControls.has(field.name)) return dataType === "relation";
+    if (field.name === "enumMode") return dataType === "enum";
+    return true;
+  };
+
   return {
     key: "admin.types.detail.field",
     version: "1",
@@ -111,7 +126,7 @@ export function buildFieldDefinition(
         columns: 2,
       },
     ],
-    fields: [
+    fields: ([
       {
         name: "fieldKey",
         type: "text",
@@ -162,18 +177,21 @@ export function buildFieldDefinition(
         name: "isRequired",
         type: "boolean",
         label: t("admin.requiredField"),
+        description: t("admin.requiredFieldHelp"),
         layout: { row: "flags", colSpan: 1, order: 1 },
       },
       {
         name: "isUnique",
         type: "boolean",
         label: t("admin.uniqueField"),
+        description: t("admin.uniqueFieldHelp"),
         layout: { row: "flags", colSpan: 1, order: 2 },
       },
       {
         name: "isIndexed",
         type: "boolean",
         label: t("admin.indexedField"),
+        description: t("admin.indexedFieldHelp"),
         layout: { row: "flags", colSpan: 1, order: 3 },
       },
       {
@@ -226,6 +244,7 @@ export function buildFieldDefinition(
         name: "relationTargetIsUnique",
         type: "boolean",
         label: t("admin.relationTargetUnique"),
+        description: t("admin.relationTargetUniqueHelp"),
         disabled: options.relationConfigurationDisabled,
         layout: { row: "relation", colSpan: 1, order: 4 },
       },
@@ -247,6 +266,6 @@ export function buildFieldDefinition(
         ],
         layout: { row: "advanced", colSpan: 2, order: 3 },
       },
-    ],
+    ] as FormFieldSchema[]).filter(visibleField),
   };
 }
