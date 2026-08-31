@@ -42,10 +42,10 @@ describe('Governance and Security PostgreSQL Adapters', () => {
           'node.create',
           'node',
           'node-id-1',
+          'Nodo principale',
           'parent-id-1',
           JSON.stringify({ status: 'old' }),
           JSON.stringify({ status: 'new' }),
-          'Nodo principale',
         ]
       );
     });

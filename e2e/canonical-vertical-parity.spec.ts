@@ -166,8 +166,20 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await expect(page.getByLabel('Chiave ruolo *')).toHaveValue(names.roleKey);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea ruolo' }).click();
   await page.getByRole('row', { name: names.roleName }).click();
-  for (const [index] of OPERATOR_PERMISSIONS.entries()) {
-    await page.getByRole('switch').nth(index).click();
+  const permissionLabels: Record<(typeof OPERATOR_PERMISSIONS)[number], RegExp> = {
+    'node.read': /Nodo.*Lettura/i,
+    'node.create': /Nodo.*Creazione/i,
+    'node.edit': /Nodo.*Modifica/i,
+    'node.delete': /Nodo.*Eliminazione/i,
+    'node.restore': /Nodo.*Ripristino/i,
+    'entity.read': /Entità.*Lettura/i,
+    'entity.create': /Entità.*Creazione/i,
+    'entity.edit': /Entità.*Modifica/i,
+    'entity.delete': /Entità.*Eliminazione/i,
+    'entity.restore': /Entità.*Ripristino/i,
+  };
+  for (const permission of OPERATOR_PERMISSIONS) {
+    await page.getByRole('switch', { name: permissionLabels[permission] }).click();
   }
   await page.getByRole('button', { name: 'Salva permessi' }).click();
 

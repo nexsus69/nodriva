@@ -130,7 +130,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     await expect(page.getByText(nodeTypeKey, { exact: true })).toBeVisible();
     const createdNodeTypeVisible = await page.getByText(nodeTypeKey, { exact: true }).isVisible();
     await page.getByRole('row', { name: nodeTypeName }).click();
-    await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
+    await expect(page.getByRole('row', { name: nodeTypeName })).toBeVisible();
     await page.getByRole('button', { name: /Fields \(0\)|Campi \(0\)/i }).click();
     await page.getByRole('button', { name: /Add field|Aggiungi campo/i }).click();
     await page.getByRole('combobox', { name: /Data type|Tipo dato/i }).click();
