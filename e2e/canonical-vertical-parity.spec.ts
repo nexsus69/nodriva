@@ -179,7 +179,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
     'entity.restore': /Entità.*Ripristino/i,
   };
   for (const permission of OPERATOR_PERMISSIONS) {
-    await page.getByRole('switch', { name: permissionLabels[permission] }).click();
+    await page.getByRole('switch', { name: permissionLabels[permission] }).first().click();
   }
   await page.getByRole('button', { name: 'Salva permessi' }).click();
 

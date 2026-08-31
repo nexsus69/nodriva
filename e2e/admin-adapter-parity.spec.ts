@@ -139,7 +139,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     loadedDetailViews.push('node-type');
 
     await page.goto(`${baseUrl}/admin/model/types`);
-    await expect(page.getByRole('heading', { name: nodeTypeName })).toBeVisible();
+    await expect(page.getByRole('row', { name: nodeTypeName })).toBeVisible();
     const backToTypeList = page.getByRole('button', { name: /Torna alla lista|Back to list/i }).first();
     if (await backToTypeList.isVisible()) {
       await backToTypeList.click({ force: true });

@@ -5,6 +5,7 @@ export function formatAdminDateTime(value: string, locale: SupportedLocale): str
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(locale === "it" ? "it-IT" : "en-GB", {
+    timeZone: "Europe/Rome",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
