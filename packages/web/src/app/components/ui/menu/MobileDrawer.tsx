@@ -28,7 +28,7 @@ export function MobileDrawer({ open, onClose, title, children, side = 'left' }: 
       <aside className={`absolute inset-y-0 flex w-[min(22rem,calc(100vw-2rem))] flex-col bg-white p-4 shadow-2xl ${side === 'left' ? 'left-0' : 'right-0'}`}>
         <div className="flex min-h-10 items-center justify-between gap-3 border-b border-slate-200 pb-3">
           <div className="min-w-0 break-words text-sm font-semibold text-slate-800">{title}</div>
-          <button type="button" onClick={onClose} aria-label="Chiudi pannello" className="shrink-0 rounded-lg px-2 py-1 text-lg text-slate-500 hover:bg-slate-100">×</button>
+          <button type="button" onClick={onClose} aria-label="Chiudi pannello" className="shrink-0 px-2 py-1 text-lg text-slate-500 hover:bg-slate-100">×</button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto py-4">{children}</div>
       </aside>
