@@ -113,7 +113,7 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
     const createdRoleVisible = await page.getByText(roleKey, { exact: true }).isVisible();
     await page.getByRole('row', { name: roleName }).click();
     await expect(page.getByRole('heading', { name: roleName })).toBeVisible();
-    await expect(page.getByRole('checkbox').first()).toBeVisible();
+    await expect(page.getByRole('switch').first()).toBeVisible();
     await expect(page.getByText(/Node · Read|Nodo · Lettura/i)).toBeVisible();
     loadedDetailViews.push('role');
 

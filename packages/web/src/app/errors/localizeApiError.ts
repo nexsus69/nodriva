@@ -1,3 +1,4 @@
+/** Resolves stable API error codes and details to the current UI locale. */
 import type { ApiErrorResponse, ApiErrorDetail } from "@dashboard/core";
 
 type Translator = (key: string) => string;

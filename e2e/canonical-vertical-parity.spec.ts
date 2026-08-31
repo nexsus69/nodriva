@@ -166,8 +166,8 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   await expect(page.getByLabel('Chiave ruolo *')).toHaveValue(names.roleKey);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea ruolo' }).click();
   await page.getByRole('row', { name: names.roleName }).click();
-  for (const permission of OPERATOR_PERMISSIONS) {
-    await page.locator('label').filter({ hasText: permission }).getByRole('checkbox').check();
+  for (const [index] of OPERATOR_PERMISSIONS.entries()) {
+    await page.getByRole('switch').nth(index).click();
   }
   await page.getByRole('button', { name: 'Salva permessi' }).click();
 
