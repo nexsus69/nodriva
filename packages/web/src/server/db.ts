@@ -74,6 +74,7 @@ import {
   WorkflowEventProcessor,
   RuntimeAuditRecordingPolicy,
   PolicyAuditRecorder,
+  DescriptiveAuditPort,
   RealtimeAuditCollectionInvalidator,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
@@ -158,7 +159,9 @@ export const workflowRepository = sqliteMode
   : new WorkflowRepositoryPostgres(pgExecutor!);
 export const workflowDefinitionService = new WorkflowDefinitionService(workflowRepository);
 export const workflowEventProcessor = new WorkflowEventProcessor(transactionPort, workflowRepository);
-const persistenceAuditPort = sqliteMode ? sqliteInfrastructure!.auditPort : new AuditPortPostgres(pgExecutor!);
+const persistenceAuditPort = new DescriptiveAuditPort(
+  sqliteMode ? sqliteInfrastructure!.auditPort : new AuditPortPostgres(pgExecutor!),
+);
 export const lockRepository = sqliteMode ? sqliteInfrastructure!.lockRepository : new LockRepositoryPostgres(pgExecutor!);
 export const pusherEventBus = new PusherEventBus({
   ...realtimePusherConfiguration,

@@ -8,6 +8,7 @@ export { createUserWorkflowEvent } from "./application/services/WorkflowEventFac
 export type { UserWorkflowEventInput } from "./application/services/WorkflowEventFactory.js";
 export type { WorkflowEventPublisher } from "./application/ports/WorkflowEventPublisher.js";
 export { WorkflowWorker } from "./application/services/WorkflowWorker.js";
+export { DescriptiveAuditPort } from "./application/services/DescriptiveAuditPort.js";
 export type { WorkflowWorkerRunResult } from "./application/services/WorkflowWorker.js";
 export { AuditRecordWorkflowActionHandler } from "./application/services/AuditRecordWorkflowActionHandler.js";
 export { WorkflowDefinitionService } from "./application/services/WorkflowDefinitionService.js";

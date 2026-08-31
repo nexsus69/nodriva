@@ -51,6 +51,10 @@ dettaglio audit; il tooltip è solo un aiuto aggiuntivo su desktop. Un UUID non
 deve essere usato come unica descrizione umana quando il record contiene una
 `resourceLabel`: l'etichetta precede l'identificativo; per gli audit storici o
 le risorse senza etichetta il fallback tecnico resta esplicito e non ambiguo.
+La composition root applica `DescriptiveAuditPort`, che ricava una label dai
+payload dell'evento quando il servizio applicativo non ne fornisce una
+esplicita; i componenti Web non implementano mapping per singolo tipo di
+risorsa.
 
 ## Settings ownership and optional capabilities
 
