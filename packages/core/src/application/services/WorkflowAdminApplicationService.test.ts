@@ -29,7 +29,7 @@ describe('WorkflowAdminApplicationService', () => {
     const context = service();
     await context.app.publishDefinition('admin-1', { workflowId: 'record_history', name: 'Registra cronologia', version: 1, isActive: true, triggerEventTypes: ['record.created'], conditions: [], steps: [{ stepId: 'audit', actionType: 'audit.record', input: {} }] });
     expect(context.access.assertHasPermission).toHaveBeenCalledWith('admin-1', 'system.config', null);
-    expect(context.audit.record).toHaveBeenCalledWith('admin-1', 'workflow.publish_definition', 'workflow_definition', 'record_history@1', null, null, expect.objectContaining({ stepActionTypes: ['audit.record'] }));
+    expect(context.audit.record).toHaveBeenCalledWith('admin-1', 'workflow.publish_definition', 'workflow_definition', 'record_history@1', null, null, expect.objectContaining({ stepActionTypes: ['audit.record'] }), 'Registra cronologia');
   });
 
   it('rejects an action that is not installed before persisting a retrying workflow', async () => {

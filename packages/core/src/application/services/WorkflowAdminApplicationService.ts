@@ -43,7 +43,7 @@ export class WorkflowAdminApplicationService {
       await this.definitions.registerEventType(definition);
       await this.auditPort.record(actorUserId, 'workflow.register_event_type', 'workflow_event_type', definition.eventType, null, null, {
         subjectKinds: definition.subjectKinds, payloadVersion: definition.payloadVersion, isActive: definition.isActive,
-      });
+      }, definition.eventType);
     });
   }
 
@@ -62,7 +62,7 @@ export class WorkflowAdminApplicationService {
       await this.auditPort.record(actorUserId, 'workflow.publish_definition', 'workflow_definition', `${definition.workflowId}@${definition.version}`, null, null, {
         workflowId: definition.workflowId, version: definition.version, triggerEventTypes: definition.triggerEventTypes,
         stepActionTypes: definition.steps.map((step) => step.actionType), isActive: definition.isActive,
-      });
+      }, definition.name ?? definition.workflowId);
     });
   }
 }

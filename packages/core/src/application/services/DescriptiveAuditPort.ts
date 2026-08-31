@@ -19,7 +19,7 @@ export class DescriptiveAuditPort implements AuditPort {
   }
 }
 
-const LABEL_KEYS = ['name', 'displayName', 'email', 'fileName', 'typeKey', 'policyKey', 'settingKey', 'capabilityKey', 'key'] as const;
+const LABEL_KEYS = ['name', 'displayName', 'email', 'fileName', 'typeKey', 'policyKey', 'settingKey', 'capabilityKey', 'workflowId', 'eventType', 'key'] as const;
 
 function deriveResourceLabel(
   primary: Record<string, unknown> | null,
