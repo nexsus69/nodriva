@@ -40,6 +40,7 @@ import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
 import { ADMIN_THEME } from "@/Theme";
+import { localizeApiError, localizeApiErrorDetail } from "@/app/errors/localizeApiError";
 
 type TypeForm = {
   typeKey: string;
@@ -321,12 +322,7 @@ function fieldLabel(
 
 /** Translates the common Zod validation messages returned by the backend. */
 function validationDetail(message: string, t: (key: string) => string): string {
-  if (message.includes("at least 1")) return t("admin.validationRequired");
-  if (message.includes("at most")) return t("admin.validationTooLong");
-  if (message.includes("Invalid") || message.includes("invalid")) {
-    return t("admin.validationInvalid");
-  }
-  return message;
+  return localizeApiErrorDetail({ code: "VALIDATION_FAILED", message }, t);
 }
 
 /** Presents a localized summary while retaining the backend error for diagnostics. */
@@ -336,7 +332,7 @@ function validationSummary(
 ): string {
   return error.code === "VALIDATION_ERROR"
     ? t("admin.validationFailed")
-    : error.message;
+    : localizeApiError(error, t);
 }
 
 /** Renders the focused creation drawer from the shared form definition engine. */

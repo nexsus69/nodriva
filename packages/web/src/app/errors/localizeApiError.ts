@@ -35,3 +35,10 @@ export function localizeApiErrorDetail(detail: ApiErrorDetail, t: Translator): s
   if (/invalid/i.test(detail.message)) return t("admin.validationInvalid");
   return detail.message;
 }
+
+export function localizeUnknownError(reason: unknown, t: Translator, fallbackKey = "errors.internal"): string {
+  if (reason && typeof reason === "object" && typeof Reflect.get(reason, "code") === "string") {
+    return localizeApiError(reason as ApiErrorResponse, t);
+  }
+  return t(fallbackKey);
+}
