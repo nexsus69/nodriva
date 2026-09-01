@@ -75,11 +75,24 @@ disabled or unsupported optional capability must render as its normal runtime
 state (or an authorized empty state), never as a client error. The capability
 catalogue remains under Platform → Runtime and integrations.
 
-`Platform → Integrations` (`/admin/platform/integrations`) è il catalogo
-read-only dei servizi per amministratori autorizzati. Mostra provider
-sanitizzato, disponibilità e lifecycle e può richiedere un healthcheck non
-mutante. Topologia di deployment, endpoint, porte, riferimenti secret e valori
-secret non sono né renderizzati né editabili.
+`Platform → Integrations` (`/admin/platform/integrations`) raggruppa realtime,
+scansione allegati, consegne account e osservabilità. Mostra provider
+sanitizzato, disponibilità, fallback, dipendenze e lifecycle e può richiedere
+un healthcheck non mutante. Topologia di deployment, endpoint, porte,
+riferimenti secret e valori secret non sono né renderizzati né editabili.
+
+`Platform → Data & recovery` (`/admin/platform/data-recovery`) raggruppa
+database, storage allegati, backup e materiale di chiavi necessario al
+recovery. Espone soltanto l'evidenza sanitizzata dell'ultimo backup verificato:
+provider, data, checksum, dimensione, versione schema, restore verification e
+dipendenze di recovery. Il manifest è opzionale: se il deployment non lo rende
+leggibile, la vista mostra `non disponibile` senza rendere inutilizzabile
+l'Admin. Non avvia backup e non esegue restore.
+
+`Platform → Health & observability` (`/admin/platform/health`) presenta lo
+stesso catalogo completo per l'intento operativo di health. `disabled` è uno
+stato intenzionale distinto da `non disponibile`; il refresh invoca solo probe
+non mutanti autorizzati.
 
 `Platform → Backup` possiede la policy runtime `backup.scheduledEnabled`.
 Sospende soltanto l'esecuzione automatica del job di deployment, con audit e

@@ -166,7 +166,10 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
 
   private backup() {
     return this.environment.BACKUP_ROOT
-      ? { providerKey: 'postgres-dump', values: { path: this.environment.BACKUP_ROOT } }
+      ? {
+        providerKey: this.environment.DATABASE_ADAPTER?.toLowerCase() === 'sqlite' ? 'sqlite-snapshot' : 'postgres-dump',
+        values: { path: this.environment.BACKUP_ROOT },
+      }
       : null;
   }
 

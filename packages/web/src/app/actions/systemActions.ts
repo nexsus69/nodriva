@@ -1,5 +1,6 @@
 'use server';
 
+/** Exposes authorized server actions for runtime settings and sanitized service operations. */
 import { configService, serviceAdministrationService, systemAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
@@ -19,6 +20,7 @@ import {
   PublicServiceConfiguration,
   ServiceConfigurationKey,
   ServiceHealthCheckResult,
+  PublicBackupStatus,
 } from '@dashboard/core';
 import { publishAdministrativeChange } from '../../server/adminRealtime';
 import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
@@ -65,6 +67,20 @@ export async function checkServiceHealthAction(serviceKey: ServiceConfigurationK
   try {
     const actorUserId = await AuthResolver.resolveActorUserId();
     return { success: true, data: await serviceAdministrationService.checkHealth(actorUserId, serviceKey) };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Returns sanitized backup verification evidence; it cannot start backup or restore. */
+export async function getBackupStatusAction(): Promise<{
+  success: boolean;
+  data?: PublicBackupStatus;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await serviceAdministrationService.getBackupStatus(actorUserId) };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

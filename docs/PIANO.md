@@ -1,6 +1,6 @@
 # Piano di configurazione completa dei servizi Nodriva
 
-> Stato: punti 1, 2, 3, 4 e 5 completati il 1 settembre 2026. Il catalogo
+> Stato: punti 1, 2, 3, 4, 5 e 6 completati il 2 settembre 2026. Il catalogo
 > riutilizzabile, la precedenza deployment→runtime, lo stato `disabled` degli
 > optional e la vista Admin sanitizzata sono stati introdotti; provider S3/SMTP
 > e l'editing runtime auditato restano interventi separati.
@@ -437,8 +437,11 @@ esterno dentro la transazione.
 5. **Backup parity**: completata. PostgreSQL e SQLite producono manifest/status
    con checksum e restore di verifica; il runbook coordina database, allegati e
    keyring senza automatizzare restore distruttivi.
-6. **Admin IA**: aggiungere Integrations, Data & recovery, Health & observability
-   con stati disabled/unavailable e test workspace; mantenere le route sottili.
+6. **Admin IA**: completata. Integrations, Data & recovery e Health &
+   observability condividono un read model sanitizzato, distinguono
+   `disabled`/`unavailable`, conservano lo stato di workspace e mantengono le
+   route sottili. `BackupStatusPort` espone solo l'evidenza verificata; backup
+   e restore restano operativi.
 7. **Provider completi differiti**: S3-compatible e SMTP, uno alla volta con
    adapter, healthcheck, contract, failure semantics e documentazione; nessun
    provider ulteriore senza caso d'uso approvato.

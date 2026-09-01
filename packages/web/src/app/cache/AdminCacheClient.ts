@@ -114,6 +114,7 @@ export class AdminCacheClient {
   public listServiceConfigurations = () => this.read('service-configurations', systemActions.listServiceConfigurationsAction);
   public checkServiceHealth = (serviceKey: Parameters<typeof systemActions.checkServiceHealthAction>[0]) =>
     this.write(['service-configurations'], () => systemActions.checkServiceHealthAction(serviceKey));
+  public getBackupStatus = () => this.read('backup-status', systemActions.getBackupStatusAction);
   public updateCapabilityStatus = (cmd: Parameters<typeof systemActions.updateCapabilityStatusAction>[0]) =>
     this.write(['capabilities'], () => systemActions.updateCapabilityStatusAction(cmd));
   public listSettings = () => this.read('settings', systemActions.listSettingsAction);

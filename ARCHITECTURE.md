@@ -43,9 +43,12 @@ runtime policy, secret references and derived state with deployment-provider
 precedence; a runtime record can never select another provider. Optional
 services resolve explicitly to `disabled` when deployment does not configure
 them. `ServiceAdministrationApplicationService` is the authorized, sanitized
-Admin read model and may run non-mutating health checks; it must never expose
-endpoint topology, secret references or secret values. Health checks are
-operational effects, never part of a configuration transaction.
+Admin read model and may run non-mutating health checks. Its optional
+`BackupStatusPort` exposes only redacted recovery evidence produced by an
+operational adapter; it cannot initiate a backup or restore. The read model
+must never expose endpoint topology, paths, secret references or secret values.
+Health checks are operational effects, never part of a configuration
+transaction.
 
 ## Technical layers
 

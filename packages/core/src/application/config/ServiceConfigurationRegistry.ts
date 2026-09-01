@@ -257,6 +257,10 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
       key: 'postgres-dump',
       displayName: 'PostgreSQL dump',
       fields: [deploymentString('path', 'Destinazione dei backup verificati.')],
+    }, {
+      key: 'sqlite-snapshot',
+      displayName: 'SQLite snapshot',
+      fields: [deploymentString('path', 'Destinazione degli snapshot SQLite verificati.')],
     }],
   },
   {

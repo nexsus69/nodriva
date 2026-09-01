@@ -1,5 +1,6 @@
 /** Authorized read model for operational service configuration. */
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
+import type { BackupStatusPort, PublicBackupStatus } from '../ports/BackupStatusPort.js';
 import type { ServiceConfigurationKey } from '../config/ServiceConfigurationRegistry.js';
 import type { ServiceHealthCheckResult } from '../ports/ServiceHealthCheckPort.js';
 import type { PublicServiceConfiguration, ServiceConfigurationService } from './ServiceConfigurationService.js';
@@ -14,6 +15,7 @@ export class ServiceAdministrationApplicationService {
     private readonly configuration: ServiceConfigurationService,
     private readonly health: ServiceHealthCheckService,
     private readonly accessControl: AccessControlPort,
+    private readonly backupStatus?: BackupStatusPort,
   ) {}
 
   async list(actorUserId: string): Promise<readonly PublicServiceConfiguration[]> {
@@ -24,5 +26,11 @@ export class ServiceAdministrationApplicationService {
   async checkHealth(actorUserId: string, serviceKey: ServiceConfigurationKey): Promise<ServiceHealthCheckResult> {
     await this.accessControl.assertHasPermission(actorUserId, 'system.config.read', null);
     return this.health.check(serviceKey);
+  }
+
+  /** Returns recovery evidence only; backup execution and restore remain operational workflows. */
+  async getBackupStatus(actorUserId: string): Promise<PublicBackupStatus> {
+    await this.accessControl.assertHasPermission(actorUserId, 'system.config.read', null);
+    return this.backupStatus?.read() ?? { status: 'unavailable', code: 'status_not_configured' };
   }
 }

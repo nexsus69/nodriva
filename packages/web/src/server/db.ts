@@ -97,6 +97,7 @@ import {
   getSecurityKeyConfiguration,
 } from './EnvironmentServiceConfiguration';
 import { ClamAvHealthCheck, PostgresHealthCheck, RealtimeHttpHealthCheck, SqliteHealthCheck } from './ServiceHealthCheckAdapters';
+import { BackupStatusFileReader } from './BackupStatusFileReader';
 
 const deploymentConfigurationSource = new EnvironmentServiceDeploymentConfigurationSource();
 const databaseDeployment = deploymentConfigurationSource.getSync('database');
@@ -265,6 +266,7 @@ export const serviceAdministrationService = new ServiceAdministrationApplication
   serviceConfigurationService,
   serviceHealthCheckService,
   accessControlPort,
+  new BackupStatusFileReader(process.env.BACKUP_STATUS_FILE),
 );
 export const workflowAdminService = new WorkflowAdminApplicationService(
   workflowRepository,

@@ -173,8 +173,12 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
       {
         key: "platform.integrations", label: "Integrations", labelKey: "admin.integrations", description: "Review configured service integrations.", descriptionKey: "admin.integrationsDescription", icon: "activity", order: 15, route: "/admin/platform/integrations", requiredPermissions: ["system.config.read"],
       },
+      {
+        key: "platform.data-recovery", label: "Data and recovery", labelKey: "admin.dataRecovery", description: "Review data dependencies and verified backup evidence.", descriptionKey: "admin.dataRecoveryDescription", icon: "database", order: 18, route: "/admin/platform/data-recovery", requiredPermissions: ["system.config.read"],
+      },
       { key: "platform.session-security", label: "Session security", labelKey: "admin.sessionSecurity", description: "Configure session inactivity.", descriptionKey: "admin.sessionSecurityDescription", icon: "shield", order: 20, route: "/admin/platform/session-security", requiredPermissions: ["system.config.read"] },
       { key: "platform.backup", label: "Backup", labelKey: "admin.backup", description: "Control scheduled verified backups.", descriptionKey: "admin.backupDescription", icon: "settings", order: 25, route: "/admin/platform/backup", requiredPermissions: ["system.config.read"] },
+      { key: "platform.health", label: "Health and observability", labelKey: "admin.healthObservability", description: "Check the safe operational status of configured services.", descriptionKey: "admin.healthObservabilityDescription", icon: "activity", order: 27, route: "/admin/platform/health", requiredPermissions: ["system.config.read"] },
       { key: "platform.other-settings", label: "Other settings", labelKey: "admin.otherSettings", description: "Access settings that are not yet assigned to an administrative module.", descriptionKey: "admin.otherSettingsDescription", icon: "settings", order: 30, route: "/admin/platform/other-settings", requiredPermissions: ["system.config.read"] },
     ],
   },

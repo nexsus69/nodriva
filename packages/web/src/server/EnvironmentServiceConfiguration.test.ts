@@ -67,6 +67,16 @@ describe('Environment service configuration', () => {
     });
   });
 
+  it('uses SQLite snapshot backup metadata for the standalone profile', async () => {
+    const source = new EnvironmentServiceDeploymentConfigurationSource({
+      DATABASE_ADAPTER: 'sqlite',
+      BACKUP_ROOT: '/var/backups/sqlite',
+    });
+    await expect(source.get('backup')).resolves.toEqual({
+      providerKey: 'sqlite-snapshot', values: { path: '/var/backups/sqlite' },
+    });
+  });
+
   it('resolves security keys only for server-side adapter construction', () => {
     const configuration = getSecurityKeyConfiguration({
       FIELD_ENCRYPTION_KEY: '11'.repeat(32),

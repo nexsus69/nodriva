@@ -88,15 +88,21 @@ dipendenze e lifecycle. I servizi opzionali senza deployment si presentano come
 `disabled`; database e storage allegati rimangono requirement di bootstrap.
 `ServiceConfigurationService` mantiene la precedenza deployment → runtime →
 derived e rifiuta un provider runtime diverso da quello di deployment.
-`ServiceAdministrationApplicationService` espone un catalogo redatto e
-healthcheck non mutanti dietro `system.config.read`.
+`ServiceAdministrationApplicationService` espone un catalogo redatto,
+healthcheck non mutanti e, tramite l'opzionale `BackupStatusPort`, evidenza di
+backup sanitizzata dietro `system.config.read`. Il port legge solamente il
+manifest operativo; non esegue backup né restore. Un deployment che non espone
+un reader restituisce lo stato esplicito `unavailable`.
 
 Nel profilo standalone, `attachment-storage` viene bootstrapato esplicitamente
 come filesystem su `./.data/attachments` se `ATTACHMENTS_ROOT` non è definita;
 non è più un fallback invisibile del solo adapter locale.
 
-**Platform → Integrations** è intenzionalmente read-only: mostra provider
-sanitizzato, stato e lifecycle dei servizi esistenti. Non modifica environment,
+**Platform → Integrations**, **Data & recovery** e **Health & observability**
+sono intenzionalmente read-only per deployment e secret. Le viste mostrano
+provider sanitizzato, stato, fallback, dipendenze e lifecycle dei servizi
+esistenti; Data & recovery mostra anche il manifest di verifica backup
+sanitizzato quando il deployment lo fornisce. Non modificano environment,
 endpoint, password o secret. S3-compatible e SMTP restano soltanto previsti dal
 piano finché non esistono adapter, healthcheck e test di contratto.
 

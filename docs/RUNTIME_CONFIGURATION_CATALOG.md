@@ -104,6 +104,19 @@ Questi valori restano fuori da `system_settings`. Il provider di persistenza è
 selezionabile tramite `DATABASE_ADAPTER=postgres|sqlite`; ogni ulteriore adapter
 richiederà migrazioni proprie, test di contratto condivisi ed E2E di parità.
 
+### Backup e recupero — deployment con evidenza read-only
+
+- il provider backup è `postgres-dump` per PostgreSQL e `sqlite-snapshot` per
+  SQLite; `BACKUP_ROOT` identifica soltanto il contesto operativo di backup;
+- `BACKUP_STATUS_FILE`, quando il deployment lo espone al processo Web, è una
+  fonte opzionale di evidenza e non un'impostazione runtime;
+- il contenuto pubblico ammesso è provider, data, checksum, dimensione,
+  versione schema, restore verification e dipendenze coordinate per allegati e
+  keyring; path, nome file, target, credenziali e contenuto del backup restano
+  non esposti;
+- in assenza del reader lo stato è `unavailable`; avvio backup e restore
+  restano procedure operative fuori dal pannello.
+
 ### Integrazioni esterne — deployment/segreti
 
 - URL e timeout di webhook;

@@ -103,6 +103,11 @@ export type {
   ServiceHealthCheckRegistry,
   ServiceHealthCheckResult,
 } from "./application/ports/ServiceHealthCheckPort.js";
+export type {
+  BackupStatusPort,
+  BackupRecoveryStatus,
+  PublicBackupStatus,
+} from "./application/ports/BackupStatusPort.js";
 export { ServiceHealthCheckService } from "./application/services/ServiceHealthCheckService.js";
 export { ResourceRelationshipService } from "./application/services/ResourceRelationshipService.js";
 export { ResourceRelationshipMutationService } from "./application/services/ResourceRelationshipMutationService.js";

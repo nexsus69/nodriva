@@ -53,6 +53,8 @@ describe("AdminModuleRegistry", () => {
     expect(registry.find("platform")?.labelKey).toBe("admin.settings");
     expect(registry.find("platform")?.icon).toBe("settings");
     expect(registry.find("platform.integrations")?.route).toBe("/admin/platform/integrations");
+    expect(registry.find("platform.data-recovery")?.route).toBe("/admin/platform/data-recovery");
+    expect(registry.find("platform.health")?.route).toBe("/admin/platform/health");
   });
 
   it("matches route segments instead of shorter sibling prefixes", () => {

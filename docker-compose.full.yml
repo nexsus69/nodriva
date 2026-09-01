@@ -113,8 +113,11 @@ services:
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY must be set}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY must be set}
       ACCOUNT_ACTION_PUBLIC_BASE_URL: ${ACCOUNT_ACTION_PUBLIC_BASE_URL:-http://localhost:3001}
+      BACKUP_ROOT: /backups/postgres
+      BACKUP_STATUS_FILE: /backups/postgres/last-status.json
     volumes:
       - dashboard_full_attachments:/app/data/attachments
+      - dashboard_full_backups:/backups:ro
     expose:
       - "3000"
     healthcheck:

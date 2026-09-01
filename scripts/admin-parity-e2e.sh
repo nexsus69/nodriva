@@ -41,6 +41,19 @@ create_test_database() {
   fi
 }
 
+# The reusable template can legitimately lag behind an additive migration.
+# Reapply idempotent migrations only to the freshly created, isolated test DB
+# before fixtures start; never mutate the template or an operational database.
+upgrade_test_database() {
+  for migration in "${workspace_dir}"/db/migrations/*.sql; do
+    if [[ "${uses_connection_urls}" == true ]]; then
+      psql "${postgres_admin_url}" -X -v ON_ERROR_STOP=1 -f "${migration}" >/dev/null
+    else
+      docker exec -i "${postgres_container}" psql -U postgres -d "${test_database}" -X -v ON_ERROR_STOP=1 <"${migration}" >/dev/null
+    fi
+  done
+}
+
 cleanup() {
   if [[ -n "${sqlite_pid}" ]]; then kill "${sqlite_pid}" 2>/dev/null || true; fi
   if [[ -n "${postgres_pid}" ]]; then kill "${postgres_pid}" 2>/dev/null || true; fi
@@ -78,6 +91,7 @@ postgres_app_url="${production_app_url%/*}/${test_database}"
 
 drop_test_database
 create_test_database
+upgrade_test_database
 
 if [[ "${PARITY_SKIP_BUILD:-false}" != true ]]; then
   pnpm --filter @dashboard/core build
