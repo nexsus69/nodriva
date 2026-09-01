@@ -81,6 +81,25 @@ endpoint, riferimenti ai secret, timeout, retry, limiti, healthcheck e
 necessità di riavvio. La UI potrà mostrare stato ed endpoint non sensibili, ma
 non password, chiavi private o token.
 
+## Contratto implementato per configurazione e stato
+
+Il registry descrive provider, requirement (`required`/`optional`), fallback,
+dipendenze e lifecycle. I servizi opzionali senza deployment si presentano come
+`disabled`; database e storage allegati rimangono requirement di bootstrap.
+`ServiceConfigurationService` mantiene la precedenza deployment → runtime →
+derived e rifiuta un provider runtime diverso da quello di deployment.
+`ServiceAdministrationApplicationService` espone un catalogo redatto e
+healthcheck non mutanti dietro `system.config.read`.
+
+Nel profilo standalone, `attachment-storage` viene bootstrapato esplicitamente
+come filesystem su `./.data/attachments` se `ATTACHMENTS_ROOT` non è definita;
+non è più un fallback invisibile del solo adapter locale.
+
+**Platform → Integrations** è intenzionalmente read-only: mostra provider
+sanitizzato, stato e lifecycle dei servizi esistenti. Non modifica environment,
+endpoint, password o secret. S3-compatible e SMTP restano catalogati ma non
+selezionabili finché non esistono adapter, healthcheck e test di contratto.
+
 ## Classificazione
 
 1. **Runtime**: impostazioni funzionali modificabili con autorizzazione,

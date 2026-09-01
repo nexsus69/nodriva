@@ -61,6 +61,9 @@ describe('Environment service configuration', () => {
     });
     expect(source.isProduction()).toBe(false);
     expect(source.requiresRestrictedDatabaseRole()).toBe(false);
+    await expect(source.get('attachment-storage')).resolves.toEqual({
+      providerKey: 'filesystem', values: { path: './.data/attachments' },
+    });
   });
 
   it('resolves security keys only for server-side adapter construction', () => {
@@ -80,5 +83,10 @@ describe('Environment service configuration', () => {
       attachmentEncryptionActiveVersion: undefined,
       mfaEncryptionKey: '33'.repeat(32),
     });
+  });
+
+  it('maps a provider-agnostic S3-compatible deployment without exposing credentials', async () => {
+    const source = new EnvironmentServiceDeploymentConfigurationSource({ ATTACHMENTS_STORAGE_PROVIDER: 's3-compatible', S3_ENDPOINT: 'https://minio.example', S3_BUCKET: 'nodriva', S3_REGION: 'us-east-1', S3_ACCESS_KEY: 'access', S3_SECRET_KEY: 'secret' });
+    await expect(source.get('attachment-storage')).resolves.toMatchObject({ providerKey: 's3-compatible', values: { endpoint: 'https://minio.example', bucket: 'nodriva', accessKey: 'secret://env/S3_ACCESS_KEY', secretKey: 'secret://env/S3_SECRET_KEY' } });
   });
 });

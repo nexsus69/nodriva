@@ -13,8 +13,11 @@ describe('ServiceConfigurationRegistry', () => {
     ]);
     expect(defaultServiceConfigurationRegistry.get('database').providers.map((provider) => provider.key))
       .toEqual(['postgres', 'sqlite']);
-    expect(defaultServiceConfigurationRegistry.get('realtime').providers[0]?.fields)
+    const realtime = defaultServiceConfigurationRegistry.get('realtime');
+    expect(realtime.providers.find((provider) => provider.key === 'soketi')?.fields)
       .toEqual(expect.arrayContaining([expect.objectContaining({ key: 'internalHost', source: 'deployment' })]));
+    expect(realtime).toMatchObject({ requirement: 'optional', fallback: 'disabled', reload: 'rebuild' });
+    expect(realtime.providers.map((provider) => provider.key)).toContain('disabled');
   });
 
   it('rejects duplicate services and providers', () => {

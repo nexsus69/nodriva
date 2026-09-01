@@ -35,6 +35,18 @@ A section is considered truly closed only when its cross-cutting placement is al
 
 These bounded contexts are stable reference zones even when concrete classes, adapters, or tables evolve.[cite:30][cite:11]
 
+### Administration service configuration
+
+`ServiceConfigurationRegistry` is an Application catalogue of contracts, not a
+source of deployment values. `ServiceConfigurationService` resolves deployment,
+runtime policy, secret references and derived state with deployment-provider
+precedence; a runtime record can never select another provider. Optional
+services resolve explicitly to `disabled` when deployment does not configure
+them. `ServiceAdministrationApplicationService` is the authorized, sanitized
+Admin read model and may run non-mutating health checks; it must never expose
+endpoint topology, secret references or secret values. Health checks are
+operational effects, never part of a configuration transaction.
+
 ## Technical layers
 
 ### Domain

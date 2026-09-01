@@ -1,6 +1,6 @@
 'use server';
 
-import { configService, systemAdminService } from '../../server/db';
+import { configService, serviceAdministrationService, systemAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
@@ -16,6 +16,9 @@ import {
   CreatePlacementRuleUiCommand,
   DeletePlacementRuleUiCommand,
   ApiErrorResponse,
+  PublicServiceConfiguration,
+  ServiceConfigurationKey,
+  ServiceHealthCheckResult,
 } from '@dashboard/core';
 import { publishAdministrativeChange } from '../../server/adminRealtime';
 import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
@@ -34,6 +37,34 @@ export async function listCapabilitiesAction(): Promise<{
     const actorUserId = await AuthResolver.resolveActorUserId();
     const data = await systemAdminService.listCapabilities(actorUserId);
     return { success: true, data };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Returns only the authorized, redacted service catalogue for Platform views. */
+export async function listServiceConfigurationsAction(): Promise<{
+  success: boolean;
+  data?: readonly PublicServiceConfiguration[];
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await serviceAdministrationService.list(actorUserId) };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Runs a non-mutating, authorized health probe; it never returns deployment values or secrets. */
+export async function checkServiceHealthAction(serviceKey: ServiceConfigurationKey): Promise<{
+  success: boolean;
+  data?: ServiceHealthCheckResult;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await serviceAdministrationService.checkHealth(actorUserId, serviceKey) };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

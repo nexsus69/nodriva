@@ -75,6 +75,12 @@ disabled or unsupported optional capability must render as its normal runtime
 state (or an authorized empty state), never as a client error. The capability
 catalogue remains under Platform → Runtime and integrations.
 
+`Platform → Integrations` (`/admin/platform/integrations`) è il catalogo
+read-only dei servizi per amministratori autorizzati. Mostra provider
+sanitizzato, disponibilità e lifecycle e può richiedere un healthcheck non
+mutante. Topologia di deployment, endpoint, porte, riferimenti secret e valori
+secret non sono né renderizzati né editabili.
+
 ## Controlled route break
 
 The previous flat and technical paths (`/admin/types`, `/admin/users`,

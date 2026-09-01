@@ -70,6 +70,7 @@ export {
   ServiceConfigurationService,
   ServiceConfigurationValidationError,
 } from "./application/services/ServiceConfigurationService.js";
+export { ServiceAdministrationApplicationService } from "./application/services/ServiceAdministrationApplicationService.js";
 export type {
   EffectiveServiceConfiguration,
   PublicServiceConfiguration,

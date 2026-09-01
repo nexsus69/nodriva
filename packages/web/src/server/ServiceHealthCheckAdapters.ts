@@ -63,7 +63,8 @@ export class RealtimeHttpHealthCheck implements ServiceHealthCheckPort {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const response = await fetch(`http://${host}:${port}/ready`, { signal: controller.signal, cache: 'no-store' });
+      const scheme = values.internalScheme === 'https' ? 'https' : 'http';
+      const response = await fetch(`${scheme}://${host}:${port}/ready`, { signal: controller.signal, cache: 'no-store' });
       return response.ok
         ? result(serviceKey, providerKey, startedAt, 'healthy')
         : result(serviceKey, providerKey, startedAt, 'unhealthy', `Realtime readiness returned HTTP ${response.status}.`);

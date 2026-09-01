@@ -170,6 +170,9 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
       {
         key: "platform.runtime", label: "Runtime", labelKey: "admin.runtime", description: "Manage runtime capability status.", descriptionKey: "admin.runtimeDescription", icon: "settings", order: 10, route: "/admin/platform/runtime", requiredPermissions: ["system.config.read"],
       },
+      {
+        key: "platform.integrations", label: "Integrations", labelKey: "admin.integrations", description: "Review configured service integrations.", descriptionKey: "admin.integrationsDescription", icon: "activity", order: 15, route: "/admin/platform/integrations", requiredPermissions: ["system.config.read"],
+      },
       { key: "platform.session-security", label: "Session security", labelKey: "admin.sessionSecurity", description: "Configure session inactivity.", descriptionKey: "admin.sessionSecurityDescription", icon: "shield", order: 20, route: "/admin/platform/session-security", requiredPermissions: ["system.config.read"] },
       { key: "platform.other-settings", label: "Other settings", labelKey: "admin.otherSettings", description: "Access settings that are not yet assigned to an administrative module.", descriptionKey: "admin.otherSettingsDescription", icon: "settings", order: 30, route: "/admin/platform/other-settings", requiredPermissions: ["system.config.read"] },
     ],

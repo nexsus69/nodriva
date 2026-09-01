@@ -27,6 +27,18 @@ ottimistica (`row_version`) e audit. I segreti non devono essere restituiti al
 client. Le configurazioni deployment richiedono normalmente riavvio o redeploy
 e non devono essere simulate come impostazioni amministrative runtime.
 
+## Stato effettivo dei servizi opzionali
+
+Il catalogo eseguibile `ServiceConfigurationRegistry` classifica ogni servizio
+come `required` oppure `optional`, con dipendenze, fallback e lifecycle
+(`hot`, `process-restart`, `rebuild`, `redeploy`). Un servizio optional senza
+deployment risolve al provider esplicito `disabled`: è uno stato normale, non
+un errore client. Il provider del deployment ha precedenza invariabile sui
+valori runtime; il runtime può cambiare solo policy del medesimo provider.
+
+La vista pubblica autorizzata include provider, stato, fallback, lifecycle e
+dipendenze, mai endpoint, path, porte, secret o riferimenti a secret.
+
 ## Catalogo iniziale
 
 ### Sessione e sicurezza — runtime

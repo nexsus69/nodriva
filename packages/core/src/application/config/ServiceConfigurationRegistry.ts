@@ -15,6 +15,9 @@ export type ServiceConfigurationValueType =
   | 'secret-reference';
 
 export type ServiceConfigurationSource = 'runtime' | 'deployment' | 'secret' | 'derived';
+export type ServiceConfigurationRequirement = 'required' | 'optional';
+export type ServiceConfigurationReload = 'hot' | 'process-restart' | 'rebuild' | 'redeploy';
+export type ServiceConfigurationFallback = 'none' | 'disabled' | 'best-effort' | 'fail-closed';
 
 export interface ServiceConfigurationFieldDefinition {
   key: string;
@@ -36,6 +39,14 @@ export interface ServiceProviderDefinition {
 export interface ServiceConfigurationDefinition {
   key: ServiceConfigurationKey;
   displayName: string;
+  /** Additive version of the provider contract, never a persisted value version. */
+  contractVersion?: number;
+  /** Required services fail bootstrap; optional ones resolve to the explicit disabled provider. */
+  requirement?: ServiceConfigurationRequirement;
+  /** Declarative lifecycle and failure semantics, consumed by Admin/readiness views. */
+  reload?: ServiceConfigurationReload;
+  fallback?: ServiceConfigurationFallback;
+  dependencies?: readonly ServiceConfigurationKey[];
   capabilityKey?: string;
   providers: readonly ServiceProviderDefinition[];
 }
@@ -62,8 +73,13 @@ export class ServiceConfigurationRegistry {
       throw new Error(`Service configuration '${definition.key}' must define at least one provider.`);
     }
 
+    const requirement = definition.requirement ?? 'required';
+    const providers = requirement === 'optional' && !definition.providers.some((provider) => provider.key === 'disabled')
+      ? [{ key: 'disabled', displayName: 'Disabled', fields: [] }, ...definition.providers]
+      : definition.providers;
+
     const providerKeys = new Set<string>();
-    for (const provider of definition.providers) {
+    for (const provider of providers) {
       if (providerKeys.has(provider.key)) {
         throw new Error(`Provider '${provider.key}' is duplicated for service '${definition.key}'.`);
       }
@@ -81,7 +97,15 @@ export class ServiceConfigurationRegistry {
       }
     }
 
-    this.services.set(definition.key, definition);
+    this.services.set(definition.key, {
+      ...definition,
+      contractVersion: definition.contractVersion ?? 1,
+      requirement,
+      reload: definition.reload ?? 'process-restart',
+      fallback: definition.fallback ?? (requirement === 'optional' ? 'disabled' : 'none'),
+      dependencies: definition.dependencies ?? [],
+      providers,
+    });
   }
 
   get(key: ServiceConfigurationKey): ServiceConfigurationDefinition {
@@ -123,6 +147,8 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'database',
     displayName: 'Database',
+    requirement: 'required',
+    fallback: 'none',
     providers: [
       {
         key: 'postgres',
@@ -146,6 +172,9 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'realtime',
     displayName: 'Realtime',
+    requirement: 'optional',
+    reload: 'rebuild',
+    dependencies: ['database'],
     capabilityKey: 'realtime',
     providers: [{
       key: 'soketi',
@@ -168,6 +197,8 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'attachment-storage',
     displayName: 'Attachment storage',
+    requirement: 'required',
+    dependencies: ['database', 'security-keys'],
     providers: [{
       key: 'filesystem',
       displayName: 'Filesystem locale',
@@ -182,6 +213,8 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
         deploymentString('endpoint', 'Endpoint dello storage oggetti.'),
         deploymentString('bucket', 'Bucket degli allegati.'),
         deploymentString('region', 'Regione dello storage.'),
+        deploymentString('prefix', 'Prefisso isolato degli oggetti Nodriva.'),
+        field('forcePathStyle', 'boolean', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Usa endpoint S3 path-style, richiesto da molti deployment MinIO.'),
         secretReference('accessKey', 'Riferimento alla chiave di accesso.'),
         secretReference('secretKey', 'Riferimento al secret di accesso.'),
       ],
@@ -190,6 +223,10 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'antivirus',
     displayName: 'Antivirus',
+    requirement: 'optional',
+    reload: 'process-restart',
+    fallback: 'disabled',
+    dependencies: ['attachment-storage'],
     providers: [{
       key: 'clamav',
       displayName: 'ClamAV',
@@ -206,6 +243,9 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'mail',
     displayName: 'Mail delivery',
+    requirement: 'optional',
+    reload: 'process-restart',
+    fallback: 'disabled',
     providers: [{
       key: 'webhook',
       displayName: 'Webhook',
@@ -219,6 +259,10 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'backup',
     displayName: 'Backup',
+    requirement: 'optional',
+    reload: 'redeploy',
+    fallback: 'disabled',
+    dependencies: ['database', 'attachment-storage'],
     providers: [{
       key: 'postgres-dump',
       displayName: 'PostgreSQL dump',
@@ -228,6 +272,9 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'observability',
     displayName: 'Observability',
+    requirement: 'optional',
+    reload: 'redeploy',
+    fallback: 'best-effort',
     providers: [{
       key: 'prometheus',
       displayName: 'Prometheus',
@@ -237,6 +284,9 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
   {
     key: 'security-keys',
     displayName: 'Security keys',
+    requirement: 'optional',
+    reload: 'process-restart',
+    fallback: 'none',
     providers: [{
       key: 'environment',
       displayName: 'Deployment secret environment',

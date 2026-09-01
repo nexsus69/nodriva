@@ -1,8 +1,9 @@
 # Piano di configurazione completa dei servizi Nodriva
 
-> Stato: proposta progettuale, non implementata. Questo documento fotografa il
-> repository al 31 agosto 2026 e richiede approvazione prima di modificare
-> contratti, migrazioni, composition root o interfaccia Admin.
+> Stato: fase iniziale implementata il 1 settembre 2026. Il catalogo
+> riutilizzabile, la precedenza deployment→runtime, lo stato `disabled` degli
+> optional e la vista Admin sanitizzata sono stati introdotti; provider S3/SMTP,
+> backup SQLite e l'editing runtime auditato restano interventi separati.
 
 ## 1. Esito e principi decisionali
 

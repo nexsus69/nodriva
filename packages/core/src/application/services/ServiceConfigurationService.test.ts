@@ -49,6 +49,11 @@ describe('ServiceConfigurationService', () => {
       values: { enabled: true, appKey: 'public-key' },
       version: 1,
       restartRequired: true,
+      requirement: 'optional',
+      availability: 'configured',
+      reload: 'rebuild',
+      fallback: 'disabled',
+      dependencies: ['database'],
     });
     expect(secrets.resolve).not.toHaveBeenCalled();
   });
@@ -80,5 +85,24 @@ describe('ServiceConfigurationService', () => {
 
     vi.mocked(deployment.get).mockResolvedValue({ providerKey: 'unknown', values: {} });
     await expect(service.get('realtime')).rejects.toThrow('not registered');
+  });
+
+  it('normalizes an absent optional service to the explicit disabled provider', async () => {
+    const { service, deployment, repository } = context();
+    vi.mocked(deployment.get).mockResolvedValue(null);
+    vi.mocked(repository.get).mockResolvedValue(null);
+
+    await expect(service.getPublic('antivirus')).resolves.toMatchObject({
+      providerKey: 'disabled', availability: 'disabled', requirement: 'optional', values: {}, version: 0,
+    });
+  });
+
+  it('does not let a stale runtime record select a provider different from deployment', async () => {
+    const { service, repository } = context();
+    vi.mocked(repository.get).mockResolvedValue({
+      serviceKey: 'realtime', providerKey: 'disabled', values: {}, version: 4,
+    });
+
+    await expect(service.get('realtime')).rejects.toThrow('does not match deployment provider');
   });
 });

@@ -17,6 +17,8 @@ export interface EffectiveServiceConfiguration {
   providerKey: string;
   values: Readonly<Record<string, unknown>>;
   version: number;
+  requirement: 'required' | 'optional';
+  availability: 'configured' | 'disabled' | 'not-configured';
   updatedAt?: Date;
 }
 
@@ -26,6 +28,11 @@ export interface PublicServiceConfiguration {
   values: Readonly<Record<string, unknown>>;
   version: number;
   restartRequired: boolean;
+  requirement: 'required' | 'optional';
+  availability: 'configured' | 'disabled' | 'not-configured';
+  reload: 'hot' | 'process-restart' | 'rebuild' | 'redeploy';
+  fallback: 'none' | 'disabled' | 'best-effort' | 'fail-closed';
+  dependencies: readonly ServiceConfigurationKey[];
 }
 
 export class ServiceConfigurationValidationError extends Error {
@@ -48,6 +55,11 @@ export class ServiceConfigurationService {
     return this.resolve(serviceKey, true);
   }
 
+  /** Lists only the sanitized descriptors suitable for an authorized Admin read model. */
+  async listPublic(): Promise<readonly PublicServiceConfiguration[]> {
+    return Promise.all(this.registry.list().map((definition) => this.getPublic(definition.key)));
+  }
+
   async setRuntimeValues(
     serviceKey: ServiceConfigurationKey,
     providerKey: string,
@@ -57,6 +69,9 @@ export class ServiceConfigurationService {
     const definition = this.registry.get(serviceKey);
     const provider = this.provider(definition, providerKey);
     const deployment = await this.deployment.get(serviceKey);
+    if (!deployment && definition.requirement === 'optional') {
+      throw new ServiceConfigurationValidationError(`Service '${serviceKey}' is not configured by deployment.`);
+    }
     if (deployment && deployment.providerKey !== providerKey) {
       throw new ServiceConfigurationValidationError(`Provider '${providerKey}' is deployment-managed for service '${serviceKey}'.`);
     }
@@ -75,7 +90,20 @@ export class ServiceConfigurationService {
     const definition = this.registry.get(serviceKey);
     const deploymentRecord = await this.deployment.get(serviceKey);
     const runtimeRecord = await this.repository.get(serviceKey);
-    const providerKey = runtimeRecord?.providerKey ?? deploymentRecord?.providerKey;
+    if (!deploymentRecord && definition.requirement === 'optional') {
+      return {
+        serviceKey,
+        providerKey: 'disabled',
+        values: {},
+        version: 0,
+        requirement: 'optional',
+        availability: 'disabled',
+      };
+    }
+    if (deploymentRecord && runtimeRecord && deploymentRecord.providerKey !== runtimeRecord.providerKey) {
+      throw new ServiceConfigurationValidationError(`Runtime provider '${runtimeRecord.providerKey}' does not match deployment provider '${deploymentRecord.providerKey}' for service '${serviceKey}'.`);
+    }
+    const providerKey = deploymentRecord?.providerKey ?? runtimeRecord?.providerKey;
 
     if (!providerKey) {
       throw new ServiceConfigurationValidationError(`Service '${serviceKey}' has no provider configured.`);
@@ -110,6 +138,8 @@ export class ServiceConfigurationService {
       providerKey,
       values: resolvedValues,
       version: runtimeRecord?.version ?? 1,
+      requirement: definition.requirement ?? 'required',
+      availability: providerKey === 'disabled' ? 'disabled' : 'configured',
       ...(runtimeRecord?.updatedAt ? { updatedAt: runtimeRecord.updatedAt } : {}),
     };
   }
@@ -126,6 +156,11 @@ export class ServiceConfigurationService {
       values,
       version: effective.version,
       restartRequired: provider.fields.some((field) => field.restartRequired && Object.hasOwn(effective.values, field.key)),
+      requirement: effective.requirement,
+      availability: effective.availability,
+      reload: definition.reload ?? 'process-restart',
+      fallback: definition.fallback ?? 'none',
+      dependencies: definition.dependencies ?? [],
     };
   }
 

@@ -126,15 +126,28 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
   }
 
   private attachmentStorage() {
-    return this.environment.ATTACHMENTS_ROOT
-      ? {
-        providerKey: 'filesystem',
+    if (this.environment.ATTACHMENTS_STORAGE_PROVIDER === 's3-compatible') {
+      return {
+        providerKey: 's3-compatible',
         values: {
-          path: this.environment.ATTACHMENTS_ROOT,
-          ...(this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION ? { encryptionRequired: this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true' } : {}),
+          ...(this.environment.S3_ENDPOINT ? { endpoint: this.environment.S3_ENDPOINT } : {}),
+          ...(this.environment.S3_BUCKET ? { bucket: this.environment.S3_BUCKET } : {}),
+          ...(this.environment.S3_REGION ? { region: this.environment.S3_REGION } : {}),
+          ...(this.environment.S3_PREFIX ? { prefix: this.environment.S3_PREFIX } : {}),
+          ...(this.environment.S3_FORCE_PATH_STYLE ? { forcePathStyle: this.environment.S3_FORCE_PATH_STYLE === 'true' } : {}),
+          ...(this.environment.S3_ACCESS_KEY ? { accessKey: 'secret://env/S3_ACCESS_KEY' } : {}),
+          ...(this.environment.S3_SECRET_KEY ? { secretKey: 'secret://env/S3_SECRET_KEY' } : {}),
         },
-      }
-      : null;
+      };
+    }
+    return {
+      providerKey: 'filesystem',
+      values: {
+        // This is the documented standalone bootstrap default used by LocalAttachmentStorage.
+        path: this.environment.ATTACHMENTS_ROOT || './.data/attachments',
+        ...(this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION ? { encryptionRequired: this.environment.ATTACHMENTS_REQUIRE_ENCRYPTION === 'true' } : {}),
+      },
+    };
   }
 
   private antivirus() {

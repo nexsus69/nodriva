@@ -21,7 +21,7 @@ export class ServiceHealthCheckService {
       throw error;
     }
     const checker = this.checks.get(serviceKey, config.providerKey);
-    if (config.values.enabled === false) {
+    if (config.availability === 'disabled' || config.providerKey === 'disabled' || config.values.enabled === false) {
       return {
         serviceKey,
         providerKey: config.providerKey,

@@ -13,6 +13,7 @@ import { UserDetailScreen } from "../security/users/_components/UserDetailScreen
 import { UsersModuleScreen } from "../security/users/_components/UsersModuleScreen";
 import { PlacementPoliciesModuleScreen } from "../system/_components/PlacementPoliciesModuleScreen";
 import { SystemConfigModuleScreen } from "../system/_components/SystemConfigModuleScreen";
+import { ServiceIntegrationsModuleScreen } from "../system/_components/ServiceIntegrationsModuleScreen";
 import { WorkflowModuleScreen } from "../system/_components/WorkflowModuleScreen";
 import AdminTypesPage from "../types/_components/TypesModuleScreen";
 import { TypeDetailPage } from "../types/_components/TypeDetailPage";
@@ -37,6 +38,7 @@ const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
   "governance.audit-recording": () => <SystemConfigModuleScreen kind="settings" section="audit-recording" />,
   "governance.recycle-bin": () => <RecycleBinModuleScreen />,
   "platform.runtime": () => <SystemConfigModuleScreen kind="capabilities" />,
+  "platform.integrations": () => <ServiceIntegrationsModuleScreen />,
   "platform.session-security": () => <SystemConfigModuleScreen kind="settings" section="session-security" />,
   "platform.other-settings": () => <SystemConfigModuleScreen kind="settings" section="other-settings" />,
 };

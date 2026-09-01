@@ -176,7 +176,8 @@ export function TypeDetailDrawer({
           closeLabel={presentation === "inline" ? t("admin.backToList") : t("admin.cancel")}
           closeIcon={presentation === "inline" ? "arrow-left" : "close"}
           onClose={close}
-          className={presentation === "inline" ? "-mx-4 sm:-mx-6 lg:-mx-8" : ""}
+          className={presentation === "inline" ? "-mx-4 -mt-4 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8" : ""}
+          stickyTopClassName={presentation === "inline" ? "-top-4 sm:-top-6 lg:-top-8" : undefined}
           tabs={[
             { key: "settings", label: t("admin.settings") },
             { key: "fields", label: `${t("admin.fields")} (${controller.detail?.fields.length ?? 0})` },

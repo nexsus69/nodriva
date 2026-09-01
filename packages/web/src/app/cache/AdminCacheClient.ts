@@ -111,6 +111,9 @@ export class AdminCacheClient {
     this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.reorderFieldsAction(...args));
 
   public listCapabilities = () => this.read('capabilities', systemActions.listCapabilitiesAction);
+  public listServiceConfigurations = () => this.read('service-configurations', systemActions.listServiceConfigurationsAction);
+  public checkServiceHealth = (serviceKey: Parameters<typeof systemActions.checkServiceHealthAction>[0]) =>
+    this.write(['service-configurations'], () => systemActions.checkServiceHealthAction(serviceKey));
   public updateCapabilityStatus = (cmd: Parameters<typeof systemActions.updateCapabilityStatusAction>[0]) =>
     this.write(['capabilities'], () => systemActions.updateCapabilityStatusAction(cmd));
   public listSettings = () => this.read('settings', systemActions.listSettingsAction);

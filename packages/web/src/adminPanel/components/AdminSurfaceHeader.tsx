@@ -21,6 +21,7 @@ export function AdminSurfaceHeader({
   actions,
   appearance = "light",
   className = "",
+  stickyTopClassName = "top-0",
 }: {
   title: string;
   titleId: string;
@@ -35,10 +36,11 @@ export function AdminSurfaceHeader({
   actions?: ReactNode;
   appearance?: "light" | "dark";
   className?: string;
+  stickyTopClassName?: string;
 }) {
   const dark = appearance === "dark";
   return (
-    <header className={`sticky top-0 z-20 border-b px-6 py-4 ${dark ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"} ${className}`}>
+    <header className={`sticky ${stickyTopClassName} z-20 border-b px-6 py-4 ${dark ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"} ${className}`}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           {eyebrow && (
