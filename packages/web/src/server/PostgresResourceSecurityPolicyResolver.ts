@@ -1,3 +1,4 @@
+/** Resolves attachment encryption and antivirus policy from authorized resource and capability state. */
 import type { AttachmentPolicyRepository, ConfigService, EffectiveCapabilityResolver, EntityRepository, NodeRepository, ResourceSecurityPolicy, ResourceSecurityPolicyResolver } from '@dashboard/core';
 
 export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityPolicyResolver {

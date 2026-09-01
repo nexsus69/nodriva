@@ -1,3 +1,4 @@
+/** Covers provider healthcheck selection, status classification and infrastructure error redaction. */
 import { describe, expect, it, vi } from 'vitest';
 import { DefaultServiceHealthCheckRegistry, type ServiceHealthCheckRegistry, type ServiceHealthCheckPort } from '../ports/ServiceHealthCheckPort.js';
 import { ServiceHealthCheckService } from './ServiceHealthCheckService.js';

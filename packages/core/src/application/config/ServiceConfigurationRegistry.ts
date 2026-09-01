@@ -1,3 +1,4 @@
+/** Defines the typed catalogue and ownership rules for every supported service configuration. */
 export type ServiceConfigurationKey =
   | 'database'
   | 'realtime'

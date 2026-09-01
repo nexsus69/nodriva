@@ -1,3 +1,4 @@
+/** Delivers account actions through a bounded external webhook request. */
 import type { AccountActionDeliveryPort } from '@dashboard/core';
 
 export class WebhookAccountActionDelivery implements AccountActionDeliveryPort {

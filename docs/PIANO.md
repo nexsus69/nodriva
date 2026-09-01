@@ -1,9 +1,9 @@
 # Piano di configurazione completa dei servizi Nodriva
 
-> Stato: punti 1, 2, 3 e 4 completati il 1 settembre 2026. Il catalogo
+> Stato: punti 1, 2, 3, 4 e 5 completati il 1 settembre 2026. Il catalogo
 > riutilizzabile, la precedenza deployment→runtime, lo stato `disabled` degli
-> optional e la vista Admin sanitizzata sono stati introdotti; provider S3/SMTP,
-> backup SQLite e l'editing runtime auditato restano interventi separati.
+> optional e la vista Admin sanitizzata sono stati introdotti; provider S3/SMTP
+> e l'editing runtime auditato restano interventi separati.
 
 ## 1. Esito e principi decisionali
 
@@ -78,8 +78,8 @@ deve diventare un editor di environment né un secret manager.
 - consegna account effettiva: webhook HTTP opzionale, non SMTP;
 - realtime effettivo: protocollo Pusher con Soketi nel Compose, outbox e worker
   HTTP autenticato;
-- backup effettivo: script PostgreSQL `pg_dump` con checksum e restore di
-  verifica; non esiste un `BackupProvider` applicativo né backup SQLite;
+- backup effettivo: PostgreSQL `pg_dump` e SQLite snapshot con checksum,
+  manifest, restore di verifica non distruttivo e wrapper di manutenzione;
 - osservabilità effettiva: metriche realtime/workflow esposte a Prometheus nel
   Compose; manca un provider applicativo generale.
 
@@ -272,11 +272,11 @@ il webhook usa `fetch` senza timeout o retry.
 
 | Voce | Proposta |
 | --- | --- |
-| 1. Provider | PostgreSQL: `postgres-dump` esistente; SQLite: `sqlite-snapshot` da progettare; destinazione filesystem/mount, con object storage demandato all'infrastruttura o adapter approvato |
+| 1. Provider | PostgreSQL: `postgres-dump`; SQLite: `sqlite-snapshot`; destinazione filesystem/mount, con object storage demandato all'infrastruttura o adapter approvato |
 | 2. Endpoint/porta/schema | source DB e destination path/bucket D; restore target sempre input operativo esplicito e test-only per verifica automatica |
 | 3. Capability | obbligatoria per release candidate/prod, opzionale nello sviluppo; restore mai azione runtime ordinaria |
 | 4. Timeout/retry/limiti | schedule, retention, max age/RPO, spazio minimo, timeout dump/verify/upload; retry scheduler esterno |
-| 5. Healthcheck/stato | ultimo backup verificato, età, checksum, restore test, copia off-host e payload allegati; oggi status JSON solo PostgreSQL |
+| 5. Healthcheck/stato | ultimo backup verificato, età, checksum, restore test, copia off-host e payload allegati; manifest/status equivalenti PostgreSQL/SQLite |
 | 6. Dipendenze | credenziali amministrative separate, storage backup, schema/migrazioni, allegati e secret/keyring coordinati |
 | 7. Reload | schedule/destinazione deployment; nessun hot reload richiesto all'app; restore con maintenance window |
 | 8. Fonte | provider/schedule/path/retention D; stato X da artefatto firmato/sanitizzato; nessun comando distruttivo dal DB runtime |
@@ -434,8 +434,9 @@ esterno dentro la transazione.
    filesystem, ClamAV, Pusher-compatible, webhook, Prometheus e security
    readiness. I consumer runtime di realtime e antivirus consultano lo stato
    effettivo; client realtime e fallback HTTP restano coerenti quando disabilitati.
-5. **Backup parity**: formalizzare manifest/status PostgreSQL, aggiungere snapshot
-   e restore verificato SQLite, includere allegati e keyring nel runbook.
+5. **Backup parity**: completata. PostgreSQL e SQLite producono manifest/status
+   con checksum e restore di verifica; il runbook coordina database, allegati e
+   keyring senza automatizzare restore distruttivi.
 6. **Admin IA**: aggiungere Integrations, Data & recovery, Health & observability
    con stati disabled/unavailable e test workspace; mantenere le route sottili.
 7. **Provider completi differiti**: S3-compatible e SMTP, uno alla volta con

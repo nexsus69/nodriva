@@ -1,3 +1,4 @@
+/** Verifies deployment and runtime policy composition for optional service capabilities. */
 import { describe, expect, it, vi } from 'vitest';
 import { EffectiveCapabilityResolver } from './EffectiveCapabilityResolver.js';
 

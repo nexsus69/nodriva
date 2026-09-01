@@ -1,12 +1,17 @@
-# Backup e restore PostgreSQL
+# Backup e restore verificato
 
 ## SQLite standalone
 
 Il profilo SQLite usa `node scripts/sqlite-backup-verify.mjs backup-verify`.
 Lo script crea uno snapshot consistente con `VACUUM INTO`, calcola SHA-256,
-esegue `PRAGMA integrity_check` riaprendo il file e produce un manifest JSON.
-Non sovrascrive mai il database operativo. Allegati filesystem e chiavi restano
-copie coordinate del deployment, come per PostgreSQL.
+lo copia in un percorso temporaneo di restore e vi esegue `PRAGMA integrity_check`.
+Il manifest JSON riporta provider, checksum, dimensione, versione schema e
+`restoreVerification: passed`. Non sovrascrive mai il database operativo.
+
+Per lo scheduling standalone usare `node scripts/sqlite-backup-maintenance.mjs`.
+Il wrapper applica lock esclusivo, retention e `last-status.json`, e rispetta
+la policy runtime `backup.scheduledEnabled`. Lo scheduler concreto resta una
+decisione del deployment (systemd, cron o provider gestito).
 
 La procedura ufficiale usa `pg_dump` in formato custom, checksum SHA-256 e un
 restore di verifica in un database temporaneo. Il database operativo non è mai
@@ -24,6 +29,18 @@ una destinazione del comando `verify`.
 Il dump contiene dati applicativi, audit e potenziali valori sensibili. Deve
 essere trattato come un secret: permessi `0600`, cifratura a riposo e accesso
 limitato agli operatori autorizzati.
+
+## Recovery completo: database, allegati e chiavi
+
+Database, payload degli allegati e keyring sono tre artefatti coordinati. I
+manifest di PostgreSQL e SQLite indicano esplicitamente che i payload e le
+chiavi sono dipendenze di recovery: non li archiviano né li espongono.
+
+L’operatore deve conservare, con lo stesso punto di ripristino, la copia del
+filesystem/mount degli allegati e le versioni delle chiavi di cifratura usate
+dal backup. Il restore si verifica prima su una copia temporanea; una perdita
+del keyring rende irrecuperabili gli allegati o i campi cifrati anche se il
+database è integro.
 
 Il dump PostgreSQL include i record e i metadati degli allegati, non i payload
 nel volume `dashboard_full_attachments`. Quel volume deve essere protetto con

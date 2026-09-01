@@ -35,6 +35,17 @@ POSTGRES_USER=postgres
 La directory deve essere protetta, cifrata e replicata fuori dall’host. Il
 backup contiene dati applicativi e non deve essere esposto tramite il Web.
 
+Per SQLite standalone il comando equivalente è
+`node scripts/sqlite-backup-maintenance.mjs`. Produce lo stesso stato
+`completed|paused|failed`, applica retention e crea snapshot verificati in una
+copia temporanea. `BACKUP_ROOT`, `BACKUP_RETENTION_DAYS` e
+`BACKUP_STATUS_FILE` hanno la stessa semantica; impostare inoltre
+`SQLITE_DATABASE_PATH` al file operativo.
+
+Il manifest/status contiene provider, formato, checksum, dimensione, esito
+del restore di verifica e dipendenze di recovery. Allegati e keyring restano
+copie coordinate gestite dal deployment, non dati esposti dall’applicazione.
+
 ## Systemd
 
 I template si trovano in `ops/systemd/`. Dopo aver sostituito il percorso del

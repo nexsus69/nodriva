@@ -1,3 +1,4 @@
+/** Executes provider probes and returns stable, sanitized operational health results. */
 import type { ServiceConfigurationKey } from '../config/ServiceConfigurationRegistry.js';
 import type { ServiceConfigurationService } from './ServiceConfigurationService.js';
 import { ServiceConfigurationValidationError } from './ServiceConfigurationService.js';

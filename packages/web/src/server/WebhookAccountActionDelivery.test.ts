@@ -1,3 +1,4 @@
+/** Verifies bounded and secret-safe account-action webhook delivery. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 

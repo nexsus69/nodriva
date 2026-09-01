@@ -1,3 +1,4 @@
+/** Exercises secret-safe resolution and validation of service configuration records. */
 import { describe, expect, it, vi } from 'vitest';
 import { defaultServiceConfigurationRegistry } from '../config/ServiceConfigurationRegistry.js';
 import type { ServiceConfigurationRepository, ServiceDeploymentConfigurationSource } from '../ports/ServiceConfigurationRepository.js';

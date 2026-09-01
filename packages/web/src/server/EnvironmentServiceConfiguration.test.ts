@@ -1,3 +1,4 @@
+/** Verifies environment-to-service mapping without exposing deployment secrets. */
 import { describe, expect, it } from 'vitest';
 import {
   EnvironmentSecretReferenceResolver,

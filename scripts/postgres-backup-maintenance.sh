@@ -17,12 +17,18 @@ schedule_enabled="$(psql -X -tA -v ON_ERROR_STOP=1 -d "${POSTGRES_DATABASE:-${PG
 
 write_status() {
   local status="$1" message="$2" backup_file="${3:-}" checksum_file="${4:-}"
-  local escaped_message escaped_backup escaped_checksum
+  local escaped_message escaped_backup escaped_checksum checksum_value size_bytes restore_verification
   escaped_message=$(printf '%s' "$message" | sed 's/[\\"]/[\\&]/g')
   escaped_backup=$(printf '%s' "$backup_file" | sed 's/[\\"]/[\\&]/g')
   escaped_checksum=$(printf '%s' "$checksum_file" | sed 's/[\\"]/[\\&]/g')
-  printf '{"status":"%s","message":"%s","backupFile":"%s","checksumFile":"%s","completedAt":"%s"}\n' \
-    "$status" "$escaped_message" "$escaped_backup" "$escaped_checksum" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS_FILE"
+  checksum_value=""
+  size_bytes=0
+  [[ -f "$backup_file" ]] && size_bytes="$(wc -c < "$backup_file" | tr -d '[:space:]')"
+  [[ -f "$checksum_file" ]] && checksum_value="$(awk 'NR == 1 { print $1 }' "$checksum_file")"
+  restore_verification="not-run"
+  [[ "$status" == "completed" ]] && restore_verification="passed"
+  printf '{"status":"%s","provider":"postgres-dump","format":"pg_dump-custom","message":"%s","backupFile":"%s","checksumFile":"%s","checksum":"%s","sizeBytes":%s,"restoreVerification":"%s","recoveryDependencies":{"attachmentPayloads":"coordinated-copy-required","encryptionKeyring":"deployment-secret-required"},"completedAt":"%s"}\n' \
+    "$status" "$escaped_message" "$escaped_backup" "$escaped_checksum" "$checksum_value" "$size_bytes" "$restore_verification" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS_FILE"
   chmod 600 "$STATUS_FILE"
 }
 

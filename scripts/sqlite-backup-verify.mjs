@@ -2,7 +2,8 @@
 /** Creates and verifies a consistent SQLite backup without touching the live database. */
 import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import { copyFile, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rename, rm, unlink, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 const [command, requestedPath] = process.argv.slice(2);
@@ -24,8 +25,9 @@ async function verify(file) {
     if (integrity !== 'ok') throw new Error(`SQLite integrity check failed: ${integrity}`);
     const schema = db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table'").get()?.count;
     if (!Number.isInteger(schema) || schema < 1) throw new Error('Restored SQLite backup has no tables.');
+    const schemaVersion = db.prepare('PRAGMA user_version').get()?.user_version;
+    return { sizeBytes: bytes.byteLength, checksum: checksum(bytes), schemaVersion: Number(schemaVersion ?? 0) };
   } finally { db.close(); }
-  return { sizeBytes: bytes.byteLength, checksum: checksum(bytes) };
 }
 async function create(output) {
   await mkdir(path.dirname(output), { recursive: true, mode: 0o700 });
@@ -35,12 +37,30 @@ async function create(output) {
   try { source.exec(`VACUUM INTO ${quote(temporary)}`); } finally { source.close(); }
   await rename(temporary, output);
 }
+async function verifyRestoredCopy(file) {
+  const restoreRoot = await mkdtemp(path.join(os.tmpdir(), 'nodriva-sqlite-restore-test-'));
+  const restorePath = path.join(restoreRoot, path.basename(file));
+  try {
+    await copyFile(file, restorePath);
+    return await verify(restorePath);
+  } finally {
+    await rm(restoreRoot, { recursive: true, force: true });
+  }
+}
 async function main() {
   if (command !== 'backup-verify' && command !== 'verify') usage();
   const output = requestedPath ?? path.join(backupRoot, `dashboard_${new Date().toISOString().replace(/[-:.]/g, '').replace('Z', 'Z')}.sqlite`);
   if (command === 'backup-verify') await create(output);
-  const verified = await verify(output);
-  const manifest = { status: 'completed', provider: 'sqlite-snapshot', backupFile: path.basename(output), checksum: verified.checksum, sizeBytes: verified.sizeBytes, completedAt: new Date().toISOString() };
+  const verified = await verifyRestoredCopy(output);
+  const manifest = {
+    status: 'completed', provider: 'sqlite-snapshot', backupFile: path.basename(output),
+    checksum: verified.checksum, sizeBytes: verified.sizeBytes, schemaVersion: verified.schemaVersion,
+    restoreVerification: 'passed', completedAt: new Date().toISOString(),
+    recoveryDependencies: {
+      attachmentPayloads: process.env.ATTACHMENTS_ROOT ? 'coordinated-copy-required' : 'not-configured',
+      encryptionKeyring: process.env.ATTACHMENTS_ENCRYPTION_KEY || process.env.ATTACHMENTS_ENCRYPTION_KEYS ? 'deployment-secret-required' : 'not-configured',
+    },
+  };
   await writeFile(`${output}.manifest.json`, `${JSON.stringify(manifest)}\n`, { mode: 0o600 });
   console.log(JSON.stringify(manifest));
 }

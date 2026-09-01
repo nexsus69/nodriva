@@ -1,3 +1,4 @@
+/** Resolves deployment, runtime and secret service values without exposing sensitive configuration. */
 import type {
   ServiceConfigurationRegistry} from '../config/ServiceConfigurationRegistry.js';
 import {
