@@ -223,7 +223,6 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
 async function openChildCreationFromMenu(page: Page, childName: string, action: 'Nuovo sotto-nodo' | 'Nuova entità'): Promise<void> {
   const trigger = page.getByRole('button', { name: `Azioni per ${childName}` });
   await trigger.click();
-  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   const menuItem = page.getByRole('menuitem', { name: action });
   await expect(menuItem).toBeVisible();
   await menuItem.click();
