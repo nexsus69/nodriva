@@ -13,6 +13,8 @@ exec 9>"$BACKUP_ROOT/.maintenance.lock"
 flock -n 9 || { printf 'backup maintenance already running\n' >&2; exit 3; }
 umask 077
 
+schedule_enabled="$(psql -X -tA -v ON_ERROR_STOP=1 -d "${POSTGRES_DATABASE:-${PGDATABASE:-dashboard}}" -c "SELECT value_text FROM system_settings WHERE setting_key='backup.scheduledEnabled' AND deleted_at IS NULL" 2>/dev/null | tr -d '[:space:]' || true)"
+
 write_status() {
   local status="$1" message="$2" backup_file="${3:-}" checksum_file="${4:-}"
   local escaped_message escaped_backup escaped_checksum
@@ -23,6 +25,12 @@ write_status() {
     "$status" "$escaped_message" "$escaped_backup" "$escaped_checksum" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$STATUS_FILE"
   chmod 600 "$STATUS_FILE"
 }
+
+if [[ "$schedule_enabled" == "false" ]]; then
+  write_status paused "scheduled backup disabled by runtime policy"
+  printf 'Scheduled backup is paused by runtime policy\n'
+  exit 0
+fi
 
 backup_file="${BACKUP_ROOT}/dashboard_$(date -u +%Y%m%dT%H%M%SZ).dump"
 checksum_file="${backup_file}.sha256"

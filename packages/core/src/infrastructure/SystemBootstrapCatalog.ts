@@ -62,6 +62,11 @@ export const SYSTEM_SETTINGS = [
     description: 'Record lock acquisition and ordinary release events. Lock conflicts and administrative releases remain audited.',
     valueType: 'boolean', valueText: 'true',
   },
+  {
+    key: 'backup.scheduledEnabled', category: 'operations', displayName: 'Scheduled backups enabled',
+    description: 'Allow the deployment scheduler to run verified backups. Manual operational backups remain available.',
+    valueType: 'boolean', valueText: 'true',
+  },
 ] as const;
 
 export const RUNTIME_CAPABILITIES = [

@@ -14,6 +14,11 @@ Nel Compose completo lo stesso wrapper gira nel servizio `backup`, collegato
 direttamente a PostgreSQL sulla rete Docker; non richiede accesso al socket
 Docker dell’host.
 
+L’amministratore può sospendere lo scheduling da **Platform → Backup**. La
+policy runtime `backup.scheduledEnabled` non spegne il servizio del deployment:
+il job registra lo stato `paused` e non crea un dump. Un backup manuale
+operativo resta possibile; il restore non è esposto dal pannello.
+
 ## Configurazione
 
 Variabili disponibili:

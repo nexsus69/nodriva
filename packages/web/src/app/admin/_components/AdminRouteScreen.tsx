@@ -40,6 +40,7 @@ const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
   "platform.runtime": () => <SystemConfigModuleScreen kind="capabilities" />,
   "platform.integrations": () => <ServiceIntegrationsModuleScreen />,
   "platform.session-security": () => <SystemConfigModuleScreen kind="settings" section="session-security" />,
+  "platform.backup": () => <SystemConfigModuleScreen kind="settings" section="backup" />,
   "platform.other-settings": () => <SystemConfigModuleScreen kind="settings" section="other-settings" />,
 };
 

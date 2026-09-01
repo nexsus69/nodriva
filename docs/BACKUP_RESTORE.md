@@ -1,5 +1,13 @@
 # Backup e restore PostgreSQL
 
+## SQLite standalone
+
+Il profilo SQLite usa `node scripts/sqlite-backup-verify.mjs backup-verify`.
+Lo script crea uno snapshot consistente con `VACUUM INTO`, calcola SHA-256,
+esegue `PRAGMA integrity_check` riaprendo il file e produce un manifest JSON.
+Non sovrascrive mai il database operativo. Allegati filesystem e chiavi restano
+copie coordinate del deployment, come per PostgreSQL.
+
 La procedura ufficiale usa `pg_dump` in formato custom, checksum SHA-256 e un
 restore di verifica in un database temporaneo. Il database operativo non è mai
 una destinazione del comando `verify`.

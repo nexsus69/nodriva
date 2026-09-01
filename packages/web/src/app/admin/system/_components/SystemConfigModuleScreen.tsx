@@ -20,13 +20,14 @@ import {
 
 type SystemRow = RuntimeCapabilityDto | SystemSettingDto;
 type SystemForm = { status?: string; valueText?: string | boolean };
-export type SystemSettingsSection = "field-protection" | "attachment-protection" | "audit-recording" | "session-security" | "other-settings";
+export type SystemSettingsSection = "field-protection" | "attachment-protection" | "audit-recording" | "session-security" | "backup" | "other-settings";
 
 const SETTING_SECTION_ICONS: Record<SystemSettingsSection, "settings" | "shield"> = {
   "field-protection": "shield",
   "attachment-protection": "shield",
   "audit-recording": "settings",
   "session-security": "shield",
+  backup: "settings",
   "other-settings": "settings",
 };
 
@@ -35,6 +36,7 @@ const SETTING_SECTIONS: Record<SystemSettingsSection, { moduleKey: string; title
   "attachment-protection": { moduleKey: "content.attachment-protection", titleKey: "admin.attachmentProtection", descriptionKey: "admin.attachmentProtectionDescription", settingKeys: ["attachments.antivirusEnabled", "attachments.encryptionEnabled"] },
   "audit-recording": { moduleKey: "governance.audit-recording", titleKey: "admin.auditRecording", descriptionKey: "admin.auditRecordingDescription", settingKeys: ["audit.recordLockLifecycle"] },
   "session-security": { moduleKey: "platform.session-security", titleKey: "admin.sessionSecurity", descriptionKey: "admin.sessionSecurityDescription", settingKeys: ["session.idleTimeoutSeconds"] },
+  backup: { moduleKey: "platform.backup", titleKey: "admin.backup", descriptionKey: "admin.backupDescription", settingKeys: ["backup.scheduledEnabled"] },
   "other-settings": { moduleKey: "platform.other-settings", titleKey: "admin.otherSettings", descriptionKey: "admin.otherSettingsDescription" },
 };
 

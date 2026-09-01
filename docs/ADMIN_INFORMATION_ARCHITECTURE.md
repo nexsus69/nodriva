@@ -81,6 +81,10 @@ sanitizzato, disponibilità e lifecycle e può richiedere un healthcheck non
 mutante. Topologia di deployment, endpoint, porte, riferimenti secret e valori
 secret non sono né renderizzati né editabili.
 
+`Platform → Backup` possiede la policy runtime `backup.scheduledEnabled`.
+Sospende soltanto l'esecuzione automatica del job di deployment, con audit e
+stato esplicito; non controlla container, cron/systemd o restore operativo.
+
 ## Controlled route break
 
 The previous flat and technical paths (`/admin/types`, `/admin/users`,
