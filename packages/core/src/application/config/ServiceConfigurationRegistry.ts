@@ -206,18 +206,6 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
         deploymentString('path', 'Percorso dello storage degli allegati.'),
         field('encryptionRequired', 'boolean', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Rifiuta storage in chiaro quando manca una chiave.'),
       ],
-    }, {
-      key: 's3-compatible',
-      displayName: 'S3 compatible',
-      fields: [
-        deploymentString('endpoint', 'Endpoint dello storage oggetti.'),
-        deploymentString('bucket', 'Bucket degli allegati.'),
-        deploymentString('region', 'Regione dello storage.'),
-        deploymentString('prefix', 'Prefisso isolato degli oggetti Nodriva.'),
-        field('forcePathStyle', 'boolean', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Usa endpoint S3 path-style, richiesto da molti deployment MinIO.'),
-        secretReference('accessKey', 'Riferimento alla chiave di accesso.'),
-        secretReference('secretKey', 'Riferimento al secret di accesso.'),
-      ],
     }],
   },
   {

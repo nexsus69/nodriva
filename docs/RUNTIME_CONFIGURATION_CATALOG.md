@@ -136,7 +136,7 @@ Ogni servizio deve descrivere almeno:
 | Aspetto | Esempi |
 | --- | --- |
 | Capability | abilitato, disabilitato, obbligatorio |
-| Provider | PostgreSQL, SQLite, Soketi, Pusher, ClamAV, filesystem, S3 |
+| Provider | PostgreSQL, SQLite, Soketi, Pusher, ClamAV, filesystem; S3 è solo pianificato |
 | Endpoint | host, porta, schema, database, bucket, percorso |
 | Secret | riferimento esterno, mai valore nel client |
 | Affidabilità | timeout, retry, backoff, pool, limiti |

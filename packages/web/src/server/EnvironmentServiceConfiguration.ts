@@ -126,20 +126,6 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
   }
 
   private attachmentStorage() {
-    if (this.environment.ATTACHMENTS_STORAGE_PROVIDER === 's3-compatible') {
-      return {
-        providerKey: 's3-compatible',
-        values: {
-          ...(this.environment.S3_ENDPOINT ? { endpoint: this.environment.S3_ENDPOINT } : {}),
-          ...(this.environment.S3_BUCKET ? { bucket: this.environment.S3_BUCKET } : {}),
-          ...(this.environment.S3_REGION ? { region: this.environment.S3_REGION } : {}),
-          ...(this.environment.S3_PREFIX ? { prefix: this.environment.S3_PREFIX } : {}),
-          ...(this.environment.S3_FORCE_PATH_STYLE ? { forcePathStyle: this.environment.S3_FORCE_PATH_STYLE === 'true' } : {}),
-          ...(this.environment.S3_ACCESS_KEY ? { accessKey: 'secret://env/S3_ACCESS_KEY' } : {}),
-          ...(this.environment.S3_SECRET_KEY ? { secretKey: 'secret://env/S3_SECRET_KEY' } : {}),
-        },
-      };
-    }
     return {
       providerKey: 'filesystem',
       values: {

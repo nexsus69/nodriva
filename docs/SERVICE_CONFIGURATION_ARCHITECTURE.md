@@ -97,8 +97,8 @@ non è più un fallback invisibile del solo adapter locale.
 
 **Platform → Integrations** è intenzionalmente read-only: mostra provider
 sanitizzato, stato e lifecycle dei servizi esistenti. Non modifica environment,
-endpoint, password o secret. S3-compatible e SMTP restano catalogati ma non
-selezionabili finché non esistono adapter, healthcheck e test di contratto.
+endpoint, password o secret. S3-compatible e SMTP restano soltanto previsti dal
+piano finché non esistono adapter, healthcheck e test di contratto.
 
 ## Classificazione
 

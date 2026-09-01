@@ -84,7 +84,6 @@ import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
 import { LocalAttachmentStorage } from './LocalAttachmentStorage';
-import { S3AttachmentStorage } from './S3AttachmentStorage';
 import { DeletedResourcePurgeService } from './DeletedResourcePurgeService';
 import type { AttachmentScannerPort } from '@dashboard/core';
 import { ClamAvAttachmentScanner } from './ClamAvAttachmentScanner';
@@ -292,18 +291,7 @@ const attachmentStorageDeployment = deploymentConfigurationSource.getSync('attac
 const attachmentStorageValues: Readonly<Record<string, unknown>> = attachmentStorageDeployment?.providerKey === 'filesystem'
   ? attachmentStorageDeployment.values
   : {};
-const s3StorageValues: Readonly<Record<string, unknown>> = attachmentStorageDeployment?.providerKey === 's3-compatible'
-  ? attachmentStorageDeployment.values
-  : {};
-export const attachmentStorage = attachmentStorageDeployment?.providerKey === 's3-compatible'
-  ? new S3AttachmentStorage({
-    endpoint: String(s3StorageValues.endpoint), bucket: String(s3StorageValues.bucket), region: String(s3StorageValues.region ?? 'us-east-1'), prefix: typeof s3StorageValues.prefix === 'string' ? s3StorageValues.prefix : undefined,
-    forcePathStyle: s3StorageValues.forcePathStyle !== false,
-    accessKeyId: deploymentConfigurationSource.resolveSecretSync(String(s3StorageValues.accessKey)) ?? '',
-    secretAccessKey: deploymentConfigurationSource.resolveSecretSync(String(s3StorageValues.secretKey)) ?? '',
-    encryptionKey: securityKeys.attachmentEncryptionKey, encryptionKeys: securityKeys.attachmentEncryptionKeys, encryptionActiveVersion: securityKeys.attachmentEncryptionActiveVersion ?? 'v1',
-  })
-  : new LocalAttachmentStorage(typeof attachmentStorageValues.path === 'string' ? attachmentStorageValues.path : undefined, securityKeys.attachmentEncryptionKey, securityKeys.attachmentEncryptionKeys, securityKeys.attachmentEncryptionActiveVersion ?? 'v1', attachmentStorageValues.encryptionRequired === true);
+export const attachmentStorage = new LocalAttachmentStorage(typeof attachmentStorageValues.path === 'string' ? attachmentStorageValues.path : undefined, securityKeys.attachmentEncryptionKey, securityKeys.attachmentEncryptionKeys, securityKeys.attachmentEncryptionActiveVersion ?? 'v1', attachmentStorageValues.encryptionRequired === true);
 const antivirusDeployment = deploymentConfigurationSource.getSync('antivirus');
 const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.providerKey === 'clamav'
   ? antivirusDeployment.values

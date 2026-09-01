@@ -107,8 +107,8 @@ deve diventare un editor di environment né un secret manager.
   default separato di 30 secondi;
 - filesystem cade su `.data/attachments` quando non configurato: utile nello
   standalone, ma oggi è un fallback implicito e non uno stato dichiarato;
-- il provider `s3-compatible`, pur registrato, non ha adapter, composition o
-  healthcheck;
+- S3-compatible è soltanto progettato per una futura esigenza concreta; non è
+  registrato, dipendenza o configurazione runtime;
 - `mail` registra solo `webhook`, mentre la documentazione generale cita SMTP;
 - webhook mail non ha timeout, retry, idempotency key o healthcheck;
 - backup e osservabilità sono mappati dall'environment ma non consumati dal
@@ -221,7 +221,7 @@ fallire in modo non intuitivo se la policy richiede scansione ma l'adapter manca
 | 12. Parità | stesso port e semantica indipendenti dal DB; backup metadata+payload coordinato su entrambi |
 | 13. Test | path traversal, atomicità/cleanup, checksum/cifratura/rotazione, mount error, S3 fake ufficiale/contract, quota/rollback, purge, backup-restore coordinato, E2E upload/download |
 
-Il provider S3 oggi è solo catalogato. Non va selezionabile finché adapter,
+Il provider S3 è rinviato. Non va registrato o selezionabile finché adapter,
 healthcheck, cleanup transazionale e contract test non sono presenti.
 
 ### 3.5 Email e notifiche account
