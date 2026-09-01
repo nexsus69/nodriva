@@ -6,6 +6,8 @@ export interface ServiceHealthCheckResult {
   status: 'healthy' | 'unhealthy' | 'not-configured' | 'disabled';
   checkedAt: Date;
   latencyMs?: number;
+  /** Stable, client-safe classification for Admin and observability. */
+  code?: 'capability_disabled' | 'provider_not_configured' | 'healthcheck_unavailable' | 'healthcheck_failed' | 'configuration_invalid';
   message?: string;
 }
 

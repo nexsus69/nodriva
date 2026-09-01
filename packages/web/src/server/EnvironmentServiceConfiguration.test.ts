@@ -85,4 +85,23 @@ describe('Environment service configuration', () => {
     });
   });
 
+  it('maps an external account-delivery webhook with an explicit timeout', async () => {
+    const source = new EnvironmentServiceDeploymentConfigurationSource({
+      ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL: 'https://mail.example.test/deliver',
+      ACCOUNT_ACTION_PUBLIC_BASE_URL: 'https://app.example.test',
+      ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS: '7500',
+      ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET: 'token',
+    });
+
+    await expect(source.get('mail')).resolves.toEqual({
+      providerKey: 'webhook',
+      values: {
+        endpoint: 'https://mail.example.test/deliver',
+        publicBaseUrl: 'https://app.example.test',
+        timeoutMs: 7500,
+        token: 'secret://env/ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET',
+      },
+    });
+  });
+
 });

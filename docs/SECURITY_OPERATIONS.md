@@ -50,8 +50,10 @@ The Web composition uses the shared PostgreSQL limiter for both a normalized
 account key and the trusted proxy source address. Configure the proxy to replace
 (`not append to`) its client-IP header. Account-action delivery is fail-closed:
 set `ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL`, `ACCOUNT_ACTION_PUBLIC_BASE_URL` and
-the optional bearer secret. The HTTPS endpoint receives `to`, `template`,
-`actionUrl` and `expiresAt` and must send the corresponding email.
+the optional bearer secret. `ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS` imposta il
+timeout della richiesta (10 secondi se omesso). The HTTPS endpoint receives
+`to`, `template`, `actionUrl` and `expiresAt` and must send the corresponding
+email.
 
 TOTP requires `MFA_ENCRYPTION_KEY`, a base64-encoded 32-byte deployment secret.
 Enrollment secrets are AES-256-GCM encrypted; recovery codes are stored only as

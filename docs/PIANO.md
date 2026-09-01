@@ -1,6 +1,6 @@
 # Piano di configurazione completa dei servizi Nodriva
 
-> Stato: fase iniziale implementata il 1 settembre 2026. Il catalogo
+> Stato: punti 1, 2, 3 e 4 completati il 1 settembre 2026. Il catalogo
 > riutilizzabile, la precedenza deployment→runtime, lo stato `disabled` degli
 > optional e la vista Admin sanitizzata sono stati introdotti; provider S3/SMTP,
 > backup SQLite e l'editing runtime auditato restano interventi separati.
@@ -88,20 +88,23 @@ deve diventare un editor di environment né un secret manager.
 - `ServiceConfigurationService.setRuntimeValues()` e la tabella
   `service_configurations` non sono esposti da use case Admin autorizzati e
   auditati;
-- `ServiceHealthCheckService` non ha una superficie Admin/API censita e mostra
-  messaggi grezzi potenzialmente sensibili;
+- il read model Admin e le action per configurazioni/healthcheck sono presenti;
+  i risultati espongono codici stabili e messaggi sanitizzati, mentre i
+  dinieghi di autorizzazione continuano a propagarsi come errori applicativi;
 - il registry non esprime default, min/max, enum, unità, timeout, retry,
   dipendenze, fallback, requisito/optionalità, disponibilità del deployment o
   strategia di reload;
-- `enabled` è modellato dentro alcuni provider e contemporaneamente nella
-  capability runtime `realtime` o nel setting
-  `attachments.antivirusEnabled`: esistono fonti duplicate e non riconciliate;
+- `enabled` per realtime e antivirus è ora composto dal
+  `EffectiveCapabilityResolver`; i consumer applicativi non interrogano più
+  direttamente la capability runtime `realtime` né il setting antivirus;
+- restano da migrare eventuali strumenti amministrativi legacy che scrivono
+  ancora le vecchie righe di capability, mantenendo compatibilità di lettura;
 - il resolver sceglie il provider da runtime prima che dal deployment, pur
   vietando in scrittura un provider diverso: una riga storica incoerente può
   quindi alterare la risoluzione;
 - realtime e scanner sono costruiti dal deployment al bootstrap; i flag runtime
-  non ricostruiscono gli adapter e non tutte le operazioni li consultano nello
-  stesso punto;
+  aggiornano lo stato effettivo, ma la ricostruzione degli adapter richiede
+  ancora riavvio secondo il contratto di reload;
 - `RealtimeHttpHealthCheck` forza `http://` e ignora `internalScheme`;
 - i timeout dei checker sono hardcoded a 3 secondi e quello dello scanner ha un
   default separato di 30 secondi;
@@ -110,7 +113,8 @@ deve diventare un editor di environment né un secret manager.
 - S3-compatible è soltanto progettato per una futura esigenza concreta; non è
   registrato, dipendenza o configurazione runtime;
 - `mail` registra solo `webhook`, mentre la documentazione generale cita SMTP;
-- webhook mail non ha timeout, retry, idempotency key o healthcheck;
+- webhook mail usa un timeout di deployment (`ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS`,
+  default 10 secondi); retry, idempotency key e healthcheck restano differiti;
 - backup e osservabilità sono mappati dall'environment ma non consumati dal
   composition root applicativo;
 - `security-keys` è correttamente deployment-only ma è incluso nello stesso
@@ -426,9 +430,10 @@ esterno dentro la transazione.
 3. **Read model Admin e sicurezza**: use case autorizzato/auditato, DTO
    sanitizzati, errori semantici e healthcheck con codici; nessuna UI di scrittura
    per deployment/secret.
-4. **Verticale minima provider esistenti**: persistence, filesystem, ClamAV,
-   Pusher-compatible, webhook, Prometheus e security readiness; collegare tutti
-   i consumer ai resolver, inclusi client realtime e session timing.
+4. **Verticale minima provider esistenti**: completata per persistence,
+   filesystem, ClamAV, Pusher-compatible, webhook, Prometheus e security
+   readiness. I consumer runtime di realtime e antivirus consultano lo stato
+   effettivo; client realtime e fallback HTTP restano coerenti quando disabilitati.
 5. **Backup parity**: formalizzare manifest/status PostgreSQL, aggiungere snapshot
    e restore verificato SQLite, includere allegati e keyring nel runbook.
 6. **Admin IA**: aggiungere Integrations, Data & recovery, Health & observability

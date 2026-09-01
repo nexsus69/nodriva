@@ -70,6 +70,13 @@ export {
   ServiceConfigurationService,
   ServiceConfigurationValidationError,
 } from "./application/services/ServiceConfigurationService.js";
+export {
+  EffectiveCapabilityResolver,
+} from "./application/services/EffectiveCapabilityResolver.js";
+export type {
+  EffectiveCapability,
+  EffectiveCapabilityStatus,
+} from "./application/services/EffectiveCapabilityResolver.js";
 export { ServiceAdministrationApplicationService } from "./application/services/ServiceAdministrationApplicationService.js";
 export type {
   EffectiveServiceConfiguration,

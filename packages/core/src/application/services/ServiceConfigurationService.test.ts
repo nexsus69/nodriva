@@ -64,7 +64,7 @@ describe('ServiceConfigurationService', () => {
       serviceKey: 'realtime', providerKey: 'soketi', values: { enabled: false }, version: 4,
     });
 
-    await expect(service.get('realtime')).resolves.toMatchObject({ version: 4, values: { enabled: false } });
+    await expect(service.get('realtime')).resolves.toMatchObject({ version: 4, values: { enabled: false }, availability: 'disabled' });
   });
 
   it('only accepts fields classified as runtime configuration', async () => {

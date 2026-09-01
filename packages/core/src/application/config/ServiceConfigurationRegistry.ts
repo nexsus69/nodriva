@@ -240,6 +240,7 @@ export const defaultServiceConfigurationRegistry = new ServiceConfigurationRegis
       fields: [
         deploymentString('endpoint', 'Endpoint per la consegna delle email.'),
         deploymentString('publicBaseUrl', 'URL pubblico per i link di completamento.'),
+        field('timeoutMs', 'integer', 'deployment', { required: false, secret: false, clientVisible: false, restartRequired: true }, 'Timeout della richiesta di consegna.'),
         secretReference('token', 'Riferimento al token del webhook.'),
       ],
     }],

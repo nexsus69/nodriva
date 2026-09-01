@@ -16,7 +16,10 @@ export class ServiceHealthCheckService {
       config = await this.configuration.get(serviceKey);
     } catch (error) {
       if (error instanceof ServiceConfigurationValidationError && error.message.includes('no provider configured')) {
-        return { serviceKey, providerKey: '', status: 'not-configured', checkedAt: this.now() };
+        return { serviceKey, providerKey: '', status: 'not-configured', code: 'provider_not_configured', checkedAt: this.now() };
+      }
+      if (error instanceof ServiceConfigurationValidationError) {
+        return { serviceKey, providerKey: '', status: 'unhealthy', code: 'configuration_invalid', checkedAt: this.now(), message: 'Service configuration is invalid.' };
       }
       throw error;
     }
@@ -26,6 +29,7 @@ export class ServiceHealthCheckService {
         serviceKey,
         providerKey: config.providerKey,
         status: 'disabled',
+        code: 'capability_disabled',
         checkedAt: this.now(),
       };
     }
@@ -34,10 +38,25 @@ export class ServiceHealthCheckService {
         serviceKey,
         providerKey: config.providerKey,
         status: 'not-configured',
+        code: 'healthcheck_unavailable',
         checkedAt: this.now(),
         message: 'No healthcheck adapter is registered for this provider.',
       };
     }
-    return checker.check(serviceKey, config.providerKey, config.values);
+    try {
+      const result = await checker.check(serviceKey, config.providerKey, config.values);
+      return result.status === 'unhealthy'
+        ? { ...result, code: 'healthcheck_failed', message: 'Healthcheck failed.' }
+        : result;
+    } catch {
+      return {
+        serviceKey,
+        providerKey: config.providerKey,
+        status: 'unhealthy',
+        code: 'healthcheck_failed',
+        checkedAt: this.now(),
+        message: 'Healthcheck failed.',
+      };
+    }
   }
 }

@@ -30,4 +30,12 @@ describe('ServiceHealthCheckService', () => {
     await expect(new ServiceHealthCheckService(configuration, registry).check('database'))
       .resolves.toMatchObject({ status: 'not-configured', message: expect.stringContaining('No healthcheck') });
   });
+
+  it('returns a stable sanitized code when an infrastructure check fails', async () => {
+    const registry: ServiceHealthCheckRegistry = { register: vi.fn(), get: vi.fn().mockReturnValue({ check: vi.fn().mockRejectedValue(new Error('socket details')) }) };
+    const configuration = { get: vi.fn().mockResolvedValue({ providerKey: 'soketi', values: {} }) } as unknown as ServiceConfigurationService;
+
+    await expect(new ServiceHealthCheckService(configuration, registry).check('realtime'))
+      .resolves.toMatchObject({ status: 'unhealthy', code: 'healthcheck_failed', message: 'Healthcheck failed.' });
+  });
 });

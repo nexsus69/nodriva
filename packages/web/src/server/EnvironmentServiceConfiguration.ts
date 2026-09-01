@@ -157,6 +157,7 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
         values: {
           endpoint: this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL,
           ...(this.environment.ACCOUNT_ACTION_PUBLIC_BASE_URL ? { publicBaseUrl: this.environment.ACCOUNT_ACTION_PUBLIC_BASE_URL } : {}),
+          ...(optionalPort(this.environment.ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS) ? { timeoutMs: optionalPort(this.environment.ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS) } : {}),
           ...(this.environment.ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET ? { token: 'secret://env/ACCOUNT_ACTION_DELIVERY_WEBHOOK_SECRET' } : {}),
         },
       }

@@ -1,4 +1,4 @@
-import type { AttachmentPolicyRepository, ConfigService, EntityRepository, NodeRepository, ResourceSecurityPolicy, ResourceSecurityPolicyResolver } from '@dashboard/core';
+import type { AttachmentPolicyRepository, ConfigService, EffectiveCapabilityResolver, EntityRepository, NodeRepository, ResourceSecurityPolicy, ResourceSecurityPolicyResolver } from '@dashboard/core';
 
 export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityPolicyResolver {
   constructor(
@@ -8,13 +8,14 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
     private readonly entityRepository: EntityRepository,
     private readonly requireScan = false,
     private readonly requireEncryption = false,
+    private readonly capabilityResolver?: EffectiveCapabilityResolver,
   ) {}
 
   async resolve(resourceType: 'node' | 'entity', resourceId: string): Promise<ResourceSecurityPolicy> {
     const nodeTypeId = await this.resolveNodeTypeId(resourceType, resourceId);
     const [encryptionGlobal, antivirusGlobal, nodePolicy] = await Promise.all([
       this.configService.get<boolean>('attachments.encryptionEnabled'),
-      this.configService.get<boolean>('attachments.antivirusEnabled'),
+      this.capabilityResolver?.isEnabled('antivirus') ?? this.configService.get<boolean>('attachments.antivirusEnabled'),
       this.attachmentPolicyRepository.getEncryptionMode(nodeTypeId),
     ]);
     const mode = nodePolicy;

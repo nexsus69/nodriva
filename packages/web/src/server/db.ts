@@ -54,6 +54,7 @@ import {
   ConfigurationRepositoryPostgres,
   ServiceConfigurationRepositoryPostgres,
   ServiceConfigurationService,
+  EffectiveCapabilityResolver,
   ServiceAdministrationApplicationService,
   AttachmentRepositoryPostgres,
   AttachmentPolicyRepositoryPostgres,
@@ -222,7 +223,7 @@ export const idGenerator = {
 };
 
 export async function isRealtimeCapabilityEnabled(): Promise<boolean> {
-  return runtimeConfigPort.isCapabilityEnabled('realtime');
+  return effectiveCapabilityResolver.isEnabled('realtime');
 }
 export const configurationRepository = sqliteMode ? sqliteInfrastructure!.configurationRepository : new ConfigurationRepositoryPostgres(pgExecutor!);
 export const serviceConfigurationRepository = sqliteMode ? sqliteInfrastructure!.serviceConfigurationRepository : new ServiceConfigurationRepositoryPostgres(pgExecutor!);
@@ -232,6 +233,7 @@ export const serviceConfigurationService = new ServiceConfigurationService(
   deploymentConfigurationSource,
   deploymentSecretResolver,
 );
+export const effectiveCapabilityResolver = new EffectiveCapabilityResolver(serviceConfigurationService);
 export const serviceHealthCheckRegistry = new DefaultServiceHealthCheckRegistry();
 if (!sqliteMode) serviceHealthCheckRegistry.register('database', 'postgres', new PostgresHealthCheck(pgExecutor!));
 if (sqliteMode) serviceHealthCheckRegistry.register('database', 'sqlite', new SqliteHealthCheck(sqliteInfrastructure!.database));
@@ -245,12 +247,18 @@ export const configService = new ConfigService(
   configurationRepository,
   defaultConfigurationRegistry,
 );
+const effectiveRuntimeConfigurationPort = {
+  isCapabilityEnabled: (capabilityKey: string) => capabilityKey === 'realtime'
+    ? effectiveCapabilityResolver.isEnabled('realtime')
+    : runtimeConfigPort.isCapabilityEnabled(capabilityKey),
+  getSetting: <T>(settingKey: string, defaultValue: T) => runtimeConfigPort.getSetting(settingKey, defaultValue),
+};
 /** All audit producers pass through this policy-aware recorder before persistence. */
 export const auditPort = new PolicyAuditRecorder(
   persistenceAuditPort,
   new RuntimeAuditRecordingPolicy(runtimeConfigPort),
   transactionPort,
-  new RealtimeAuditCollectionInvalidator(realtimeOutbox, runtimeConfigPort, idGenerator),
+  new RealtimeAuditCollectionInvalidator(realtimeOutbox, effectiveRuntimeConfigurationPort, idGenerator),
 );
 export const accessControlPort = sqliteMode ? sqliteInfrastructure!.accessControlPort : new AccessControlPortPostgres(pgExecutor!);
 export const serviceAdministrationService = new ServiceAdministrationApplicationService(
@@ -313,6 +321,7 @@ export const resourceSecurityPolicyResolver = new PostgresResourceSecurityPolicy
   entityRepository,
   antivirusValues.requireScan === true,
   attachmentStorageValues.encryptionRequired === true,
+  effectiveCapabilityResolver,
 );
 export const attachmentScanner: AttachmentScannerPort | undefined = typeof antivirusValues.host === 'string'
   && typeof antivirusValues.port === 'number'
@@ -332,6 +341,7 @@ export const accountActionDelivery = typeof mailValues.endpoint === 'string'
       mailValues.endpoint,
       mailValues.publicBaseUrl,
       typeof mailValues.token === 'string' ? deploymentSecretResolver.resolveSync(mailValues.token) ?? undefined : undefined,
+      typeof mailValues.timeoutMs === 'number' ? mailValues.timeoutMs : undefined,
     )
   : undefined;
 export const mfaTotpPort = sqliteMode ? sqliteInfrastructure!.mfaTotpPort : new MfaTotpPortPostgres(pgExecutor!);

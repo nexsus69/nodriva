@@ -51,6 +51,11 @@ export class ServiceConfigurationService {
     private readonly secrets?: SecretReferenceResolver,
   ) {}
 
+  /** Exposes immutable registry metadata to application-level resolvers. */
+  registryDefinition(serviceKey: ServiceConfigurationKey): ServiceConfigurationDefinition {
+    return this.registry.get(serviceKey);
+  }
+
   async get(serviceKey: ServiceConfigurationKey): Promise<EffectiveServiceConfiguration> {
     return this.resolve(serviceKey, true);
   }
@@ -139,7 +144,7 @@ export class ServiceConfigurationService {
       values: resolvedValues,
       version: runtimeRecord?.version ?? 1,
       requirement: definition.requirement ?? 'required',
-      availability: providerKey === 'disabled' ? 'disabled' : 'configured',
+      availability: providerKey === 'disabled' || resolvedValues.enabled === false ? 'disabled' : 'configured',
       ...(runtimeRecord?.updatedAt ? { updatedAt: runtimeRecord.updatedAt } : {}),
     };
   }
