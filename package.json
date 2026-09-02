@@ -18,6 +18,7 @@
     "e2e:canonical": "PARITY_E2E_SPECS='e2e/canonical-vertical-parity.spec.ts' ./scripts/admin-parity-e2e.sh",
     "e2e:parity": "PARITY_E2E_SPECS='e2e/admin-adapter-parity.spec.ts e2e/canonical-vertical-parity.spec.ts' ./scripts/admin-parity-e2e.sh",
     "ops:health": "./scripts/stack-healthcheck.sh",
+    "test:compose": "./scripts/docker-compose-profile-contract.sh",
     "docs:source": "node scripts/check-source-documentation.mjs",
     "check": "pnpm docs:source && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build"
   },

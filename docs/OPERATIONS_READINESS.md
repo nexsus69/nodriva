@@ -35,6 +35,22 @@ troppo vecchio; con `monitoring` se Prometheus non è pronto oppure il target è
 provider remoti usare i loro healthcheck e il catalogo Admin: questo script è
 intenzionalmente limitato ai container locali Compose.
 
+## Baseline di rilascio servizi
+
+La baseline del 2026-09-02 valida il profilo PostgreSQL base senza integrazioni
+e quello completo con `realtime`, `antivirus`, `monitoring` e `backup`, oltre
+alla parità SQLite/PostgreSQL. Nel riferimento Compose il profilo operativo può
+essere dichiarato nel file di deployment con `NODRIVA_COMPOSE_PROFILES`; non
+viene dedotto dai container già in esecuzione. Questa variabile non appartiene
+al runtime Nodriva né al profilo SQLite standalone.
+
+Il contratto `pnpm test:compose`, eseguito in CI, verifica che il profilo base
+si renderizzi senza secret realtime e che l'attivazione esplicita includa tutti
+i servizi opzionali. Non avvia container: il boot completo resta una verifica
+operativa isolata. Per servizi esterni, la verifica operativa appartiene al
+relativo provider/orchestratore; Nodriva non richiede Docker né un timer
+systemd per funzionare.
+
 ## Backup e restore verificato
 
 Il backup è considerato valido solo dopo un restore in un database temporaneo:

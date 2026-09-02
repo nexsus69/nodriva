@@ -40,6 +40,9 @@ jobs:
       - name: Verify source documentation
         run: pnpm docs:source
 
+      - name: Verify Docker Compose profiles
+        run: pnpm test:compose
+
       - name: Verify repository
         run: pnpm check
 

@@ -448,7 +448,9 @@ esterno dentro la transazione.
 8. **Compose come esempio**: completato il 2026-09-02. I profili
    `realtime`/`antivirus`/`monitoring`/`backup` sono opzionali,
    `web` non attende i loro container e la documentazione distingue la
-   configurazione Compose locale dagli equivalenti remoti/non-Docker.
+   configurazione Compose locale dagli equivalenti remoti/non-Docker. Il
+   contratto CI `pnpm test:compose` protegge questo esempio senza rendere
+   Docker, systemd o i relativi healthcheck un requisito di Nodriva.
 
 Non introdurre hot swap di database/storage, un orchestratore universale o
 configurazione completa dei secret dal pannello: sono fuori perimetro e
