@@ -52,8 +52,8 @@ services:
     restart: unless-stopped
     environment:
       SOKETI_DEFAULT_APP_ID: ${PUSHER_APP_ID:-dashboard}
-      SOKETI_DEFAULT_APP_KEY: ${NEXT_PUBLIC_PUSHER_KEY:?NEXT_PUBLIC_PUSHER_KEY must be set}
-      SOKETI_DEFAULT_APP_SECRET: ${PUSHER_SECRET:?PUSHER_SECRET must be set}
+      SOKETI_DEFAULT_APP_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
+      SOKETI_DEFAULT_APP_SECRET: ${PUSHER_SECRET:-}
       SOKETI_DEFAULT_APP_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
     expose:
       - "6001"
@@ -136,7 +136,7 @@ services:
     environment:
       REALTIME_DRAIN_URL: http://web:3000/api/internal/realtime/drain
       WORKFLOW_DRAIN_URL: http://web:3000/api/internal/workflows/drain
-      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
     restart: unless-stopped
 
@@ -164,7 +164,7 @@ services:
       web:
         condition: service_healthy
     environment:
-      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       REALTIME_METRICS_TARGET: web:3000
       PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
     volumes:
