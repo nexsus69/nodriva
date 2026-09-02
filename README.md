@@ -20,7 +20,7 @@ which operational, administrative, or back-office applications can be built.
 - Configurable encryption for fields and attachments.
 - Application cache invalidation driven by realtime events.
 - PostgreSQL backups with verified restore.
-- Reproducible Docker stack for development and staging.
+- Reference Docker Compose stack for development and staging, with optional integrations.
 
 Nodriva is not a ready-made CRM, ERP, or ITSM product. It is a generic
 infrastructure for modelling data and relationships while leaving use cases to
@@ -33,7 +33,7 @@ The monorepo contains:
 - `packages/core`: domain, application services, ports, and adapters;
 - `packages/web`: Next.js interface, Server Actions, APIs, and admin panel;
 - `db`: PostgreSQL migrations and bootstrap;
-- `docker-compose.full.yml`: reproducible full stack;
+- `docker-compose.full.yml`: PostgreSQL reference stack with optional service profiles;
 - `e2e`: browser end-to-end checks;
 - `docs`: architecture and operations documentation.
 
@@ -50,10 +50,17 @@ capabilities, and settings without deleting application data.
 ## Quick start
 
 Create a protected `.env.docker` file with the required values and start the
-full profile:
+base PostgreSQL reference profile:
 
 ```bash
 docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
+```
+
+Realtime, antivirus, monitoring and backup are explicit optional profiles:
+
+```bash
+COMPOSE_PROFILES=realtime,antivirus,monitoring,backup \
+  docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
 ```
 
 Detailed ports, volumes, and configuration are documented in

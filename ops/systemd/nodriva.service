@@ -1,5 +1,5 @@
 [Unit]
-Description=Nodriva complete Docker stack
+Description=Nodriva Docker reference stack
 Wants=network-online.target
 After=network-online.target docker.service
 Requires=docker.service
@@ -12,8 +12,8 @@ RemainAfterExit=yes
 WorkingDirectory=/home/marco/docker_container/dashboard_ultimate
 # Docker cannot publish a fixed Wi-Fi address before NetworkManager assigns it.
 ExecStartPre=/usr/bin/bash -c 'set -eu; . /home/marco/.config/dashboard-ultimate/dashboard-production.env; address="${DASHBOARD_BIND_ADDRESS:?}"; for attempt in $(seq 1 60); do ip -4 addr show | grep -Fq "${address}/" && exit 0; sleep 1; done; echo "Nodriva bind address ${address} was not assigned after 60 seconds." >&2; exit 1'
-ExecStart=/usr/bin/docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env -f docker-compose.full.yml up -d
-ExecStop=/usr/bin/docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env -f docker-compose.full.yml stop
+ExecStart=/usr/bin/bash -c 'set -eu; . /home/marco/.config/dashboard-ultimate/dashboard-production.env; export COMPOSE_PROFILES="${NODRIVA_COMPOSE_PROFILES:-}"; exec /usr/bin/docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env -f docker-compose.full.yml up -d'
+ExecStop=/usr/bin/bash -c 'set -eu; . /home/marco/.config/dashboard-ultimate/dashboard-production.env; export COMPOSE_PROFILES="${NODRIVA_COMPOSE_PROFILES:-}"; exec /usr/bin/docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env -f docker-compose.full.yml stop'
 TimeoutStartSec=5min
 TimeoutStopSec=2min
 

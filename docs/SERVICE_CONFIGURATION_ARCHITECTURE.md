@@ -10,7 +10,7 @@ Prometheus o un proxy siano sempre presenti.
 | --- | --- | --- |
 | Standalone | Node.js e un adapter di persistenza locale | macchina senza servizi amministrabili |
 | Distribuito | Node.js più servizi locali o remoti configurabili | produzione con servizi separati |
-| Compose completo | tutti i container del repository | sviluppo e staging replicabile |
+| Compose di riferimento | PostgreSQL, migrazioni/bootstrap, Web e proxy; profili espliciti per le integrazioni | sviluppo e staging replicabile |
 
 Il profilo standalone usa l'adapter SQLite integrato. Non è sufficiente
 disabilitare realtime o antivirus: il composition root seleziona comunque un
@@ -28,8 +28,10 @@ Attualmente:
 - lo storage allegati è locale al filesystem o al volume del container;
 - realtime e antivirus sono configurabili soprattutto tramite
   environment/Compose;
-- `docker-compose.full.yml` avvia lo stack completo e rappresenta il profilo
-  di sviluppo/staging, non un requisito architetturale dell'applicazione;
+- `docker-compose.full.yml` avvia il riferimento PostgreSQL di base; i profili
+  `realtime`, `antivirus`, `monitoring` e `backup` sono opzionali e non sono
+  dipendenze di avvio del Web. Il file resta un esempio di sviluppo/staging,
+  non un requisito architetturale dell'applicazione;
 - esistono il registry descrittivo, il resolver applicativo, il repository
   PostgreSQL versionato per i valori runtime e la sorgente environment collegata
   al composition root Web;

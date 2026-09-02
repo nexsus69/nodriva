@@ -3,8 +3,9 @@
 ## Healthcheck
 
 La verifica non modifica dati e controlla endpoint applicativo, stato dei
-container del solo progetto Compose atteso, healthcheck Docker, disponibilità
-PostgreSQL, ultimo restore verificato e target Prometheus:
+container del riferimento Compose, healthcheck Docker e disponibilità
+PostgreSQL. Backup verificato e target Prometheus sono controllati solo se i
+rispettivi profili sono selezionati:
 
 ```bash
 ./scripts/stack-healthcheck.sh
@@ -19,9 +20,20 @@ DASHBOARD_BASE_URL=http://192.168.3.247:3001 ./scripts/stack-healthcheck.sh
 Il progetto Compose predefinito è `dashboard_ultimate`; usare
 `DASHBOARD_COMPOSE_PROJECT` se il deployment ha un nome differente. Il backup
 verificato può avere al massimo 93600 secondi (26 ore); la soglia è regolabile
-con `BACKUP_MAX_AGE_SECONDS` in base alla RPO del deployment. Il controllo
-fallisce se `last-status.json` non è completato o è troppo vecchio, se
-Prometheus non è pronto oppure se il target applicativo risulta `down`.
+con `BACKUP_MAX_AGE_SECONDS` in base alla RPO del deployment. Per rendere
+obbligatorie le verifiche dei servizi opzionali, passare gli stessi profili del
+deploy:
+
+```bash
+DASHBOARD_COMPOSE_PROFILES=realtime,antivirus,monitoring,backup \
+  ./scripts/stack-healthcheck.sh
+```
+
+Con `backup` il controllo fallisce se `last-status.json` non è completato o è
+troppo vecchio; con `monitoring` se Prometheus non è pronto oppure il target è
+`down`. Senza quei profili l'assenza dei relativi container è normale. Per
+provider remoti usare i loro healthcheck e il catalogo Admin: questo script è
+intenzionalmente limitato ai container locali Compose.
 
 ## Backup e restore verificato
 
@@ -41,7 +53,7 @@ backup verificato supera la RPO concordata.
 ## Checklist prima del rilascio
 
 - `./scripts/stack-healthcheck.sh` completato;
-- backup e restore verificato completati;
+- backup e restore verificato completati, se il deployment offre backup;
 - `pnpm check` completato;
 - job CI `PostgreSQL integration and adapter parity` completato senza test
   saltati;
@@ -53,7 +65,7 @@ backup verificato supera la RPO concordata.
   `SQLITE_DATABASE_PATH` valorizzati, build Web e smoke HTTP completati;
 - chiavi e password fornite da secret manager, mai da file versionati;
 - proxy HTTPS configurato per ambienti non locali;
-- log, metriche Prometheus e alerting verificati;
+- log, metriche/alerting verificati quando l'osservabilità è abilitata;
 - sessioni browser di test chiuse e nessun lock residuo nel database;
 - procedura di rollback documentata e backup corrente disponibile.
 

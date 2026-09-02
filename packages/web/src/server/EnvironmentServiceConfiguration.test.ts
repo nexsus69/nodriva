@@ -67,6 +67,20 @@ describe('Environment service configuration', () => {
     });
   });
 
+  it('leaves optional integrations unconfigured when their deployment endpoints are absent', async () => {
+    const source = new EnvironmentServiceDeploymentConfigurationSource({
+      DATABASE_ADAPTER: 'sqlite',
+      SQLITE_DATABASE_PATH: './data/test.sqlite',
+      NEXT_PUBLIC_REALTIME_ENABLED: 'false',
+      ATTACHMENTS_REQUIRE_SCAN: 'false',
+    });
+
+    await expect(source.get('realtime')).resolves.toBeNull();
+    await expect(source.get('antivirus')).resolves.toBeNull();
+    await expect(source.get('backup')).resolves.toBeNull();
+    await expect(source.get('observability')).resolves.toBeNull();
+  });
+
   it('uses SQLite snapshot backup metadata for the standalone profile', async () => {
     const source = new EnvironmentServiceDeploymentConfigurationSource({
       DATABASE_ADAPTER: 'sqlite',

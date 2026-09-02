@@ -47,6 +47,7 @@ services:
     restart: "no"
 
   soketi:
+    profiles: ["realtime"]
     image: quay.io/soketi/soketi:1.6-16-alpine
     restart: unless-stopped
     environment:
@@ -67,21 +68,18 @@ services:
       context: .
       dockerfile: docker/web/Dockerfile
       args:
-        NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:?NEXT_PUBLIC_PUSHER_KEY must be set}
+        NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-false}
+        NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
         NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
-        NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-localhost}
-        NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-6001}
-        NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-http}
+        NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-}
+        NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-}
+        NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-}
         NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
     depends_on:
       db-migrate:
         condition: service_completed_successfully
       db-seed:
         condition: service_completed_successfully
-      soketi:
-        condition: service_healthy
-      clamav:
-        condition: service_healthy
     environment:
       HOSTNAME: 0.0.0.0
       DATABASE_ADAPTER: postgres
@@ -92,29 +90,30 @@ services:
       NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-marco123@test.com}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
-      NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-true}
-      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
-      NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:?NEXT_PUBLIC_PUSHER_KEY must be set}
+      # Optional integrations are disabled unless their deployment settings are provided.
+      NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-false}
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
+      NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
       NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
-      NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-localhost}
-      NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-6001}
-      NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-http}
-      REALTIME_INTERNAL_HOST: ${REALTIME_INTERNAL_HOST:-soketi}
-      REALTIME_INTERNAL_PORT: ${REALTIME_INTERNAL_PORT:-6001}
-      REALTIME_INTERNAL_SCHEME: ${REALTIME_INTERNAL_SCHEME:-http}
+      NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-}
+      NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-}
+      NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-}
+      REALTIME_INTERNAL_HOST: ${REALTIME_INTERNAL_HOST:-}
+      REALTIME_INTERNAL_PORT: ${REALTIME_INTERNAL_PORT:-}
+      REALTIME_INTERNAL_SCHEME: ${REALTIME_INTERNAL_SCHEME:-}
       PUSHER_APP_ID: ${PUSHER_APP_ID:-dashboard}
-      PUSHER_SECRET: ${PUSHER_SECRET:?PUSHER_SECRET must be set}
-      CLAMAV_HOST: clamav
-      CLAMAV_PORT: "3310"
-      ATTACHMENTS_REQUIRE_SCAN: "true"
+      PUSHER_SECRET: ${PUSHER_SECRET:-}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_PORT: ${CLAMAV_PORT:-}
+      ATTACHMENTS_REQUIRE_SCAN: ${ATTACHMENTS_REQUIRE_SCAN:-false}
       ATTACHMENTS_ROOT: /app/data/attachments
       ATTACHMENTS_REQUIRE_ENCRYPTION: "true"
       ATTACHMENTS_ENCRYPTION_KEY: ${ATTACHMENTS_ENCRYPTION_KEY:?ATTACHMENTS_ENCRYPTION_KEY must be set}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY must be set}
       MFA_ENCRYPTION_KEY: ${MFA_ENCRYPTION_KEY:?MFA_ENCRYPTION_KEY must be set}
       ACCOUNT_ACTION_PUBLIC_BASE_URL: ${ACCOUNT_ACTION_PUBLIC_BASE_URL:-http://localhost:3001}
-      BACKUP_ROOT: /backups/postgres
-      BACKUP_STATUS_FILE: /backups/postgres/last-status.json
+      BACKUP_ROOT: ${BACKUP_ROOT:-}
+      BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-}
     volumes:
       - dashboard_full_attachments:/app/data/attachments
       - dashboard_full_backups:/backups:ro
@@ -128,6 +127,7 @@ services:
     restart: unless-stopped
 
   realtime-worker:
+    profiles: ["realtime"]
     build:
       context: ./docker/realtime-worker
     depends_on:
@@ -141,6 +141,7 @@ services:
     restart: unless-stopped
 
   clamav:
+    profiles: ["antivirus"]
     image: clamav/clamav:1.4
     restart: unless-stopped
     volumes:
@@ -156,6 +157,7 @@ services:
       retries: 20
 
   prometheus:
+    profiles: ["monitoring"]
     build:
       context: ./docker/prometheus
     depends_on:
@@ -177,6 +179,7 @@ services:
     restart: unless-stopped
 
   backup:
+    profiles: ["backup"]
     image: postgres:17
     depends_on:
       postgres:
@@ -205,8 +208,6 @@ services:
     image: caddy:2.9-alpine
     depends_on:
       web:
-        condition: service_healthy
-      soketi:
         condition: service_healthy
     ports:
       - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:80:80"

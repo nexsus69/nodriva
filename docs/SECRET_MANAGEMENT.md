@@ -56,12 +56,18 @@ fuori dal repository:
 
 Il file predefinito è
 `/home/marco/.config/dashboard-ultimate/dashboard-production.env`. Per usarlo
-con lo stack completo:
+con il profilo Compose di base:
 
 ```bash
 docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env \
   -f docker-compose.full.yml up -d --build
 ```
+
+Le integrazioni locali sono esplicite. Per il riferimento completo impostare
+`NODRIVA_COMPOSE_PROFILES=realtime,antivirus,monitoring,backup` nel file di
+deployment quando è avviato da systemd, oppure passare
+`COMPOSE_PROFILES=realtime,antivirus,monitoring,backup` al comando Compose.
+I secret Pusher e del worker non sono richiesti se `realtime` non è abilitato.
 
 Il secondo argomento contiene la configurazione operativa non segreta (bind
 address, porte e intervalli). I secret eventualmente presenti nello stesso

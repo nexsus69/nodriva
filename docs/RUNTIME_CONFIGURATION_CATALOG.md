@@ -96,7 +96,8 @@ schema, timeout, retry, healthcheck, dipendenze e requisito di riavvio.
 
 - `DATABASE_URL` e pool PostgreSQL;
 - porte, binding e nomi DNS dei container;
-- profili Compose (`realtime`, `monitoring`);
+- profili Compose (`realtime`, `antivirus`, `monitoring`, `backup`), che sono
+  opzioni del deployment di riferimento e non capability applicative implicite;
 - URL pubblici dell'applicazione;
 - secret database e credenziali di servizio.
 

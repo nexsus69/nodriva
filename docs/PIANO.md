@@ -445,9 +445,10 @@ esterno dentro la transazione.
 7. **Provider completi differiti**: S3-compatible e SMTP, uno alla volta con
    adapter, healthcheck, contract, failure semantics e documentazione; nessun
    provider ulteriore senza caso d'uso approvato.
-8. **Compose come esempio**: rendere opzionali profili realtime/antivirus/
-   monitoring/backup, rimuovere dipendenze obbligatorie del Web e documentare
-   equivalenti remoti/non-Docker.
+8. **Compose come esempio**: completato il 2026-09-02. I profili
+   `realtime`/`antivirus`/`monitoring`/`backup` sono opzionali,
+   `web` non attende i loro container e la documentazione distingue la
+   configurazione Compose locale dagli equivalenti remoti/non-Docker.
 
 Non introdurre hot swap di database/storage, un orchestratore universale o
 configurazione completa dei secret dal pannello: sono fuori perimetro e
