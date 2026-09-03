@@ -1,3 +1,4 @@
+/** Exercises PostgreSQL adapters against the dedicated integration database. */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { PgExecutor } from './PgExecutor.js';
@@ -429,7 +430,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       expect(listMatch!.payload.email).toBe('jane.doe.updated@integration.com');
 
       // 5. Soft Delete
-      await entityRepo.softDelete(entityId, testUserId, 2);
+      await entityRepo.softDelete(entityId, testUserId, 2, '00000000-0000-0000-0000-000000000001');
       const deletedEntity = await entityRepo.findById(entityId);
       expect(deletedEntity).toBeNull();
     });

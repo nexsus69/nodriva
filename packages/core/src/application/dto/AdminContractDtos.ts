@@ -324,7 +324,8 @@ export interface ApiErrorResponse {
     | "INTERNAL_ERROR"
     | "UNKNOWN_ERROR"
     | "FIELD_ENCRYPTED_VALUES_EXIST"
-    | "FIELD_ENCRYPTION_DISABLED";
+    | "FIELD_ENCRYPTION_DISABLED"
+    | "RESOURCE_DELETE_RESTRICTED";
   message: string;
   /** Stable key used to render the message in the requested locale. */
   messageKey?: string;
@@ -334,4 +335,6 @@ export interface ApiErrorResponse {
   expectedRowVersion?: number;
   currentRowVersion?: number;
   details?: ApiErrorDetail[];
+  totalReferencerCount?: number;
+  referencers?: Array<{ type: string; id: string; name: string }>;
 }

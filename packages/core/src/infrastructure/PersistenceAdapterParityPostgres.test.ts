@@ -1,3 +1,4 @@
+/** Compares observable SQLite and PostgreSQL persistence behavior. */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import pg from 'pg';
 import type { NodeRepository } from '../application/ports/NodeRepository.js';
@@ -143,8 +144,8 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
     rowVersion: loadedAlpha?.rowVersion ?? 0,
   };
   const staleEntityUpdateError = await errorName(() => harness.entityRepository.update(updatedAlpha));
-  const staleEntityDeleteError = await errorName(() => harness.entityRepository.softDelete(ids.alphaEntity, ids.actor, 1));
-  await harness.entityRepository.softDelete(ids.alphaEntity, ids.actor, 2);
+  const staleEntityDeleteError = await errorName(() => harness.entityRepository.softDelete(ids.alphaEntity, ids.actor, 1, ids.deleteBatch));
+  await harness.entityRepository.softDelete(ids.alphaEntity, ids.actor, 2, ids.deleteBatch);
   const deletedEntityVersion = (await harness.entityRepository.findDeletedById(ids.alphaEntity))?.rowVersion ?? 0;
   const deletedEntityVisibility = {
     admin: (await harness.entityRepository.listDeletedByScope(ids.actor)).map((entity) => entity.id).filter((id) => allEntityIds.includes(id)).sort(),

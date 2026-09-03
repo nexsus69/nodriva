@@ -110,6 +110,8 @@ export type {
 } from "./application/ports/BackupStatusPort.js";
 export { ServiceHealthCheckService } from "./application/services/ServiceHealthCheckService.js";
 export { ResourceRelationshipService } from "./application/services/ResourceRelationshipService.js";
+export { ResourceDeletionPolicyService } from "./application/services/ResourceDeletionPolicyService.js";
+export { ResourceDeleteRestrictedError } from "./domain/errors/ResourceRelationshipErrors.js";
 export { ResourceRelationshipMutationService } from "./application/services/ResourceRelationshipMutationService.js";
 export { RelationshipMutationImpactPolicy } from "./domain/policies/RelationshipMutationImpactPolicy.js";
 export { RelationshipMutationPlanner } from "./application/services/RelationshipMutationPlanner.js";

@@ -349,6 +349,8 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       position INTEGER NOT NULL CHECK (position >= 0),
       source_cardinality TEXT NOT NULL CHECK (source_cardinality IN ('one', 'many')),
       target_is_unique INTEGER NOT NULL DEFAULT 0,
+      suspended_at TEXT,
+      suspension_deletion_batch_id TEXT,
       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       PRIMARY KEY (source_field_id, source_domain, source_resource_id, target_domain, target_resource_id)
@@ -458,6 +460,15 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
   }
   if (!database.hasColumn('entity_types', 'placement_policy_id')) database.exec('ALTER TABLE entity_types ADD COLUMN placement_policy_id TEXT');
   if (!database.hasColumn('audit_logs', 'resource_label')) database.exec('ALTER TABLE audit_logs ADD COLUMN resource_label TEXT');
+  if (!database.hasColumn('resource_relationships', 'suspended_at')) database.exec('ALTER TABLE resource_relationships ADD COLUMN suspended_at TEXT');
+  if (!database.hasColumn('resource_relationships', 'suspension_deletion_batch_id')) database.exec('ALTER TABLE resource_relationships ADD COLUMN suspension_deletion_batch_id TEXT');
+  database.exec('CREATE INDEX IF NOT EXISTS idx_sqlite_resource_relationships_suspension_batch ON resource_relationships (suspension_deletion_batch_id) WHERE suspended_at IS NOT NULL');
+  database.exec('DROP INDEX IF EXISTS uq_sqlite_resource_relationships_source_one');
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_resource_relationships_source_one ON resource_relationships (source_field_id, source_domain, source_resource_id) WHERE source_cardinality='one' AND suspended_at IS NULL");
+  database.exec('DROP INDEX IF EXISTS uq_sqlite_resource_relationships_target_one');
+  database.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_sqlite_resource_relationships_target_one ON resource_relationships (source_field_id, target_domain, target_resource_id) WHERE target_is_unique=1 AND suspended_at IS NULL');
+  database.exec('CREATE INDEX IF NOT EXISTS idx_sqlite_resource_relationships_active_outgoing ON resource_relationships (source_domain, source_resource_id, source_field_id, position) WHERE suspended_at IS NULL');
+  database.exec('CREATE INDEX IF NOT EXISTS idx_sqlite_resource_relationships_active_incoming ON resource_relationships (target_domain, target_resource_id, source_field_id, position) WHERE suspended_at IS NULL');
 
   database.exec(`
     UPDATE node_type_fields

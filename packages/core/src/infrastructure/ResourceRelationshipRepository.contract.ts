@@ -65,5 +65,28 @@ export function resourceRelationshipRepositoryContract(
         targetIsUnique: false,
       })).rejects.toThrow('single-valued relationship');
     });
+
+    it('suspends outgoing edges and restores them without changing the full-history read', async () => {
+      const repository = await createRepository();
+      const source = { domain: 'entity' as const, resourceId: '22222222-2222-4222-8222-222222222222' };
+      await repository.replaceValues({
+        sourceFieldId: '11111111-1111-4111-8111-111111111111', sourceDomain: source.domain, sourceResourceId: source.resourceId,
+        targetDomain: 'entity', targetResourceIds: ['33333333-3333-4333-8333-333333333333'], sourceCardinality: 'one', targetIsUnique: false,
+      });
+      await repository.suspendActiveOutgoingForSources([source], '00000000-0000-0000-0000-000000000001');
+      await expect(repository.listActiveOutgoing(source.domain, source.resourceId)).resolves.toEqual([]);
+      await expect(repository.listOutgoing(source.domain, source.resourceId)).resolves.toHaveLength(1);
+      await repository.restoreSuspendedOutgoingForSources([source], '00000000-0000-0000-0000-000000000001');
+      await expect(repository.listActiveOutgoing(source.domain, source.resourceId)).resolves.toHaveLength(1);
+    });
+
+    it('does not reactivate an edge suspended by a different deletion batch', async () => {
+      const repository = await createRepository();
+      const source = { domain: 'entity' as const, resourceId: '22222222-2222-4222-8222-222222222222' };
+      await repository.replaceValues({ sourceFieldId: '11111111-1111-4111-8111-111111111111', sourceDomain: source.domain, sourceResourceId: source.resourceId, targetDomain: 'entity', targetResourceIds: ['33333333-3333-4333-8333-333333333333'], sourceCardinality: 'one', targetIsUnique: false });
+      await repository.suspendActiveOutgoingForSources([source], '00000000-0000-0000-0000-000000000010');
+      await repository.restoreSuspendedOutgoingForSources([source], '00000000-0000-0000-0000-000000000011');
+      await expect(repository.listActiveOutgoing(source.domain, source.resourceId)).resolves.toEqual([]);
+    });
   });
 }

@@ -50,6 +50,7 @@ describe('NodeApplicationService', () => {
       assertSubtreeUnlocked: vi.fn(),
       getDeletionBatchId: vi.fn().mockResolvedValue(null),
       restoreSubtree: vi.fn().mockResolvedValue([]),
+      listActiveIds: vi.fn().mockResolvedValue([]),
     };
 
     mockNodeTypeRepository = {

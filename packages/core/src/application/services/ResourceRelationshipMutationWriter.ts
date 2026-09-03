@@ -53,7 +53,7 @@ export class ResourceRelationshipMutationWriter {
       throw new RowVersionMismatchError(item.expectedRowVersion, node.rowVersion);
     }
 
-    const currentPayload = await this.relationshipService.hydratePayload(
+    const currentPayload = await this.relationshipService.hydratePayloadForPersistence(
       'node', node.id, plan.intent.sourceTypeKey, node.payload,
     );
     const updated = node.update(node.name, node.description, plan.intent.actorUserId, {
@@ -91,7 +91,7 @@ export class ResourceRelationshipMutationWriter {
       throw new RowVersionMismatchError(item.expectedRowVersion, entity.rowVersion);
     }
 
-    const currentPayload = await this.relationshipService.hydratePayload(
+    const currentPayload = await this.relationshipService.hydratePayloadForPersistence(
       'entity', entity.id, plan.intent.sourceTypeKey, entity.payload,
     );
     const updated = entity.update(entity.name, entity.description, {

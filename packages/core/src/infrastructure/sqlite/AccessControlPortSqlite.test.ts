@@ -1,3 +1,4 @@
+/** Exercises SQLite scoped ACL checks and batch read visibility. */
 import { describe, expect, it } from 'vitest';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
@@ -20,6 +21,7 @@ describe('AccessControlPortSqlite', () => {
     database.run('INSERT INTO node_scope_assignments VALUES (?,?,?,?,?,?)', ['deny', 'user', 'role', 'child', 'deny', 'self']);
     await expect(acl.assertCanReadNode('user', 'child')).rejects.toThrow('lacks permission');
     await expect(acl.assertCanReadNode('user', 'root')).resolves.toBeUndefined();
+    await expect(acl.listReadableResourceIds('user', 'node', ['child', 'root'])).resolves.toEqual(['root']);
     database.close();
   });
 });

@@ -1,3 +1,4 @@
+/** PostgreSQL persistence adapter for hierarchical node lifecycle operations. */
 import type { DeletedNodeSummary, NodeRepository } from '../../application/ports/NodeRepository.js';
 import { Node } from '../../domain/models/Node.js';
 import type { PgExecutor } from './PgExecutor.js';
@@ -26,6 +27,11 @@ interface NodeRow {
 
 export class NodeRepositoryPostgres implements NodeRepository {
   constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
+
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+    if (ids.length === 0) return [];
+    return (await this.executor.query<{ id: string; type: string; name: string }>('SELECT n.id, t.name AS type, n.name FROM nodes n JOIN node_types t ON t.id=n.node_type_id WHERE n.id=ANY($1::uuid[]) AND n.deleted_at IS NULL', [[...new Set(ids)]])).rows;
+  }
 
   async findById(id: string): Promise<Node | null> {
     const query = `
@@ -284,6 +290,12 @@ export class NodeRepositoryPostgres implements NodeRepository {
       [nodeId]
     );
     return this.restoreNodes(result.rows);
+  }
+
+  async listActiveIds(ids: readonly string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const result = await this.executor.query<{ id: string }>('SELECT id FROM nodes WHERE deleted_at IS NULL AND id = ANY($1::uuid[])', [[...new Set(ids)]]);
+    return result.rows.map((row) => row.id);
   }
 
   async existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean> {

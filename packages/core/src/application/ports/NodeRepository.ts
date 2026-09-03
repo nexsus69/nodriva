@@ -17,6 +17,7 @@ export interface DeletedNodeSummary {
 }
 
 export interface NodeRepository {
+  listActiveReferenceLabels?(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]>;
   findById(id: string): Promise<Node | null>;
   findDeletedById(id: string): Promise<Node | null>;
   listDeletedByScope(actorUserId: string, limit?: number, offset?: number): Promise<DeletedNodeSummary[]>;
@@ -28,6 +29,8 @@ export interface NodeRepository {
   update(node: Node): Promise<void>;
   moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void>;
   listSubtree(nodeId: string): Promise<Node[]>;
+  /** Batch active existence check used by relationship hydration. */
+  listActiveIds(ids: readonly string[]): Promise<string[]>;
   existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean>;
   /** Returns the active node itself followed by its ancestors, from nearest to root. */
   listAncestorIds(nodeId: string): Promise<string[]>;

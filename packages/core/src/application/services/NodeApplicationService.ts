@@ -13,6 +13,7 @@ import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { SchemaRegistry } from '../ports/SchemaRegistry.js';
 import type { NodePathPolicy } from '../../domain/policies/NodePathPolicy.js';
 import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
+import type { ResourceDeletionPolicyService } from './ResourceDeletionPolicyService.js';
 import { nodeAuditSnapshot } from './ResourceAuditSnapshot.js';
 import { createUserWorkflowEvent } from './WorkflowEventFactory.js';
 import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
@@ -38,6 +39,7 @@ export class NodeApplicationService {
     private readonly schemaRegistry?: SchemaRegistry,
     private readonly resourceRelationshipService?: ResourceRelationshipService,
     private readonly workflowEventPublisher?: WorkflowEventPublisher,
+    private readonly resourceDeletionPolicyService?: ResourceDeletionPolicyService,
   ) {}
 
   async createNode(cmd: CreateNodeCommand): Promise<Node> {
@@ -398,6 +400,10 @@ export class NodeApplicationService {
         await this.nodeRepository.assertSubtreeUnlocked(node.id, validatedCmd.actorUserId);
       }
       const batchId = this.idGenerator.generate();
+      const deletionResources = this.resourceDeletionPolicyService
+        ? await this.resourceDeletionPolicyService.resourcesForSubtree(node.id)
+        : [{ domain: 'node' as const, resourceId: node.id }];
+      await this.resourceDeletionPolicyService?.assertRestrictAndSuspend(validatedCmd.actorUserId, deletionResources, batchId);
       const affectedIds = await this.nodeRepository.softDeleteSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
       // A subtree delete is one user intention. Its descendants are persisted
       // consequences, not independent audit or workflow causes.
@@ -453,7 +459,14 @@ export class NodeApplicationService {
       }
       const batchId = await this.nodeRepository.getDeletionBatchId(node.id);
       if (!batchId) throw new ValidationError('The node has no subtree deletion batch.', { nodeId: ['Missing deletion batch.'] });
+      const restoreResources = this.resourceDeletionPolicyService
+        ? await this.resourceDeletionPolicyService.resourcesForDeletedBatch(batchId, [])
+        : [];
       const restoredIds = await this.nodeRepository.restoreSubtree(node.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, batchId);
+      const restoredResources = this.resourceDeletionPolicyService
+        ? [...restoreResources, ...restoredIds.map((resourceId) => ({ domain: 'node' as const, resourceId }))]
+        : restoredIds.map((resourceId) => ({ domain: 'node' as const, resourceId }));
+      await this.resourceDeletionPolicyService?.restoreOutgoing(restoredResources, batchId);
       await this.auditPort.record(
         validatedCmd.actorUserId,
         'node.restore',
@@ -486,7 +499,7 @@ export class NodeApplicationService {
     }
     if (this.nodeRepository.listReadableChildren) {
       const children = await this.nodeRepository.listReadableChildren(parentId, actorUserId);
-      return this.hydrateRelationshipNodes(children);
+      return this.hydrateRelationshipNodes(children, actorUserId);
     }
     const children = await this.nodeRepository.listChildren(parentId);
     const visibleChildren: Node[] = [];
@@ -498,13 +511,13 @@ export class NodeApplicationService {
         if (!(error instanceof ForbiddenError)) throw error;
       }
     }
-    return this.hydrateRelationshipNodes(visibleChildren);
+    return this.hydrateRelationshipNodes(visibleChildren, actorUserId);
   }
 
   async getNodeById(id: string, actorUserId: string): Promise<Node | null> {
     await this.accessControlPort.assertCanReadNode(actorUserId, id);
     const node = await this.nodeRepository.findById(id);
-    return node ? this.withHydratedRelationships(node) : null;
+    return node ? this.withHydratedRelationships(node, actorUserId) : null;
   }
 
   async listBreadcrumb(nodeId: string, actorUserId: string): Promise<Node[]> {
@@ -531,17 +544,17 @@ export class NodeApplicationService {
     return nearestFirst.reverse();
   }
 
-  private async hydrateRelationshipNodes(nodes: readonly Node[]): Promise<Node[]> {
+  private async hydrateRelationshipNodes(nodes: readonly Node[], actorUserId: string): Promise<Node[]> {
     if (!this.resourceRelationshipService) return [...nodes];
-    return Promise.all(nodes.map((node) => this.withHydratedRelationships(node)));
+    return Promise.all(nodes.map((node) => this.withHydratedRelationships(node, actorUserId)));
   }
 
-  private async withHydratedRelationships(node: Node): Promise<Node> {
+  private async withHydratedRelationships(node: Node, actorUserId: string): Promise<Node> {
     if (!this.resourceRelationshipService) return node;
     const nodeType = await this.nodeTypeRepository.findById(node.nodeTypeId);
     if (!nodeType) return node;
     const payload = await this.resourceRelationshipService.hydratePayload(
-      'node',
+      actorUserId, 'node',
       node.id,
       nodeType.typeKey,
       node.payload,

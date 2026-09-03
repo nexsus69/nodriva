@@ -11,6 +11,11 @@ interface EntityRow { id: string; entity_type_id: string; parent_node_id: string
 export class EntityRepositorySqlite implements EntityRepository {
   constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite) {}
 
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+    if (ids.length === 0) return [];
+    return this.database.all<{ id: string; type: string; name: string }>(`SELECT e.id,t.name AS type,e.name FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id IN (${ids.map(() => '?').join(',')}) AND e.deleted_at IS NULL`, [...new Set(ids)]);
+  }
+
   async findById(id: string): Promise<Entity | null> { return this.find(id, false); }
   async findDeletedById(id: string): Promise<Entity | null> { return this.find(id, true); }
 
@@ -19,6 +24,17 @@ export class EntityRepositorySqlite implements EntityRepository {
     if (limit !== undefined) { sql += ' LIMIT ?'; params.push(limit); }
     if (offset !== undefined) { sql += ' OFFSET ?'; params.push(offset); }
     return this.database.all<EntityRow>(sql, params).map((row) => this.map(row));
+  }
+  async listActiveIds(ids: readonly string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    return this.database.all<{ id: string }>(`SELECT id FROM entities WHERE deleted_at IS NULL AND id IN (${ids.map(() => '?').join(',')})`, [...new Set(ids)]).map((row) => row.id);
+  }
+  async listActiveIdsByNodeIds(parentNodeIds: readonly string[]): Promise<string[]> {
+    if (parentNodeIds.length === 0) return [];
+    return this.database.all<{ id: string }>(`SELECT id FROM entities WHERE deleted_at IS NULL AND parent_node_id IN (${parentNodeIds.map(() => '?').join(',')})`, [...new Set(parentNodeIds)]).map((row) => row.id);
+  }
+  async listDeletedIdsByBatch(deletionBatchId: string): Promise<string[]> {
+    return this.database.all<{ id: string }>('SELECT id FROM entities WHERE deleted_at IS NOT NULL AND deletion_batch_id=?', [deletionBatchId]).map((row) => row.id);
   }
 
   async create(entity: Entity): Promise<void> {
@@ -33,17 +49,18 @@ export class EntityRepositorySqlite implements EntityRepository {
     throw new RowVersionMismatchError(entity.rowVersion - 1, row.row_version);
   }
 
-  async softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
+  async softDelete(id: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<void> {
     const changedAt = new Date().toISOString();
-    const result = this.database.run('UPDATE entities SET deleted_at=?,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NULL', [changedAt, changedAt, actorUserId, id, expectedRowVersion]);
+    const result = this.database.run('UPDATE entities SET deleted_at=?,deletion_batch_id=?,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NULL', [changedAt, deletionBatchId, changedAt, actorUserId, id, expectedRowVersion]);
     if (result.changes > 0) return;
     const row = this.database.get<{ row_version: number; deleted_at: string | null }>('SELECT row_version,deleted_at FROM entities WHERE id=?', [id]);
     if (!row || row.deleted_at !== null) throw new EntityNotFoundError(id);
     throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
   }
+  async getDeletionBatchId(entityId: string): Promise<string | null> { return this.database.get<{ deletion_batch_id: string | null }>('SELECT deletion_batch_id FROM entities WHERE id=? AND deleted_at IS NOT NULL', [entityId])?.deletion_batch_id ?? null; }
 
   async restore(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
-    const result = this.database.run('UPDATE entities SET deleted_at=NULL,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NOT NULL', [new Date().toISOString(), actorUserId, id, expectedRowVersion]);
+    const result = this.database.run('UPDATE entities SET deleted_at=NULL,deletion_batch_id=NULL,row_version=row_version+1,updated_at=?,updated_by=? WHERE id=? AND row_version=? AND deleted_at IS NOT NULL', [new Date().toISOString(), actorUserId, id, expectedRowVersion]);
     if (result.changes > 0) return;
     const row = this.database.get<{ row_version: number; deleted_at: string | null }>('SELECT row_version,deleted_at FROM entities WHERE id=?', [id]);
     if (!row || row.deleted_at === null) throw new EntityNotFoundError(id);

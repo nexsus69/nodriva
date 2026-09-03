@@ -38,6 +38,36 @@ Existing fields migrate with source cardinality `one`, target uniqueness
 `false`, and deletion policy `restrict`. Their observable form value remains a
 single resource identifier until a field is deliberately changed to `many`.
 
+## Deletion and restore contract
+
+`restrict` is enforced by `ResourceDeletionPolicyService` in the same
+transaction as every soft delete. A deletion set includes an entity itself or,
+for a node subtree, every node and contained entity deleted by the batch.
+Only active incoming edges whose source is outside that set block deletion;
+internal subtree references do not. Outgoing edges are retained with
+`suspended_at` set (`NULL` means active), then reactivated on restore.
+Each suspension additionally retains its `suspension_deletion_batch_id`; restore
+reactivates only edges marked by the batch being restored, preserving older or
+independently suspended edges.
+
+The stable rejection is `RESOURCE_DELETE_RESTRICTED` with resource identity,
+`totalReferencerCount`, and `referencers`. The count covers every external
+active edge; `referencers` contains only batch-resolved domain, id, type and
+name values readable by the actor, so hidden references are counted but never
+disclosed. Read-model hydration receives the actor, reads active
+edges only, batch-excludes soft-deleted targets and batch-filters the remaining
+node (`node.read`) and entity (`entity.read` on its parent node) targets. The
+internal persistence projection remains intentionally unfiltered so an update
+to an unrelated field cannot erase a hidden canonical edge.
+
+### Relationship lock order
+
+Every multi-resource relationship lock uses the total order `(domain, id)`,
+ascending lexicographically (`entity` before `node`, then UUID text). PostgreSQL
+queries retain this order with `ORDER BY id` before `FOR UPDATE` or `FOR KEY
+SHARE`; SQLite applies the same normalization although its standalone
+transaction serializes writers.
+
 ## Canonical data and compatibility
 
 `resource_relationships` is the canonical relationship store. A row is an

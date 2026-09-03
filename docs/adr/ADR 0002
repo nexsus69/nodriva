@@ -1,0 +1,1 @@
+ADR 0002 — token di recupero: un solo token attivo per (utente, scopo), consume-on-use, consegna via outbox transazionale con worker e retry, rate limiting.

@@ -1,7 +1,11 @@
+import type { TypeDomain } from '../dto/TypeFieldDefinition.js';
+
 export interface AccessControlPort {
   assertCanCreateNode(actorUserId: string, parentNodeId: string | null, nodeTypeKey: string): Promise<void>;
   assertCanMoveNode(actorUserId: string, nodeId: string, newParentId: string | null): Promise<void>;
   assertCanReadNode(actorUserId: string, nodeId: string | null): Promise<void>;
+  /** Returns only active resources visible through their domain-specific read permission. */
+  listReadableResourceIds?(actorUserId: string, domain: TypeDomain, resourceIds: readonly string[]): Promise<string[]>;
   assertCanCreateEntity(actorUserId: string, parentNodeId: string, entityTypeKey: string): Promise<void>;
   assertCanEditEntity(actorUserId: string, entityId: string): Promise<void>;
   assertCanDeleteEntity(actorUserId: string, entityId: string): Promise<void>;

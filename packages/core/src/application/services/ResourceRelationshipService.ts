@@ -59,6 +59,10 @@ export class ResourceRelationshipService {
         );
       }
 
+      // The adapter holds a compatible database lock (PostgreSQL) or the
+      // standalone write transaction (SQLite) until replaceValues completes.
+      await this.relationshipRepository.assertTargetsActive(field.relationTarget.resourceType, targetIds);
+
       await this.relationshipRepository.replaceValues({
         sourceFieldId: field.id,
         sourceDomain: input.sourceDomain,
@@ -90,6 +94,27 @@ export class ResourceRelationshipService {
 
   /** Rehydrates relation values from canonical edges for an authorized resource read. */
   async hydratePayload(
+    actorUserId: string,
+    sourceDomain: TypeDomain,
+    sourceResourceId: string,
+    sourceTypeKey: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<Record<string, unknown>> {
+    return this.hydratePayloadInternal(actorUserId, sourceDomain, sourceResourceId, sourceTypeKey, payload);
+  }
+
+  /** Internal lifecycle projection: retains every active target and must never feed a user read model. */
+  async hydratePayloadForPersistence(
+    sourceDomain: TypeDomain,
+    sourceResourceId: string,
+    sourceTypeKey: string,
+    payload: Readonly<Record<string, unknown>>,
+  ): Promise<Record<string, unknown>> {
+    return this.hydratePayloadInternal(undefined, sourceDomain, sourceResourceId, sourceTypeKey, payload);
+  }
+
+  private async hydratePayloadInternal(
+    actorUserId: string | undefined,
     sourceDomain: TypeDomain,
     sourceResourceId: string,
     sourceTypeKey: string,
@@ -98,9 +123,22 @@ export class ResourceRelationshipService {
     const definition = await this.typeDefinitionReader.readDefinition(sourceDomain, sourceTypeKey);
     if (!definition) return { ...payload };
 
-    const edges = await this.relationshipRepository.listOutgoing(sourceDomain, sourceResourceId);
+    const edges = await this.relationshipRepository.listActiveOutgoing(sourceDomain, sourceResourceId);
+    const [activeNodeIds, activeEntityIds] = await Promise.all([
+      this.nodeRepository.listActiveIds(edges.filter((edge) => edge.targetDomain === 'node').map((edge) => edge.targetResourceId)),
+      this.entityRepository.listActiveIds(edges.filter((edge) => edge.targetDomain === 'entity').map((edge) => edge.targetResourceId)),
+    ]);
+    const resolver = this.accessControlPort.listReadableResourceIds;
+    const [readableNodeIds, readableEntityIds] = actorUserId && resolver
+      ? await Promise.all([
+        resolver.call(this.accessControlPort, actorUserId, 'node', activeNodeIds),
+        resolver.call(this.accessControlPort, actorUserId, 'entity', activeEntityIds),
+      ])
+      : actorUserId ? [[], []] : [activeNodeIds, activeEntityIds];
+    const activeTargetIds = new Set([...readableNodeIds, ...readableEntityIds]);
     const edgesByField = new Map<string, string[]>();
     for (const edge of edges) {
+      if (!activeTargetIds.has(edge.targetResourceId)) continue;
       const values = edgesByField.get(edge.sourceFieldId) ?? [];
       values.push(edge.targetResourceId);
       edgesByField.set(edge.sourceFieldId, values);

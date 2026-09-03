@@ -1,0 +1,1 @@
+ADR 0001 — policy di cancellazione degli edge: restrict puro con errore che elenca i referenzianti, edge sospesi e riattivati al restore, filtro in idratazione, controllo nella transazione del soft delete.

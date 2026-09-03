@@ -1,4 +1,5 @@
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { PgExecutor } from './PgExecutor.js';
 
@@ -111,6 +112,27 @@ export class AccessControlPortPostgres implements AccessControlPort {
         { actorUserId, nodeId }
       );
     }
+  }
+
+  async listReadableResourceIds(actorUserId: string, domain: TypeDomain, resourceIds: readonly string[]): Promise<string[]> {
+    const ids = [...new Set(resourceIds)];
+    if (ids.length === 0) return [];
+    if (domain === 'node') {
+      const result = await this.executor.query<{ id: string }>(
+        `SELECT n.id FROM nodes n
+         WHERE n.id = ANY($2::uuid[]) AND n.deleted_at IS NULL
+           AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.read')}`,
+        [actorUserId, ids],
+      );
+      return result.rows.map((row) => row.id);
+    }
+    const result = await this.executor.query<{ id: string }>(
+      `SELECT e.id FROM entities e JOIN nodes n ON n.id=e.parent_node_id
+       WHERE e.id = ANY($2::uuid[]) AND e.deleted_at IS NULL AND n.deleted_at IS NULL
+         AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'entity.read')}`,
+      [actorUserId, ids],
+    );
+    return result.rows.map((row) => row.id);
   }
 
   async assertCanCreateEntity(

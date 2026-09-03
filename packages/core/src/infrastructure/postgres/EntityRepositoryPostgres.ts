@@ -1,3 +1,4 @@
+/** PostgreSQL persistence adapter for entity lifecycle and batch lookup operations. */
 import type { DeletedEntitySummary, EntityRepository } from '../../application/ports/EntityRepository.js';
 import { Entity } from '../../domain/models/Entity.js';
 import type { PgExecutor } from './PgExecutor.js';
@@ -32,6 +33,11 @@ interface FieldMetaRow {
 
 export class EntityRepositoryPostgres implements EntityRepository {
   constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
+
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+    if (ids.length === 0) return [];
+    return (await this.executor.query<{ id: string; type: string; name: string }>('SELECT e.id, t.name AS type, e.name FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id=ANY($1::uuid[]) AND e.deleted_at IS NULL', [[...new Set(ids)]])).rows;
+  }
 
   private escapeIdentifier(id: string): string {
     return `"${id.replace(/"/g, '""')}"`;
@@ -130,6 +136,22 @@ export class EntityRepositoryPostgres implements EntityRepository {
     return new Entity(baseRow.id, baseRow.entity_type_id, baseRow.parent_node_id, baseRow.name, baseRow.description,
       baseRow.row_version, baseRow.created_at, baseRow.updated_at, baseRow.deleted_at, baseRow.created_by,
       baseRow.updated_by, restoredPayload);
+  }
+
+  async listActiveIds(ids: readonly string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    const result = await this.executor.query<{ id: string }>('SELECT id FROM entities WHERE deleted_at IS NULL AND id = ANY($1::uuid[])', [[...new Set(ids)]]);
+    return result.rows.map((row) => row.id);
+  }
+
+  async listActiveIdsByNodeIds(parentNodeIds: readonly string[]): Promise<string[]> {
+    if (parentNodeIds.length === 0) return [];
+    const result = await this.executor.query<{ id: string }>('SELECT id FROM entities WHERE deleted_at IS NULL AND parent_node_id = ANY($1::uuid[])', [[...new Set(parentNodeIds)]]);
+    return result.rows.map((row) => row.id);
+  }
+  async listDeletedIdsByBatch(deletionBatchId: string): Promise<string[]> {
+    const result = await this.executor.query<{ id: string }>('SELECT id FROM entities WHERE deleted_at IS NOT NULL AND deletion_batch_id=$1', [deletionBatchId]);
+    return result.rows.map((row) => row.id);
   }
 
   async listDeletedByScope(actorUserId: string, limit = 100, offset = 0): Promise<DeletedEntitySummary[]> {
@@ -257,13 +279,13 @@ export class EntityRepositoryPostgres implements EntityRepository {
     }
   }
 
-  async softDelete(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
+  async softDelete(id: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<void> {
     const query = `
       UPDATE entities
-      SET deleted_at = now(), row_version = row_version + 1, updated_at = now(), updated_by = $1
-      WHERE id = $2 AND row_version = $3 AND deleted_at IS NULL
+      SET deleted_at = now(), deletion_batch_id = $2, row_version = row_version + 1, updated_at = now(), updated_by = $1
+      WHERE id = $3 AND row_version = $4 AND deleted_at IS NULL
     `;
-    const result = await this.executor.query(query, [actorUserId, id, expectedRowVersion]);
+    const result = await this.executor.query(query, [actorUserId, deletionBatchId, id, expectedRowVersion]);
     if (result.rowCount === 0) {
       const current = await this.executor.query<{ row_version: number; deleted_at: Date | null }>(
         'SELECT row_version, deleted_at FROM entities WHERE id = $1', [id]
@@ -274,9 +296,14 @@ export class EntityRepositoryPostgres implements EntityRepository {
     }
   }
 
+  async getDeletionBatchId(entityId: string): Promise<string | null> {
+    const result = await this.executor.query<{ deletion_batch_id: string | null }>('SELECT deletion_batch_id FROM entities WHERE id=$1 AND deleted_at IS NOT NULL', [entityId]);
+    return result.rows[0]?.deletion_batch_id ?? null;
+  }
+
   async restore(id: string, actorUserId: string, expectedRowVersion: number): Promise<void> {
     const result = await this.executor.query(
-      `UPDATE entities SET deleted_at = NULL, row_version = row_version + 1, updated_at = now(), updated_by = $1
+      `UPDATE entities SET deleted_at = NULL, deletion_batch_id = NULL, row_version = row_version + 1, updated_at = now(), updated_by = $1
        WHERE id = $2 AND row_version = $3 AND deleted_at IS NOT NULL`,
       [actorUserId, id, expectedRowVersion],
     );

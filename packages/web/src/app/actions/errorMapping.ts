@@ -120,6 +120,13 @@ export function mapAppErrorToApiErrorResponse(error: unknown): ApiErrorResponse 
       return { code: 'LOCK_REQUIRED', message: 'È necessario acquisire il lock prima di modificare la risorsa.' };
     case 'CAPABILITY_DISABLED':
       return { code: 'CAPABILITY_DISABLED', message: 'Questa funzionalità è temporaneamente disabilitata.' };
+    case 'RESOURCE_DELETE_RESTRICTED':
+      return {
+        code: 'RESOURCE_DELETE_RESTRICTED',
+        message: 'Impossibile eliminare la risorsa perché possiede riferimenti attivi.',
+        totalReferencerCount: typeof details?.totalReferencerCount === 'number' ? details.totalReferencerCount : 0,
+        referencers: [],
+      };
     case 'DUPLICATE_PLACEMENT_POLICY_KEY':
       return { code: 'DUPLICATE_PLACEMENT_POLICY_KEY', message: 'La chiave della policy esiste già.', target: 'policyKey' };
     default:

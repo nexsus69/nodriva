@@ -1,3 +1,4 @@
+/** Verifies SQLite entity persistence lifecycle behavior. */
 import { describe, expect, it } from 'vitest';
 import { Entity } from '../../domain/models/Entity.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
@@ -16,7 +17,7 @@ describe('EntityRepositorySqlite', () => {
     await expect(repository.findById('entity')).resolves.toMatchObject({ payload: { score: 42, active: true } });
     await repository.update(entity.update('Changed', '', { score: 43 }, 'user'));
     await expect(repository.findById('entity')).resolves.toMatchObject({ rowVersion: 2, name: 'Changed', payload: { score: 43 } });
-    await repository.softDelete('entity', 'user', 2);
+    await repository.softDelete('entity', 'user', 2, '00000000-0000-0000-0000-000000000001');
     await expect(repository.findById('entity')).resolves.toBeNull();
     await repository.restore('entity', 'user', 3);
     await expect(repository.findById('entity')).resolves.not.toBeNull();

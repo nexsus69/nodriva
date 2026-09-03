@@ -62,10 +62,17 @@ function createService(field = relationshipField(), firstSourceDocuments: string
     listIncoming: vi.fn().mockResolvedValue([]),
     replaceValues: vi.fn(),
     removeForResource: vi.fn(),
+    listActiveOutgoing: vi.fn().mockResolvedValue([]),
+    listActiveIncomingForTargets: vi.fn().mockResolvedValue([]),
+    suspendActiveOutgoingForSources: vi.fn(),
+    restoreSuspendedOutgoingForSources: vi.fn(),
+    assertTargetsActive: vi.fn(),
+    lockActiveTargets: vi.fn(),
   };
   const relationshipService = {
     assertReadableTarget: vi.fn(),
     hydratePayload: vi.fn(async (_domain: string, resourceId: string) => entities.get(resourceId)?.payload ?? {}),
+    hydratePayloadForPersistence: vi.fn(async (_domain: string, resourceId: string) => entities.get(resourceId)?.payload ?? {}),
     synchronize: vi.fn(),
   };
   const entityRepository = {

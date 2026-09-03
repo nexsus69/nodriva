@@ -13,6 +13,7 @@ import type { RuntimeConfigurationPort } from '../ports/RuntimeConfigurationPort
 import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { ResourceRelationshipService } from './ResourceRelationshipService.js';
+import type { ResourceDeletionPolicyService } from './ResourceDeletionPolicyService.js';
 import { entityAuditSnapshot } from './ResourceAuditSnapshot.js';
 import { createUserWorkflowEvent } from './WorkflowEventFactory.js';
 import type { WorkflowEventPublisher } from '../ports/WorkflowEventPublisher.js';
@@ -53,6 +54,7 @@ export class EntityApplicationService {
     private readonly transactionPort: TransactionPort,
     private readonly resourceRelationshipService?: ResourceRelationshipService,
     private readonly workflowEventPublisher?: WorkflowEventPublisher,
+    private readonly resourceDeletionPolicyService?: ResourceDeletionPolicyService,
   ) {}
 
   async createEntity(cmd: CreateEntityCommand): Promise<Entity> {
@@ -339,7 +341,9 @@ export class EntityApplicationService {
       }
 
       // 5. Persistenza (Soft Delete)
-      await this.entityRepository.softDelete(entity.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion);
+      const deletionBatchId = this.idGenerator.generate();
+      await this.resourceDeletionPolicyService?.assertRestrictAndSuspend(validatedCmd.actorUserId, [{ domain: 'entity', resourceId: entity.id }], deletionBatchId);
+      await this.entityRepository.softDelete(entity.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion, deletionBatchId);
 
       // Creiamo l'entità nello stato eliminata per revisioni/audit
       const deletedEntity = new Entity(
@@ -387,7 +391,7 @@ export class EntityApplicationService {
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', entity.parentNodeId);
     const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
     if (!entityType || !this.resourceRelationshipService) return entity;
-    return this.withHydratedRelationships(entity, entityType.typeKey);
+    return this.withHydratedRelationships(entity, entityType.typeKey, actorUserId);
   }
 
   async listDeletedEntities(actorUserId: string, limit?: number, offset?: number) {
@@ -436,7 +440,10 @@ export class EntityApplicationService {
         });
       }
 
+      const deletionBatchId = await this.entityRepository.getDeletionBatchId(entity.id);
+      if (!deletionBatchId) throw new EntityCommandValidationError('The entity has no deletion batch.', { entityId: ['Missing deletion batch.'] });
       await this.entityRepository.restore(entity.id, validatedCmd.actorUserId, validatedCmd.expectedRowVersion);
+      await this.resourceDeletionPolicyService?.restoreOutgoing([{ domain: 'entity', resourceId: entity.id }], deletionBatchId);
       const restored = new Entity(
         entity.id, entity.entityTypeId, entity.parentNodeId, entity.name, entity.description,
         entity.rowVersion + 1, entity.createdAt, new Date(), null, entity.createdBy,
@@ -474,7 +481,7 @@ export class EntityApplicationService {
     if (!this.resourceRelationshipService) return entities;
     return Promise.all(entities.map(async (entity) => {
       const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
-      return entityType ? this.withHydratedRelationships(entity, entityType.typeKey) : entity;
+      return entityType ? this.withHydratedRelationships(entity, entityType.typeKey, actorUserId) : entity;
     }));
   }
 
@@ -490,9 +497,9 @@ export class EntityApplicationService {
     }));
   }
 
-  private async withHydratedRelationships(entity: Entity, typeKey: string): Promise<Entity> {
+  private async withHydratedRelationships(entity: Entity, typeKey: string, actorUserId: string): Promise<Entity> {
     const payload = await this.resourceRelationshipService!.hydratePayload(
-      'entity',
+      actorUserId, 'entity',
       entity.id,
       typeKey,
       entity.payload,

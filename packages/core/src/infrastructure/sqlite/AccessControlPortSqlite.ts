@@ -1,4 +1,6 @@
+/** Implements scoped access checks and batch read visibility for SQLite. */
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
+import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
@@ -8,6 +10,29 @@ export class AccessControlPortSqlite implements AccessControlPort {
   async assertCanCreateNode(user: string, parent: string | null, typeKey: string): Promise<void> { await this.assert(user, 'node.create', parent, { parentNodeId: parent, nodeTypeKey: typeKey }); }
   async assertCanMoveNode(user: string, node: string, parent: string | null): Promise<void> { await this.assert(user, 'node.move', node, { nodeId: node }); if (parent) await this.assert(user, 'node.create', parent, { newParentId: parent }); }
   async assertCanReadNode(user: string, node: string | null): Promise<void> { await this.assert(user, 'node.read', node, { nodeId: node }); }
+  async listReadableResourceIds(user: string, domain: TypeDomain, resourceIds: readonly string[]): Promise<string[]> {
+    const ids = [...new Set(resourceIds)];
+    if (ids.length === 0) return [];
+    const permission = domain === 'node' ? 'node.read' : 'entity.read';
+    const source = domain === 'node'
+      ? 'nodes resource JOIN nodes target ON target.id=resource.id'
+      : 'entities resource JOIN nodes target ON target.id=resource.parent_node_id';
+    return this.database.all<{ id: string }>(
+      `SELECT resource.id FROM ${source}
+       WHERE resource.id IN (${ids.map(() => '?').join(',')}) AND resource.deleted_at IS NULL AND target.deleted_at IS NULL
+         AND EXISTS (SELECT 1 FROM users actor WHERE actor.id=? AND actor.is_active=1 AND (
+           actor.is_super_admin=1 OR (
+             EXISTS (SELECT 1 FROM node_scope_assignments a JOIN role_permissions rp ON rp.role_id=a.role_id JOIN permissions p ON p.id=rp.permission_id
+               WHERE a.user_id=actor.id AND p.permission_key=? AND a.assignment_effect='allow' AND
+                 ((a.propagation='self' AND a.node_id=target.id) OR (a.propagation='subtree' AND EXISTS (SELECT 1 FROM node_hierarchy h WHERE h.ancestor_id=a.node_id AND h.descendant_id=target.id))))
+             AND NOT EXISTS (SELECT 1 FROM node_scope_assignments a JOIN role_permissions rp ON rp.role_id=a.role_id JOIN permissions p ON p.id=rp.permission_id
+               WHERE a.user_id=actor.id AND p.permission_key=? AND a.assignment_effect='deny' AND
+                 ((a.propagation='self' AND a.node_id=target.id) OR (a.propagation='subtree' AND EXISTS (SELECT 1 FROM node_hierarchy h WHERE h.ancestor_id=a.node_id AND h.descendant_id=target.id))))
+           )
+         ))`,
+      [...ids, user, permission, permission],
+    ).map((row) => row.id);
+  }
   async assertCanCreateEntity(user: string, parent: string, typeKey: string): Promise<void> { await this.assert(user, 'entity.create', parent, { parentNodeId: parent, entityTypeKey: typeKey }); }
   async assertCanEditEntity(user: string, entity: string): Promise<void> { await this.assertEntity(user, 'entity.edit', entity); }
   async assertCanDeleteEntity(user: string, entity: string): Promise<void> { await this.assertEntity(user, 'entity.delete', entity); }

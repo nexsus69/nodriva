@@ -1,0 +1,18 @@
+# ADR 0001 — policy di cancellazione degli edge
+
+La cancellazione soft di una risorsa con edge incoming attivi usa `restrict`:
+viene bloccata nella stessa transazione del soft delete. Gli edge la cui
+sorgente appartiene allo stesso set di cancellazione sono riferimenti interni
+e non bloccano; gli edge outgoing vengono invece sospesi, non eliminati.
+
+`suspended_at IS NULL` identifica un edge attivo. Al restore gli edge outgoing
+sospesi della risorsa o del batch vengono riattivati. L'idratazione usa solo
+edge attivi e ignora target soft-deleted.
+
+L'errore è `RESOURCE_DELETE_RESTRICTED`. Espone sempre
+`totalReferencerCount` e include in `referencers` solo tipo, id e nome dei
+referenzianti risolti in batch e leggibili dall'attore; i riferimenti non
+leggibili contribuiscono soltanto al conteggio totale.
+
+Gli edge multi-risorsa usano l'ordine totale `(domain ASC, resourceId ASC)`;
+`entity` precede `node`. PostgreSQL acquisisce i lock nello stesso ordine.

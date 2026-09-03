@@ -11,6 +11,11 @@ interface NodeRow { id: string; parent_id: string | null; path: string; path_lab
 export class NodeRepositorySqlite implements NodeRepository {
   constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite) {}
 
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+    if (ids.length === 0) return [];
+    return this.database.all<{ id: string; type: string; name: string }>(`SELECT n.id,t.name AS type,n.name FROM nodes n JOIN node_types t ON t.id=n.node_type_id WHERE n.id IN (${ids.map(() => '?').join(',')}) AND n.deleted_at IS NULL`, [...new Set(ids)]);
+  }
+
   async findById(id: string): Promise<Node | null> { return this.find(id, false); }
   async findDeletedById(id: string): Promise<Node | null> { return this.find(id, true); }
 
@@ -80,6 +85,11 @@ export class NodeRepositorySqlite implements NodeRepository {
 
   async listSubtree(nodeId: string): Promise<Node[]> {
     return this.database.all<NodeRow>('SELECT n.* FROM nodes n JOIN node_hierarchy h ON h.descendant_id=n.id WHERE h.ancestor_id=? AND n.deleted_at IS NULL ORDER BY h.depth ASC, n.path', [nodeId]).map((row) => this.map(row));
+  }
+
+  async listActiveIds(ids: readonly string[]): Promise<string[]> {
+    if (ids.length === 0) return [];
+    return this.database.all<{ id: string }>(`SELECT id FROM nodes WHERE deleted_at IS NULL AND id IN (${ids.map(() => '?').join(',')})`, [...new Set(ids)]).map((row) => row.id);
   }
 
   async existsByParentAndPathLabel(parentId: string | null, pathLabel: string): Promise<boolean> {

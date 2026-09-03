@@ -111,7 +111,7 @@ export class RelationshipMutationPlanner {
         field,
         source,
         node.rowVersion,
-        await this.relationshipService.hydratePayload('node', node.id, sourceType.typeKey, node.payload),
+        await this.relationshipService.hydratePayloadForPersistence('node', node.id, sourceType.typeKey, node.payload),
         intent,
       );
     }
@@ -132,7 +132,7 @@ export class RelationshipMutationPlanner {
       field,
       source,
       entity.rowVersion,
-      await this.relationshipService.hydratePayload('entity', entity.id, sourceType.typeKey, entity.payload),
+      await this.relationshipService.hydratePayloadForPersistence('entity', entity.id, sourceType.typeKey, entity.payload),
       intent,
     );
   }

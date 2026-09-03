@@ -69,6 +69,7 @@ import {
   ResourceRelationshipRepositoryPostgres,
   ResourceRelationshipDefinitionReaderPostgres,
   ResourceRelationshipService,
+  ResourceDeletionPolicyService,
   ResourceRelationshipMutationService,
   WorkflowRepositoryPostgres,
   WorkflowDefinitionService,
@@ -368,6 +369,7 @@ export const resourceRelationshipService = new ResourceRelationshipService(
   entityTypeRepository,
   accessControlPort,
 );
+export const resourceDeletionPolicyService = new ResourceDeletionPolicyService(resourceRelationshipRepository, nodeRepository, entityRepository, accessControlPort);
 
 export const lockService = new LockService(
   lockRepository,
@@ -393,6 +395,7 @@ export const nodeService = new NodeApplicationService(
   schemaRegistry,
   resourceRelationshipService,
   workflowEventProcessor,
+  resourceDeletionPolicyService,
 );
 
 export const entityService = new EntityApplicationService(
@@ -409,6 +412,7 @@ export const entityService = new EntityApplicationService(
   transactionPort,
   resourceRelationshipService,
   workflowEventProcessor,
+  resourceDeletionPolicyService,
 );
 
 export const resourceRelationshipMutationService = new ResourceRelationshipMutationService(
