@@ -1,8 +1,8 @@
 # Secret management con Infisical
 
 La release strutturata usa Infisical self-hosted come archivio centralizzato
-dei secret. L'istanza è separata dallo stack Dashboard e ascolta solo su
-`127.0.0.1:8080`; non viene esposta direttamente su Internet.
+dei secret. L'istanza è separata dallo stack Dashboard; binding, endpoint
+pubblico e porte sono dichiarati con le variabili `INFISICAL_*` del deployment.
 
 ## Bootstrap
 
@@ -25,10 +25,10 @@ dei secret. L'istanza è separata dallo stack Dashboard e ascolta solo su
 3. Creare il primo account amministratore tramite un tunnel SSH:
 
    ```bash
-   ssh -L 8080:127.0.0.1:8080 <host>
+   ssh -L "$INFISICAL_HOST_PORT:$INFISICAL_TUNNEL_HOST:$INFISICAL_PORT" <host>
    ```
 
-   e aprire `http://127.0.0.1:8080` sul computer dell'operatore.
+   e aprire `$INFISICAL_PUBLIC_URL` sul computer dell'operatore.
 4. Creare un progetto `dashboard-ultimate`, gli ambienti necessari e una
    machine identity con permessi minimi di sola lettura per il deploy.
 5. Conservare il token della machine identity fuori dal repository. Il token

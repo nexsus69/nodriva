@@ -7,8 +7,9 @@ services:
       POSTGRES_DB: dashboard
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    command: ["postgres", "-p", "${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}"]
     ports:
-      - "5433:5432" # Mappato sulla 5433 per evitare conflitti con l'altro DB sulla 5432
+      - "${DASHBOARD_DATABASE_BIND_ADDRESS:?DASHBOARD_DATABASE_BIND_ADDRESS must be set}:${DASHBOARD_DATABASE_HOST_PORT:?DASHBOARD_DATABASE_HOST_PORT must be set}:${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}"
     volumes:
       - dashboard_db_data:/var/lib/postgresql/data
 
@@ -18,11 +19,11 @@ services:
       context: ./docker/realtime-worker
     restart: unless-stopped
     environment:
-      REALTIME_DRAIN_URL: ${REALTIME_DRAIN_URL:-http://host.docker.internal:3000/api/internal/realtime/drain}
+      REALTIME_DRAIN_URL: ${REALTIME_DRAIN_URL:?REALTIME_DRAIN_URL must be set}
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
       REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "${DASHBOARD_HOST_GATEWAY_NAME:?DASHBOARD_HOST_GATEWAY_NAME must be set}:host-gateway"
 
   prometheus:
     profiles: ["monitoring"]
@@ -31,11 +32,11 @@ services:
     restart: unless-stopped
     environment:
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
-      REALTIME_METRICS_TARGET: ${REALTIME_METRICS_TARGET:-host.docker.internal:3000}
+      REALTIME_METRICS_TARGET: ${REALTIME_METRICS_TARGET:?REALTIME_METRICS_TARGET must be set}
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "${DASHBOARD_HOST_GATEWAY_NAME:?DASHBOARD_HOST_GATEWAY_NAME must be set}:host-gateway"
     ports:
-      - "9090:9090"
+      - "${DASHBOARD_METRICS_BIND_ADDRESS:?DASHBOARD_METRICS_BIND_ADDRESS must be set}:${PROMETHEUS_HOST_PORT:?PROMETHEUS_HOST_PORT must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}"
 
   clamav:
     profiles: ["antivirus"]
@@ -43,7 +44,7 @@ services:
     container_name: dashboard-clamav
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3310:3310"
+      - "${CLAMAV_BIND_ADDRESS:?CLAMAV_BIND_ADDRESS must be set}:${CLAMAV_HOST_PORT:?CLAMAV_HOST_PORT must be set}:${CLAMAV_PORT:?CLAMAV_PORT must be set}"
     volumes:
       - dashboard_clamav_db:/var/lib/clamav
     mem_limit: 4g

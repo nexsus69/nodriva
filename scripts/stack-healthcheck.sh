@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+DEPLOY_ENV_FILE="${DASHBOARD_DEPLOY_ENV_FILE:-.env.docker}"
+[[ -r "$DEPLOY_ENV_FILE" ]] || { printf 'ERROR: deployment environment file is not readable: %s\n' "$DEPLOY_ENV_FILE" >&2; exit 1; }
+set -a
+# shellcheck disable=SC1090
+. "$DEPLOY_ENV_FILE"
+set +a
+
 BASE_URL="${DASHBOARD_PUBLIC_URL:?DASHBOARD_PUBLIC_URL must be set}"
 COMPOSE_PROJECT="${DASHBOARD_COMPOSE_PROJECT:-dashboard_ultimate}"
 BACKUP_MAX_AGE_SECONDS="${BACKUP_MAX_AGE_SECONDS:-93600}"
@@ -70,7 +77,7 @@ if profile_enabled monitoring; then
 fi
 
 postgres_id="$(container_id_for postgres)"
-docker exec "$postgres_id" pg_isready -U postgres -d dashboard >/dev/null \
+docker exec "$postgres_id" pg_isready -p "${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}" -U postgres -d dashboard >/dev/null \
   || fail 'PostgreSQL is not accepting connections'
 
 if profile_enabled backup; then
@@ -90,9 +97,9 @@ fi
 
 if profile_enabled monitoring; then
   prometheus_id="$(container_id_for prometheus)"
-  docker exec "$prometheus_id" wget -q -O- http://127.0.0.1:9090/-/ready >/dev/null \
+  docker exec "$prometheus_id" wget -q -O- "http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/-/ready" >/dev/null \
     || fail 'Prometheus is not ready'
-  prometheus_targets="$(docker exec "$prometheus_id" wget -q -O- http://127.0.0.1:9090/api/v1/targets)" \
+  prometheus_targets="$(docker exec "$prometheus_id" wget -q -O- "http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/api/v1/targets")" \
     || fail 'Prometheus targets cannot be queried'
   [[ "$prometheus_targets" == *'"health":"up"'* && "$prometheus_targets" != *'"health":"down"'* ]] \
     || fail 'Prometheus has no healthy scrape target or reports a down target'

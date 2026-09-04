@@ -22,15 +22,12 @@ ClamAV, Prometheus o backup. Le capability corrispondenti risultano
 `disabled` oppure `unavailable` nel catalogo servizi; non sono un errore di
 bootstrap.
 
-## Porte
+## Endpoint e porte
 
-| Host | Destinazione | Uso |
-|---:|---:|---|
-| 80 | Caddy → Web | redirect/HTTP challenge |
-| 443 | Caddy → Web e, con `realtime`, Soketi | HTTPS e WebSocket realtime |
-| 9090 | Prometheus (`monitoring`) | metriche |
-
-PostgreSQL, ClamAV e i container interni non pubblicano porte sull’host.
+Nessun indirizzo o porta è incorporato nel profilo. Il deployment dichiara il
+binding esterno e la topologia interna tramite le variabili elencate sotto.
+PostgreSQL, ClamAV e i container interni non pubblicano endpoint esterni salvo
+configurazione esplicita del rispettivo profilo.
 
 ## Configurazione
 
@@ -47,6 +44,17 @@ FIELD_ENCRYPTION_KEY=...
 MFA_ENCRYPTION_KEY=...
 DASHBOARD_PUBLIC_URL=https://dashboard.example.com
 DASHBOARD_PUBLIC_HOST=dashboard.example.com
+DASHBOARD_BIND_ADDRESS=...
+DASHBOARD_WEB_BIND_ADDRESS=...
+DASHBOARD_POSTGRES_PORT=...
+DASHBOARD_WEB_PORT=...
+DASHBOARD_HTTP_PORT=...
+DASHBOARD_HTTPS_PORT=...
+SOKETI_PORT=...
+CLAMAV_PORT=...
+PROMETHEUS_PORT=...
+DASHBOARD_METRICS_BIND_ADDRESS=...
+CONTAINER_LOOPBACK_HOST=...
 ```
 
 I secret e gli endpoint delle integrazioni sono richiesti soltanto quando la
@@ -54,8 +62,8 @@ capability e il provider sono abilitati dal deployment:
 
 | Profilo | Configurazione Compose locale | Equivalente remoto/non-Docker |
 |---|---|---|
-| `realtime` | `NEXT_PUBLIC_REALTIME_ENABLED=true`, chiave pubblica Pusher, `PUSHER_SECRET`, `REALTIME_WORKER_SECRET`, `REALTIME_INTERNAL_HOST=soketi`, `REALTIME_INTERNAL_PORT=6001` e host pubblico browser | endpoint Pusher/Soketi gestito, worker come processo separato con gli stessi URL e secret |
-| `antivirus` | `CLAMAV_HOST=clamav`, `CLAMAV_PORT=3310`, `ATTACHMENTS_REQUIRE_SCAN=true` | daemon ClamAV remoto; senza daemon lasciare `CLAMAV_HOST` vuoto e la capability disabilitata |
+| `realtime` | `NEXT_PUBLIC_REALTIME_ENABLED=true`, chiave pubblica Pusher, `PUSHER_SECRET`, `REALTIME_WORKER_SECRET`, `REALTIME_INTERNAL_HOST=soketi`, `REALTIME_INTERNAL_PORT=$SOKETI_PORT` e host pubblico browser | endpoint Pusher/Soketi gestito, worker come processo separato con gli stessi URL e secret |
+| `antivirus` | `CLAMAV_HOST=clamav`, `CLAMAV_PORT=$CLAMAV_PORT`, `ATTACHMENTS_REQUIRE_SCAN=true` | daemon ClamAV remoto; senza daemon lasciare `CLAMAV_HOST` vuoto e la capability disabilitata |
 | `monitoring` | `PROMETHEUS_ENDPOINT` solo se l'endpoint deve comparire nel catalogo servizi | Prometheus/collector gestito che effettua scrape del Web |
 | `backup` | `BACKUP_ROOT=/backups/postgres`, `BACKUP_STATUS_FILE=/backups/postgres/last-status.json`, retention | job systemd/cron/orchestratore con storage protetto e manifest opzionalmente leggibile dal Web |
 
@@ -150,7 +158,7 @@ gestito da un Compose distinto ma condivide il project name Docker.
 Per replicare l’installazione su un’altra macchina occorre trasferire i
 volumi dati, i secret e verificare un restore prima di avviare il Web.
 Per impostazione predefinita anche applicazione, WebSocket e Prometheus sono
-vincolati a `127.0.0.1`.
+vincolati all'indirizzo dichiarato dal deployment.
 
 Con `monitoring`, Prometheus conserva le serie per 30 giorni
 (`PROMETHEUS_RETENTION_TIME`); il valore può essere modificato nel deployment.

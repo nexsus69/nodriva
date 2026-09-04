@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:17
     restart: unless-stopped
+    command: ["postgres", "-p", "${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}"]
     environment:
       POSTGRES_DB: dashboard
       POSTGRES_USER: postgres
@@ -10,7 +11,7 @@ services:
       - dashboard_full_db_data:/var/lib/postgresql/data
       - ./Specifiche/dashboard_v4_schema_corrected.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d dashboard"]
+      test: ["CMD-SHELL", "pg_isready -p ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set} -U postgres -d dashboard"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -24,6 +25,7 @@ services:
         condition: service_healthy
     environment:
       POSTGRES_HOST: postgres
+      PGPORT: ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       DASHBOARD_WEB_PASSWORD: ${DASHBOARD_WEB_PASSWORD:?DASHBOARD_WEB_PASSWORD must be set}
     volumes:
@@ -39,6 +41,7 @@ services:
         condition: service_completed_successfully
     environment:
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}
       POSTGRES_DB: dashboard
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
@@ -55,10 +58,11 @@ services:
       SOKETI_DEFAULT_APP_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
       SOKETI_DEFAULT_APP_SECRET: ${PUSHER_SECRET:-}
       SOKETI_DEFAULT_APP_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
+      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
     expose:
-      - "6001"
+      - "${SOKETI_PORT:?SOKETI_PORT must be set}"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:6001/ready >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${SOKETI_PORT:?SOKETI_PORT must be set}/ready >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -70,7 +74,7 @@ services:
       args:
         NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-false}
         NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
-        NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
+        NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-}
         NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-}
         NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-}
         NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-}
@@ -81,9 +85,11 @@ services:
       db-seed:
         condition: service_completed_successfully
     environment:
-      HOSTNAME: 0.0.0.0
+      HOSTNAME: ${DASHBOARD_WEB_BIND_ADDRESS:?DASHBOARD_WEB_BIND_ADDRESS must be set}
+      DASHBOARD_WEB_PORT: ${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
+      PORT: ${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
       DATABASE_ADAPTER: postgres
-      DATABASE_URL: postgresql://dashboard_web:${DASHBOARD_WEB_PASSWORD:?DASHBOARD_WEB_PASSWORD must be set}@postgres:5432/dashboard
+      DATABASE_URL: postgresql://dashboard_web:${DASHBOARD_WEB_PASSWORD:?DASHBOARD_WEB_PASSWORD must be set}@postgres:${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}/dashboard
       REQUIRE_RESTRICTED_DB_ROLE: "true"
       NEXTAUTH_URL: ${DASHBOARD_PUBLIC_URL:?DASHBOARD_PUBLIC_URL must be set}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must be set}
@@ -94,7 +100,7 @@ services:
       NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-false}
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
-      NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
+      NEXT_PUBLIC_PUSHER_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-}
       NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-}
       NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-}
       NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-}
@@ -118,9 +124,9 @@ services:
       - dashboard_full_attachments:/app/data/attachments
       - dashboard_full_backups:/backups:ro
     expose:
-      - "3000"
+      - "${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch(`http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:$${process.env.DASHBOARD_WEB_PORT}/login`).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -134,8 +140,8 @@ services:
       web:
         condition: service_healthy
     environment:
-      REALTIME_DRAIN_URL: http://web:3000/api/internal/realtime/drain
-      WORKFLOW_DRAIN_URL: http://web:3000/api/internal/workflows/drain
+      REALTIME_DRAIN_URL: http://web:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}/api/internal/realtime/drain
+      WORKFLOW_DRAIN_URL: http://web:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}/api/internal/workflows/drain
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
     restart: unless-stopped
@@ -147,11 +153,11 @@ services:
     volumes:
       - dashboard_full_clamav_db:/var/lib/clamav
     expose:
-      - "3310"
+      - "${CLAMAV_PORT:?CLAMAV_PORT must be set}"
     mem_limit: 4g
     mem_reservation: 3g
     healthcheck:
-      test: ["CMD-SHELL", "printf 'PING\\n' | nc -w 2 127.0.0.1 3310 | grep -q PONG"]
+      test: ["CMD-SHELL", "printf 'PING\\n' | nc -w 2 ${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set} ${CLAMAV_PORT:?CLAMAV_PORT must be set} | grep -q PONG"]
       interval: 30s
       timeout: 10s
       retries: 20
@@ -165,14 +171,15 @@ services:
         condition: service_healthy
     environment:
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
-      REALTIME_METRICS_TARGET: web:3000
+      REALTIME_METRICS_TARGET: web:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
+      PROMETHEUS_PORT: ${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}
       PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
     volumes:
       - dashboard_full_prometheus:/prometheus
     ports:
-      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:9090:9090"
+      - "${DASHBOARD_METRICS_BIND_ADDRESS:?DASHBOARD_METRICS_BIND_ADDRESS must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:9090/-/ready"]
+      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/-/ready"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -189,7 +196,7 @@ services:
     environment:
       BACKUP_DIRECT: "true"
       PGHOST: postgres
-      PGPORT: "5432"
+      PGPORT: ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}
       PGUSER: postgres
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
       PGDATABASE: dashboard
@@ -211,9 +218,13 @@ services:
         condition: service_healthy
     environment:
       DASHBOARD_PUBLIC_HOST: ${DASHBOARD_PUBLIC_HOST:?DASHBOARD_PUBLIC_HOST must be set}
+      DASHBOARD_HTTP_PORT: ${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}
+      DASHBOARD_HTTPS_PORT: ${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}
+      DASHBOARD_WEB_PORT: ${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
+      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
     ports:
-      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:80:80"
-      - "${DASHBOARD_BIND_ADDRESS:-127.0.0.1}:443:443"
+      - "${DASHBOARD_BIND_ADDRESS:?DASHBOARD_BIND_ADDRESS must be set}:${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}:${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}"
+      - "${DASHBOARD_BIND_ADDRESS:?DASHBOARD_BIND_ADDRESS must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}"
     volumes:
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
       - dashboard_full_caddy_data:/data

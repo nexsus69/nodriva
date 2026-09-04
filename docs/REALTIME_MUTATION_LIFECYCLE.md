@@ -114,9 +114,9 @@ effettua tale chiamata ogni cinque secondi e drena anche le azioni workflow
 registrate. Impostare lo stesso
 `REALTIME_WORKER_SECRET` nel processo Web e nel Compose. Nello stato attuale il
 worker è incluso nello stack completo; la sua separazione in un profilo Compose
-opzionale è ancora da implementare. Per sviluppo con Web sull'host, l'URL predefinito usa
-`host.docker.internal:3000`; in un deployment con Web containerizzato impostare
-`REALTIME_DRAIN_URL` al nome DNS interno del servizio Web.
+opzionale è ancora da implementare. Il deployment deve impostare
+`REALTIME_DRAIN_URL` al proprio endpoint del worker e, con Web containerizzato,
+al nome DNS interno del servizio Web e alla porta `DASHBOARD_WEB_PORT` configurata.
 
 La risoluzione degli antenati usa il repository PostgreSQL e `ltree`. Se fallisce,
 viene registrato l'errore e l'evento mantiene soltanto lo scope diretto: è una

@@ -6,10 +6,11 @@ services:
       POSTGRES_DB: infisical
       POSTGRES_USER: infisical
       POSTGRES_PASSWORD: ${INFISICAL_DB_PASSWORD:?INFISICAL_DB_PASSWORD must be set}
+    command: ["postgres", "-p", "${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set}"]
     volumes:
       - dashboard_infisical_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      test: ["CMD-SHELL", "pg_isready -p ${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set} -U infisical -d infisical"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -17,11 +18,11 @@ services:
   infisical-redis:
     image: redis:7.2-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--port", "${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set}"]
     volumes:
       - dashboard_infisical_redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -p ${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set} ping"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -37,13 +38,14 @@ services:
     environment:
       ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY must be set}
       AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET must be set}
-      DB_CONNECTION_URI: postgresql://infisical:${INFISICAL_DB_PASSWORD:?INFISICAL_DB_PASSWORD must be set}@infisical-db:5432/infisical
-      REDIS_URL: redis://infisical-redis:6379
-      SITE_URL: ${INFISICAL_SITE_URL:-http://127.0.0.1:8080}
+      DB_CONNECTION_URI: postgresql://infisical:${INFISICAL_DB_PASSWORD:?INFISICAL_DB_PASSWORD must be set}@infisical-db:${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set}/infisical
+      REDIS_URL: redis://infisical-redis:${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set}
+      SITE_URL: ${INFISICAL_PUBLIC_URL:?INFISICAL_PUBLIC_URL must be set}
+      PORT: ${INFISICAL_PORT:?INFISICAL_PORT must be set}
     ports:
-      - "127.0.0.1:8080:8080"
+      - "${INFISICAL_BIND_ADDRESS:?INFISICAL_BIND_ADDRESS must be set}:${INFISICAL_HOST_PORT:?INFISICAL_HOST_PORT must be set}:${INFISICAL_PORT:?INFISICAL_PORT must be set}"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:8080/api/status >/dev/null"]
+      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${INFISICAL_PORT:?INFISICAL_PORT must be set}/api/status >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 20
