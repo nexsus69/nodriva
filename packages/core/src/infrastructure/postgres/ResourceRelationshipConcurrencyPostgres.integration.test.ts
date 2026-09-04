@@ -87,12 +87,23 @@ integration('F-03 PostgreSQL concurrency', () => {
       await deleteRepo.lockActiveTargets([{ domain: 'node', resourceId: targetA }]);
       await creating.query("BEGIN; SET LOCAL lock_timeout='2s'; SET LOCAL statement_timeout='5s'");
       const createRepo = new ResourceRelationshipRepositoryPostgres({ query: creating.query.bind(creating) } as never);
-      const creation = createRepo.assertTargetsActive('node', [targetA]).then(async () => {
-        await createRepo.replaceValues({ sourceFieldId: fieldId, sourceDomain: 'node', sourceResourceId: sourceA, targetDomain: 'node', targetResourceIds: [targetA], sourceCardinality: 'one', targetIsUnique: false });
-      });
+      // Attach the rejection handler before releasing the deleting transaction:
+      // PostgreSQL is expected to reject only after that commit, but registering
+      // it immediately prevents a legitimate concurrent rejection from becoming
+      // an unhandled process-level promise rejection under Vitest.
+      const creationOutcome = createRepo.assertTargetsActive('node', [targetA])
+        .then(async () => {
+          await createRepo.replaceValues({ sourceFieldId: fieldId, sourceDomain: 'node', sourceResourceId: sourceA, targetDomain: 'node', targetResourceIds: [targetA], sourceCardinality: 'one', targetIsUnique: false });
+          return { created: true as const };
+        })
+        .catch((error: unknown) => ({ created: false as const, error }));
       await deleting.query('UPDATE nodes SET deleted_at=now() WHERE id=$1', [targetA]);
       await deleting.query('COMMIT');
-      await expect(creation).rejects.toThrow('Relationship target is deleted or unavailable');
+      const creation = await creationOutcome;
+      expect(creation).toMatchObject({ created: false });
+      if (creation.created) throw new Error('The concurrent relationship creation unexpectedly succeeded.');
+      expect(creation.error).toBeInstanceOf(Error);
+      expect((creation.error as Error).message).toBe('Relationship target is deleted or unavailable.');
       await creating.query('ROLLBACK');
       expect((await pool.query('SELECT 1 FROM resource_relationships WHERE source_field_id=$1', [fieldId])).rowCount).toBe(0);
       expect((await pool.query('SELECT deleted_at FROM nodes WHERE id=$1', [targetA])).rows[0]?.deleted_at).not.toBeNull();

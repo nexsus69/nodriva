@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import pg from 'pg';
 
 const enabled = process.env.E2E_ADMIN_PARITY_RUN === 'true'
   && Boolean(process.env.E2E_SQLITE_BASE_URL)
@@ -304,8 +305,86 @@ async function exerciseInverseRelationReplacementReview(
   return true;
 }
 
-async function restoreAndAudit(adminPage: Page, baseUrl: string, entityName: string): Promise<{ restored: boolean; actions: string[] }> {
+/**
+ * F-03 restrict blocks deletion while a separately owned incoming edge exists.
+ * Remove that edge through its owner-facing inverse panel before continuing the
+ * canonical delete/restore lifecycle.
+ */
+async function removeIncomingRelationship(page: Page, sourceName: string): Promise<void> {
+  await page.getByRole('button', { name: /Remove link|Rimuovi collegamento/i }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: /Remove link|Rimuovi collegamento/i }).click();
+  await expect(page.getByRole('link', { name: new RegExp(sourceName) })).toHaveCount(0);
+}
+
+/**
+ * Traces the recycle-bin boundary without changing production behavior.
+ *
+ * The browser test has just received a successful delete response.  Before it
+ * tests the UI projection, verify the durable row and the repository's
+ * super-admin visibility predicate with the same authenticated administrator
+ * used by the page. This makes a failure unambiguous: persistence, ACL/query,
+ * or HTTP/client layer.
+ */
+async function assertPostgresRecycleProjection(entityName: string): Promise<void> {
+  const connectionString = process.env.E2E_POSTGRES_DATABASE_URL;
+  if (!connectionString) return;
+
+  const pool = new pg.Pool({ connectionString, max: 1 });
+  try {
+    const admin = await pool.query<{ id: string }>(
+      'SELECT id FROM users WHERE email = $1 AND is_active = true',
+      [process.env.E2E_ADMIN_EMAIL!],
+    );
+    const adminUserId = admin.rows[0]?.id;
+    if (!adminUserId) throw new Error('The canonical E2E administrator is not present in the PostgreSQL test database.');
+
+    const persisted = await pool.query<{
+      id: string;
+      deleted_at: Date | null;
+      deletion_batch_id: string | null;
+      row_version: number;
+    }>(
+      'SELECT id, deleted_at, deletion_batch_id, row_version FROM entities WHERE name = $1',
+      [entityName],
+    );
+    expect(persisted.rows).toHaveLength(1);
+    expect(persisted.rows[0]).toMatchObject({ deleted_at: expect.any(Date) });
+    expect(persisted.rows[0]?.deletion_batch_id).not.toBeNull();
+
+    // This is the listDeletedByScope visibility predicate for the fixture
+    // administrator.  The fixture is an active super-admin, so its branch of
+    // AccessControlPortPostgres is the explicit users.is_super_admin check;
+    // querying it here avoids loading the Core barrel (which includes the
+    // SQLite ESM adapter and cannot be required by Playwright's CJS runner).
+    const projected = await pool.query<{ id: string }>(
+      `SELECT e.id
+       FROM entities e
+       JOIN nodes n ON n.id = e.parent_node_id
+       JOIN users u ON u.id = $1
+       WHERE e.id = $2
+         AND e.deleted_at IS NOT NULL
+         AND u.is_active = true
+         AND u.is_super_admin = true`,
+      [adminUserId, persisted.rows[0]?.id],
+    );
+    expect(projected.rows).toHaveLength(1);
+  } finally {
+    await pool.end();
+  }
+}
+
+async function restoreAndAudit(
+  adminPage: Page,
+  baseUrl: string,
+  entityName: string,
+  adapter: string,
+): Promise<{ restored: boolean; actions: string[] }> {
+  if (adapter === 'postgres') await assertPostgresRecycleProjection(entityName);
   await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
+  // Browser parity deliberately disables realtime. A full reload clears an
+  // in-flight client read from the already-open admin session before it
+  // observes the mutation made by the separate operator session.
+  await adminPage.reload();
   const deletedItem = adminPage.getByRole('row').filter({ hasText: entityName });
   await expect(deletedItem).toBeVisible();
   await deletedItem.getByRole('button', { name: /Azioni|Actions/i }).click();
@@ -401,9 +480,14 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
     await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
     await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
+    await expect(firstOperatorPage.getByText('Impossibile eliminare la risorsa perché possiede riferimenti attivi.')).toBeVisible();
+    await removeIncomingRelationship(firstOperatorPage, names.thirdEntityName);
+    await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
+    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
+    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${childNodeId}`);
 
-    const lifecycle = await restoreAndAudit(adminPage, baseUrl, names.secondEntityName);
+    const lifecycle = await restoreAndAudit(adminPage, baseUrl, names.secondEntityName, adapter);
     await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
     await firstOperatorPage.locator('h1').getByRole('button', { name: `Azioni per ${names.childName}` }).click();
     await firstOperatorPage.getByRole('menuitem', { name: 'Elimina nodo' }).click();
@@ -412,6 +496,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
 
     await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
+    await adminPage.reload();
     const subtreeOperation = adminPage.getByRole('row').filter({ hasText: names.childName });
     await expect(subtreeOperation).toContainText('Nodo e contenuto');
     await expect(adminPage.getByText(names.firstEntityName, { exact: true })).toHaveCount(0);

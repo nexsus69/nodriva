@@ -45,6 +45,7 @@ export interface DeletedEntityListItem {
   deletedAt: string;
   updatedBy: string | null;
   deletionBatchId: string | null;
+  isSubtreeDeletionDescendant: boolean;
 }
 
 export interface DeletedNodeListItem {

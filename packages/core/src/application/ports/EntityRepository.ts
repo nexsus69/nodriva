@@ -13,6 +13,8 @@ export interface DeletedEntitySummary {
   deletedAt: Date;
   /** Non-null only when this entity was deleted as a consequence of a node subtree deletion. */
   deletionBatchId: string | null;
+  /** True when a deleted node subtree owns this entity's deletion batch. */
+  isSubtreeDeletionDescendant: boolean;
   updatedBy: string | null;
 }
 

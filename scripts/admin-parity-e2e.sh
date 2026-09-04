@@ -149,9 +149,13 @@ if [[ -z "${CHROME_BIN:-}" ]]; then
   unset CHROME_BIN
 fi
 
+# Exposed only to the Playwright process. The URL targets the isolated
+# dashboard_admin_e2e_test database created above and lets diagnostic E2E
+# assertions distinguish an HTTP/UI projection problem from persistence.
 E2E_ADMIN_PARITY_RUN=true \
 E2E_SQLITE_BASE_URL="http://127.0.0.1:3101" \
 E2E_POSTGRES_BASE_URL="http://127.0.0.1:3102" \
+E2E_POSTGRES_DATABASE_URL="${postgres_admin_url}" \
 E2E_ADMIN_EMAIL="${admin_email}" \
 E2E_ADMIN_PASSWORD="${admin_password}" \
 bash -c 'read -r -a specs <<< "${PARITY_E2E_SPECS:-e2e/admin-adapter-parity.spec.ts}"; exec pnpm exec playwright test --workers=1 "${specs[@]}"'

@@ -33,7 +33,7 @@ export function toRecycleOperations(
       affectedEntityCount: node.affectedEntityCount,
     }));
   const entityOperations = entities
-    .filter((entity) => entity.deletionBatchId === null)
+    .filter((entity) => !entity.isSubtreeDeletionDescendant)
     .map((entity) => ({
       id: entity.id,
       kind: "entity" as const,
