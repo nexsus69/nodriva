@@ -18,7 +18,6 @@ require_command diff
 
 # Deliberately model the minimal deployment: optional integration variables
 # must not be needed merely to render the base Compose profile.
-unset COMPOSE_PROFILES
 unset NEXT_PUBLIC_REALTIME_ENABLED NEXT_PUBLIC_PUSHER_KEY NEXT_PUBLIC_PUSHER_CLUSTER
 unset NEXT_PUBLIC_PUSHER_HOST NEXT_PUBLIC_PUSHER_PORT NEXT_PUBLIC_PUSHER_SCHEME
 unset PUSHER_APP_ID PUSHER_SECRET REALTIME_WORKER_SECRET REALTIME_INTERNAL_HOST
@@ -41,11 +40,6 @@ export DASHBOARD_WEB_INTERNAL_HOST='web'
 export DASHBOARD_WEB_INTERNAL_SCHEME='http'
 export DASHBOARD_HTTP_PORT='18080'
 export DASHBOARD_HTTPS_PORT='18443'
-export SOKETI_PORT='16001'
-export SOKETI_HOST='soketi'
-export SOKETI_SCHEME='http'
-export CLAMAV_PORT='13310'
-export CLAMAV_HOST='clamav'
 export PROMETHEUS_PORT='19090'
 export CONTAINER_LOOPBACK_HOST='localhost'
 export ATTACHMENTS_ENCRYPTION_KEY='1111111111111111111111111111111111111111111111111111111111111111'
@@ -64,7 +58,6 @@ if printf '%s\n' "$web_block" | grep -Eq '^[[:space:]]+(soketi|clamav):'; then
   fail 'web must not depend on an optional Compose service'
 fi
 
-export COMPOSE_PROFILES='realtime,antivirus,monitoring,backup'
 export NEXT_PUBLIC_REALTIME_ENABLED='true'
 export NEXT_PUBLIC_PUSHER_KEY='compose-contract-public-key'
 export NEXT_PUBLIC_PUSHER_CLUSTER='mt1'
@@ -77,15 +70,29 @@ export REALTIME_WORKER_SECRET='compose-contract-worker-secret'
 export REALTIME_INTERNAL_HOST='soketi'
 export REALTIME_INTERNAL_PORT='6001'
 export REALTIME_INTERNAL_SCHEME='http'
+export SOKETI_HOST='soketi'
+export SOKETI_PORT='6001'
 export CLAMAV_HOST='clamav'
 export CLAMAV_PORT='3310'
 export ATTACHMENTS_REQUIRE_SCAN='true'
 export BACKUP_ROOT='/backups/postgres'
 export BACKUP_STATUS_FILE='/backups/postgres/last-status.json'
 
+for overlay in realtime antivirus monitoring backup; do
+  docker compose -f "$compose_file" -f "${workspace_dir}/docker-compose.${overlay}.yml" config -q
+done
+
 full_services=$(
-  docker compose -f "$compose_file" config -q
-  docker compose -f "$compose_file" config --services | sort
+  docker compose -f "$compose_file" \
+    -f "${workspace_dir}/docker-compose.realtime.yml" \
+    -f "${workspace_dir}/docker-compose.antivirus.yml" \
+    -f "${workspace_dir}/docker-compose.monitoring.yml" \
+    -f "${workspace_dir}/docker-compose.backup.yml" config -q
+  docker compose -f "$compose_file" \
+    -f "${workspace_dir}/docker-compose.realtime.yml" \
+    -f "${workspace_dir}/docker-compose.antivirus.yml" \
+    -f "${workspace_dir}/docker-compose.monitoring.yml" \
+    -f "${workspace_dir}/docker-compose.backup.yml" config --services | sort
 )
 expected_full=$'backup\nclamav\ndb-migrate\ndb-seed\npostgres\nprometheus\nproxy\nrealtime-worker\nsoketi\nweb'
 diff -u <(printf '%s\n' "$expected_full") <(printf '%s\n' "$full_services")

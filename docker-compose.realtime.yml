@@ -1,0 +1,35 @@
+services:
+  soketi:
+    image: quay.io/soketi/soketi:1.6-16-alpine
+    restart: unless-stopped
+    environment:
+      SOKETI_DEFAULT_APP_ID: ${PUSHER_APP_ID:?PUSHER_APP_ID must be set}
+      SOKETI_DEFAULT_APP_KEY: ${NEXT_PUBLIC_PUSHER_KEY:?NEXT_PUBLIC_PUSHER_KEY must be set}
+      SOKETI_DEFAULT_APP_SECRET: ${PUSHER_SECRET:?PUSHER_SECRET must be set}
+      SOKETI_DEFAULT_APP_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
+      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
+    expose: ["${SOKETI_PORT:?SOKETI_PORT must be set}"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${SOKETI_PORT:?SOKETI_PORT must be set}/ready >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  web:
+    environment:
+      REALTIME_INTERNAL_HOST: ${REALTIME_INTERNAL_HOST:?REALTIME_INTERNAL_HOST must be set}
+      REALTIME_INTERNAL_PORT: ${REALTIME_INTERNAL_PORT:?REALTIME_INTERNAL_PORT must be set}
+      REALTIME_INTERNAL_SCHEME: ${REALTIME_INTERNAL_SCHEME:?REALTIME_INTERNAL_SCHEME must be set}
+  proxy:
+    environment:
+      SOKETI_HOST: ${SOKETI_HOST:?SOKETI_HOST must be set}
+      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
+    volumes:
+      - ./docker/proxy/Caddyfile.realtime:/etc/caddy/Caddyfile:ro
+  realtime-worker:
+    build: { context: ./docker/realtime-worker }
+    depends_on: { web: { condition: service_healthy } }
+    environment:
+      REALTIME_DRAIN_URL: ${DASHBOARD_WEB_INTERNAL_SCHEME:?}://${DASHBOARD_WEB_INTERNAL_HOST:?}:${DASHBOARD_WEB_PORT:?}/api/internal/realtime/drain
+      WORKFLOW_DRAIN_URL: ${DASHBOARD_WEB_INTERNAL_SCHEME:?}://${DASHBOARD_WEB_INTERNAL_HOST:?}:${DASHBOARD_WEB_PORT:?}/api/internal/workflows/drain
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+    restart: unless-stopped

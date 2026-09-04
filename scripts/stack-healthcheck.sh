@@ -11,7 +11,7 @@ set +a
 BASE_URL="${DASHBOARD_PUBLIC_URL:?DASHBOARD_PUBLIC_URL must be set}"
 COMPOSE_PROJECT="${DASHBOARD_COMPOSE_PROJECT:-dashboard_ultimate}"
 BACKUP_MAX_AGE_SECONDS="${BACKUP_MAX_AGE_SECONDS:-93600}"
-OPTIONAL_PROFILES="${DASHBOARD_COMPOSE_PROFILES:-${COMPOSE_PROFILES:-}}"
+OPTIONAL_INTEGRATIONS="${DASHBOARD_COMPOSE_INTEGRATIONS:-}"
 CORE_SERVICES=(postgres web proxy)
 
 fail() {
@@ -28,9 +28,9 @@ require_command curl
 require_command date
 [[ "$BACKUP_MAX_AGE_SECONDS" =~ ^[0-9]+$ ]] || fail 'BACKUP_MAX_AGE_SECONDS must be an integer'
 
-profile_enabled() {
-  local profile="$1"
-  [[ ",${OPTIONAL_PROFILES// /}," == *",${profile},"* ]]
+integration_enabled() {
+  local integration="$1"
+  [[ ",${OPTIONAL_INTEGRATIONS// /}," == *",${integration},"* ]]
 }
 
 container_id_for() {
@@ -62,17 +62,17 @@ for service in "${CORE_SERVICES[@]}"; do
   check_service "$service"
 done
 
-if profile_enabled realtime; then
+if integration_enabled realtime; then
   check_service soketi
   check_service realtime-worker
 fi
-if profile_enabled antivirus; then
+if integration_enabled antivirus; then
   check_service clamav
 fi
-if profile_enabled backup; then
+if integration_enabled backup; then
   check_service backup
 fi
-if profile_enabled monitoring; then
+if integration_enabled monitoring; then
   check_service prometheus
 fi
 
@@ -80,7 +80,7 @@ postgres_id="$(container_id_for postgres)"
 docker exec "$postgres_id" pg_isready -p "${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}" -U postgres -d dashboard >/dev/null \
   || fail 'PostgreSQL is not accepting connections'
 
-if profile_enabled backup; then
+if integration_enabled backup; then
   backup_id="$(container_id_for backup)"
   backup_status="$(docker exec "$backup_id" sh -c 'cat /backups/postgres/last-status.json' 2>/dev/null)" \
     || fail 'verified backup status is unavailable'
@@ -95,7 +95,7 @@ if profile_enabled backup; then
   printf '  %-16s %s (%ss old)\n' 'backup-restore' 'verified' "$backup_age_seconds"
 fi
 
-if profile_enabled monitoring; then
+if integration_enabled monitoring; then
   prometheus_id="$(container_id_for prometheus)"
   docker exec "$prometheus_id" wget -q -O- "http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/-/ready" >/dev/null \
     || fail 'Prometheus is not ready'

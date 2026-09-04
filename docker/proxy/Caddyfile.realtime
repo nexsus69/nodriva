@@ -1,0 +1,19 @@
+{
+  http_port {$DASHBOARD_HTTP_PORT}
+  https_port {$DASHBOARD_HTTPS_PORT}
+}
+
+{$DASHBOARD_PUBLIC_HOST} {
+  request_body {
+    max_size 26MB
+  }
+
+  @realtime path /app/*
+  handle @realtime {
+    reverse_proxy {$SOKETI_HOST}:{$SOKETI_PORT}
+  }
+
+  handle {
+    reverse_proxy {$DASHBOARD_WEB_INTERNAL_HOST}:{$DASHBOARD_WEB_PORT}
+  }
+}

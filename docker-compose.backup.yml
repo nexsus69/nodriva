@@ -1,0 +1,26 @@
+services:
+  backup:
+    image: postgres:17
+    depends_on:
+      postgres: { condition: service_healthy }
+      db-migrate: { condition: service_completed_successfully }
+    environment:
+      BACKUP_DIRECT: "true"
+      PGHOST: ${DASHBOARD_POSTGRES_HOST:?}
+      PGPORT: ${DASHBOARD_POSTGRES_PORT:?}
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      PGDATABASE: dashboard
+      POSTGRES_DATABASE: dashboard
+      POSTGRES_USER: postgres
+      BACKUP_ROOT: /backups/postgres
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - dashboard_full_backups:/backups
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["while true; do /scripts/postgres-backup-maintenance.sh; sleep 86400; done"]
+    restart: unless-stopped
+
+volumes:
+  dashboard_full_backups:

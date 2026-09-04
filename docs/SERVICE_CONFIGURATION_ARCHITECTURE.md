@@ -28,8 +28,9 @@ Attualmente:
 - lo storage allegati è locale al filesystem o al volume del container;
 - realtime e antivirus sono configurabili soprattutto tramite
   environment/Compose;
-- `docker-compose.full.yml` avvia il riferimento PostgreSQL di base; i profili
-  `realtime`, `antivirus`, `monitoring` e `backup` sono opzionali e non sono
+- `docker-compose.full.yml` avvia il riferimento PostgreSQL di base; gli overlay
+  `docker-compose.realtime.yml`, `docker-compose.antivirus.yml`,
+  `docker-compose.monitoring.yml` e `docker-compose.backup.yml` sono opzionali e non sono
   dipendenze di avvio del Web. Il file resta un esempio di sviluppo/staging,
   non un requisito architetturale dell'applicazione;
 - esistono il registry descrittivo, il resolver applicativo, il repository

@@ -49,24 +49,6 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
     restart: "no"
 
-  soketi:
-    profiles: ["realtime"]
-    image: quay.io/soketi/soketi:1.6-16-alpine
-    restart: unless-stopped
-    environment:
-      SOKETI_DEFAULT_APP_ID: ${PUSHER_APP_ID:-dashboard}
-      SOKETI_DEFAULT_APP_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
-      SOKETI_DEFAULT_APP_SECRET: ${PUSHER_SECRET:-}
-      SOKETI_DEFAULT_APP_CLUSTER: ${NEXT_PUBLIC_PUSHER_CLUSTER:-mt1}
-      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
-    expose:
-      - "${SOKETI_PORT:?SOKETI_PORT must be set}"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${SOKETI_PORT:?SOKETI_PORT must be set}/ready >/dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
   web:
     build:
       context: .
@@ -96,7 +78,10 @@ services:
       NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-marco123@test.com}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
-      # Optional integrations are disabled unless their deployment settings are provided.
+      # Application integration settings are intentionally independent from the
+      # Compose topology below.  A deployment may use remote providers, or no
+      # provider at all; never infer an application endpoint from a local
+      # container name.
       NEXT_PUBLIC_REALTIME_ENABLED: ${NEXT_PUBLIC_REALTIME_ENABLED:-false}
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       NEXT_PUBLIC_PUSHER_KEY: ${NEXT_PUBLIC_PUSHER_KEY:-}
@@ -104,13 +89,13 @@ services:
       NEXT_PUBLIC_PUSHER_HOST: ${NEXT_PUBLIC_PUSHER_HOST:-}
       NEXT_PUBLIC_PUSHER_PORT: ${NEXT_PUBLIC_PUSHER_PORT:-}
       NEXT_PUBLIC_PUSHER_SCHEME: ${NEXT_PUBLIC_PUSHER_SCHEME:-}
-      REALTIME_INTERNAL_HOST: ${SOKETI_HOST:?SOKETI_HOST must be set}
-      REALTIME_INTERNAL_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
-      REALTIME_INTERNAL_SCHEME: ${SOKETI_SCHEME:?SOKETI_SCHEME must be set}
+      REALTIME_INTERNAL_HOST: ${REALTIME_INTERNAL_HOST:-}
+      REALTIME_INTERNAL_PORT: ${REALTIME_INTERNAL_PORT:-}
+      REALTIME_INTERNAL_SCHEME: ${REALTIME_INTERNAL_SCHEME:-}
       PUSHER_APP_ID: ${PUSHER_APP_ID:-dashboard}
       PUSHER_SECRET: ${PUSHER_SECRET:-}
-      CLAMAV_HOST: ${CLAMAV_HOST:?CLAMAV_HOST must be set}
-      CLAMAV_PORT: ${CLAMAV_PORT:?CLAMAV_PORT must be set}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_PORT: ${CLAMAV_PORT:-}
       ATTACHMENTS_REQUIRE_SCAN: ${ATTACHMENTS_REQUIRE_SCAN:-false}
       ATTACHMENTS_ROOT: /app/data/attachments
       ATTACHMENTS_REQUIRE_ENCRYPTION: "true"
@@ -132,85 +117,6 @@ services:
       retries: 20
     restart: unless-stopped
 
-  realtime-worker:
-    profiles: ["realtime"]
-    build:
-      context: ./docker/realtime-worker
-    depends_on:
-      web:
-        condition: service_healthy
-    environment:
-      REALTIME_DRAIN_URL: ${DASHBOARD_WEB_INTERNAL_SCHEME:?DASHBOARD_WEB_INTERNAL_SCHEME must be set}://${DASHBOARD_WEB_INTERNAL_HOST:?DASHBOARD_WEB_INTERNAL_HOST must be set}:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}/api/internal/realtime/drain
-      WORKFLOW_DRAIN_URL: ${DASHBOARD_WEB_INTERNAL_SCHEME:?DASHBOARD_WEB_INTERNAL_SCHEME must be set}://${DASHBOARD_WEB_INTERNAL_HOST:?DASHBOARD_WEB_INTERNAL_HOST must be set}:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}/api/internal/workflows/drain
-      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
-      REALTIME_WORKER_INTERVAL_SECONDS: ${REALTIME_WORKER_INTERVAL_SECONDS:-5}
-    restart: unless-stopped
-
-  clamav:
-    profiles: ["antivirus"]
-    image: clamav/clamav:1.4
-    restart: unless-stopped
-    volumes:
-      - dashboard_full_clamav_db:/var/lib/clamav
-    expose:
-      - "${CLAMAV_PORT:?CLAMAV_PORT must be set}"
-    mem_limit: 4g
-    mem_reservation: 3g
-    healthcheck:
-      test: ["CMD-SHELL", "printf 'PING\\n' | nc -w 2 ${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set} ${CLAMAV_PORT:?CLAMAV_PORT must be set} | grep -q PONG"]
-      interval: 30s
-      timeout: 10s
-      retries: 20
-
-  prometheus:
-    profiles: ["monitoring"]
-    build:
-      context: ./docker/prometheus
-    depends_on:
-      web:
-        condition: service_healthy
-    environment:
-      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
-      REALTIME_METRICS_TARGET: ${DASHBOARD_WEB_INTERNAL_HOST:?DASHBOARD_WEB_INTERNAL_HOST must be set}:${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
-      PROMETHEUS_PORT: ${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}
-      PROMETHEUS_RETENTION_TIME: ${PROMETHEUS_RETENTION_TIME:-30d}
-    volumes:
-      - dashboard_full_prometheus:/prometheus
-    ports:
-      - "${DASHBOARD_METRICS_BIND_ADDRESS:?DASHBOARD_METRICS_BIND_ADDRESS must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/-/ready"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  backup:
-    profiles: ["backup"]
-    image: postgres:17
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-migrate:
-        condition: service_completed_successfully
-    environment:
-      BACKUP_DIRECT: "true"
-      PGHOST: ${DASHBOARD_POSTGRES_HOST:?DASHBOARD_POSTGRES_HOST must be set}
-      PGPORT: ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set}
-      PGUSER: postgres
-      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      PGDATABASE: dashboard
-      POSTGRES_DATABASE: dashboard
-      POSTGRES_USER: postgres
-      BACKUP_ROOT: /backups/postgres
-      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
-    volumes:
-      - dashboard_full_backups:/backups
-      - ./scripts:/scripts:ro
-    entrypoint: ["/bin/bash", "-lc"]
-    command: ["while true; do /scripts/postgres-backup-maintenance.sh; sleep 86400; done"]
-    restart: unless-stopped
-
   proxy:
     image: caddy:2.9-alpine
     depends_on:
@@ -221,9 +127,7 @@ services:
       DASHBOARD_HTTP_PORT: ${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}
       DASHBOARD_HTTPS_PORT: ${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}
       DASHBOARD_WEB_PORT: ${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}
-      SOKETI_PORT: ${SOKETI_PORT:?SOKETI_PORT must be set}
       DASHBOARD_WEB_INTERNAL_HOST: ${DASHBOARD_WEB_INTERNAL_HOST:?DASHBOARD_WEB_INTERNAL_HOST must be set}
-      SOKETI_HOST: ${SOKETI_HOST:?SOKETI_HOST must be set}
     ports:
       - "${DASHBOARD_BIND_ADDRESS:?DASHBOARD_BIND_ADDRESS must be set}:${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}:${DASHBOARD_HTTP_PORT:?DASHBOARD_HTTP_PORT must be set}"
       - "${DASHBOARD_BIND_ADDRESS:?DASHBOARD_BIND_ADDRESS must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}"
@@ -236,8 +140,8 @@ services:
 volumes:
   dashboard_full_db_data:
   dashboard_full_attachments:
-  dashboard_full_clamav_db:
-  dashboard_full_prometheus:
+  # Mounted read-only by Web even when the optional backup job is absent, so a
+  # later backup overlay can expose its status without changing Web storage.
   dashboard_full_backups:
   dashboard_full_caddy_data:
   dashboard_full_caddy_config:

@@ -5,7 +5,7 @@
 La verifica non modifica dati e controlla endpoint applicativo, stato dei
 container del riferimento Compose, healthcheck Docker e disponibilità
 PostgreSQL. Backup verificato e target Prometheus sono controllati solo se i
-rispettivi profili sono selezionati:
+rispettivi overlay Compose sono selezionati:
 
 ```bash
 ./scripts/stack-healthcheck.sh
@@ -25,7 +25,7 @@ obbligatorie le verifiche dei servizi opzionali, passare gli stessi profili del
 deploy:
 
 ```bash
-DASHBOARD_COMPOSE_PROFILES=realtime,antivirus,monitoring,backup \
+DASHBOARD_COMPOSE_INTEGRATIONS=realtime,antivirus,monitoring,backup \
   ./scripts/stack-healthcheck.sh
 ```
 
@@ -39,12 +39,12 @@ intenzionalmente limitato ai container locali Compose.
 
 La baseline del 2026-09-02 valida il profilo PostgreSQL base senza integrazioni
 e quello completo con `realtime`, `antivirus`, `monitoring` e `backup`, oltre
-alla parità SQLite/PostgreSQL. Nel riferimento Compose il profilo operativo può
-essere dichiarato nel file di deployment con `NODRIVA_COMPOSE_PROFILES`; non
-viene dedotto dai container già in esecuzione. Questa variabile non appartiene
-al runtime Nodriva né al profilo SQLite standalone.
+alla parità SQLite/PostgreSQL. Nel riferimento Compose gli overlay selezionati
+possono essere dichiarati per l'healthcheck con
+`DASHBOARD_COMPOSE_INTEGRATIONS`; questa variabile non appartiene al runtime
+Nodriva né al profilo SQLite standalone.
 
-Il contratto `pnpm test:compose`, eseguito in CI, verifica che il profilo base
+Il contratto `pnpm test:compose`, eseguito in CI, verifica che lo stack base
 si renderizzi senza secret realtime e che l'attivazione esplicita includa tutti
 i servizi opzionali. Non avvia container: il boot completo resta una verifica
 operativa isolata. Per servizi esterni, la verifica operativa appartiene al

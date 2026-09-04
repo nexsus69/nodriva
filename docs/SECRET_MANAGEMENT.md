@@ -63,10 +63,10 @@ docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-produ
   -f docker-compose.full.yml up -d --build
 ```
 
-Le integrazioni locali sono esplicite. Per il riferimento completo impostare
-`NODRIVA_COMPOSE_PROFILES=realtime,antivirus,monitoring,backup` nel file di
-deployment quando è avviato da systemd, oppure passare
-`COMPOSE_PROFILES=realtime,antivirus,monitoring,backup` al comando Compose.
+Le integrazioni locali sono esplicite. Per il riferimento completo aggiungere
+al comando Compose gli overlay `-f docker-compose.realtime.yml`,
+`-f docker-compose.antivirus.yml`, `-f docker-compose.monitoring.yml` e
+`-f docker-compose.backup.yml` secondo i servizi scelti.
 I secret Pusher e del worker non sono richiesti se `realtime` non è abilitato.
 
 Il secondo argomento contiene la configurazione operativa non segreta (bind

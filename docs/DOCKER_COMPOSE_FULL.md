@@ -1,8 +1,8 @@
 # Stack Docker di riferimento
 
 `docker-compose.full.yml` è un riferimento PostgreSQL per sviluppo e staging,
-non un requisito dell'applicazione. Il profilo base avvia persistenza,
-migrazioni/bootstrap, Web e proxy; le integrazioni distribuite sono profili
+non un requisito dell'applicazione. Il file base avvia persistenza,
+migrazioni/bootstrap, Web e proxy; le integrazioni distribuite sono overlay
 Compose espliciti. La stessa configurazione runtime può puntare a servizi
 remoti o gestiti dal provider. Il modello generale è descritto in
 [`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md).
@@ -10,14 +10,14 @@ remoti o gestiti dal provider. Il modello generale è descritto in
 - `web`: Next.js production;
 - `postgres`: PostgreSQL 17;
 - `db-migrate`: schema base, migrazioni e ruolo applicativo ristretto;
-- `soketi` e `realtime-worker` (`realtime`): broker Pusher e drain autenticato
+- `soketi` e `realtime-worker` (`docker-compose.realtime.yml`): broker Pusher e drain autenticato
   dell’outbox realtime e dei workflow;
-- `clamav` (`antivirus`): scansione antivirus;
-- `prometheus` (`monitoring`): metriche;
-- `backup` (`backup`): backup PostgreSQL e restore verificato giornaliero;
-- `proxy`: Caddy per Web e, con `realtime`, WebSocket Soketi.
+- `clamav` (`docker-compose.antivirus.yml`): scansione antivirus;
+- `prometheus` (`docker-compose.monitoring.yml`): metriche;
+- `backup` (`docker-compose.backup.yml`): backup PostgreSQL e restore verificato giornaliero;
+- `proxy`: Caddy per Web e, con l'overlay realtime, WebSocket Soketi.
 
-L'assenza di un profilo è intenzionale: Web non attende né avvia Soketi,
+L'assenza di un overlay è intenzionale: Web non attende né avvia Soketi,
 ClamAV, Prometheus o backup. Le capability corrispondenti risultano
 `disabled` oppure `unavailable` nel catalogo servizi; non sono un errore di
 bootstrap.
@@ -33,7 +33,8 @@ configurazione esplicita del rispettivo profilo.
 
 Creare un file `.env.docker` fuori dal repository o usare un secret manager.
 Nel profilo base sono obbligatori solo i secret di PostgreSQL, autenticazione e
-cifratura:
+cifratura, oltre all'origine pubblica e ai parametri di ascolto del profilo
+Compose:
 
 ```text
 POSTGRES_PASSWORD=...
@@ -53,22 +54,22 @@ DASHBOARD_WEB_INTERNAL_HOST=...
 DASHBOARD_WEB_INTERNAL_SCHEME=...
 DASHBOARD_HTTP_PORT=...
 DASHBOARD_HTTPS_PORT=...
-SOKETI_PORT=...
-SOKETI_HOST=...
-SOKETI_SCHEME=...
-CLAMAV_PORT=...
-CLAMAV_HOST=...
-PROMETHEUS_PORT=...
-DASHBOARD_METRICS_BIND_ADDRESS=...
 CONTAINER_LOOPBACK_HOST=...
 ```
+
+Nodriva non legge né richiede i nomi dei container Compose. Le variabili di
+configurazione dell'applicazione descrivono un provider esterno o locale e sono
+facoltative; i nomi `soketi` e `clamav` sono soltanto default interni del
+profilo Compose corrispondente. Fuori Compose si avvia Nodriva direttamente
+con le stesse variabili applicative, puntate a DNS, servizi gestiti o processi
+locali scelti dal deployment.
 
 I secret e gli endpoint delle integrazioni sono richiesti soltanto quando la
 capability e il provider sono abilitati dal deployment:
 
 | Profilo | Configurazione Compose locale | Equivalente remoto/non-Docker |
 |---|---|---|
-| `realtime` | `NEXT_PUBLIC_REALTIME_ENABLED=true`, chiave pubblica Pusher, `PUSHER_SECRET`, `REALTIME_WORKER_SECRET`, `SOKETI_HOST`, `SOKETI_PORT`, `SOKETI_SCHEME` e host pubblico browser | endpoint Pusher/Soketi gestito, worker come processo separato con gli stessi URL e secret |
+| `realtime` | `NEXT_PUBLIC_REALTIME_ENABLED=true`, chiave pubblica Pusher, `PUSHER_SECRET`, `REALTIME_WORKER_SECRET`, `REALTIME_INTERNAL_HOST`, `REALTIME_INTERNAL_PORT`, `REALTIME_INTERNAL_SCHEME` e host pubblico browser. Per usare il container locale: `REALTIME_INTERNAL_HOST=soketi`. | endpoint Pusher/Soketi gestito, worker come processo separato con gli stessi URL e secret |
 | `antivirus` | `CLAMAV_HOST`, `CLAMAV_PORT`, `ATTACHMENTS_REQUIRE_SCAN=true` | daemon ClamAV remoto; senza daemon lasciare `CLAMAV_HOST` vuoto e la capability disabilitata |
 | `monitoring` | `PROMETHEUS_ENDPOINT` solo se l'endpoint deve comparire nel catalogo servizi | Prometheus/collector gestito che effettua scrape del Web |
 | `backup` | `BACKUP_ROOT=/backups/postgres`, `BACKUP_STATUS_FILE=/backups/postgres/last-status.json`, retention | job systemd/cron/orchestratore con storage protetto e manifest opzionalmente leggibile dal Web |
@@ -97,15 +98,19 @@ Profilo base, senza servizi opzionali:
 docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
 ```
 
-Profilo completo di riferimento:
+Stack completo di riferimento:
 
 ```bash
-COMPOSE_PROFILES=realtime,antivirus,monitoring,backup \
-  docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
+docker compose --env-file .env.docker \
+  -f docker-compose.full.yml \
+  -f docker-compose.realtime.yml \
+  -f docker-compose.antivirus.yml \
+  -f docker-compose.monitoring.yml \
+  -f docker-compose.backup.yml up -d --build
 ```
 
-È possibile selezionare una sola integrazione, per esempio
-`COMPOSE_PROFILES=antivirus`. Attivare un profilo senza la sua configurazione è
+È possibile selezionare una sola integrazione, per esempio aggiungendo soltanto
+`-f docker-compose.antivirus.yml`. Attivare un overlay senza la sua configurazione è
 un errore di deployment, non un fallback implicito verso un container locale.
 
 Il migrator termina con successo e il Web viene avviato solo dopo la sua
@@ -119,37 +124,6 @@ curl https://dashboard.example.com/login
 Il realtime client deve usare l'hostname pubblico configurato per Soketi. Nel
 riferimento Caddy inoltra `/app/*` al container Soketi; fuori da Compose
 l'inoltro è responsabilità del proxy o del provider realtime scelto.
-
-## Avvio automatico al boot
-
-Il template [`ops/systemd/nodriva.service`](../ops/systemd/nodriva.service)
-avvia il profilo base dopo Docker e `network-online.target`. Per selezionare
-integrazioni, aggiungere al file di deployment:
-
-```text
-NODRIVA_COMPOSE_PROFILES=realtime,antivirus,monitoring,backup
-```
-
-Prima di eseguire Compose attende l'indirizzo configurato in `DASHBOARD_BIND_ADDRESS`:
-questo evita che il proxy fallisca il bind se la Wi-Fi ottiene l'IP dopo
-l'avvio del demone Docker.
-
-Installarlo sul server che usa il percorso del repository indicato nel
-template:
-
-```bash
-sudo install -m 0644 ops/systemd/nodriva.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now nodriva.service
-systemctl status nodriva.service
-```
-
-`web` e gli altri servizi persistenti selezionati usano inoltre
-`restart: unless-stopped`. I job `db-migrate` e `db-seed` restano intenzionalmente
-one-shot: il service Compose li esegue e attende prima di avviare Web.
-
-Non usare `--remove-orphans` in questa unità: il secret manager Infisical è
-gestito da un Compose distinto ma condivide il project name Docker.
 
 ## Volumi persistenti
 

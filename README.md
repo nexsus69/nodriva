@@ -33,7 +33,7 @@ The monorepo contains:
 - `packages/core`: domain, application services, ports, and adapters;
 - `packages/web`: Next.js interface, Server Actions, APIs, and admin panel;
 - `db`: PostgreSQL migrations and bootstrap;
-- `docker-compose.full.yml`: PostgreSQL reference stack with optional service profiles;
+- `docker-compose.full.yml`: PostgreSQL reference stack; optional integrations use explicit Compose overlays;
 - `e2e`: browser end-to-end checks;
 - `docs`: architecture and operations documentation.
 
@@ -59,8 +59,12 @@ docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
 Realtime, antivirus, monitoring and backup are explicit optional profiles:
 
 ```bash
-COMPOSE_PROFILES=realtime,antivirus,monitoring,backup \
-  docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
+docker compose --env-file .env.docker \
+  -f docker-compose.full.yml \
+  -f docker-compose.realtime.yml \
+  -f docker-compose.antivirus.yml \
+  -f docker-compose.monitoring.yml \
+  -f docker-compose.backup.yml up -d --build
 ```
 
 Detailed ports, volumes, and configuration are documented in
