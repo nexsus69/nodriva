@@ -77,7 +77,7 @@ Authenticated browser checks require temporary test credentials:
 
 ```bash
 E2E_RUN=true E2E_EMAIL='user@example.com' E2E_PASSWORD='password' \
-E2E_USER_ID='user-id' E2E_BASE_URL='http://127.0.0.1:3001' pnpm e2e
+E2E_USER_ID='user-id' E2E_BASE_URL="$DASHBOARD_PUBLIC_URL" pnpm e2e
 ```
 
 Administrative parity between SQLite and PostgreSQL is verified with an isolated

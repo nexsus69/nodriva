@@ -45,6 +45,8 @@ NEXTAUTH_SECRET=...
 ATTACHMENTS_ENCRYPTION_KEY=...
 FIELD_ENCRYPTION_KEY=...
 MFA_ENCRYPTION_KEY=...
+DASHBOARD_PUBLIC_URL=https://dashboard.example.com
+DASHBOARD_PUBLIC_HOST=dashboard.example.com
 ```
 
 I secret e gli endpoint delle integrazioni sono richiesti soltanto quando la
@@ -57,7 +59,10 @@ capability e il provider sono abilitati dal deployment:
 | `monitoring` | `PROMETHEUS_ENDPOINT` solo se l'endpoint deve comparire nel catalogo servizi | Prometheus/collector gestito che effettua scrape del Web |
 | `backup` | `BACKUP_ROOT=/backups/postgres`, `BACKUP_STATUS_FILE=/backups/postgres/last-status.json`, retention | job systemd/cron/orchestratore con storage protetto e manifest opzionalmente leggibile dal Web |
 
-`NEXT_PUBLIC_*` è pubblico e non deve contenere segreti; `PUSHER_SECRET` e il
+`DASHBOARD_PUBLIC_URL` è l'origine HTTPS canonica usata da autenticazione,
+azioni account e healthcheck; `DASHBOARD_PUBLIC_HOST` è il solo hostname usato
+da Caddy per il certificato. Devono descrivere lo stesso endpoint pubblico,
+senza porta interna del container. `NEXT_PUBLIC_*` è pubblico e non deve contenere segreti; `PUSHER_SECRET` e il
 secret del worker restano nel secret manager. Se il realtime è attivo, i valori
 `NEXT_PUBLIC_*` sono usati durante la build dell’immagine Web: dopo una modifica
 è necessario ricostruire `web`. Il riferimento dichiara esplicitamente
@@ -94,7 +99,7 @@ conclusione. Verificare:
 
 ```bash
 docker compose --env-file .env.docker -f docker-compose.full.yml ps
-curl http://localhost:3001/login
+curl https://dashboard.example.com/login
 ```
 
 Il realtime client deve usare l'hostname pubblico configurato per Soketi. Nel

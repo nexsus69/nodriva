@@ -11,10 +11,10 @@ rispettivi profili sono selezionati:
 ./scripts/stack-healthcheck.sh
 ```
 
-Per un proxy o un host diverso:
+L'URL pubblico è obbligatorio e coincide con quello configurato nel deployment:
 
 ```bash
-DASHBOARD_BASE_URL=http://192.168.3.247:3001 ./scripts/stack-healthcheck.sh
+DASHBOARD_PUBLIC_URL=https://dashboard.example.com ./scripts/stack-healthcheck.sh
 ```
 
 Il progetto Compose predefinito è `dashboard_ultimate`; usare

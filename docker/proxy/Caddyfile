@@ -1,4 +1,4 @@
-wk1695d.glddns.com {
+{$DASHBOARD_PUBLIC_HOST} {
   request_body {
     max_size 26MB
   }
