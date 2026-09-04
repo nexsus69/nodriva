@@ -20,6 +20,8 @@ command -v openssl >/dev/null 2>&1 || {
 : "${INFISICAL_PORT:?INFISICAL_PORT must be set}"
 : "${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set}"
 : "${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set}"
+: "${INFISICAL_DATABASE_HOST:?INFISICAL_DATABASE_HOST must be set}"
+: "${INFISICAL_REDIS_HOST:?INFISICAL_REDIS_HOST must be set}"
 
 target_dir="$(dirname "$target_path")"
 install -d -m 700 "$target_dir"
@@ -39,6 +41,8 @@ db_password="$(openssl rand -base64 36 | tr -d '\n' | tr '/+' '_-')"
   printf 'INFISICAL_PORT=%s\n' "$INFISICAL_PORT"
   printf 'INFISICAL_DATABASE_PORT=%s\n' "$INFISICAL_DATABASE_PORT"
   printf 'INFISICAL_REDIS_PORT=%s\n' "$INFISICAL_REDIS_PORT"
+  printf 'INFISICAL_DATABASE_HOST=%s\n' "$INFISICAL_DATABASE_HOST"
+  printf 'INFISICAL_REDIS_HOST=%s\n' "$INFISICAL_REDIS_HOST"
 } >"$target_path"
 
 chmod 600 "$target_path"

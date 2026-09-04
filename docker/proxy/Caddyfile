@@ -10,10 +10,10 @@
 
   @realtime path /app/*
   handle @realtime {
-    reverse_proxy soketi:{$SOKETI_PORT}
+    reverse_proxy {$SOKETI_HOST}:{$SOKETI_PORT}
   }
 
   handle {
-    reverse_proxy web:{$DASHBOARD_WEB_PORT}
+    reverse_proxy {$DASHBOARD_WEB_INTERNAL_HOST}:{$DASHBOARD_WEB_PORT}
   }
 }
