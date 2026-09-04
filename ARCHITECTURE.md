@@ -17,6 +17,10 @@ Dashboard ultimate is intended to be a modular monolith with clear internal boun
 
 Dependencies must always point inward: presentation depends on application contracts, application depends on domain and ports, and infrastructure implements ports without becoming the source of business rules.[cite:100][cite:30]
 
+Le regole vincolanti per ownership delle policy, contratti completi, mutazioni
+atomiche e parita' adapter sono in
+[`docs/ARCHITECTURAL_GOVERNANCE.md`](docs/ARCHITECTURAL_GOVERNANCE.md).
+
 A section is considered truly closed only when its cross-cutting placement is also frozen: bounded context, layer, allowed dependencies, forbidden dependencies, and post-commit side effects. This document exists to make those boundaries explicit.[cite:13]
 
 ## Bounded contexts
