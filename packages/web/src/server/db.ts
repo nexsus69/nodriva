@@ -279,6 +279,9 @@ export const workflowAdminService = new WorkflowAdminApplicationService(
 export const fieldEncryptionService = sqliteMode
   ? new FieldEncryptionServiceSqlite(sqliteInfrastructure!.database, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1')
   : new FieldEncryptionService(pgExecutor!, configService, securityKeys.fieldEncryptionKey, securityKeys.fieldEncryptionKeys, securityKeys.fieldEncryptionActiveVersion ?? 'v1');
+if (sqliteMode) {
+  sqliteInfrastructure!.configureFieldEncryption(fieldEncryptionService as FieldEncryptionServiceSqlite);
+}
 export const revisionPort = sqliteMode ? sqliteInfrastructure!.revisionPort : new RevisionPortPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
 
 // Repository PostgreSQL

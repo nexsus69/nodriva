@@ -27,7 +27,7 @@ export interface NodeRepository {
   listReadableVirtualRoots?(actorUserId: string): Promise<Node[]>;
   create(node: Node): Promise<void>;
   update(node: Node): Promise<void>;
-  moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void>;
+  moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string, expectedRowVersion: number): Promise<void>;
   listSubtree(nodeId: string): Promise<Node[]>;
   /** Batch active existence check used by relationship hydration. */
   listActiveIds(ids: readonly string[]): Promise<string[]>;
@@ -39,7 +39,7 @@ export interface NodeRepository {
   /** Returns true if nodeId is a descendant of potentialAncestorId (strict: not self). */
   isDescendantOf(nodeId: string, potentialAncestorId: string): Promise<boolean>;
   softDeleteSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]>;
-  assertSubtreeUnlocked(nodeId: string, actorUserId: string): Promise<void>;
+  assertSubtreeUnlocked(nodeId: string, actorUserId: string, actorSessionId: string): Promise<void>;
   getDeletionBatchId(nodeId: string): Promise<string | null>;
   restoreSubtree(nodeId: string, actorUserId: string, expectedRowVersion: number, deletionBatchId: string): Promise<string[]>;
 }

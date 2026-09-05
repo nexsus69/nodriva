@@ -25,3 +25,27 @@ viola queste regole non e' pronta per il merge, anche se compila.
 Prima del codice: dichiarare policy owner, port, call site, adapter e test di
 parita'. Prima del merge: verificare call site indiretti, test negativi di
 divergenza, rollback e `git diff --check`.
+
+## Protocollo di chiusura audit
+
+Un rilievo audit trasversale non puo' passare a "Risolto" solo perche' il caso
+principale funziona. La chiusura richiede:
+
+- owner applicativo esplicito della policy;
+- port completo, senza parametri mancanti che costringano gli adapter a
+  reinterpretare la regola;
+- tutti i call site noti aggiornati o dichiarati non coinvolti;
+- parita' osservabile PostgreSQL/SQLite quando il comportamento e' comune;
+- almeno un test negativo che fallisce se ricompare la vecchia deviazione;
+- aggiornamento di `docs/NODRIVA_AUDIT_REMEDIATION_TRACKER.md` con criterio e
+  stato.
+
+Se una policy resta duplicata in piu' punti, il rilievo resta aperto anche se la
+singola schermata o il singolo endpoint sembrano corretti.
+
+## Registro verifiche
+
+Le verifiche tecniche periodiche devono essere registrate in `docs/` senza
+riscrivere l'audit storico. La verifica corrente e':
+
+- `docs/ARCHITECTURAL_GOVERNANCE_AUDIT_2026-09-05.md`

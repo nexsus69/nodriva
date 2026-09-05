@@ -1,9 +1,11 @@
+/** Covers SQLite node persistence behavior, optimistic concurrency, and subtree lock ownership. */
 import { describe, expect, it } from 'vitest';
 import { Node } from '../../domain/models/Node.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { NodeRepositorySqlite } from './NodeRepositorySqlite.js';
 import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
+import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 
 const now = new Date('2026-01-01T00:00:00.000Z');
 const node = (id: string, parentId: string | null, path: string, label: string, depth: number) => new Node(id, parentId, path, label, depth, 'type', label, '', 1, now, now, null, 'user', 'user', { value: id });
@@ -23,9 +25,26 @@ describe('NodeRepositorySqlite', () => {
     expect(await repository.listAncestorIds('grandchild')).toEqual(['grandchild', 'child', 'root']);
     expect(await repository.isDescendantOf('grandchild', 'root')).toBe(true);
 
-    await repository.moveSubtree('child', 'other', 'user');
+    await repository.moveSubtree('child', 'other', 'user', 1);
     expect((await repository.findById('grandchild'))?.path).toBe('other.child.grandchild');
     expect((await repository.findById('grandchild'))?.depth).toBe(2);
+    database.close();
+  });
+
+  it('rejects subtree move when the root rowVersion changed', async () => {
+    const database = new SqliteDatabase();
+    ensureSqliteSchema(database);
+    database.run('INSERT INTO node_types (id,type_key,name) VALUES (?,?,?)', ['type', 'folder', 'Folder']);
+    const repository = new NodeRepositorySqlite(database);
+    await repository.create(node('root', null, 'root', 'root', 0));
+    await repository.create(node('child', 'root', 'root.child', 'child', 1));
+    await repository.create(node('other', null, 'other', 'other', 0));
+
+    await expect(repository.moveSubtree('child', 'other', 'user', 99)).rejects.toBeInstanceOf(RowVersionMismatchError);
+    await expect(repository.moveSubtree('child', 'other', 'user', 99)).rejects.toMatchObject({
+      details: { expected: 99, actual: 1 },
+    });
+    expect((await repository.findById('child'))?.path).toBe('root.child');
     database.close();
   });
 
@@ -58,8 +77,9 @@ describe('NodeRepositorySqlite', () => {
     await repository.create(node('child', 'root', 'root.child', 'child', 1));
     database.run('INSERT INTO locks (id,resource_type,resource_id,user_id,session_id,acquired_at,expires_at) VALUES (?,?,?,?,?,?,?)', ['lock', 'node', 'child', 'other-user', 'session', now.toISOString(), '2999-01-01T00:00:00.000Z']);
 
-    await expect(repository.assertSubtreeUnlocked('root', 'actor')).rejects.toBeInstanceOf(LockConflictError);
-    await expect(repository.assertSubtreeUnlocked('root', 'other-user')).resolves.toBeUndefined();
+    await expect(repository.assertSubtreeUnlocked('root', 'actor', 'session')).rejects.toBeInstanceOf(LockConflictError);
+    await expect(repository.assertSubtreeUnlocked('root', 'other-user', 'session')).resolves.toBeUndefined();
+    await expect(repository.assertSubtreeUnlocked('root', 'other-user', 'another-session')).rejects.toBeInstanceOf(LockConflictError);
     database.close();
   });
 

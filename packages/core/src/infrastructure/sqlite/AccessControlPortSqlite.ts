@@ -79,7 +79,7 @@ export class AccessControlPortSqlite implements AccessControlPort {
     const identity = this.database.get<{ is_super_admin: number }>('SELECT is_super_admin FROM users WHERE id=? AND is_active=1', [user]);
     if (!identity) return false;
     if (identity.is_super_admin === 1) return true;
-    const permissionRow = this.database.get<{ id: string }>('SELECT id FROM permissions WHERE permission_key=? OR name=?', [permission, permission]);
+    const permissionRow = this.database.get<{ id: string }>('SELECT id FROM permissions WHERE permission_key=?', [permission]);
     if (!permissionRow) return false;
     const global = node === null && this.database.get('SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id WHERE ur.user_id=? AND rp.permission_id=?', [user, permissionRow.id]);
     if (global) return true;

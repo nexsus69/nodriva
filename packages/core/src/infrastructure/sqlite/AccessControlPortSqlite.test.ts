@@ -24,4 +24,22 @@ describe('AccessControlPortSqlite', () => {
     await expect(acl.listReadableResourceIds('user', 'node', ['child', 'root'])).resolves.toEqual(['root']);
     database.close();
   });
+
+  it('does not treat permission display names as technical permission keys', async () => {
+    const database = new SqliteDatabase(); ensureSqliteSchema(database);
+    const now = new Date().toISOString();
+    database.run('INSERT INTO node_types (id,type_key,name) VALUES (?,?,?)', ['type-root', 'root', 'Root']);
+    database.run('INSERT INTO nodes (id,path,path_label,depth,node_type_id,name,created_at,updated_at,row_version,payload) VALUES (?,?,?,?,?,?,?,?,?,?)', ['root', 'root', 'root', 0, 'type-root', 'Root', now, now, 1, '{}']);
+    database.run('INSERT INTO node_hierarchy VALUES (?,?,?)', ['root', 'root', 0]);
+    database.run('INSERT INTO users (id) VALUES (?)', ['user']);
+    database.run('INSERT INTO roles (id,role_key) VALUES (?,?)', ['role', 'misleading-role']);
+    database.run('INSERT INTO permissions (id,permission_key,name) VALUES (?,?,?)', ['misleading-perm', 'custom.not-node-read', 'node.read']);
+    database.run('INSERT INTO user_roles VALUES (?,?)', ['user', 'role']);
+    database.run('INSERT INTO role_permissions VALUES (?,?)', ['role', 'misleading-perm']);
+    database.run('INSERT INTO node_scope_assignments VALUES (?,?,?,?,?,?)', ['allow', 'user', 'role', 'root', 'allow', 'subtree']);
+    const acl = new AccessControlPortSqlite(database);
+
+    await expect(acl.assertCanReadNode('user', 'root')).rejects.toThrow('lacks permission');
+    database.close();
+  });
 });

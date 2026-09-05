@@ -34,19 +34,20 @@ import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.j
 import { ResourceRelationshipRepositorySqlite } from './ResourceRelationshipRepositorySqlite.js';
 import { ResourceRelationshipDefinitionReaderSqlite } from './ResourceRelationshipDefinitionReaderSqlite.js';
 import { WorkflowRepositorySqlite } from './WorkflowRepositorySqlite.js';
+import type { FieldEncryptionServiceSqlite } from './FieldEncryptionServiceSqlite.js';
 
 /** Single composition root for the SQLite persistence profile. */
 export class SqliteInfrastructure {
   readonly database: SqliteDatabase;
   readonly transactionPort: TransactionPortSqlite;
-  readonly nodeRepository: NodeRepositorySqlite;
-  readonly entityRepository: EntityRepositorySqlite;
+  nodeRepository: NodeRepositorySqlite;
+  entityRepository: EntityRepositorySqlite;
   readonly nodeTypeRepository: NodeTypeRepositorySqlite;
   readonly entityTypeRepository: EntityTypeRepositorySqlite;
   readonly lockRepository: LockRepositorySqlite;
   readonly accessControlPort: AccessControlPortSqlite;
   readonly auditPort: AuditPortSqlite;
-  readonly revisionPort: RevisionPortSqlite;
+  revisionPort: RevisionPortSqlite;
   readonly realtimeOutbox: RealtimeOutboxSqlite;
   readonly configurationRepository: ConfigurationRepositorySqlite;
   readonly runtimeConfigurationPort: RuntimeConfigurationPortSqlite;
@@ -65,7 +66,7 @@ export class SqliteInfrastructure {
   readonly typeAdminRepository: TypeDefinitionAdminRepositorySqlite;
   readonly systemConfigRepository: SystemConfigRepositorySqlite;
   readonly securityRepository: SecurityRepositorySqlite;
-  readonly entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
+  entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
   readonly systemSeedService: SystemSeedSqlite;
   readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
@@ -120,6 +121,13 @@ export class SqliteInfrastructure {
         console.error('[SqliteInfrastructure] Automatic administrative bootstrap failed:', error);
       });
     }
+  }
+
+  configureFieldEncryption(fieldEncryption: FieldEncryptionServiceSqlite): void {
+    this.nodeRepository = new NodeRepositorySqlite(this.database, this.accessControlPort, fieldEncryption);
+    this.entityRepository = new EntityRepositorySqlite(this.database, this.accessControlPort, fieldEncryption);
+    this.revisionPort = new RevisionPortSqlite(this.database, fieldEncryption);
+    this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort, fieldEncryption);
   }
 
   close(): void { this.database.close(); }

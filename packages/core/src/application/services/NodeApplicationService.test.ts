@@ -368,6 +368,7 @@ describe('NodeApplicationService', () => {
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: siblingNode.id,
+        expectedNodeRowVersion: 1,
       };
 
       await service.moveNode(cmd);
@@ -375,7 +376,8 @@ describe('NodeApplicationService', () => {
       expect(mockNodeRepository.moveSubtree).toHaveBeenCalledWith(
         childNode.id,
         siblingNode.id,
-        cmd.actorUserId
+        cmd.actorUserId,
+        1,
       );
       expect(mockAuditPort.record).toHaveBeenCalledTimes(1);
       expect(mockRevisionPort.recordNodeRevision).toHaveBeenCalled();
@@ -390,6 +392,7 @@ describe('NodeApplicationService', () => {
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: childNode.id, // stesso nodo!
+        expectedNodeRowVersion: 1,
       };
 
       await expect(service.moveNode(cmd)).rejects.toThrow(NodeCyclicMoveError);
@@ -409,6 +412,7 @@ describe('NodeApplicationService', () => {
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: grandchildNode.id,
+        expectedNodeRowVersion: 1,
       };
 
       await expect(service.moveNode(cmd)).rejects.toThrow(NodeCyclicMoveError);
@@ -427,6 +431,7 @@ describe('NodeApplicationService', () => {
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: '00000000-0000-0000-0000-000000000099',
         newParentNodeId: rootNode.id,
+        expectedNodeRowVersion: 1,
       };
 
       await expect(service.moveNode(cmd)).rejects.toThrow(NodeNotFoundError);
@@ -444,6 +449,7 @@ describe('NodeApplicationService', () => {
         actorSessionId: '00000000-0000-7000-8000-000000000001',
         nodeId: childNode.id,
         newParentNodeId: siblingNode.id,
+        expectedNodeRowVersion: 1,
       };
 
       await expect(service.moveNode(cmd)).rejects.toThrow(NodePathCollisionError);
@@ -458,6 +464,7 @@ describe('NodeApplicationService', () => {
       await service.deleteNode({ actorUserId: '00000000-0000-0000-0000-000000000001', actorSessionId: '00000000-0000-7000-8000-000000000001', nodeId: node.id, expectedRowVersion: 3 });
 
       expect(mockAccessControlPort.assertHasPermission).toHaveBeenCalledWith('00000000-0000-0000-0000-000000000001', 'node.delete', node.id);
+      expect(mockNodeRepository.assertSubtreeUnlocked).toHaveBeenCalledWith(node.id, '00000000-0000-0000-0000-000000000001', '00000000-0000-7000-8000-000000000001');
       expect(mockNodeRepository.softDeleteSubtree).toHaveBeenCalledWith(node.id, '00000000-0000-0000-0000-000000000001', 3, expect.any(String));
       expect(mockAuditPort.record).toHaveBeenCalledTimes(1);
       expect(mockAuditPort.record).toHaveBeenCalledWith(

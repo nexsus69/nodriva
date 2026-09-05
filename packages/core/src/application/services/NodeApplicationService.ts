@@ -185,8 +185,9 @@ export class NodeApplicationService {
         throw new NodeNotFoundError(validatedCmd.nodeId);
       }
 
-      // 4. Optimistic concurrency check sul nodo
-      if (validatedCmd.expectedNodeRowVersion !== undefined && node.rowVersion !== validatedCmd.expectedNodeRowVersion) {
+      // 4. Early concurrency check for precise error reporting. The repository
+      // repeats it in the write statement, where it is authoritative.
+      if (node.rowVersion !== validatedCmd.expectedNodeRowVersion) {
         throw new RowVersionMismatchError(validatedCmd.expectedNodeRowVersion, node.rowVersion);
       }
 
@@ -243,7 +244,8 @@ export class NodeApplicationService {
       await this.nodeRepository.moveSubtree(
         validatedCmd.nodeId,
         validatedCmd.newParentNodeId,
-        validatedCmd.actorUserId
+        validatedCmd.actorUserId,
+        validatedCmd.expectedNodeRowVersion,
       );
 
       // 8. Revisione e audit
@@ -397,7 +399,7 @@ export class NodeApplicationService {
       await this.accessControlPort.assertHasPermission(validatedCmd.actorUserId, 'node.delete', node.id);
       if (await this.runtimeConfigPort.isCapabilityEnabled('locking')) {
         await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: node.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
-        await this.nodeRepository.assertSubtreeUnlocked(node.id, validatedCmd.actorUserId);
+        await this.nodeRepository.assertSubtreeUnlocked(node.id, validatedCmd.actorUserId, validatedCmd.actorSessionId);
       }
       const batchId = this.idGenerator.generate();
       const deletionResources = this.resourceDeletionPolicyService

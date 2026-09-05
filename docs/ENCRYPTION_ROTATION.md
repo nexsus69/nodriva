@@ -4,6 +4,12 @@ Il job `encryption:rotate` esegue la ricifratura fuori dal ciclo HTTP e lavora
 a batch. Processa sia `resource_field_ciphertexts` sia i file presenti nello
 storage locale degli allegati.
 
+I profili PostgreSQL e SQLite usano lo stesso contratto applicativo per i campi
+marcati `encrypted`: il valore in chiaro non resta nello storage principale del
+payload, viene conservato nel sidecar `resource_field_ciphertexts`, viene
+ripristinato in lettura tramite repository e read-model applicativi che
+espongono payload, e viene redatto negli snapshot di revisione.
+
 ## Prerequisiti
 
 1. applicare `db/migrations/029_encryption_rotation_jobs.sql`;

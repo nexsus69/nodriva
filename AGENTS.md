@@ -105,6 +105,44 @@ motivo e chiedere conferma prima di ampliare il perimetro.
 Consultare `ARCHITECTURE.md` e i documenti normativi in `docs/` prima di
 modificare un contratto trasversale.
 
+## Protocollo permanente di sviluppo
+
+Queste regole valgono per qualunque modifica di codice, non solo per i rilievi
+audit:
+
+- prima di implementare, identificare l'owner della regola coinvolta. Una
+  policy deve avere un solo owner applicativo o di dominio; non introdurre
+  funzioni parallele che reinterpretano autorizzazione, lock, concorrenza,
+  deletion policy, cifratura, sessione o audit;
+- ogni operazione di sistema deve essere implementata in un solo punto
+  autorevole. Lo stesso controllo non deve essere copiato in piu' servizi,
+  repository, route o componenti: va espresso in un oggetto generico,
+  riutilizzabile e richiamato dai diversi call site;
+- verificare i call site esistenti prima di aggiungere una nuova API. Se una
+  funzione esistente rappresenta gia' la policy, estenderla o correggerla
+  invece di crearne una variante;
+- i port applicativi devono essere completi. Non lasciare agli adapter il
+  compito di indovinare informazioni mancanti, per esempio sessione del lock,
+  versione attesa, attore, scope o policy di visibilita';
+- ogni mutazione che dipende da ACL, lock, `rowVersion`, restrict o cifratura
+  deve verificare tali condizioni nello stesso confine transazionale della
+  scrittura, oppure documentare perche' non e' applicabile;
+- per comportamenti comuni, PostgreSQL e SQLite devono mantenere lo stesso
+  esito osservabile. Differenze interne sono ammesse solo se il contratto
+  applicativo, gli errori e il rollback restano equivalenti;
+- ogni nuova astrazione deve rimuovere duplicazione reale o fissare un
+  contratto necessario. Non introdurre livelli generici senza un caso d'uso
+  della verticale canonica o senza un'invariante da proteggere;
+- ogni fix deve includere almeno un test che riproduce la vecchia deviazione o
+  dimostra la nuova invariante. Se il test non e' tecnicamente fattibile,
+  documentare il motivo e il rischio residuo;
+- prima di dichiarare concluso un intervento, riportare file toccati, vincoli
+  verificati, test eseguiti, limiti residui e differenze fra adapter.
+
+Se durante il lavoro emerge che una direttiva architetturale esistente e'
+insufficiente o ambigua, fermare l'espansione dello scope, aggiornare prima il
+contratto normativo interessato e poi implementare il codice.
+
 ## Composizione frontend
 
 - `page.tsx` e `layout.tsx` sono boundary sottili di composizione.

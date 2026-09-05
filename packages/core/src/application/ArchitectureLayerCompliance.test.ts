@@ -1,3 +1,4 @@
+/** Verifies static architecture rules that keep domain policies centralized and adapter-free. */
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,6 +21,17 @@ describe('Architecture layer compliance', () => {
     ].flatMap((filePath) => {
       const source = fs.readFileSync(filePath, 'utf8');
       return forbiddenImport.test(source) ? [path.relative(srcRoot, filePath)] : [];
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('keeps authorization checks bound to technical permission keys', () => {
+    const srcRoot = path.resolve(__dirname, '..');
+    const forbiddenPermissionNameFallback = /permission_key\s*=\s*[^)\n]+OR\s+[^)\n]*\bname\s*=|\bname\s*=\s*[^)\n]+OR\s+[^)\n]*permission_key\s*=/i;
+    const violations = listSourceFiles(path.join(srcRoot, 'infrastructure')).flatMap((filePath) => {
+      const source = fs.readFileSync(filePath, 'utf8');
+      return forbiddenPermissionNameFallback.test(source) ? [path.relative(srcRoot, filePath)] : [];
     });
 
     expect(violations).toEqual([]);

@@ -8,8 +8,11 @@ import { NodeRepositoryPostgres } from './NodeRepositoryPostgres.js';
 import { EntityRepositoryPostgres } from './EntityRepositoryPostgres.js';
 import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
 import { StorageTableManagementPostgres } from './StorageTableManagementPostgres.js';
+import { SessionRepositoryPostgres } from './SessionRepositoryPostgres.js';
 import { Node } from '../../domain/models/Node.js';
 import { Entity } from '../../domain/models/Entity.js';
+import { LockConflictError } from '../../domain/errors/ApplicationErrors.js';
+import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 
 const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const integrationDatabaseName = integrationDatabaseUrl
@@ -28,6 +31,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
   let entityRepo: EntityRepositoryPostgres;
   let realtimeOutbox: RealtimeOutboxPostgres;
   let storageTableManager: StorageTableManagementPostgres;
+  let sessionRepo: SessionRepositoryPostgres;
   let adminPool: pg.Pool | undefined;
   let adminExecutor: PgExecutor | undefined;
 
@@ -36,6 +40,12 @@ describeIntegration('PostgreSQL Integration Tests', () => {
   const testEntityTypeCustomerId = '00000000-0000-0000-0000-000000000301';
   const rootNodeId = '00000000-0000-0000-0000-000000000500';
   const childNodeId = '00000000-0000-0000-0000-000000000501';
+  const moveRootNodeId = '00000000-0000-0000-0000-000000000502';
+  const moveChildNodeId = '00000000-0000-0000-0000-000000000503';
+  const moveTargetNodeId = '00000000-0000-0000-0000-000000000504';
+  const lockRootNodeId = '00000000-0000-0000-0000-000000000505';
+  const lockChildNodeId = '00000000-0000-0000-0000-000000000506';
+  const managedNodeIds = [rootNodeId, childNodeId, moveRootNodeId, moveChildNodeId, moveTargetNodeId, lockRootNodeId, lockChildNodeId];
 
   beforeAll(async () => {
     pool = new pg.Pool({
@@ -48,6 +58,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     entityRepo = new EntityRepositoryPostgres(executor);
     realtimeOutbox = new RealtimeOutboxPostgres(executor);
     storageTableManager = new StorageTableManagementPostgres(executor);
+    sessionRepo = new SessionRepositoryPostgres(executor);
     const adminDatabaseUrl = process.env.INTEGRATION_DATABASE_ADMIN_URL;
     if (adminDatabaseUrl) {
       adminPool = new pg.Pool({ connectionString: adminDatabaseUrl });
@@ -64,8 +75,9 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     }
 
     // Pulisci prima i nodi che potrebbero riferirsi al node type dalle corse precedenti
-    await executor.query('DELETE FROM entities WHERE parent_node_id IN ($1, $2)', [rootNodeId, childNodeId]);
-    await executor.query('DELETE FROM nodes WHERE id IN ($1, $2)', [rootNodeId, childNodeId]);
+    await executor.query('DELETE FROM locks WHERE resource_id = ANY($1::text[])', [managedNodeIds]);
+    await executor.query('DELETE FROM entities WHERE parent_node_id = ANY($1::uuid[])', [managedNodeIds]);
+    await executor.query('DELETE FROM nodes WHERE id = ANY($1::uuid[])', [managedNodeIds]);
 
     // Inizializza i record di supporto comuni (User, Tipi)
     await executor.query('DELETE FROM user_roles WHERE user_id = $1', [testUserId]);
@@ -113,6 +125,9 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     // Ripulisci i record di supporto
     try {
       await executor.query('DELETE FROM user_roles WHERE user_id = $1', [testUserId]);
+      await executor.query('DELETE FROM locks WHERE resource_id = ANY($1::text[])', [managedNodeIds]);
+      await executor.query('DELETE FROM entities WHERE parent_node_id = ANY($1::uuid[])', [managedNodeIds]);
+      await executor.query('DELETE FROM nodes WHERE id = ANY($1::uuid[])', [managedNodeIds]);
       await executor.query('DELETE FROM users WHERE id = $1', [testUserId]);
       await executor.query('DELETE FROM node_types WHERE id = $1', [testNodeFolderTypeId]);
       await executor.query("DELETE FROM entity_type_fields WHERE entity_type_id = $1", [testEntityTypeCustomerId]);
@@ -271,8 +286,9 @@ describeIntegration('PostgreSQL Integration Tests', () => {
 
   describe('NodeRepositoryPostgres (Node CRUD)', () => {
     beforeAll(async () => {
-      await executor.query('DELETE FROM entities WHERE parent_node_id IN ($1, $2)', [rootNodeId, childNodeId]);
-      await executor.query('DELETE FROM nodes WHERE id IN ($1, $2)', [rootNodeId, childNodeId]);
+      await executor.query('DELETE FROM locks WHERE resource_id = ANY($1::text[])', [managedNodeIds]);
+      await executor.query('DELETE FROM entities WHERE parent_node_id = ANY($1::uuid[])', [managedNodeIds]);
+      await executor.query('DELETE FROM nodes WHERE id = ANY($1::uuid[])', [managedNodeIds]);
     });
 
     it('should support full Node lifecycle (Create, Find, Update, Move, Descendant check)', async () => {
@@ -358,6 +374,35 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       // Check duplicate path label detection
       const exists = await nodeRepo.existsByParentAndPathLabel(rootNodeId, 'child_integration');
       expect(exists).toBe(true);
+    });
+
+    it('moves a subtree only when the root rowVersion still matches', async () => {
+      await nodeRepo.create(new Node(moveRootNodeId, null, 'f04_move_root', 'f04_move_root', 0, testNodeFolderTypeId, 'F04 Move Root', '', 1, new Date(), new Date(), null, testUserId, testUserId));
+      await nodeRepo.create(new Node(moveChildNodeId, moveRootNodeId, 'f04_move_root.child', 'child', 1, testNodeFolderTypeId, 'F04 Move Child', '', 1, new Date(), new Date(), null, testUserId, testUserId));
+      await nodeRepo.create(new Node(moveTargetNodeId, null, 'f04_move_target', 'f04_move_target', 0, testNodeFolderTypeId, 'F04 Move Target', '', 1, new Date(), new Date(), null, testUserId, testUserId));
+
+      await expect(nodeRepo.moveSubtree(moveChildNodeId, moveTargetNodeId, testUserId, 99)).rejects.toBeInstanceOf(RowVersionMismatchError);
+      expect((await nodeRepo.findById(moveChildNodeId))?.path).toBe('f04_move_root.child');
+
+      await expect(nodeRepo.moveSubtree(moveChildNodeId, moveTargetNodeId, testUserId, 1)).resolves.toBeUndefined();
+      expect((await nodeRepo.findById(moveChildNodeId))?.path).toBe('f04_move_target.child');
+    });
+
+    it('treats a different session of the same user as a subtree lock conflict', async () => {
+      await nodeRepo.create(new Node(lockRootNodeId, null, 'f05_lock_root', 'f05_lock_root', 0, testNodeFolderTypeId, 'F05 Lock Root', '', 1, new Date(), new Date(), null, testUserId, testUserId));
+      await nodeRepo.create(new Node(lockChildNodeId, lockRootNodeId, 'f05_lock_root.child', 'child', 1, testNodeFolderTypeId, 'F05 Lock Child', '', 1, new Date(), new Date(), null, testUserId, testUserId));
+      await executor.query('DELETE FROM locks WHERE resource_id = $1', [lockChildNodeId]);
+      const expiresAt = new Date(Date.now() + 5 * 60_000);
+      const lockOwnerSessionId = await sessionRepo.createSession(testUserId, 'f05-owner-session-token', expiresAt);
+      const lockOtherSessionId = await sessionRepo.createSession(testUserId, 'f05-other-session-token', expiresAt);
+      await executor.query(
+        `INSERT INTO locks (id, resource_type, resource_id, user_id, session_id, acquired_at, expires_at)
+         VALUES (gen_random_uuid(), 'node', $1, $2, $3, now(), now() + interval '5 minutes')`,
+        [lockChildNodeId, testUserId, lockOwnerSessionId],
+      );
+
+      await expect(nodeRepo.assertSubtreeUnlocked(lockRootNodeId, testUserId, lockOwnerSessionId)).resolves.toBeUndefined();
+      await expect(nodeRepo.assertSubtreeUnlocked(lockRootNodeId, testUserId, lockOtherSessionId)).rejects.toBeInstanceOf(LockConflictError);
     });
   });
 

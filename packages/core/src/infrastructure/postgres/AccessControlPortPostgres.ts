@@ -429,7 +429,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
         JOIN role_permissions rp ON rp.role_id = nsa.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = $1
-          AND (p.permission_key = $2 OR p.name = $2)
+          AND p.permission_key = $2
           AND nsa.assignment_effect = 'deny'::assignment_effect_enum
           AND (
             nsa.node_id = $3
@@ -455,7 +455,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
       LEFT JOIN role_permissions rp ON rp.role_id = ur.role_id
       LEFT JOIN permissions p ON p.id = rp.permission_id
       WHERE u.id = $1 AND u.is_active = true
-        AND (NOT $3 AND (p.permission_key = $2 OR p.name = $2))
+        AND (NOT $3 AND p.permission_key = $2)
       LIMIT 1
     `;
     const globalResult = await this.executor.query(globalQuery, [userId, permissionName, isScopeBoundPermission]);
@@ -471,7 +471,7 @@ export class AccessControlPortPostgres implements AccessControlPort {
         JOIN role_permissions rp ON rp.role_id = nsa.role_id
         JOIN permissions p ON p.id = rp.permission_id
         WHERE nsa.user_id = $1
-          AND (p.permission_key = $2 OR p.name = $2)
+          AND p.permission_key = $2
           AND nsa.assignment_effect = 'allow'::assignment_effect_enum
           AND (
             nsa.node_id = $3

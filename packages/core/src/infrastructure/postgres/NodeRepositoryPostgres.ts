@@ -211,7 +211,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
     }
   }
 
-  async moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string): Promise<void> {
+  async moveSubtree(nodeId: string, newParentId: string | null, actorUserId: string, expectedRowVersion: number): Promise<void> {
     // 1. Carichiamo il nodo corrente per ottenere il vecchio path ltree
     const nodeResult = await this.executor.query<NodeRow>(
       `SELECT id, parent_id, path, path_label, depth, node_type_id,
@@ -252,14 +252,23 @@ export class NodeRepositoryPostgres implements NodeRepository {
     const depthDelta = newDepth - nodeRow.depth;
 
     // 3. Aggiornamento atomico del nodo radice spostato
-    await this.executor.query(
+    const rootUpdate = await this.executor.query(
       `UPDATE nodes
        SET parent_id = $1, path = $2::ltree, depth = $3,
            updated_at = now(), updated_by = $4,
            row_version = row_version + 1
-       WHERE id = $5 AND deleted_at IS NULL`,
-      [newParentId, newNodePath, newDepth, actorUserId, nodeId]
+       WHERE id = $5 AND row_version = $6 AND deleted_at IS NULL`,
+      [newParentId, newNodePath, newDepth, actorUserId, nodeId, expectedRowVersion]
     );
+    if (rootUpdate.rowCount === 0) {
+      const current = await this.executor.query<{ row_version: number; deleted_at: Date | null }>(
+        'SELECT row_version, deleted_at FROM nodes WHERE id = $1',
+        [nodeId],
+      );
+      const row = current.rows[0];
+      if (!row || row.deleted_at !== null) throw new NodeNotFoundError(nodeId);
+      throw new RowVersionMismatchError(expectedRowVersion, row.row_version);
+    }
 
     // 4. Aggiornamento ricorsivo di tutti i discendenti tramite ltree subpath
     //    Riscriviamo il prefisso del path e aggiustiamo la depth in modo atomico.
@@ -394,13 +403,13 @@ export class NodeRepositoryPostgres implements NodeRepository {
     return result.rows.map((row) => row.id);
   }
 
-  async assertSubtreeUnlocked(nodeId: string, actorUserId: string): Promise<void> {
+  async assertSubtreeUnlocked(nodeId: string, actorUserId: string, actorSessionId: string): Promise<void> {
     const result = await this.executor.query<{ resource_type: string; resource_id: string }>(`
       SELECT l.resource_type, l.resource_id
       FROM locks l
       JOIN nodes root ON root.id = $1
       WHERE l.expires_at > now()
-        AND l.user_id::text <> $2
+        AND NOT (l.user_id::text = $2 AND l.session_id::text = $3)
         AND (
           (l.resource_type = 'node' AND EXISTS (SELECT 1 FROM nodes n WHERE n.id::text = l.resource_id AND n.path <@ root.path))
           OR
@@ -410,7 +419,7 @@ export class NodeRepositoryPostgres implements NodeRepository {
           ))
         )
       ORDER BY l.expires_at ASC
-      LIMIT 1`, [nodeId, actorUserId]);
+      LIMIT 1`, [nodeId, actorUserId, actorSessionId]);
     const conflict = result.rows[0];
     if (conflict) throw new LockConflictError(conflict.resource_type, conflict.resource_id);
   }

@@ -30,7 +30,7 @@ export const MoveNodeCommandSchema = z.object({
   actorSessionId: z.string().uuid(),
   nodeId: z.string().uuid(),
   newParentNodeId: z.string().uuid().nullable(),
-  expectedNodeRowVersion: z.number().int().positive().optional(),
+  expectedNodeRowVersion: z.number().int().positive(),
 });
 
 export type MoveNodeCommand = z.infer<typeof MoveNodeCommandSchema>;

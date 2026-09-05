@@ -19,6 +19,8 @@ import { TransactionPortPostgres } from './postgres/TransactionPortPostgres.js';
 import { AttachmentRepositoryPostgres } from './postgres/AttachmentRepositoryPostgres.js';
 import { AttachmentRateLimitPortPostgres } from './postgres/AttachmentRateLimitPortPostgres.js';
 import { StorageTableManagementPostgres } from './postgres/StorageTableManagementPostgres.js';
+import { FieldEncryptionService } from './postgres/FieldEncryptionService.js';
+import { FieldEncryptionServiceSqlite } from './sqlite/FieldEncryptionServiceSqlite.js';
 
 const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const integrationDatabaseName = integrationDatabaseUrl ? new URL(integrationDatabaseUrl).pathname.slice(1) : '';
@@ -34,6 +36,7 @@ const ids = {
   nodeType: '10000000-0000-0000-0000-000000009110',
   entityType: '10000000-0000-0000-0000-000000009111',
   entityField: '10000000-0000-0000-0000-000000009112',
+  entitySecretField: '10000000-0000-0000-0000-000000009113',
   root: '10000000-0000-0000-0000-000000009120',
   child: '10000000-0000-0000-0000-000000009121',
   grandchild: '10000000-0000-0000-0000-000000009122',
@@ -61,6 +64,7 @@ interface AdapterHarness {
   transactionPort: TransactionPort;
   attachmentRepository: AttachmentRepository;
   attachmentRateLimitPort: AttachmentRateLimitPort;
+  inspectEncryptedStorage(): Promise<{ rawContainsSecret: boolean; sidecarCount: number }>;
   setup(): Promise<void>;
   cleanup(): Promise<void>;
 }
@@ -85,6 +89,7 @@ interface AdapterBehavior {
   transactionRolledBack: boolean;
   attachmentQuota: { accepted: boolean[]; usedBytes: number };
   rateLimit: boolean[];
+  encryption: { rawContainsSecret: boolean; sidecarCount: number };
 }
 
 function makeNode(id: string, parentId: string | null, path: string, pathLabel: string, depth: number, name: string): Node {
@@ -95,7 +100,11 @@ function makeNode(id: string, parentId: string | null, path: string, pathLabel: 
 
 function makeEntity(id: string, name: string, createdAt: Date): Entity {
   return new Entity(id, ids.entityType, ids.child, name, `${name} description`, 1, createdAt, createdAt,
-    null, ids.actor, ids.actor, { value: `${name}-value` });
+    null, ids.actor, ids.actor, { value: `${name}-value`, secret: `${name}-secret` });
+}
+
+function enabledEncryptionConfig() {
+  return { get: async () => true };
 }
 
 async function errorName(work: () => Promise<unknown>): Promise<string> {
@@ -135,7 +144,7 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
   await harness.entityRepository.create(zeta);
   await harness.entityRepository.create(alpha);
   const entityOrder = (await harness.entityRepository.listByNode(ids.child)).map((entity) => entity.name);
-  const updatedAlpha = alpha.update('Alpha updated', 'Updated description', { value: 'updated-value' }, ids.actor);
+  const updatedAlpha = alpha.update('Alpha updated', 'Updated description', { value: 'updated-value', secret: 'updated-secret' }, ids.actor);
   await harness.entityRepository.update(updatedAlpha);
   const loadedAlpha = await harness.entityRepository.findById(ids.alphaEntity);
   const entityRoundTrip = {
@@ -215,6 +224,7 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
     await harness.attachmentRateLimitPort.consume(ids.actor, 2, now),
     await harness.attachmentRateLimitPort.consume(ids.actor, 2, now),
   ];
+  const encryption = await harness.inspectEncryptedStorage();
 
   return {
     nodeRoundTrip, duplicateNodeError, staleNodeDeleteError, entityOrder, entityRoundTrip,
@@ -222,7 +232,7 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
     staleEntityRestoreError, restoredEntityVersion,
     lock: { owner, conflictError, forbiddenReleaseError, released },
     deletedSubtree, staleNodeRestoreError, restoredSubtree, pathReuseAllowed, transactionRolledBack,
-    attachmentQuota, rateLimit,
+    attachmentQuota, rateLimit, encryption,
   };
 }
 
@@ -245,6 +255,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
     const postgresCleanup = async () => {
       await executor.query('DELETE FROM attachment_upload_events WHERE actor_id = ANY($1::uuid[])', [[ids.actor, ids.otherActor]]);
       await executor.query('DELETE FROM resource_attachments WHERE id = ANY($1::uuid[])', [[ids.attachmentOne, ids.attachmentTwo]]);
+      await executor.query('DELETE FROM resource_field_ciphertexts WHERE resource_id = ANY($1::uuid[])', [[...allNodeIds, ...allEntityIds]]);
       await executor.query('DELETE FROM locks WHERE id = ANY($1::uuid[]) OR session_id = ANY($2::uuid[])', [[ids.lockOne, ids.lockTwo], [ids.session, ids.otherSession]]);
       await executor.query('DELETE FROM user_sessions WHERE id = ANY($1::uuid[])', [[ids.session, ids.otherSession]]);
       await executor.query('DELETE FROM entities WHERE id = ANY($1::uuid[])', [allEntityIds]);
@@ -256,12 +267,21 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       await executor.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [[ids.actor, ids.otherActor]]);
     };
     postgres = {
-      nodeRepository: new NodeRepositoryPostgres(executor),
-      entityRepository: new EntityRepositoryPostgres(executor),
+      nodeRepository: new NodeRepositoryPostgres(executor, new FieldEncryptionService(executor, enabledEncryptionConfig() as never, '11'.repeat(32))),
+      entityRepository: new EntityRepositoryPostgres(executor, new FieldEncryptionService(executor, enabledEncryptionConfig() as never, '11'.repeat(32))),
       lockRepository: new LockRepositoryPostgres(executor),
       transactionPort: new TransactionPortPostgres(pool),
       attachmentRepository: new AttachmentRepositoryPostgres(executor),
       attachmentRateLimitPort: new AttachmentRateLimitPortPostgres(executor),
+      inspectEncryptedStorage: async () => {
+        const raw = await executor.query<{ value_text: string | null; secret_text: string | null }>('SELECT value_text, secret_text FROM entity_parity_probe WHERE entity_id = $1', [ids.alphaEntity]);
+        const sidecar = await executor.query<{ count: string }>("SELECT count(*) FROM resource_field_ciphertexts WHERE resource_type = 'entity' AND resource_id = $1", [ids.alphaEntity]);
+        const row = raw.rows[0];
+        return {
+          rawContainsSecret: row?.value_text === 'updated-secret' || row?.secret_text === 'updated-secret',
+          sidecarCount: Number(sidecar.rows[0]?.count ?? 0),
+        };
+      },
       cleanup: postgresCleanup,
       setup: async () => {
         await postgresCleanup();
@@ -280,8 +300,10 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
         await executor.query("INSERT INTO node_types(id,type_key,name,description) VALUES ($1,'parity-node','Parity node','')", [ids.nodeType]);
         await executor.query("INSERT INTO entity_types(id,type_key,name,description,storage_table) VALUES ($1,'parity-entity','Parity entity','','entity_parity_probe')", [ids.entityType]);
         await executor.query(
-          "INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,position) VALUES ($1,$2,'value','Value','value_text','string',1)",
-          [ids.entityField, ids.entityType],
+          `INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES
+           ($1,$2,'value','Value','value_text','string','plaintext',1),
+           ($3,$2,'secret','Secret','secret_text','string','encrypted',2)`,
+          [ids.entityField, ids.entityType, ids.entitySecretField],
         );
         const storageExists = await executor.query<{ exists: boolean }>(
           "SELECT to_regclass('public.entity_parity_probe') IS NOT NULL AS exists",
@@ -289,11 +311,14 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
         if (!storageExists.rows[0]?.exists) {
           await storageTableManager.createStorageTable('entity_parity_probe');
           await storageTableManager.addColumn('entity_parity_probe', 'value_text', 'string', false, false, null);
+          await storageTableManager.addColumn('entity_parity_probe', 'secret_text', 'string', false, false, null);
         }
       },
     };
 
     const sqliteInfrastructure = new SqliteInfrastructure();
+    const sqliteEncryption = new FieldEncryptionServiceSqlite(sqliteInfrastructure.database, enabledEncryptionConfig() as never, '11'.repeat(32));
+    sqliteInfrastructure.configureFieldEncryption(sqliteEncryption);
     sqlite = {
       nodeRepository: sqliteInfrastructure.nodeRepository,
       entityRepository: sqliteInfrastructure.entityRepository,
@@ -301,13 +326,21 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       transactionPort: sqliteInfrastructure.transactionPort,
       attachmentRepository: sqliteInfrastructure.attachmentRepository,
       attachmentRateLimitPort: sqliteInfrastructure.attachmentRateLimitPort,
+      inspectEncryptedStorage: async () => {
+        const raw = sqliteInfrastructure.database.get<{ payload: string }>('SELECT payload FROM entities WHERE id=?', [ids.alphaEntity]);
+        return {
+          rawContainsSecret: raw?.payload.includes('updated-secret') ?? false,
+          sidecarCount: sqliteInfrastructure.database.all("SELECT 1 FROM resource_field_ciphertexts WHERE resource_type = 'entity' AND resource_id = ?", [ids.alphaEntity]).length,
+        };
+      },
       cleanup: async () => sqliteInfrastructure.close(),
       setup: async () => {
         sqliteInfrastructure.database.run('INSERT INTO users(id,email,password_hash,is_active,is_super_admin) VALUES (?,?,?,?,?)', [ids.actor, 'parity-admin@example.test', 'unused', 1, 1]);
         sqliteInfrastructure.database.run('INSERT INTO users(id,email,password_hash,is_active,is_super_admin) VALUES (?,?,?,?,?)', [ids.otherActor, 'parity-inactive@example.test', 'unused', 0, 0]);
         sqliteInfrastructure.database.run('INSERT INTO node_types(id,type_key,name,description) VALUES (?,?,?,?)', [ids.nodeType, 'parity-node', 'Parity node', '']);
         sqliteInfrastructure.database.run('INSERT INTO entity_types(id,type_key,name,description,storage_table) VALUES (?,?,?,?,?)', [ids.entityType, 'parity-entity', 'Parity entity', '', 'entity_parity_probe']);
-        sqliteInfrastructure.database.run('INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,position) VALUES (?,?,?,?,?,?,?)', [ids.entityField, ids.entityType, 'value', 'Value', 'value_text', 'string', 1]);
+        sqliteInfrastructure.database.run('INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES (?,?,?,?,?,?,?,?)', [ids.entityField, ids.entityType, 'value', 'Value', 'value_text', 'string', 'plaintext', 1]);
+        sqliteInfrastructure.database.run('INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES (?,?,?,?,?,?,?,?)', [ids.entitySecretField, ids.entityType, 'secret', 'Secret', 'secret_text', 'string', 'encrypted', 2]);
       },
     };
     await Promise.all([postgres.setup(), sqlite.setup()]);
@@ -327,7 +360,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       duplicateNodeError: 'NodePathCollisionError',
       staleNodeDeleteError: 'RowVersionMismatchError',
       entityOrder: ['Alpha', 'Zeta'],
-      entityRoundTrip: { name: 'Alpha updated', payload: { value: 'updated-value' }, rowVersion: 2 },
+      entityRoundTrip: { name: 'Alpha updated', payload: { value: 'updated-value', secret: 'updated-secret' }, rowVersion: 2 },
       staleEntityUpdateError: 'RowVersionMismatchError',
       staleEntityDeleteError: 'RowVersionMismatchError',
       deletedEntityVersion: 3,
@@ -342,6 +375,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       transactionRolledBack: true,
       attachmentQuota: { accepted: [true, false], usedBytes: 60 },
       rateLimit: [true, true, false],
+      encryption: { rawContainsSecret: false, sidecarCount: 1 },
     });
   }, 30_000);
 });

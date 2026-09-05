@@ -1,3 +1,4 @@
+/** Provides the SQLite subtree entity read model while preserving application-level payload policies. */
 import type {
   EntitySubtreePaginatedResult,
   EntitySubtreeQueryParams,
@@ -7,6 +8,7 @@ import type {
 import type { AccessControlPort } from '../../application/ports/AccessControlPort.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
+import type { FieldEncryptionServiceSqlite } from './FieldEncryptionServiceSqlite.js';
 
 interface PathRow { path: string; }
 interface EntityRow {
@@ -35,7 +37,11 @@ const parsePayload = (value: string): Record<string, unknown> => {
 };
 
 export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
-  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPort) {}
+  constructor(
+    private readonly database: SqliteDatabase,
+    private readonly accessControl?: AccessControlPort,
+    private readonly fieldEncryption?: FieldEncryptionServiceSqlite,
+  ) {}
 
   async findSubtreeEntitiesPaginated(params: EntitySubtreeQueryParams): Promise<EntitySubtreePaginatedResult> {
     const base = this.database.get<PathRow>('SELECT path FROM nodes WHERE id=? AND deleted_at IS NULL', [params.baseNodeId]);
@@ -70,7 +76,7 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
     const visible: SubtreeEntityDto[] = [];
     for (const row of rows) {
       if (this.accessControl && !(await this.canRead(params.actorUserId, row.parent_node_id))) continue;
-      visible.push(this.mapRow(row));
+      visible.push(await this.mapRow(row));
     }
     const hasMore = visible.length > params.limit;
     const items = visible.slice(0, params.limit);
@@ -99,11 +105,12 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
     }
   }
 
-  private mapRow(row: EntityRow): SubtreeEntityDto {
+  private async mapRow(row: EntityRow): Promise<SubtreeEntityDto> {
+    const payload = parsePayload(row.payload);
     const item: SubtreeEntityDto = {
       id: row.id, parentNodeId: row.parent_node_id, entityTypeId: row.entity_type_id, name: row.name,
       description: row.description, rowVersion: Number(row.row_version), createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at), payload: parsePayload(row.payload), nodeName: row.nodeName,
+      updatedAt: new Date(row.updated_at), payload: this.fieldEncryption ? await this.fieldEncryption.restore('entity', row.id, payload) : payload, nodeName: row.nodeName,
       nodePath: row.nodePath, nodeDepth: Number(row.nodeDepth), nodeRowVersion: Number(row.nodeRowVersion),
     };
     if (row.lockUserId) {
