@@ -21,6 +21,7 @@ interface EntityDetailContentProps {
   description: string;
   isMyLock: boolean;
   isPending: boolean;
+  formStale: boolean;
   setPayload: Dispatch<SetStateAction<Record<string, unknown>>>;
   setAttachmentsByField: Dispatch<SetStateAction<Record<string, readonly File[]>>>;
   setName: (value: string) => void;
@@ -140,7 +141,7 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
             onCancel={props.onCancel}
             destructiveAction={{ label: 'Elimina', onClick: props.onDelete }}
             isPending={props.isPending}
-            submitDisabled={!props.name.trim()}
+            submitDisabled={!props.name.trim() || props.formStale}
             submitLabel="Salva modifiche"
             pendingLabel="Salvataggio…"
             cancelLabel="Annulla"

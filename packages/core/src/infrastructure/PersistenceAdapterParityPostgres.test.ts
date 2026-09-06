@@ -90,6 +90,7 @@ interface AdapterBehavior {
   attachmentQuota: { accepted: boolean[]; usedBytes: number };
   rateLimit: boolean[];
   encryption: { rawContainsSecret: boolean; sidecarCount: number };
+  deleteResponse: { deleted: boolean; parentNodeId: string | null; persistedParentId: string | null; deletedNodeId: string };
 }
 
 function makeNode(id: string, parentId: string | null, path: string, pathLabel: string, depth: number, name: string): Node {
@@ -176,7 +177,18 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
   await harness.lockRepository.release(resource, ids.actor, ids.session);
   const released = (await harness.lockRepository.getLock(resource)) === null;
 
+  // This is the persistence projection used by the server action after a
+  // successful delete: capture the parent before the mutation, then verify
+  // that both adapters preserve it on the soft-deleted row.
+  const deleteTarget = await harness.nodeRepository.findById(ids.child);
   const deletedIds = (await harness.nodeRepository.softDeleteSubtree(ids.child, ids.actor, 1, ids.deleteBatch)).sort();
+  const deletedNode = await harness.nodeRepository.findDeletedById(ids.child);
+  const deleteResponse = {
+    deleted: deletedIds.includes(ids.child),
+    parentNodeId: deleteTarget?.parentId ?? null,
+    persistedParentId: deletedNode?.parentId ?? null,
+    deletedNodeId: ids.child,
+  };
   const deletedSubtree = {
     ids: deletedIds,
     entityWasDeleted: (await harness.entityRepository.findDeletedById(ids.alphaEntity)) !== null,
@@ -232,7 +244,7 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
     staleEntityRestoreError, restoredEntityVersion,
     lock: { owner, conflictError, forbiddenReleaseError, released },
     deletedSubtree, staleNodeRestoreError, restoredSubtree, pathReuseAllowed, transactionRolledBack,
-    attachmentQuota, rateLimit, encryption,
+    attachmentQuota, rateLimit, encryption, deleteResponse,
   };
 }
 
@@ -376,6 +388,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       attachmentQuota: { accepted: [true, false], usedBytes: 60 },
       rateLimit: [true, true, false],
       encryption: { rawContainsSecret: false, sidecarCount: 1 },
+      deleteResponse: { deleted: true, parentNodeId: ids.root, persistedParentId: ids.root, deletedNodeId: ids.child },
     });
   }, 30_000);
 });

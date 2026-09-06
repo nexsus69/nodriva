@@ -11,7 +11,8 @@ import {
 
 async function resolveAuthorizedActor(
   resourceType: string,
-  resourceId: string
+  resourceId: string,
+  options: { allowSoftDeletedEntity?: boolean } = {},
 ): Promise<{ actorUserId: string; actorSessionId: string; resourceType: LockResourceType; scopeNodeId?: string }> {
   const validatedType = validateLockResource(resourceType, resourceId);
   const identity = await AuthResolver.resolveActorIdentity();
@@ -22,8 +23,9 @@ async function resolveAuthorizedActor(
     await accessControlPort.assertHasPermission(actorUserId, 'node.edit', resourceId);
     return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: resourceId };
   } else if (validatedType === 'entity') {
-    const entity = await entityRepository.findById(resourceId);
-    if (!entity || entity.deletedAt) throw new Error('Entità non trovata.');
+    const entity = await entityRepository.findById(resourceId)
+      ?? (options.allowSoftDeletedEntity ? await entityRepository.findDeletedById(resourceId) : null);
+    if (!entity || (!options.allowSoftDeletedEntity && entity.deletedAt)) throw new Error('Entità non trovata.');
     await accessControlPort.assertHasPermission(actorUserId, 'entity.edit', entity.parentNodeId);
     return { actorUserId, actorSessionId: identity.sessionId, resourceType: validatedType, scopeNodeId: entity.parentNodeId };
   } else if (validatedType === 'scope_assignment') {
@@ -75,7 +77,7 @@ export async function refreshLockAction(resourceType: string, resourceId: string
 
 export async function releaseLockAction(resourceType: string, resourceId: string) {
   try {
-    const actor = await resolveAuthorizedActor(resourceType, resourceId);
+    const actor = await resolveAuthorizedActor(resourceType, resourceId, { allowSoftDeletedEntity: true });
     const { lockService } = await import('../../server/db');
     await lockService.unlock(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId });
     return { success: true as const };

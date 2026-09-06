@@ -1,13 +1,13 @@
 /** Coordinates node detail state, cache reads, lock state and user-driven mutations. */
 
-import { useEffect, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSemanticNodeList } from '../../../hooks/useSemanticNodeList';
 import { useSemanticEntityCollection } from '../../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { useCacheNode } from '../../../hooks/useCacheNode';
 import { useLock } from '../../../hooks/useLock';
-import { AppCache } from '../../../cache/GlobalCacheClient';
+import { AppCache, hasStaleOptimisticEdit, isRowVersionMismatch } from '../../../cache/GlobalCacheClient';
 import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
 import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
@@ -31,6 +31,8 @@ export function useNodeDetail(nodeId: string) {
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
   const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
+  const editingRowVersion = useRef<number | null>(null);
+  const [formStale, setFormStale] = useState(false);
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
   const [isSavingNode, startNodeUpdate] = useTransition();
 
@@ -64,7 +66,7 @@ export function useNodeDetail(nodeId: string) {
 
   useEffect(() => {
     const nodeTypeKey = currentNode ? nodeTypes[currentNode.nodeTypeId]?.typeKey : undefined;
-    if (!currentNode || !nodeTypeKey) return;
+    if (!currentNode || !nodeTypeKey || lock.isMyLock) return;
     const timer = window.setTimeout(() => {
       AppCache.admin.getTypeDefinition('node', nodeTypeKey).then((definition) => {
         setDynamicNodeFields(definition?.fields ?? []);
@@ -72,7 +74,7 @@ export function useNodeDetail(nodeId: string) {
       });
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [currentNode, nodeTypes]);
+  }, [currentNode, lock.isMyLock, nodeTypes]);
 
   const entityTypeKeys = [...new Set(
     nodeEntities.map((entity) => entityTypes[entity.entityTypeId]?.typeKey).filter(Boolean),
@@ -103,6 +105,8 @@ export function useNodeDetail(nodeId: string) {
     setNodeDescription(currentNode.description || '');
     setDynamicNodePayload(currentNode.payload ?? {});
     setAttachmentsByField({});
+    editingRowVersion.current = currentNode.rowVersion;
+    setFormStale(false);
     return lock.acquireLock();
   };
 
@@ -114,12 +118,32 @@ export function useNodeDetail(nodeId: string) {
       setDynamicNodePayload(currentNode.payload ?? {});
     }
     setAttachmentsByField({});
+    editingRowVersion.current = null;
+    setFormStale(false);
     await lock.releaseLock();
+  };
+
+  useEffect(() => {
+    if (!lock.isMyLock || !currentNode || editingRowVersion.current === null) return;
+    if (hasStaleOptimisticEdit(editingRowVersion.current, currentNode.rowVersion)) {
+      setFormStale(true);
+      setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
+    }
+  }, [currentNode, lock.isMyLock]);
+
+  const reloadFresh = async () => {
+    const refreshed = await AppCache.refreshNode(nodeId);
+    if (!refreshed) return;
+    setNodeName(refreshed.name); setNodeDescription(refreshed.description || ''); setDynamicNodePayload(refreshed.payload ?? {}); setAttachmentsByField({});
+    editingRowVersion.current = refreshed.rowVersion;
+    setFormStale(false);
+    setErrorMessage('Dati aggiornati. Puoi continuare la modifica.');
   };
 
   const handleUpdateNode = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!currentNode || !lock.isMyLock) return;
+    if (formStale || hasStaleOptimisticEdit(editingRowVersion.current, currentNode.rowVersion)) return;
     setErrorMessage(null);
     setSuccessMessage(null);
     startNodeUpdate(async () => {
@@ -140,6 +164,19 @@ export function useNodeDetail(nodeId: string) {
         await lock.releaseLock();
         setSuccessMessage('Nodo aggiornato con successo.');
       } catch (cause) {
+        if (isRowVersionMismatch(cause)) {
+          const refreshed = await AppCache.refreshNode(nodeId);
+          if (refreshed) {
+            setNodeName(refreshed.name);
+            setNodeDescription(refreshed.description || '');
+            setDynamicNodePayload(refreshed.payload ?? {});
+            setAttachmentsByField({});
+            editingRowVersion.current = refreshed.rowVersion;
+            setFormStale(false);
+            setErrorMessage('I dati sono stati aggiornati da un altro utente. I campi sono stati ricaricati; puoi continuare la modifica o uscire intenzionalmente.');
+            return;
+          }
+        }
         setErrorMessage(cause instanceof Error ? `Errore durante l'aggiornamento del nodo: ${cause.message}` : `Errore durante l'aggiornamento del nodo.`);
       }
     });
@@ -182,7 +219,7 @@ export function useNodeDetail(nodeId: string) {
   return {
     nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, nodeTypes, entityDefinitions,
     isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
-    dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode,
+    dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode, formStale, reloadFresh,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
     setDynamicNodePayload, setAttachmentsByField, setNodeName, setNodeDescription,
     beginNodeEditing, exitEditMode, handleUpdateNode,

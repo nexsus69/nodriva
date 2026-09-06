@@ -83,6 +83,21 @@ describe('NodeRepositorySqlite', () => {
     database.close();
   });
 
+  it('ignores locks left on entities already soft-deleted outside the new subtree batch', async () => {
+    const database = new SqliteDatabase();
+    ensureSqliteSchema(database);
+    database.run('INSERT INTO node_types (id,type_key,name) VALUES (?,?,?)', ['type', 'folder', 'Folder']);
+    database.run('INSERT INTO entity_types (id,type_key,name,storage_table) VALUES (?,?,?,?)', ['entity-type', 'item', 'Item', 'entity_data_item']);
+    const repository = new NodeRepositorySqlite(database);
+    await repository.create(node('root', null, 'root', 'root', 0));
+    await repository.create(node('child', 'root', 'root.child', 'child', 1));
+    database.run('INSERT INTO entities (id,entity_type_id,parent_node_id,name,row_version,created_at,updated_at,payload,deleted_at) VALUES (?,?,?,?,?,?,?,?,?)', ['entity', 'entity-type', 'child', 'Entity', 1, now.toISOString(), now.toISOString(), '{}', now.toISOString()]);
+    database.run('INSERT INTO locks (id,resource_type,resource_id,user_id,session_id,acquired_at,expires_at) VALUES (?,?,?,?,?,?,?)', ['lock', 'entity', 'entity', 'other-user', 'session', now.toISOString(), '2999-01-01T00:00:00.000Z']);
+
+    await expect(repository.assertSubtreeUnlocked('root', 'actor', 'session')).resolves.toBeUndefined();
+    database.close();
+  });
+
   it('allows reuse of a sibling label after soft deletion', async () => {
     const database = new SqliteDatabase();
     ensureSqliteSchema(database);

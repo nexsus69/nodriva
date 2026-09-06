@@ -282,7 +282,11 @@ async function exerciseConcurrency(firstPage: Page, secondPage: Page, entityUrl:
   await expect(secondPage.getByText('Modalità modifica')).toBeVisible();
   await secondPage.getByLabel('Descrizione').fill('Stale update from the second canonical session');
   await secondPage.getByRole('button', { name: 'Salva modifiche' }).click();
-  await expect(secondPage.getByText(/version|conflitto|modificata/i).first()).toBeVisible();
+  await expect(secondPage.getByText('I dati sono stati aggiornati da un altro utente. I campi sono stati ricaricati; puoi continuare la modifica o uscire intenzionalmente.')).toBeVisible();
+  await expect(secondPage.getByText('Modalità modifica')).toBeVisible();
+  await expect(secondPage.getByRole('button', { name: 'Esci dalla modifica' })).toBeVisible();
+  await secondPage.getByRole('button', { name: 'Esci dalla modifica' }).click();
+  await expect(secondPage.getByRole('button', { name: 'Modifica', exact: true })).toBeVisible();
   return { lock: true, rowVersion: true };
 }
 
@@ -492,8 +496,10 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await firstOperatorPage.locator('h1').getByRole('button', { name: `Azioni per ${names.childName}` }).click();
     await firstOperatorPage.getByRole('menuitem', { name: 'Elimina nodo' }).click();
     await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina nodo' }).click();
+    await expect(firstOperatorPage.getByText(/Errore durante l'eliminazione del nodo/i)).toHaveCount(0);
     await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
     await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
+    const nodeDeletedViaMenu = true;
 
     await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
     await adminPage.reload();
@@ -519,7 +525,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       rowVersionConflictObserved: concurrency.rowVersion,
       breadcrumbReloaded: true,
       entityRestored: lifecycle.restored,
-      nodeDeletedViaMenu: true,
+      nodeDeletedViaMenu,
       subtreeRecycleOperation: true,
       auditActions: lifecycle.actions,
     };

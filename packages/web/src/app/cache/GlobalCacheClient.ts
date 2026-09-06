@@ -74,6 +74,17 @@ function actionError(error: { code: string; message: string; details?: unknown }
   return Object.assign(new Error(error.message), error);
 }
 
+export function isRowVersionMismatch(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ROW_VERSION_MISMATCH';
+}
+
+/** Prevents submitting an edit whose optimistic-concurrency snapshot is stale. */
+export function hasStaleOptimisticEdit(editingRowVersion: number | null, currentRowVersion: number | undefined): boolean {
+  return editingRowVersion !== null
+    && currentRowVersion !== undefined
+    && currentRowVersion !== editingRowVersion;
+}
+
 export class GlobalCacheClient {
   private cacheRevision = 0;
   private cacheSubscribers = new Set<() => void>();
@@ -529,6 +540,13 @@ export class GlobalCacheClient {
     }
   }
 
+  /** Reloads the authoritative entity after an optimistic-concurrency conflict. */
+  public async refreshEntity(entityId: string, entityTypeKey: string): Promise<ClientEntity | null> {
+    const cache = this.getEntityCache(entityTypeKey);
+    cache.invalidate(entityId);
+    return cache.fetchIfMissing(entityId, true);
+  }
+
   public async deleteEntity(entityId: string, entityTypeKey?: string, expectedRowVersion?: number): Promise<{ parentNodeId: string; entityTypeId: string }> {
     const requestEpoch = this.getCacheEpoch();
     try {
@@ -585,6 +603,12 @@ export class GlobalCacheClient {
       this.handleFetchError(err);
       throw err;
     }
+  }
+
+  /** Reloads the authoritative node after an optimistic-concurrency conflict. */
+  public async refreshNode(nodeId: string): Promise<ClientNode | null> {
+    this.nodes.invalidate(nodeId);
+    return this.nodes.fetchIfMissing(nodeId, true);
   }
 
   public async moveNode(input: MoveNodeInput) {

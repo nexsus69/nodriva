@@ -105,7 +105,7 @@ export function EntityDetailScreen() {
         />
       </Panel>
       {controller.errorMessage && (
-        <Feedback tone="rose" label="Errore" message={controller.errorMessage} />
+        <Feedback tone="rose" label="Errore" message={controller.errorMessage} action={controller.formStale ? { label: 'Ricarica dati', onClick: () => void controller.reloadFresh() } : undefined} />
       )}
       {controller.successMessage && (
         <Feedback tone="emerald" label="Esito" message={controller.successMessage} />
@@ -122,6 +122,7 @@ export function EntityDetailScreen() {
         description={controller.description}
         isMyLock={controller.lock.isMyLock}
         isPending={controller.isPending}
+        formStale={controller.formStale}
         setPayload={controller.setPayload}
         setAttachmentsByField={controller.setAttachments}
         setName={controller.setName}
@@ -147,9 +148,10 @@ interface FeedbackProps {
   tone: 'rose' | 'emerald' | 'amber';
   label: string;
   message: string;
+  action?: { label: string; onClick: () => void };
 }
 
-function Feedback({ tone, label, message }: FeedbackProps) {
+function Feedback({ tone, label, message, action }: FeedbackProps) {
   const classes = {
     rose: 'border-rose-200 bg-rose-50 text-rose-700',
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -159,6 +161,7 @@ function Feedback({ tone, label, message }: FeedbackProps) {
   return (
     <div className={`rounded-xl border p-4 text-xs ${classes[tone]}`}>
       <strong>{label}:</strong> {message}
+      {action && <button type="button" className="ml-3 underline" onClick={action.onClick}>{action.label}</button>}
     </div>
   );
 }

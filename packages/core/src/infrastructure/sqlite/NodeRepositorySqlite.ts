@@ -153,11 +153,12 @@ export class NodeRepositorySqlite implements NodeRepository {
        )
        SELECT lock.resource_type, lock.resource_id
        FROM locks lock
-       WHERE lock.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE lock.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
          AND NOT (lock.user_id=? AND lock.session_id=?)
-         AND ((lock.resource_type='node' AND lock.resource_id IN (SELECT id FROM subtree))
+         AND ((lock.resource_type='node' AND lock.resource_id IN (SELECT id FROM subtree WHERE id IN (SELECT id FROM nodes WHERE deleted_at IS NULL)))
            OR (lock.resource_type='entity' AND EXISTS (
-             SELECT 1 FROM entities entity WHERE entity.id=lock.resource_id AND entity.parent_node_id IN (SELECT id FROM subtree)
+             SELECT 1 FROM entities entity JOIN nodes parent ON parent.id=entity.parent_node_id
+             WHERE entity.id=lock.resource_id AND entity.deleted_at IS NULL AND parent.deleted_at IS NULL AND entity.parent_node_id IN (SELECT id FROM subtree)
            )))
        ORDER BY lock.expires_at LIMIT 1`,
       [nodeId, actorUserId, actorSessionId],

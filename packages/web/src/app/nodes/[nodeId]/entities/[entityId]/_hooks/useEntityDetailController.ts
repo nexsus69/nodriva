@@ -1,9 +1,9 @@
 'use client';
 
 /** Coordinates entity detail editing, soft deletion, locking, and safe return navigation. */
-import { useEffect, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppCache } from '../../../../../cache/GlobalCacheClient';
+import { AppCache, hasStaleOptimisticEdit, isRowVersionMismatch } from '../../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../../hooks/useLock';
@@ -36,6 +36,8 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
+  const editingRowVersion = useRef<number | null>(null);
+  const [formStale, setFormStale] = useState(false);
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
   const entityType = detail.entity
     ? Object.values(entityTypes).find(
@@ -51,27 +53,50 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const navigationGuard = useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
-    if (!detail.entity || !entityType?.typeKey) return;
+    if (!detail.entity || !entityType?.typeKey || lock.isMyLock) return;
     const timer = window.setTimeout(() => void AppCache.admin.getTypeDefinition('entity', entityType.typeKey).then((definition) => {
       setFields(definition?.fields ?? []); setPayload(detail.entity?.payload ?? {});
     }), 0);
     return () => window.clearTimeout(timer);
-  }, [detail.entity, entityType?.typeKey]);
+  }, [detail.entity, entityType?.typeKey, lock.isMyLock]);
 
   const beginEditing = async () => {
     if (!detail.entity) return false;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
+    editingRowVersion.current = detail.entity.rowVersion;
+    setFormStale(false);
     return lock.acquireLock();
   };
   const cancelEditing = async () => {
     if (!detail.entity) return;
     if (!(await navigationGuard.confirmDiscard())) return;
-    setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({}); await lock.releaseLock();
+    setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
+    editingRowVersion.current = null;
+    setFormStale(false);
+    await lock.releaseLock();
+  };
+
+  useEffect(() => {
+    if (!lock.isMyLock || !detail.entity || editingRowVersion.current === null) return;
+    if (hasStaleOptimisticEdit(editingRowVersion.current, detail.entity.rowVersion)) {
+      setFormStale(true);
+      setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
+    }
+  }, [detail.entity, lock.isMyLock]);
+
+  const reloadFresh = async () => {
+    const refreshed = await AppCache.refreshEntity(entityId, detail.entity?.entityTypeId ?? '');
+    if (!refreshed) return;
+    setName(refreshed.name); setDescription(refreshed.description || ''); setPayload(refreshed.payload || {}); setAttachments({});
+    editingRowVersion.current = refreshed.rowVersion;
+    setFormStale(false);
+    setErrorMessage('Dati aggiornati. Puoi continuare la modifica.');
   };
 
   const save = (event: FormEvent) => {
     event.preventDefault();
     if (!detail.entity) return;
+    if (formStale || hasStaleOptimisticEdit(editingRowVersion.current, detail.entity.rowVersion)) return;
     setErrorMessage(null); setSuccessMessage(null);
     startTransition(async () => {
       try {
@@ -89,7 +114,22 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         await uploadDynamicAttachments('entity', entityId, fields, attachments);
         setAttachments({});
         await lock.releaseLock(); setSuccessMessage('Entità aggiornata con successo.');
-      } catch (reason) { setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’aggiornamento dell’entità.'); }
+      } catch (reason) {
+        if (isRowVersionMismatch(reason) && detail.entity) {
+          const refreshed = await AppCache.refreshEntity(entityId, detail.entity.entityTypeId);
+          if (refreshed) {
+            setName(refreshed.name);
+            setDescription(refreshed.description || '');
+            setPayload(refreshed.payload || {});
+            setAttachments({});
+            editingRowVersion.current = refreshed.rowVersion;
+            setFormStale(false);
+            setErrorMessage('I dati sono stati aggiornati da un altro utente. I campi sono stati ricaricati; puoi continuare la modifica o uscire intenzionalmente.');
+            return;
+          }
+        }
+        setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’aggiornamento dell’entità.');
+      }
     });
   };
 
@@ -119,5 +159,5 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     confirmDelete();
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, attachments, setAttachments, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
+  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }

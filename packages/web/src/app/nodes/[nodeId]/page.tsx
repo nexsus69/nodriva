@@ -41,7 +41,10 @@ export default function NodeDetailPage() {
     <PageShell>
       <NodeWorkspaceNavigation nodeId={nodeId} canCreate={canCreate} />
       <NodeContextOverview nodeId={nodeId} controller={controller} />
-      {controller.displayedError && <Alert tone="danger"><span className="font-bold">Errore:</span> {controller.displayedError}</Alert>}
+      {controller.displayedError && <Alert tone="danger">
+        <span className="font-bold">Errore:</span> {controller.displayedError}
+        {controller.formStale && <button type="button" className="ml-3 underline" onClick={() => void controller.reloadFresh()}>Ricarica dati</button>}
+      </Alert>}
       {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
       {controller.currentNode && controller.nodeTypes[controller.currentNode.nodeTypeId]?.typeKey && (

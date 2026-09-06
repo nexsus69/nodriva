@@ -110,7 +110,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             onCancel={() => { void controller.exitEditMode(); }}
             destructiveAction={{ label: 'Elimina nodo', onClick: () => { void controller.requestDeleteNode(); } }}
             isPending={controller.isSavingNode}
-            submitDisabled={!controller.nodeName.trim()}
+            submitDisabled={!controller.nodeName.trim() || controller.formStale}
             submitLabel="Salva modifiche"
             pendingLabel="Salvataggio…"
             cancelLabel="Annulla"

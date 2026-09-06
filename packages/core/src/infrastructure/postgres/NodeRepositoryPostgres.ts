@@ -411,11 +411,11 @@ export class NodeRepositoryPostgres implements NodeRepository {
       WHERE l.expires_at > now()
         AND NOT (l.user_id::text = $2 AND l.session_id::text = $3)
         AND (
-          (l.resource_type = 'node' AND EXISTS (SELECT 1 FROM nodes n WHERE n.id::text = l.resource_id AND n.path <@ root.path))
+          (l.resource_type = 'node' AND EXISTS (SELECT 1 FROM nodes n WHERE n.id::text = l.resource_id AND n.deleted_at IS NULL AND n.path <@ root.path))
           OR
           (l.resource_type = 'entity' AND EXISTS (
             SELECT 1 FROM entities e JOIN nodes parent ON parent.id = e.parent_node_id
-            WHERE e.id::text = l.resource_id AND parent.path <@ root.path
+            WHERE e.id::text = l.resource_id AND e.deleted_at IS NULL AND parent.deleted_at IS NULL AND parent.path <@ root.path
           ))
         )
       ORDER BY l.expires_at ASC
