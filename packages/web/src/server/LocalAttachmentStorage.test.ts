@@ -1,3 +1,4 @@
+/** Verifies local attachment envelopes, legacy compatibility and path safety. */
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,6 +38,43 @@ describe('LocalAttachmentStorage', () => {
       const { readFile } = await import('node:fs/promises');
       expect(await readFile(path.join(root, 'secure/file.bin'), 'utf8')).not.toContain('secret content');
       await expect(storage.get('secure/file.bin')).resolves.toEqual(content);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('wraps new plaintext attachments so user content cannot collide with encryption headers', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
+    try {
+      const storage = new LocalAttachmentStorage(root, '11'.repeat(32));
+      const content = new TextEncoder().encode('DASHATT1 user content');
+      await storage.put('plain/file.bin', content, { encrypt: false });
+      const { readFile } = await import('node:fs/promises');
+      const stored = await readFile(path.join(root, 'plain/file.bin'));
+
+      expect(stored.subarray(0, 8).toString()).toBe('DASHRAW1');
+      await expect(storage.get('plain/file.bin')).resolves.toEqual(content);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('reads legacy plaintext and legacy DASHATT1 encrypted attachments', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
+    try {
+      const storage = new LocalAttachmentStorage(root, '11'.repeat(32));
+      const { writeFile, mkdir } = await import('node:fs/promises');
+      await mkdir(path.join(root, 'legacy'), { recursive: true });
+      const plaintext = new TextEncoder().encode('legacy DASHATT1 prefix');
+      await writeFile(path.join(root, 'legacy/plain.bin'), plaintext);
+      await expect(storage.get('legacy/plain.bin')).resolves.toEqual(plaintext);
+
+      const legacyCipher = Buffer.alloc(8 + 12 + 16);
+      Buffer.from('DASHATT1').copy(legacyCipher, 0);
+      // The legacy format is validated by the existing decrypt path; malformed
+      // payloads must not be mistaken for plaintext.
+      await writeFile(path.join(root, 'legacy/encrypted.bin'), legacyCipher);
+      await expect(storage.get('legacy/encrypted.bin')).rejects.toThrow();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
