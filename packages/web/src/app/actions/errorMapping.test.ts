@@ -11,7 +11,7 @@ describe('mapAppErrorToApiErrorResponse', () => {
       {
         totalReferencerCount: 2,
         referencers: [
-          { type: 'Task', id: 'task-1', name: 'External task' },
+          { domain: 'entity', parentNodeId: 'node-1', type: 'Task', id: 'task-1', name: 'External task' },
           { type: 'Task', id: 42, name: 'invalid id' },
           'invalid',
         ],
@@ -22,7 +22,7 @@ describe('mapAppErrorToApiErrorResponse', () => {
       code: 'RESOURCE_DELETE_RESTRICTED',
       message: 'Impossibile eliminare la risorsa perché possiede riferimenti attivi.',
       totalReferencerCount: 2,
-      referencers: [{ type: 'Task', id: 'task-1', name: 'External task' }],
+      referencers: [{ domain: 'entity', type: 'Task', id: 'task-1', name: 'External task', href: '/nodes/node-1/entities/task-1' }],
     });
   });
 });

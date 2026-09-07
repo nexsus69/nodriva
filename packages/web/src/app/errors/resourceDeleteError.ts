@@ -1,8 +1,10 @@
 /** Formats the structured F-03 restriction without leaking technical details into the main message. */
 export interface ResourceDeleteReferencer {
+  domain: 'node' | 'entity';
   type: string;
   id: string;
   name: string;
+  href?: string;
 }
 
 export interface ResourceDeleteErrorLike {
@@ -31,8 +33,9 @@ export function getResourceDeleteRestriction(error: ResourceDeleteErrorLike): Re
     ? error.referencers.flatMap((value): ResourceDeleteReferencer[] => {
       if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
       const item = value as Record<string, unknown>;
-      return typeof item.type === 'string' && typeof item.id === 'string' && typeof item.name === 'string'
-        ? [{ type: item.type, id: item.id, name: item.name }]
+      const domain = item.domain === 'node' || item.domain === 'entity' ? item.domain : null;
+      return domain && typeof item.type === 'string' && typeof item.id === 'string' && typeof item.name === 'string'
+        ? [{ domain, type: item.type, id: item.id, name: item.name, ...(typeof item.href === 'string' ? { href: item.href } : {}) }]
         : [];
     })
     : [];

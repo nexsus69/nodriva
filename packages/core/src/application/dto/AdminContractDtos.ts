@@ -336,5 +336,5 @@ export interface ApiErrorResponse {
   currentRowVersion?: number;
   details?: ApiErrorDetail[];
   totalReferencerCount?: number;
-  referencers?: Array<{ type: string; id: string; name: string }>;
+  referencers?: Array<{ domain: "node" | "entity"; type: string; id: string; name: string; href?: string }>;
 }

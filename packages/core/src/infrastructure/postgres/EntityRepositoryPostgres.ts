@@ -34,9 +34,9 @@ interface FieldMetaRow {
 export class EntityRepositoryPostgres implements EntityRepository {
   constructor(private readonly executor: PgExecutor, private readonly fieldEncryption?: FieldEncryptionService) {}
 
-  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId: string | null }[]> {
     if (ids.length === 0) return [];
-    return (await this.executor.query<{ id: string; type: string; name: string }>('SELECT e.id, t.name AS type, e.name FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id=ANY($1::uuid[]) AND e.deleted_at IS NULL', [[...new Set(ids)]])).rows;
+    return (await this.executor.query<{ id: string; type: string; name: string; parentNodeId: string | null }>('SELECT e.id, t.name AS type, e.name, e.parent_node_id AS "parentNodeId" FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id=ANY($1::uuid[]) AND e.deleted_at IS NULL', [[...new Set(ids)]])).rows;
   }
 
   private escapeIdentifier(id: string): string {

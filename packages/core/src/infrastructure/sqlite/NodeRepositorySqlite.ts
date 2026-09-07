@@ -12,9 +12,9 @@ interface NodeRow { id: string; parent_id: string | null; path: string; path_lab
 export class NodeRepositorySqlite implements NodeRepository {
   constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {}
 
-  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId: string | null }[]> {
     if (ids.length === 0) return [];
-    return this.database.all<{ id: string; type: string; name: string }>(`SELECT n.id,t.name AS type,n.name FROM nodes n JOIN node_types t ON t.id=n.node_type_id WHERE n.id IN (${ids.map(() => '?').join(',')}) AND n.deleted_at IS NULL`, [...new Set(ids)]);
+    return this.database.all<{ id: string; type: string; name: string; parentNodeId: string | null }>(`SELECT n.id,t.name AS type,n.name,n.parent_id AS parentNodeId FROM nodes n JOIN node_types t ON t.id=n.node_type_id WHERE n.id IN (${ids.map(() => '?').join(',')}) AND n.deleted_at IS NULL`, [...new Set(ids)]);
   }
 
   async findById(id: string): Promise<Node | null> { return this.restoreNode(this.find(id, false)); }

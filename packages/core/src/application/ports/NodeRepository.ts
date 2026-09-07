@@ -17,7 +17,7 @@ export interface DeletedNodeSummary {
 }
 
 export interface NodeRepository {
-  listActiveReferenceLabels?(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]>;
+  listActiveReferenceLabels?(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId?: string | null }[]>;
   findById(id: string): Promise<Node | null>;
   findDeletedById(id: string): Promise<Node | null>;
   listDeletedByScope(actorUserId: string, limit?: number, offset?: number): Promise<DeletedNodeSummary[]>;

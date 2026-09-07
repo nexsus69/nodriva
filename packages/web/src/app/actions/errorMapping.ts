@@ -43,8 +43,14 @@ function resourceDeleteReferencers(details: Record<string, unknown> | undefined)
   return details.referencers.flatMap((value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
     const item = value as Record<string, unknown>;
-    return typeof item.type === 'string' && typeof item.id === 'string' && typeof item.name === 'string'
-      ? [{ type: item.type, id: item.id, name: item.name }]
+    const domain = item.domain === 'node' || item.domain === 'entity' ? item.domain : null;
+    const href = domain === 'node'
+      ? `/nodes/${item.id}`
+      : domain === 'entity' && typeof item.parentNodeId === 'string'
+        ? `/nodes/${item.parentNodeId}/entities/${item.id}`
+        : undefined;
+    return domain && typeof item.type === 'string' && typeof item.id === 'string' && typeof item.name === 'string'
+      ? [{ domain, type: item.type, id: item.id, name: item.name, ...(href ? { href } : {}) }]
       : [];
   });
 }

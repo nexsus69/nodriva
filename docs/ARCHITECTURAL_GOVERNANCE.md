@@ -25,6 +25,12 @@ viola queste regole non e' pronta per il merge, anche se compila.
    L'implementazione può iniziare solo dopo la conferma esplicita del piano.
    Una richiesta successiva di modifica richiede l'aggiornamento del piano
    prima di proseguire.
+7. **Suite completa in locale.** Prima di dichiarare concluso un intervento e
+   prima di ogni push devono essere eseguiti localmente tutti i test pertinenti,
+   inclusi integrazioni PostgreSQL, contract, parity adapter ed E2E. I test
+   PostgreSQL usano esclusivamente il database isolato creato da
+   `pnpm test:postgres:local`; uno skip dovuto a configurazione mancante non è
+   considerato un esito valido.
 
 ## Checklist obbligatoria
 

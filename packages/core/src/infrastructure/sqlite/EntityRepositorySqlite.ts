@@ -12,9 +12,9 @@ interface EntityRow { id: string; entity_type_id: string; parent_node_id: string
 export class EntityRepositorySqlite implements EntityRepository {
   constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {}
 
-  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]> {
+  async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId: string | null }[]> {
     if (ids.length === 0) return [];
-    return this.database.all<{ id: string; type: string; name: string }>(`SELECT e.id,t.name AS type,e.name FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id IN (${ids.map(() => '?').join(',')}) AND e.deleted_at IS NULL`, [...new Set(ids)]);
+    return this.database.all<{ id: string; type: string; name: string; parentNodeId: string | null }>(`SELECT e.id,t.name AS type,e.name,e.parent_node_id AS parentNodeId FROM entities e JOIN entity_types t ON t.id=e.entity_type_id WHERE e.id IN (${ids.map(() => '?').join(',')}) AND e.deleted_at IS NULL`, [...new Set(ids)]);
   }
 
   async findById(id: string): Promise<Entity | null> { return this.restoreEntity(this.find(id, false)); }

@@ -8,7 +8,7 @@ describe('formatResourceDeleteError', () => {
       code: 'RESOURCE_DELETE_RESTRICTED',
       message: 'Impossibile eliminare la risorsa perché possiede riferimenti attivi.',
       totalReferencerCount: 2,
-      referencers: [{ type: 'Task', id: 'task-1', name: 'Task esterno' }],
+      referencers: [{ domain: 'entity', type: 'Task', id: 'task-1', name: 'Task esterno', href: '/nodes/node-1/entities/task-1' }],
     })).toBe('Impossibile eliminare la risorsa perché possiede riferimenti attivi.');
   });
 

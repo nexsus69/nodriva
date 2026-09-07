@@ -22,19 +22,22 @@ mandatory:
 pnpm verify:push
 ```
 
-`pnpm verify:push` is intentionally an alias of `pnpm check` and executes:
+`pnpm verify:push` is the mandatory complete local verification gate and executes:
 
 - source-documentation validation;
 - Core and Web typecheck;
 - Core and Web lint;
 - Core and Web test suites;
 - production builds for Core and Web.
+- the complete PostgreSQL integration/contract/parity suite against an isolated
+  local PostgreSQL test database (`pnpm test:postgres:local`);
+- the browser parity E2E suite for SQLite and PostgreSQL (`pnpm e2e:parity`).
 
-A push is not considered ready when this command fails, even if targeted tests,
-typecheck, lint, or an E2E scenario pass individually. PostgreSQL integration,
-adapter parity, and required E2E suites remain additional CI gates when their
-database/test environment is available.
+A push is not considered ready when any part of this command fails, even if
+targeted tests, typecheck, lint, or one E2E scenario pass individually. The
+PostgreSQL test database is created and destroyed locally by the dedicated test
+script; operational and development databases are not used.
 
 This document is the repository contract for the local push check. CI runs the
-same complete gate through `pnpm check`; the alias makes the required developer
-action explicit and discoverable.
+equivalent checks in isolated jobs; the local gate is intentionally no weaker
+than CI for PostgreSQL, adapter parity and browser parity.

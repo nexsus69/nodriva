@@ -21,7 +21,7 @@
     "test:compose": "./scripts/docker-compose-profile-contract.sh",
     "docs:source": "node scripts/check-source-documentation.mjs",
     "check": "pnpm docs:source && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build",
-    "verify:push": "pnpm check"
+    "verify:push": "pnpm check && pnpm test:postgres:local && pnpm e2e:parity"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"

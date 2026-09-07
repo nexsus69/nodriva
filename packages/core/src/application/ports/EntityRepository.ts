@@ -19,7 +19,7 @@ export interface DeletedEntitySummary {
 }
 
 export interface EntityRepository {
-  listActiveReferenceLabels?(ids: readonly string[]): Promise<{ id: string; type: string; name: string }[]>;
+  listActiveReferenceLabels?(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId?: string | null }[]>;
   findById(id: string): Promise<Entity | null>;
   findDeletedById(id: string): Promise<Entity | null>;
   listByNode(parentNodeId: string, limit?: number, offset?: number): Promise<Entity[]>;

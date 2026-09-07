@@ -487,6 +487,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     await expect(firstOperatorPage.getByText('Impossibile eliminare la risorsa perché possiede riferimenti attivi.')).toBeVisible();
     await expect(firstOperatorPage.getByText(/Referenzianti visibili:/)).toBeVisible();
     await expect(firstOperatorPage.getByText(names.thirdEntityName, { exact: false }).first()).toBeVisible();
+    await expect(firstOperatorPage.locator('[data-resource-delete-restriction="true"]').getByRole('link', { name: 'Apri' })).toBeVisible();
     await removeIncomingRelationship(firstOperatorPage, names.thirdEntityName);
     await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
     await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();

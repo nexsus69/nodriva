@@ -1,5 +1,6 @@
 /** Renders ACL-filtered referencers without mixing technical identifiers into the main error text. */
 import type { ResourceDeleteRestriction as ResourceDeleteRestrictionModel } from '../../../errors/resourceDeleteError';
+import Link from '../../navigation/GuardedLink';
 
 export function ResourceDeleteRestriction({ restriction }: { restriction: ResourceDeleteRestrictionModel }) {
   return (
@@ -12,6 +13,7 @@ export function ResourceDeleteRestriction({ restriction }: { restriction: Resour
             {restriction.referencers.map((referencer) => (
               <li key={`${referencer.type}:${referencer.id}`}>
                 {referencer.name} ({referencer.type}) — ID: <code>{referencer.id}</code>
+                {referencer.href && <Link href={referencer.href} className="ml-2 underline">Apri</Link>}
               </li>
             ))}
           </ul>

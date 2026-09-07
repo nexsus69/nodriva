@@ -46,8 +46,8 @@ export class ResourceDeletionPolicyService {
         this.nodeRepository.listActiveReferenceLabels?.(visibleNodes) ?? [], this.entityRepository.listActiveReferenceLabels?.(visibleEntities) ?? [],
       ]);
       throw new ResourceDeleteRestrictedError(target.domain, target.resourceId, external.length, [
-        ...nodeLabels.map((value) => ({ domain: 'node' as const, ...value })),
-        ...entityLabels.map((value) => ({ domain: 'entity' as const, ...value })),
+        ...nodeLabels.map((value) => ({ domain: 'node' as const, id: value.id, type: value.type, name: value.name })),
+        ...entityLabels.map((value) => ({ domain: 'entity' as const, id: value.id, type: value.type, name: value.name, ...(value.parentNodeId !== undefined ? { parentNodeId: value.parentNodeId } : {}) })),
       ]);
     }
     await this.relationships.suspendActiveOutgoingForSources(unique, deletionBatchId);
