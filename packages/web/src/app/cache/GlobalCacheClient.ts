@@ -684,6 +684,10 @@ export class GlobalCacheClient {
         () => {
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.nodes.remove(nodeId);
+          // The normalized node-list queries are separate from GlobalViewStore.
+          // Invalidate them explicitly because the local realtime event is
+          // intentionally ignored by ResourceMutationCoordinator.
+          this.nodes.invalidateChildren();
           GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
           this.invalidateNodeChildrenViews();
           this.invalidateNodeHierarchyViews();
