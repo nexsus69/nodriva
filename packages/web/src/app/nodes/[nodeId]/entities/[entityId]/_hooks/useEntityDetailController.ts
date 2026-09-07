@@ -79,12 +79,14 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   };
 
   useEffect(() => {
-    if (!lock.isMyLock || !detail.entity || editingRowVersion.current === null) return;
+    if (!lock.isMyLock || !detail.entity || editingRowVersion.current === null
+      || AppCache.mutations.isPending(`entity:${entityId}`)
+      || AppCache.mutations.isLocalVersion(`entity:${entityId}`, detail.entity.rowVersion)) return;
     if (hasStaleOptimisticEdit(editingRowVersion.current, detail.entity.rowVersion)) {
       setFormStale(true);
       setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
     }
-  }, [detail.entity, lock.isMyLock]);
+  }, [detail.entity, lock.isMyLock, entityId]);
 
   const reloadFresh = async () => {
     const refreshed = await AppCache.refreshEntity(entityId, detail.entity?.entityTypeId ?? '');
@@ -112,7 +114,11 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
           }
         }
         await validateDynamicAttachments(fields, attachments);
-        await AppCache.updateEntity({ entityId, name, description, payloadDelta: processed, expectedRowVersion: detail.entity!.rowVersion });
+        const updatedEntity = await AppCache.updateEntity({ entityId, name, description, payloadDelta: processed, expectedRowVersion: detail.entity!.rowVersion });
+        // The local mutation response is authoritative. Advance the editing
+        // snapshot before the asynchronous lock release can trigger a render.
+        editingRowVersion.current = updatedEntity.rowVersion;
+        setFormStale(false);
         await uploadDynamicAttachments('entity', entityId, fields, attachments);
         setAttachments({});
         await lock.releaseLock(); setSuccessMessage('Entità aggiornata con successo.');

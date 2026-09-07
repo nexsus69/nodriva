@@ -65,6 +65,17 @@ oltre a indirizzare invalidazione e notifica dell'elemento creato sotto di esso.
 lock (sessione autenticata) -> update -> data:changed(updated) -> response -> unlock (UI)
 ```
 
+La risposta della mutation è la fonte autorevole per la sessione che ha
+eseguito il salvataggio. Ogni mutation browser genera un `mutationId`; il
+backend lo conserva nell'evento outbox insieme a `eventId`, `resourceVersion` e
+alla sessione d'origine. Il client applica una sola volta la risposta locale e
+tratta l'evento realtime con lo stesso `mutationId` come conferma, non come una
+modifica esterna. Gli eventi con una sessione d'origine diversa aggiornano la
+cache e possono rendere obsoleto un form aperto. `eventId` deduplica la
+consegna dello stesso evento, mentre `mutationId` correla la consegna
+all'operazione che lo ha prodotto: i due identificativi non sono
+intercambiabili.
+
 Il lock non viene rilasciato automaticamente dall'update: può proteggere una
 modalità di modifica composta da più salvataggi. Appartiene alla specifica
 sessione autenticata, non genericamente all'utente, e viene rinnovato soltanto

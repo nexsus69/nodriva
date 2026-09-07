@@ -126,12 +126,14 @@ export function useNodeDetail(nodeId: string) {
   };
 
   useEffect(() => {
-    if (!lock.isMyLock || !currentNode || editingRowVersion.current === null) return;
+    if (!lock.isMyLock || !currentNode || editingRowVersion.current === null
+      || AppCache.mutations.isPending(`node:${nodeId}`)
+      || AppCache.mutations.isLocalVersion(`node:${nodeId}`, currentNode.rowVersion)) return;
     if (hasStaleOptimisticEdit(editingRowVersion.current, currentNode.rowVersion)) {
       setFormStale(true);
       setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
     }
-  }, [currentNode, lock.isMyLock]);
+  }, [currentNode, lock.isMyLock, nodeId]);
 
   const reloadFresh = async () => {
     const refreshed = await AppCache.refreshNode(nodeId);
@@ -150,13 +152,17 @@ export function useNodeDetail(nodeId: string) {
     setSuccessMessage(null);
     startNodeUpdate(async () => {
       try {
-        await AppCache.updateNode({
+        const updatedNode = await AppCache.updateNode({
           nodeId,
           name: nodeName.trim(),
           description: nodeDescription.trim(),
           expectedRowVersion: currentNode.rowVersion,
           payloadDelta: dynamicNodePayload,
         });
+        // The local mutation response is authoritative. Advance the editing
+        // snapshot before the asynchronous lock release can trigger a render.
+        editingRowVersion.current = updatedNode.rowVersion;
+        setFormStale(false);
         for (const field of dynamicNodeFields.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           for (const file of attachmentsByField[field.fieldKey] ?? []) {
             await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });

@@ -11,6 +11,8 @@ import {
   type IncomingRelationshipMutationPreview,
   type RelationCandidate,
 } from '../../../actions/relationActions';
+import { AppCache } from '../../../cache/GlobalCacheClient';
+import type { ClientEntity, ClientNode } from '../../../types/models';
 import { useAppLocale } from '../../../i18n/AppLocaleStore';
 import { requestConfirmation, Skeleton } from '../feedback';
 import { ModalShell } from '../feedback/ModalShell';
@@ -126,19 +128,21 @@ export function RelationPanel({
     setSaving(true);
     setError(null);
     try {
-      const result = await mutateIncomingRelationshipAction({
-        sourceDomain: activeGroup.definition.sourceDomain,
-        sourceTypeKey: activeGroup.definition.sourceTypeKey,
-        sourceFieldKey: activeGroup.definition.sourceFieldKey,
-        targetDomain: resourceDomain,
-        targetResourceId: resourceId,
-        operation: 'link',
-        sources: selectedSources.map((source) => ({
-          resourceId: source.id,
-          expectedRowVersion: source.rowVersion,
-        })),
-        acceptedReplacementSourceIds: preview.replacementSourceIds,
-      });
+      const result = await AppCache.mutations.run(
+        `relationship:${resourceDomain}:${resourceId}`,
+        (mutationId) => mutateIncomingRelationshipAction({
+          sourceDomain: activeGroup.definition.sourceDomain,
+          sourceTypeKey: activeGroup.definition.sourceTypeKey,
+          sourceFieldKey: activeGroup.definition.sourceFieldKey,
+          targetDomain: resourceDomain,
+          targetResourceId: resourceId,
+          operation: 'link',
+          sources: selectedSources.map((source) => ({ resourceId: source.id, expectedRowVersion: source.rowVersion })),
+          acceptedReplacementSourceIds: preview.replacementSourceIds,
+          mutationId,
+        }),
+        (changed) => { if (changed.success) applyRelationshipChanges(changed.data); },
+      );
       if (!result.success) {
         setError(result.error.message);
         return;
@@ -170,15 +174,20 @@ export function RelationPanel({
     setSaving(true);
     setError(null);
     try {
-      const result = await mutateIncomingRelationshipAction({
-        sourceDomain: group.definition.sourceDomain,
-        sourceTypeKey: group.definition.sourceTypeKey,
-        sourceFieldKey: group.definition.sourceFieldKey,
-        targetDomain: resourceDomain,
-        targetResourceId: resourceId,
-        operation: 'unlink',
-        sources: [{ resourceId: source.id, expectedRowVersion: source.rowVersion }],
-      });
+      const result = await AppCache.mutations.run(
+        `relationship:${resourceDomain}:${resourceId}`,
+        (mutationId) => mutateIncomingRelationshipAction({
+          sourceDomain: group.definition.sourceDomain,
+          sourceTypeKey: group.definition.sourceTypeKey,
+          sourceFieldKey: group.definition.sourceFieldKey,
+          targetDomain: resourceDomain,
+          targetResourceId: resourceId,
+          operation: 'unlink',
+          sources: [{ resourceId: source.id, expectedRowVersion: source.rowVersion }],
+          mutationId,
+        }),
+        (changed) => { if (changed.success) applyRelationshipChanges(changed.data); },
+      );
       if (!result.success) {
         setError(result.error.message);
         return;
@@ -308,6 +317,19 @@ export function RelationPanel({
       </ModalShell>
     </section>
   );
+}
+
+function applyRelationshipChanges(
+  changed: Array<{ resourceType: 'node' | 'entity'; id: string; [key: string]: unknown }>,
+): void {
+  changed.forEach((resource) => {
+    if (resource.resourceType === 'node') {
+      AppCache.nodes.inject(resource.id, resource as Partial<ClientNode> & { id: string }, false, 'mutation:relationship');
+      return;
+    }
+    const entityTypeId = typeof resource.entityTypeId === 'string' ? resource.entityTypeId : null;
+    if (entityTypeId) AppCache.getEntityCache(entityTypeId).inject(resource.id, resource as Partial<ClientEntity> & { id: string }, false, 'mutation:relationship');
+  });
 }
 
 interface RelationshipGroupProps {

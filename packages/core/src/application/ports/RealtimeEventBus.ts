@@ -18,6 +18,10 @@ export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved' | '
 export interface RealtimeDataChangedEvent extends Omit<ResourceReference, 'resourceType'> {
   resourceType: RealtimeResourceType;
   eventId: string;
+  /** Correlates the event with the client/server mutation that produced it. */
+  mutationId?: string;
+  /** Authenticated session that originated the mutation; never used as an ACL grant. */
+  originSessionId?: string;
   occurredAt: string;
   changeType: RealtimeChangeType;
   actorUserId: string;

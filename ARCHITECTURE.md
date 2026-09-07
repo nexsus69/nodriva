@@ -137,7 +137,7 @@ transaction.
 | `RelationshipMutationCommitter` / `ResourceRelationshipMutationWriter` | Application | confirmed transactional writes, audit and revisions | SQL or client-side replacement decisions |
 | `RelationshipMutationImpactPolicy` | Domain | pure cardinality and replacement semantics | persistence, ACL or framework concerns |
 | `ResourceRelationshipRepositoryPostgres` / `ResourceRelationshipRepositorySqlite` | Infrastructure | relationship persistence port | authorization or cardinality policy |
-| Frontend read model | Presentation | backend/API contracts | DB access, fixed layout assumptions |
+| Frontend read model and mutation coordinator | Presentation | backend/API contracts, normalized cache | DB access, fixed layout assumptions, duplicated realtime/mutation policy |
 | Audit/revision adapters | Infrastructure | application ports | deciding policy relevance |
 | `WorkflowPlanner` / `WorkflowDefinitionService` / `WorkflowEventFactory` / `WorkflowEventProcessor` / `WorkflowWorker` | Application | Domain workflow events and definitions, application ports | SQL, adapters, framework runtime |
 

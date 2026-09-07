@@ -108,18 +108,19 @@ export async function listNodeTypesAction() {
   });
 }
 
-export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUserId' | 'actorSessionId'> & { mutationId?: string }) {
   return nodeMutationResult(async () => {
   const { nodeService } = await import('../../server/db');
   const identity = await AuthResolver.resolveActorIdentity();
+  const { mutationId, ...commandInput } = input;
   const cmd: CreateNodeCommand = {
-    ...input,
+    ...commandInput,
     actorUserId: identity.userId,
     actorSessionId: identity.sessionId,
   };
   const node = await runWithRealtimeOutbox(
     () => nodeService.createNode(cmd),
-    (created) => ({ resourceType: 'node', resourceId: created.id, changeType: 'created', actorUserId: cmd.actorUserId, parentNodeId: created.parentId, data: toNodeDto(created) })
+    (created) => ({ resourceType: 'node', resourceId: created.id, changeType: 'created', actorUserId: cmd.actorUserId, originSessionId: identity.sessionId, mutationId, parentNodeId: created.parentId, data: toNodeDto(created) })
   );
   const result = {
     id: node.id,
@@ -137,41 +138,43 @@ export async function createNodeAction(input: Omit<CreateNodeCommand, 'actorUser
   });
 }
 
-export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+export async function updateNodeAction(input: Omit<UpdateNodeCommand, 'actorUserId' | 'actorSessionId'> & { mutationId?: string }) {
   return nodeMutationResult(async () => {
-  const { nodeService } = await import('../../server/db');
-  const identity = await AuthResolver.resolveActorIdentity();
-  const cmd: UpdateNodeCommand = {
-    ...input,
-    actorUserId: identity.userId,
-    actorSessionId: identity.sessionId,
-  };
-  const node = await runWithRealtimeOutbox(
-    () => nodeService.updateNode(cmd),
-    (updated) => ({ resourceType: 'node', resourceId: updated.id, changeType: 'updated', actorUserId: cmd.actorUserId, parentNodeId: updated.parentId, data: toNodeDto(updated) })
-  );
-  const result = {
-    id: node.id,
-    parentId: node.parentId,
-    path: node.path,
-    pathLabel: node.pathLabel,
-    depth: node.depth,
-    nodeTypeId: node.nodeTypeId,
-    name: node.name,
-    description: node.description,
-    rowVersion: node.rowVersion,
-    payload: node.payload,
-  };
-  return result;
+    const { nodeService } = await import('../../server/db');
+    const identity = await AuthResolver.resolveActorIdentity();
+    const { mutationId, ...commandInput } = input;
+    const cmd: UpdateNodeCommand = {
+      ...commandInput,
+      actorUserId: identity.userId,
+      actorSessionId: identity.sessionId,
+    };
+    const node = await runWithRealtimeOutbox(
+      () => nodeService.updateNode(cmd),
+      (updated) => ({ resourceType: 'node', resourceId: updated.id, changeType: 'updated', actorUserId: cmd.actorUserId, originSessionId: identity.sessionId, mutationId, parentNodeId: updated.parentId, data: toNodeDto(updated) })
+    );
+    const result = {
+      id: node.id,
+      parentId: node.parentId,
+      path: node.path,
+      pathLabel: node.pathLabel,
+      depth: node.depth,
+      nodeTypeId: node.nodeTypeId,
+      name: node.name,
+      description: node.description,
+      rowVersion: node.rowVersion,
+      payload: node.payload,
+    };
+    return result;
   });
 }
 
-export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' | 'actorSessionId'>) {
+export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' | 'actorSessionId'> & { mutationId?: string }) {
   return nodeMutationResult(async () => {
-  const { nodeService } = await import('../../server/db');
-  const identity = await AuthResolver.resolveActorIdentity();
-  const cmd: MoveNodeCommand = {
-    ...input,
+    const { nodeService } = await import('../../server/db');
+    const identity = await AuthResolver.resolveActorIdentity();
+    const { mutationId, ...commandInput } = input;
+    const cmd: MoveNodeCommand = {
+      ...commandInput,
     actorUserId: identity.userId,
     actorSessionId: identity.sessionId,
   };
@@ -182,7 +185,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
     return { affectedNodeIds, moved };
   }, ({ affectedNodeIds, moved }) => moved ? ({
     resourceType: 'node', resourceId: moved.id, changeType: 'moved', actorUserId: cmd.actorUserId,
-    parentNodeId: moved.parentId, previousParentNodeId: previous?.parentId,
+    parentNodeId: moved.parentId, previousParentNodeId: previous?.parentId, originSessionId: identity.sessionId, mutationId,
     affectedResourceIds: affectedNodeIds, data: toNodeDto(moved),
   }) : null);
   if (moved) {
@@ -195,6 +198,7 @@ export async function moveNodeAction(input: Omit<MoveNodeCommand, 'actorUserId' 
 type DeleteNodeActionInput = Omit<DeleteNodeCommand, 'actorUserId' | 'actorSessionId' | 'expectedRowVersion'> & {
   /** Detail forms send their observed version; resource menus resolve it server-side. */
   expectedRowVersion?: number;
+  mutationId?: string;
 };
 
 export async function deleteNodeAction(input: DeleteNodeActionInput) {
@@ -225,7 +229,7 @@ export async function deleteNodeAction(input: DeleteNodeActionInput) {
       };
       await runWithRealtimeOutbox(
         () => nodeService.deleteNode(cmd),
-        () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId }),
+        () => ({ resourceType: 'node', resourceId: input.nodeId, changeType: 'deleted', actorUserId: identity.userId, originSessionId: identity.sessionId, mutationId: input.mutationId }),
       );
       if (lockingEnabled) {
         try {

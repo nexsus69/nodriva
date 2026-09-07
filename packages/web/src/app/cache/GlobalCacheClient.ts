@@ -21,6 +21,7 @@ import { KernelNodeCacheClient } from './KernelNodeCacheClient';
 import { KernelEntityCacheClient } from './KernelEntityCacheClient';
 import { KernelListCacheClient } from './KernelListCacheClient';
 import { reconcileMetadataBestEffort } from './metadataReconciliation';
+import { ResourceMutationCoordinator } from './ResourceMutationCoordinator';
 
 export interface CachedLockState {
   locked: boolean;
@@ -93,6 +94,7 @@ export class GlobalCacheClient {
   private readonly hydratedLockKeys = new Set<string>();
   private readonly pendingLockHydrations = new Map<string, Promise<void>>();
   private realtimeDebugEvents: RealtimeDebugEvent[] = [];
+  public readonly mutations = new ResourceMutationCoordinator();
   private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
   private realtimeConnectionState: RealtimeConnectionState = 'initialized';
   private realtimeCapabilityEnabled = true;
@@ -201,6 +203,10 @@ export class GlobalCacheClient {
   public getRealtimeConnectionState = (): RealtimeConnectionState => this.realtimeConnectionState;
 
   public getRealtimeCapabilityEnabled = (): boolean => this.realtimeCapabilityEnabled;
+
+  public setRealtimeOriginSession = (sessionId: string | null | undefined): void => {
+    this.mutations.setOriginSessionId(sessionId);
+  };
 
   public subscribeRealtimeState = (subscriber: () => void): (() => void) => {
     this.realtimeStateSubscribers.add(subscriber);
@@ -342,6 +348,7 @@ export class GlobalCacheClient {
   }
 
   private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
+    if (this.mutations.isLocalEvent(event)) return;
     if (event.metadataKind) {
       this.invalidateMetadata(event.metadataKind, undefined, true);
       return;
@@ -505,15 +512,21 @@ export class GlobalCacheClient {
   public async createEntity(input: CreateEntityInput): Promise<ClientEntity> {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await createEntityAction(input);
-      if (!result.success) throw actionError(result.error);
-      const newEntity = result.data;
-      if (this.getCacheEpoch() !== requestEpoch) return newEntity as unknown as ClientEntity;
-      const entityTypeKey = newEntity.entityTypeId;
-      // Inietta il nuovo dato nella cache
-      this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false);
-      this.invalidateEntityViews();
-      return newEntity as unknown as ClientEntity;
+      return await this.mutations.run(
+        `entity:create:${input.parentNodeId}`,
+        async (mutationId) => {
+          const result = await createEntityAction({ ...input, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data;
+        },
+        (newEntity) => {
+          if (this.getCacheEpoch() === requestEpoch) {
+            const entityTypeKey = newEntity.entityTypeId;
+            this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false, 'mutation:createEntity');
+            this.invalidateEntityViews();
+          }
+        },
+      ) as unknown as ClientEntity;
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -523,17 +536,21 @@ export class GlobalCacheClient {
   public async updateEntity(input: UpdateEntityInput): Promise<ClientEntity> {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await updateEntityAction(input);
-      if (!result.success) throw actionError(result.error);
-      const updatedEntity = result.data;
-      if (this.getCacheEpoch() !== requestEpoch) return updatedEntity as unknown as ClientEntity;
-      const entityTypeKey = updatedEntity.entityTypeId;
-      // Inietta il dato aggiornato nella cache
-      this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false);
-      // The detail reads the updated canonical record, while list membership,
-      // ordering and filters must be recomputed by the authoritative query.
-      this.invalidateEntityViews();
-      return updatedEntity as unknown as ClientEntity;
+      return await this.mutations.run(
+        `entity:${input.entityId}`,
+        async (mutationId) => {
+          const result = await updateEntityAction({ ...input, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data;
+        },
+        (updatedEntity) => {
+          if (this.getCacheEpoch() === requestEpoch) {
+            const entityTypeKey = updatedEntity.entityTypeId;
+            this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false, 'mutation:updateEntity');
+            this.invalidateEntityViews();
+          }
+        },
+      ) as unknown as ClientEntity;
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -550,16 +567,21 @@ export class GlobalCacheClient {
   public async deleteEntity(entityId: string, entityTypeKey?: string, expectedRowVersion?: number): Promise<{ parentNodeId: string; entityTypeId: string }> {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await deleteEntityAction({ entityId, expectedRowVersion });
-      if (!result.success) throw actionError(result.error);
-      const deleted = result.data;
-      if (this.getCacheEpoch() !== requestEpoch) return deleted;
-      // Aggiorna lo store
-      const cache = this.getEntityCache(entityTypeKey ?? deleted.entityTypeId);
-      cache.remove(entityId);
-      GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey ?? deleted.entityTypeId}`, id: entityId });
-      this.invalidateEntityViews();
-      return deleted;
+      return await this.mutations.run(
+        `entity:${entityId}`,
+        async (mutationId) => {
+          const result = await deleteEntityAction({ entityId, expectedRowVersion, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data;
+        },
+        (deleted) => {
+          if (this.getCacheEpoch() !== requestEpoch) return;
+          const cache = this.getEntityCache(entityTypeKey ?? deleted.entityTypeId);
+          cache.remove(entityId);
+          GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey ?? deleted.entityTypeId}`, id: entityId });
+          this.invalidateEntityViews();
+        },
+      );
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -571,15 +593,21 @@ export class GlobalCacheClient {
   public async createNode(input: CreateNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await createNodeAction(input);
-      if (!result.success) throw actionError(result.error);
-      const created = result.data;
-      const clientNode: ClientNode = created as unknown as ClientNode;
-      if (this.getCacheEpoch() !== requestEpoch) return clientNode;
-      this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
-      this.nodes.invalidateChildren();
-      this.invalidateNodeChildrenViews();
-      return clientNode;
+      return await this.mutations.run(
+        `node:create:${input.parentNodeId ?? 'root'}`,
+        async (mutationId) => {
+          const result = await createNodeAction({ ...input, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data as ClientNode;
+        },
+        (created) => {
+          const clientNode = created as ClientNode;
+          if (this.getCacheEpoch() !== requestEpoch) return;
+          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
+          this.nodes.invalidateChildren();
+          this.invalidateNodeChildrenViews();
+        },
+      );
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -589,16 +617,22 @@ export class GlobalCacheClient {
   public async updateNode(input: UpdateNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await updateNodeAction(input);
-      if (!result.success) throw actionError(result.error);
-      const updated = result.data;
-      const clientNode: ClientNode = updated as unknown as ClientNode;
-      if (this.getCacheEpoch() !== requestEpoch) return clientNode;
-      this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
-      this.nodes.invalidateChildren();
-      this.invalidateNodeChildrenViews();
-      this.invalidateNodeHierarchyViews();
-      return clientNode;
+      return await this.mutations.run(
+        `node:${input.nodeId}`,
+        async (mutationId) => {
+          const result = await updateNodeAction({ ...input, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data;
+        },
+        (updated) => {
+          const clientNode: ClientNode = updated as unknown as ClientNode;
+          if (this.getCacheEpoch() !== requestEpoch) return;
+          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
+          this.nodes.invalidateChildren();
+          this.invalidateNodeChildrenViews();
+          this.invalidateNodeHierarchyViews();
+        },
+      );
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -614,19 +648,22 @@ export class GlobalCacheClient {
   public async moveNode(input: MoveNodeInput) {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await moveNodeAction(input);
-      if (!result.success) throw actionError(result.error);
-      const moved = result.data;
-      if (moved) {
-        const clientNode: ClientNode = moved as unknown as ClientNode;
-        if (this.getCacheEpoch() !== requestEpoch) return clientNode;
-        this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
-        this.nodes.invalidateChildren();
-        this.invalidateNodeChildrenViews();
-        this.invalidateNodeHierarchyViews();
-        return clientNode;
-      }
-      return null;
+      return await this.mutations.run(
+        `node:${input.nodeId}`,
+        async (mutationId) => {
+          const result = await moveNodeAction({ ...input, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data as ClientNode | null;
+        },
+        (moved) => {
+          if (!moved || this.getCacheEpoch() !== requestEpoch) return;
+          const clientNode = moved as ClientNode;
+          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
+          this.nodes.invalidateChildren();
+          this.invalidateNodeChildrenViews();
+          this.invalidateNodeHierarchyViews();
+        },
+      );
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;
@@ -637,16 +674,22 @@ export class GlobalCacheClient {
   public async deleteNode(nodeId: string, expectedRowVersion?: number): Promise<{ parentNodeId: string | null }> {
     const requestEpoch = this.getCacheEpoch();
     try {
-      const result = await deleteNodeAction({ nodeId, expectedRowVersion });
-      if (!result.success) throw actionError(result.error);
-      const deleted = result.data;
-      if (this.getCacheEpoch() !== requestEpoch) return deleted;
-      this.nodes.remove(nodeId);
-      GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
-      this.invalidateNodeChildrenViews();
-      this.invalidateNodeHierarchyViews();
-      this.invalidateEntityViews();
-      return deleted;
+      return await this.mutations.run(
+        `node:${nodeId}`,
+        async (mutationId) => {
+          const result = await deleteNodeAction({ nodeId, expectedRowVersion, mutationId });
+          if (!result.success) throw actionError(result.error);
+          return result.data;
+        },
+        () => {
+          if (this.getCacheEpoch() !== requestEpoch) return;
+          this.nodes.remove(nodeId);
+          GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
+          this.invalidateNodeChildrenViews();
+          this.invalidateNodeHierarchyViews();
+          this.invalidateEntityViews();
+        },
+      );
     } catch (err: unknown) {
       this.handleFetchError(err);
       throw err;

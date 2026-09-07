@@ -1,5 +1,7 @@
 'use client';
 
+/** Synchronizes authorized cache/realtime channels and the current mutation origin. */
+
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { CacheGarbageCollector } from '../cache/CacheGarbageCollector';
@@ -29,6 +31,10 @@ export function CacheInitializer() {
   const { data: session } = useSession();
   const userId = session?.userId;
   const { isSessionExpired, timing } = useHumanActivity();
+
+  useEffect(() => {
+    AppCache.setRealtimeOriginSession(session?.activitySessionId);
+  }, [session?.activitySessionId]);
 
   useEffect(() => {
     // Evitiamo polling al bootstrap della pagina di login o dopo la scadenza.

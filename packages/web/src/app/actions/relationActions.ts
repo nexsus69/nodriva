@@ -256,13 +256,15 @@ export async function mutateIncomingRelationshipAction(input: {
   operation: 'link' | 'unlink';
   sources: Array<{ resourceId: string; expectedRowVersion: number }>;
   acceptedReplacementSourceIds?: string[];
+  mutationId?: string;
 }): Promise<RelationActionResult<Array<ReturnType<typeof toNodeRelationDto> | ReturnType<typeof toEntityRelationDto>>>> {
   return runRelationAction(async () => {
     const identity = await AuthResolver.resolveActorIdentity();
+    const { mutationId, ...mutationInput } = input;
     const { resourceRelationshipMutationService } = await import('../../server/db');
     const result = await runWithRealtimeOutbox(
       () => resourceRelationshipMutationService.mutate({
-        ...input,
+        ...mutationInput,
         actorUserId: identity.userId,
         actorSessionId: identity.sessionId,
       }),
@@ -272,6 +274,8 @@ export async function mutateIncomingRelationshipAction(input: {
             resourceId: resource.id,
             changeType: 'updated' as const,
             actorUserId: identity.userId,
+            originSessionId: identity.sessionId,
+            mutationId,
             parentNodeId: resource.parentId,
             data: toNodeRelationDto(resource),
           }
@@ -280,6 +284,8 @@ export async function mutateIncomingRelationshipAction(input: {
             resourceId: resource.id,
             changeType: 'updated' as const,
             actorUserId: identity.userId,
+            originSessionId: identity.sessionId,
+            mutationId,
             parentNodeId: resource.parentNodeId,
             entityTypeId: resource.entityTypeId,
             data: toEntityRelationDto(resource),

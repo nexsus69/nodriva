@@ -12,6 +12,7 @@ interface CreateEntityActionInput {
   description?: string;
   payload?: Record<string, unknown>;
   payloadDelta?: Record<string, unknown>;
+  mutationId?: string;
 }
 
 interface UpdateEntityActionInput {
@@ -23,6 +24,7 @@ interface UpdateEntityActionInput {
   rowVersion?: number;
   payloadDelta?: Record<string, unknown>;
   payload?: Record<string, unknown>;
+  mutationId?: string;
 }
 
 interface DeleteEntityActionInput {
@@ -30,6 +32,7 @@ interface DeleteEntityActionInput {
   id?: string;
   /** Detail forms send their observed version; resource menus resolve it server-side. */
   expectedRowVersion?: number;
+  mutationId?: string;
 }
 
 type EntityMutationActionResult<T> =
@@ -57,18 +60,19 @@ export async function createEntityAction(input: CreateEntityActionInput) {
     throw new Error('entityTypeKey is required');
   }
   const identity = await AuthResolver.resolveActorIdentity();
+  const { mutationId, ...entityInput } = input;
   const cmd = {
     actorUserId: identity.userId,
     actorSessionId: identity.sessionId,
-    parentNodeId: input.parentNodeId,
+    parentNodeId: entityInput.parentNodeId,
     entityTypeKey,
-    name: input.name,
-    description: input.description,
-    payload: input.payload || input.payloadDelta || {},
+    name: entityInput.name,
+    description: entityInput.description,
+    payload: entityInput.payload || entityInput.payloadDelta || {},
   };
   const e = await runWithRealtimeOutbox(
     () => entityService.createEntity(cmd),
-    (created) => ({ resourceType: 'entity', resourceId: created.id, changeType: 'created', actorUserId: cmd.actorUserId, parentNodeId: created.parentNodeId, entityTypeId: created.entityTypeId, data: toEntityDto(created) })
+    (created) => ({ resourceType: 'entity', resourceId: created.id, changeType: 'created', actorUserId: cmd.actorUserId, originSessionId: identity.sessionId, mutationId, parentNodeId: created.parentNodeId, entityTypeId: created.entityTypeId, data: toEntityDto(created) })
   );
   const result = {
     id: e.id,
@@ -108,7 +112,7 @@ export async function updateEntityAction(input: UpdateEntityActionInput) {
   };
   const e = await runWithRealtimeOutbox(
     () => entityService.updateEntity(cmd),
-    (updated) => ({ resourceType: 'entity', resourceId: updated.id, changeType: 'updated', actorUserId: cmd.actorUserId, parentNodeId: updated.parentNodeId, entityTypeId: updated.entityTypeId, data: toEntityDto(updated) })
+    (updated) => ({ resourceType: 'entity', resourceId: updated.id, changeType: 'updated', actorUserId: cmd.actorUserId, originSessionId: identity.sessionId, mutationId: input.mutationId, parentNodeId: updated.parentNodeId, entityTypeId: updated.entityTypeId, data: toEntityDto(updated) })
   );
   const result = {
     id: e.id,
@@ -156,7 +160,7 @@ export async function deleteEntityAction(input: DeleteEntityActionInput) {
     };
     await runWithRealtimeOutbox(
       () => entityService.deleteEntity(cmd),
-      () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
+      () => ({ resourceType: 'entity', resourceId: existing.id, changeType: 'deleted', actorUserId, originSessionId: identity.sessionId, mutationId: input.mutationId, parentNodeId: existing.parentNodeId, entityTypeId: existing.entityTypeId })
     );
 
     if (lockingEnabled) {
