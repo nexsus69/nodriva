@@ -6,10 +6,9 @@ magic header.
 
 - `DASHRAW1` identifies plaintext written by the current implementation.
 - `DASHATT2` identifies the authenticated, versioned AES-256-GCM envelope.
-- `DASHATT1` remains readable for legacy encrypted files.
-- Files without a recognized header remain readable as legacy plaintext.
+- Files without a recognized header are rejected as invalid.
 
-New plaintext writes always include `DASHRAW1`. This is intentionally a file
-format change without a database migration: storage keys and metadata remain
-unchanged, while old files remain readable. The rotation operation can encrypt
-legacy plaintext files when an encryption key is available.
+New plaintext writes always include `DASHRAW1`. During the current development
+phase there is no legacy compatibility contract: unversioned files and the
+obsolete `DASHATT1` format are rejected. The rotation operation converts the
+explicit plaintext envelope to `DASHATT2` when an encryption key is available.

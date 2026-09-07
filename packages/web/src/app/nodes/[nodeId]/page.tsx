@@ -3,7 +3,7 @@
 /** Composes the interactive node detail route from dedicated state and presentation modules. */
 import Link from '@/app/components/navigation/GuardedLink';
 import { useParams } from 'next/navigation';
-import { Alert } from '../../components/ui/feedback';
+import { Alert, ResourceDeleteRestriction } from '../../components/ui/feedback';
 import { PageShell, Panel } from '../../components/ui/layout';
 import { RelationPanel } from '../../components/ui/relations';
 import { ChildNodesSection } from './_components/ChildNodesSection';
@@ -43,6 +43,7 @@ export default function NodeDetailPage() {
       <NodeContextOverview nodeId={nodeId} controller={controller} />
       {controller.displayedError && <Alert tone="danger">
         <span className="font-bold">Errore:</span> {controller.displayedError}
+        {controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}
         {controller.formStale && <button type="button" className="ml-3 underline" onClick={() => void controller.reloadFresh()}>Ricarica dati</button>}
       </Alert>}
       {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}

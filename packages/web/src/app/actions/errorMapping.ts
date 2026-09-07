@@ -38,6 +38,17 @@ function validationDetails(details: Record<string, unknown> | undefined): ApiErr
   });
 }
 
+function resourceDeleteReferencers(details: Record<string, unknown> | undefined): ApiErrorResponse['referencers'] {
+  if (!Array.isArray(details?.referencers)) return [];
+  return details.referencers.flatMap((value) => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const item = value as Record<string, unknown>;
+    return typeof item.type === 'string' && typeof item.id === 'string' && typeof item.name === 'string'
+      ? [{ type: item.type, id: item.id, name: item.name }]
+      : [];
+  });
+}
+
 /**
  * Single boundary mapper for every Server Action.
  * Domain errors may retain technical messages internally, but only this
@@ -125,7 +136,7 @@ export function mapAppErrorToApiErrorResponse(error: unknown): ApiErrorResponse 
         code: 'RESOURCE_DELETE_RESTRICTED',
         message: 'Impossibile eliminare la risorsa perché possiede riferimenti attivi.',
         totalReferencerCount: typeof details?.totalReferencerCount === 'number' ? details.totalReferencerCount : 0,
-        referencers: [],
+        referencers: resourceDeleteReferencers(details),
       };
     case 'DUPLICATE_PLACEMENT_POLICY_KEY':
       return { code: 'DUPLICATE_PLACEMENT_POLICY_KEY', message: 'La chiave della policy esiste già.', target: 'policyKey' };

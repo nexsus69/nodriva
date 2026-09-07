@@ -16,6 +16,7 @@ import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 import { requestConfirmation } from '../../../../../components/ui/feedback/ConfirmDialogStore';
 import { useDeletionReturnContext } from '../../../../../navigation/returnContext';
+import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../../../errors/resourceDeleteError';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -34,6 +35,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [fields, setFields] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const editingRowVersion = useRef<number | null>(null);
@@ -136,13 +138,19 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const confirmDelete = () => {
     if (!detail.entity) return;
     setErrorMessage(null);
+    setDeleteRestriction(null);
     startTransition(async () => {
       try {
         await AppCache.deleteEntity(entityId, detail.entity!.entityTypeId, detail.entity!.rowVersion);
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(deletionReturnTo);
-      } catch (reason) { setErrorMessage(reason instanceof Error ? reason.message : 'Errore durante l’eliminazione.'); }
+      } catch (reason) {
+        setErrorMessage(reason instanceof Error
+          ? formatResourceDeleteError(reason as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown })
+          : 'Errore durante l’eliminazione.');
+        setDeleteRestriction(reason instanceof Error ? getResourceDeleteRestriction(reason as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown }) : null);
+      }
     });
   };
 
@@ -159,5 +167,5 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     confirmDelete();
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
+  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, deleteRestriction, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }

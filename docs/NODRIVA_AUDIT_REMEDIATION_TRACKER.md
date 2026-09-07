@@ -19,3 +19,12 @@ Verifica governance corrente:
 | F-09 | Aperto | Collection read model | Tipi/edge batch e query-count test. |
 | F-10 | Aperto | Attachment envelope | Formato non ambiguo e compatibilita' legacy. |
 | F-11 | Aperto | Database bootstrap | Baseline in `db/`, schema vuoto e upgrade verificati. |
+
+## Attività post-risoluzione
+
+- **REL-UX-01 — Referenze che bloccano la cancellazione (Risolto):** la UI offre
+  un accesso guidato agli edge incoming attivi che causano
+  `RESOURCE_DELETE_RESTRICTED`, mostrando tipo, nome e ID soltanto per i
+  referenzianti visibili all'attore e mantenendo separato il conteggio totale.
+  La consultazione deve usare il read-model batch delle relazioni e non
+  modificare la semantica `restrict` né aggirare i controlli ACL.

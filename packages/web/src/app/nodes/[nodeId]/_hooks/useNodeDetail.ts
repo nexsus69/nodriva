@@ -15,6 +15,7 @@ import { areFormValuesEqual, hasSelectedFiles } from '../../../navigation/unsave
 import { resolveNodeAccess, type NodeAccessState } from './nodeAccessState';
 import { requestConfirmation } from '../../../components/ui/feedback/ConfirmDialogStore';
 import { useDeletionReturnContext } from '../../../navigation/returnContext';
+import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
 
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
@@ -25,6 +26,7 @@ export function useNodeDetail(nodeId: string) {
   const nodeAccess = nodeAccessResult.nodeId === nodeId ? nodeAccessResult.state : 'checking';
   const [nodeAccessAttempt, setNodeAccessAttempt] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [nodeName, setNodeName] = useState('');
   const [nodeDescription, setNodeDescription] = useState('');
@@ -195,6 +197,7 @@ export function useNodeDetail(nodeId: string) {
     if (!lock.isMyLock && !(await beginNodeEditing())) return;
 
     const nodeToDelete = currentNode;
+    setDeleteRestriction(null);
     startNodeUpdate(async () => {
       try {
         await AppCache.deleteNode(nodeToDelete.id, nodeToDelete.rowVersion);
@@ -202,8 +205,9 @@ export function useNodeDetail(nodeId: string) {
         router.push(deletionReturnTo);
       } catch (cause) {
         setErrorMessage(cause instanceof Error
-          ? `Errore durante l'eliminazione del nodo: ${cause.message}`
+          ? `Errore durante l'eliminazione del nodo: ${formatResourceDeleteError(cause as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown })}`
           : 'Errore durante l’eliminazione del nodo.');
+        setDeleteRestriction(cause instanceof Error ? getResourceDeleteRestriction(cause as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown }) : null);
       }
     });
   };
@@ -218,7 +222,7 @@ export function useNodeDetail(nodeId: string) {
 
   return {
     nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, nodeTypes, entityDefinitions,
-    isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, successMessage,
+    isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, deleteRestriction, successMessage,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode, formStale, reloadFresh,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
     setDynamicNodePayload, setAttachmentsByField, setNodeName, setNodeDescription,

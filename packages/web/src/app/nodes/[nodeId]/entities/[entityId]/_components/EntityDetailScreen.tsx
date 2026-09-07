@@ -3,10 +3,11 @@
 /** Composes the interactive entity detail screen from shared resource surfaces. */
 
 import { useParams } from 'next/navigation';
+import type { ReactNode } from 'react';
 import { LockBadge } from '../../../../../components/LockBadge';
 import { LockIndicator } from '../../../../../components/LockIndicator';
 import { NodeBreadcrumb } from '../../../../../components/navigation/NodeBreadcrumb';
-import { Skeleton, SkeletonState } from '../../../../../components/ui/feedback';
+import { ResourceDeleteRestriction, Skeleton, SkeletonState } from '../../../../../components/ui/feedback';
 import { PageShell, Panel } from '../../../../../components/ui/layout';
 import { EntityResourceMenu } from '../../../../../components/ui/menu';
 import { RelationPanel } from '../../../../../components/ui/relations';
@@ -105,7 +106,9 @@ export function EntityDetailScreen() {
         />
       </Panel>
       {controller.errorMessage && (
-        <Feedback tone="rose" label="Errore" message={controller.errorMessage} action={controller.formStale ? { label: 'Ricarica dati', onClick: () => void controller.reloadFresh() } : undefined} />
+        <Feedback tone="rose" label="Errore" message={controller.errorMessage} action={controller.formStale ? { label: 'Ricarica dati', onClick: () => void controller.reloadFresh() } : undefined}>
+          {controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}
+        </Feedback>
       )}
       {controller.successMessage && (
         <Feedback tone="emerald" label="Esito" message={controller.successMessage} />
@@ -149,9 +152,10 @@ interface FeedbackProps {
   label: string;
   message: string;
   action?: { label: string; onClick: () => void };
+  children?: ReactNode;
 }
 
-function Feedback({ tone, label, message, action }: FeedbackProps) {
+function Feedback({ tone, label, message, action, children }: FeedbackProps) {
   const classes = {
     rose: 'border-rose-200 bg-rose-50 text-rose-700',
     emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -161,6 +165,7 @@ function Feedback({ tone, label, message, action }: FeedbackProps) {
   return (
     <div className={`rounded-xl border p-4 text-xs ${classes[tone]}`}>
       <strong>{label}:</strong> {message}
+      {children}
       {action && <button type="button" className="ml-3 underline" onClick={action.onClick}>{action.label}</button>}
     </div>
   );

@@ -9,7 +9,6 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
   private readonly rootDirectory: string;
   private readonly plaintextHeader = Buffer.from('DASHRAW1');
   private readonly keyring: EncryptionKeyring;
-  private readonly encryptionHeader = Buffer.from('DASHATT1');
   private readonly versionedEncryptionHeader = Buffer.from('DASHATT2');
 
   constructor(rootDirectory: string = path.join(process.cwd(), '.data', 'attachments'), encryptionKeyHex?: string, keyringSpec?: string, activeVersion = 'v1', requireEncryption = false) {
@@ -86,13 +85,9 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
     if (payload.subarray(0, this.plaintextHeader.length).equals(this.plaintextHeader)) {
       return new Uint8Array(payload.subarray(this.plaintextHeader.length));
     }
-    if (payload.subarray(0, this.encryptionHeader.length).equals(this.encryptionHeader)) {
-      if (!this.keyring.hasKeys || payload.length < 36) throw new Error('Encrypted attachment cannot be decrypted');
-      const decipher = createDecipheriv('aes-256-gcm', this.keyring.get('v1'), payload.subarray(8, 20));
-      decipher.setAuthTag(payload.subarray(20, 36));
-      return new Uint8Array(Buffer.concat([decipher.update(payload.subarray(36)), decipher.final()]));
+    if (!payload.subarray(0, this.versionedEncryptionHeader.length).equals(this.versionedEncryptionHeader)) {
+      throw new Error('Invalid attachment format');
     }
-    if (!payload.subarray(0, this.versionedEncryptionHeader.length).equals(this.versionedEncryptionHeader)) return content;
     const versionLength = payload[8];
     const versionStart = 9;
     const ivStart = versionStart + versionLength;
@@ -105,7 +100,6 @@ export class LocalAttachmentStorage implements AttachmentStoragePort {
 
   private storedVersion(content: Uint8Array): string | null {
     const payload = Buffer.from(content);
-    if (payload.subarray(0, this.encryptionHeader.length).equals(this.encryptionHeader)) return 'v1';
     if (!payload.subarray(0, this.versionedEncryptionHeader.length).equals(this.versionedEncryptionHeader)) return null;
     const versionLength = payload[8];
     const versionStart = 9;

@@ -59,22 +59,19 @@ describe('LocalAttachmentStorage', () => {
     }
   });
 
-  it('reads legacy plaintext and legacy DASHATT1 encrypted attachments', async () => {
+  it('rejects attachments without an explicit envelope', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
     try {
       const storage = new LocalAttachmentStorage(root, '11'.repeat(32));
       const { writeFile, mkdir } = await import('node:fs/promises');
       await mkdir(path.join(root, 'legacy'), { recursive: true });
-      const plaintext = new TextEncoder().encode('legacy DASHATT1 prefix');
+      const plaintext = new TextEncoder().encode('unversioned plaintext');
       await writeFile(path.join(root, 'legacy/plain.bin'), plaintext);
-      await expect(storage.get('legacy/plain.bin')).resolves.toEqual(plaintext);
+      await expect(storage.get('legacy/plain.bin')).rejects.toThrow('Invalid attachment format');
 
-      const legacyCipher = Buffer.alloc(8 + 12 + 16);
-      Buffer.from('DASHATT1').copy(legacyCipher, 0);
-      // The legacy format is validated by the existing decrypt path; malformed
-      // payloads must not be mistaken for plaintext.
-      await writeFile(path.join(root, 'legacy/encrypted.bin'), legacyCipher);
-      await expect(storage.get('legacy/encrypted.bin')).rejects.toThrow();
+      const obsoleteHeader = Buffer.from('DASHATT1 invalid payload');
+      await writeFile(path.join(root, 'legacy/encrypted.bin'), obsoleteHeader);
+      await expect(storage.get('legacy/encrypted.bin')).rejects.toThrow('Invalid attachment format');
     } finally {
       await rm(root, { recursive: true, force: true });
     }

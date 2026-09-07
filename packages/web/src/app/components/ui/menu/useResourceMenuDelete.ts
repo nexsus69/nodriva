@@ -7,6 +7,7 @@ import { AppCache } from '../../../cache/GlobalCacheClient';
 import { requestConfirmation } from '../feedback/ConfirmDialogStore';
 import { useNavigationConfirmation } from '../../../navigation/NavigationBlocker';
 import { resolveDeletionReturnContext, useCurrentInternalPath } from '../../../navigation/returnContext';
+import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
 
 type ResourceMenuDeleteInput =
   | { kind: 'node'; resourceId: string }
@@ -16,6 +17,7 @@ interface ResourceMenuDeleteResult {
   requestDelete: () => Promise<void>;
   isDeleting: boolean;
   errorMessage: string | null;
+  deleteRestriction: ResourceDeleteRestriction | null;
 }
 
 /**
@@ -28,6 +30,7 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
   const confirmNavigation = useNavigationConfirmation();
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
 
   const requestDelete = async () => {
     const isNode = input.kind === 'node';
@@ -44,6 +47,7 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
 
     setIsDeleting(true);
     setErrorMessage(null);
+    setDeleteRestriction(null);
     try {
       const deleted = isNode
         ? await AppCache.deleteNode(input.resourceId)
@@ -58,11 +62,14 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
       if (destination === origin) router.refresh();
       else router.push(destination);
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Non è stato possibile eliminare la risorsa.');
+      setErrorMessage(error instanceof Error
+        ? formatResourceDeleteError(error as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown })
+        : 'Non è stato possibile eliminare la risorsa.');
+      setDeleteRestriction(error instanceof Error ? getResourceDeleteRestriction(error as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown }) : null);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  return { requestDelete, isDeleting, errorMessage };
+  return { requestDelete, isDeleting, errorMessage, deleteRestriction };
 }

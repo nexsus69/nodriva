@@ -5,6 +5,7 @@ import { OverflowMenu } from './Menu';
 import { useNavigationRequest } from '../../../navigation/NavigationBlocker';
 import { useNavigationHref } from '../../../navigation/returnContext';
 import { useResourceMenuDelete } from './useResourceMenuDelete';
+import { ResourceDeleteRestriction } from '../feedback';
 
 function copyTechnicalId(id: string): void {
   void navigator.clipboard?.writeText(id);
@@ -42,7 +43,7 @@ export function NodeResourceMenu({ nodeId, nodeName, onEdit, onDelete }: NodeRes
           { id: 'delete', label: menuDelete.isDeleting ? 'Eliminazione in corso…' : 'Elimina nodo', destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
         ]}
       />
-      {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}</span>}
+      {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}{menuDelete.deleteRestriction && <ResourceDeleteRestriction restriction={menuDelete.deleteRestriction} />}</span>}
     </span>
   );
 }
@@ -77,7 +78,7 @@ export function EntityResourceMenu({ entityId, entityName, parentNodeId, onEdit,
           { id: 'delete', label: menuDelete.isDeleting ? 'Eliminazione in corso…' : 'Elimina entità', destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
         ]}
       />
-      {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}</span>}
+      {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}{menuDelete.deleteRestriction && <ResourceDeleteRestriction restriction={menuDelete.deleteRestriction} />}</span>}
     </span>
   );
 }

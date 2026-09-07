@@ -56,27 +56,43 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
     if (params.filters?.lockState === 'locked') conditions.push('l.user_id IS NOT NULL');
     if (params.filters?.lockState === 'unlocked') conditions.push('l.user_id IS NULL');
 
-    const cursor = params.cursor;
-    if (cursor?.path && cursor.id) {
-      const operator = params.direction === 'backward' ? '<' : '>';
-      conditions.push(`(n.path, e.name, e.id) ${operator} (?, ?, ?)`);
-      values.push(cursor.path, cursor.name ?? '', cursor.id);
-    }
     const direction = params.direction === 'backward' ? 'DESC' : 'ASC';
-    const rows = this.database.all<EntityRow>(
-      `SELECT e.id,e.parent_node_id,e.entity_type_id,e.name,e.description,e.row_version,e.created_at,e.updated_at,e.payload,
-              n.name AS nodeName,n.path AS nodePath,n.depth AS nodeDepth,n.row_version AS nodeRowVersion,
-              l.user_id AS lockUserId,l.session_id AS lockSessionId,l.expires_at AS lockExpiresAt
-       FROM entities e JOIN nodes n ON n.id=e.parent_node_id
-       LEFT JOIN locks l ON l.resource_type='entity' AND l.resource_id=e.id AND l.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY n.path ${direction}, e.name ${direction}, e.id ${direction}`,
-      values,
-    );
+    const windowSize = Math.max(params.limit + 1, 25);
+    let windowCursor = params.cursor;
     const visible: SubtreeEntityDto[] = [];
-    for (const row of rows) {
-      if (this.accessControl && !(await this.canRead(params.actorUserId, row.parent_node_id))) continue;
-      visible.push(await this.mapRow(row));
+    while (visible.length <= params.limit) {
+      const windowConditions = [...conditions];
+      const windowValues = [...values];
+      if (windowCursor?.path && windowCursor.id) {
+        const operator = params.direction === 'backward' ? '<' : '>';
+        windowConditions.push(`(n.path, e.name, e.id) ${operator} (?, ?, ?)`);
+        windowValues.push(windowCursor.path, windowCursor.name ?? '', windowCursor.id);
+      }
+      windowValues.push(windowSize);
+      const rows = this.database.all<EntityRow>(
+        `SELECT e.id,e.parent_node_id,e.entity_type_id,e.name,e.description,e.row_version,e.created_at,e.updated_at,e.payload,
+                n.name AS nodeName,n.path AS nodePath,n.depth AS nodeDepth,n.row_version AS nodeRowVersion,
+                l.user_id AS lockUserId,l.session_id AS lockSessionId,l.expires_at AS lockExpiresAt
+         FROM entities e JOIN nodes n ON n.id=e.parent_node_id
+         LEFT JOIN locks l ON l.resource_type='entity' AND l.resource_id=e.id AND l.expires_at>strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE ${windowConditions.join(' AND ')}
+         ORDER BY n.path ${direction}, e.name ${direction}, e.id ${direction}
+         LIMIT ?`,
+        windowValues,
+      );
+      if (rows.length === 0) break;
+
+      const readableIds = this.accessControl?.listReadableResourceIds
+        ? new Set(await this.accessControl.listReadableResourceIds(params.actorUserId, 'entity', rows.map((row) => row.id)))
+        : null;
+      for (const row of rows) {
+        if (readableIds && !readableIds.has(row.id)) continue;
+        if (this.accessControl && !readableIds && !(await this.canRead(params.actorUserId, row.parent_node_id))) continue;
+        visible.push(await this.mapRow(row));
+      }
+      if (visible.length > params.limit || rows.length < windowSize) break;
+      const last = rows.at(-1)!;
+      windowCursor = { path: last.nodePath, name: last.name, id: last.id };
     }
     const hasMore = visible.length > params.limit;
     const items = visible.slice(0, params.limit);
@@ -88,13 +104,6 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
     };
   }
 
-  private addSearchCondition(conditions: string[], values: unknown[], condition: string, input: string | undefined, repetitions: number): void {
-    if (!input?.trim()) return;
-    const escaped = `%${input.trim().replace(/[\\%_]/g, '\\$&')}%`;
-    conditions.push(condition);
-    for (let index = 0; index < repetitions; index += 1) values.push(escaped);
-  }
-
   private async canRead(actorUserId: string, nodeId: string): Promise<boolean> {
     try {
       await this.accessControl!.assertCanReadNode(actorUserId, nodeId);
@@ -103,6 +112,13 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
       if (error instanceof ForbiddenError) return false;
       throw error;
     }
+  }
+
+  private addSearchCondition(conditions: string[], values: unknown[], condition: string, input: string | undefined, repetitions: number): void {
+    if (!input?.trim()) return;
+    const escaped = `%${input.trim().replace(/[\\%_]/g, '\\$&')}%`;
+    conditions.push(condition);
+    for (let index = 0; index < repetitions; index += 1) values.push(escaped);
   }
 
   private async mapRow(row: EntityRow): Promise<SubtreeEntityDto> {

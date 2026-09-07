@@ -19,12 +19,18 @@ viola queste regole non e' pronta per il merge, anche se compila.
    devono produrre stessi esiti, errori, ordinamenti, rollback e vincoli.
 5. **Deployment non e' prodotto.** Compose, systemd, CI e host locali non
    definiscono policy Nodriva e non sono requisiti impliciti del runtime.
+6. **Piano concordato prima dell'implementazione.** Per ogni intervento non
+   banale il lavoro deve iniziare con un piano scritto che dichiari obiettivo,
+   perimetro, file o moduli coinvolti, strategia, test e criteri di chiusura.
+   L'implementazione può iniziare solo dopo la conferma esplicita del piano.
+   Una richiesta successiva di modifica richiede l'aggiornamento del piano
+   prima di proseguire.
 
 ## Checklist obbligatoria
 
-Prima del codice: dichiarare policy owner, port, call site, adapter e test di
-parita'. Prima del merge: verificare call site indiretti, test negativi di
-divergenza, rollback e `git diff --check`.
+ Prima del codice: concordare e registrare il piano, dichiarare policy owner,
+ port, call site, adapter e test di parita'. Prima del merge: verificare call
+ site indiretti, test negativi di divergenza, rollback e `git diff --check`.
 
 ## Protocollo di chiusura audit
 
