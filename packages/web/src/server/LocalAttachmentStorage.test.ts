@@ -1,4 +1,4 @@
-/** Verifies local attachment envelopes, legacy compatibility and path safety. */
+/** Verifies local attachment envelopes, key rotation and path safety. */
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -81,5 +81,35 @@ describe('LocalAttachmentStorage', () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
     expect(() => new LocalAttachmentStorage(root, 'bad-key')).toThrow('32-byte hex key');
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('rotates plaintext and encrypted envelopes to the active key version', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'dashboard-attachments-'));
+    const firstKey = '11'.repeat(32);
+    const secondKey = '22'.repeat(32);
+    const keyring = `v1=${firstKey},v2=${secondKey}`;
+    try {
+      const initial = new LocalAttachmentStorage(root, undefined, keyring, 'v1');
+      const plaintext = new TextEncoder().encode('plain content');
+      const encrypted = new TextEncoder().encode('encrypted content');
+      await initial.put('plain/file.bin', plaintext, { encrypt: false });
+      await initial.put('encrypted/file.bin', encrypted, { encrypt: true });
+
+      const rotated = new LocalAttachmentStorage(root, undefined, keyring, 'v2');
+      await expect(rotated.rotate('plain/file.bin')).resolves.toBe(true);
+      await expect(rotated.rotate('encrypted/file.bin')).resolves.toBe(true);
+      await expect(rotated.rotate('encrypted/file.bin')).resolves.toBe(false);
+      await expect(rotated.get('plain/file.bin')).resolves.toEqual(plaintext);
+      await expect(rotated.get('encrypted/file.bin')).resolves.toEqual(encrypted);
+
+      const { readFile } = await import('node:fs/promises');
+      const rotatedPlain = await readFile(path.join(root, 'plain/file.bin'));
+      const rotatedEncrypted = await readFile(path.join(root, 'encrypted/file.bin'));
+      expect(rotatedPlain.subarray(0, 8).toString()).toBe('DASHATT2');
+      expect(rotatedEncrypted.subarray(0, 8).toString()).toBe('DASHATT2');
+      expect(rotatedEncrypted.subarray(9, 11).toString()).toBe('v2');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

@@ -17,7 +17,7 @@ Verifica governance corrente:
 | F-07 | Aperto | Account recovery transaction | Token, audit e outbox atomici con retry/idempotenza. |
 | F-08 | Aperto | SQLite query port | Paginazione ACL batch e benchmark. |
 | F-09 | Aperto | Collection read model | Tipi/edge batch e query-count test. |
-| F-10 | Aperto | Attachment envelope | Formato non ambiguo e compatibilita' legacy. |
+| F-10 | Risolto | Attachment envelope | Envelope plaintext/cifrato esplicito; formati legacy non supportati e rifiutati in fase di sviluppo. |
 | F-11 | Aperto | Database bootstrap | Baseline in `db/`, schema vuoto e upgrade verificati. |
 
 ## Attività post-risoluzione
