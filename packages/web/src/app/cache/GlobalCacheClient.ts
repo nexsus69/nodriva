@@ -22,6 +22,10 @@ import { KernelEntityCacheClient } from './KernelEntityCacheClient';
 import { KernelListCacheClient } from './KernelListCacheClient';
 import { reconcileMetadataBestEffort } from './metadataReconciliation';
 import { ResourceMutationCoordinator } from './ResourceMutationCoordinator';
+import {
+  ResourceCacheInvalidationCoordinator,
+  type ResourceCacheChange,
+} from './ResourceCacheInvalidationCoordinator';
 
 export interface CachedLockState {
   locked: boolean;
@@ -121,24 +125,6 @@ export class GlobalCacheClient {
   private recordRealtimeDebugEvent(event: RealtimeDebugEvent): void {
     this.realtimeDebugEvents = [...this.realtimeDebugEvents, event].slice(-200);
     this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
-  }
-
-  /**
-   * Entity mutations can invalidate more than the collection of the direct
-   * parent node: subtree views and entity-detail views may contain the same
-   * entity as well. Removing the affected read models keeps the next read
-   * authoritative without trying to patch paginated windows locally.
-   */
-  private invalidateEntityViews(): void {
-    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.entityMembership);
-  }
-
-  private invalidateNodeHierarchyViews(): void {
-    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeHierarchy);
-  }
-
-  private invalidateNodeChildrenViews(): void {
-    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeChildren);
   }
 
   private notifyCacheSubscribers = () => {
@@ -410,40 +396,30 @@ export class GlobalCacheClient {
           false,
           'realtime:data-changed'
         );
-      } else if (entityTypeId && event.changeType === 'deleted') {
-        this.getEntityCache(entityTypeId).remove(event.resourceId);
-        GlobalViewStore.invalidateReference({
-          namespace: `entity:${entityTypeId}`,
-          id: event.resourceId,
-        });
       }
-      // An update patches the normalized entity and must not evict every
-      // paginated/windowed collection. Membership changes have their own
-      // change types and are the only entity events that require a reload.
-      if (event.changeType !== 'updated') this.invalidateEntityViews();
+      this.applyResourceCacheChange({
+        resourceType: 'entity',
+        resourceId: event.resourceId,
+        changeType: event.changeType,
+        entityTypeId,
+        affectedResourceIds: event.affectedResourceIds,
+      });
       this.invalidateAdminFromRealtime(['subtree-entities']);
     } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
       if (event.changeType === 'deleted') {
-        this.nodes.remove(event.resourceId);
-        GlobalViewStore.invalidateReference({ namespace: 'node', id: event.resourceId });
       } else if (event.data) {
         this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
       }
       for (const id of ids) {
         if (id !== event.resourceId) this.nodes.invalidate(id);
       }
-      this.nodes.invalidateChildren();
-      this.invalidateNodeChildrenViews();
-      if (
-        event.changeType === 'moved' ||
-        event.changeType === 'updated' ||
-        event.changeType === 'deleted' ||
-        event.changeType === 'restored'
-      ) {
-        this.invalidateNodeHierarchyViews();
-      }
-      if (ids.length > 1) this.invalidateEntityViews();
+      this.applyResourceCacheChange({
+        resourceType: 'node',
+        resourceId: event.resourceId,
+        changeType: event.changeType,
+        affectedResourceIds: ids,
+      });
       this.invalidateAdminFromRealtime(['children', 'subtree-entities']);
     }
   }
@@ -457,6 +433,22 @@ export class GlobalCacheClient {
   public readonly metadata = new MetadataCacheClient(this.kernel);
   public readonly users = new UserCacheClient(this.kernel, this.notifyCacheSubscribers);
   public readonly admin = new AdminCacheClient((kind, typeKey) => this.invalidateMetadata(kind, typeKey));
+  private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
+    removeNode: (resourceId) => this.nodes.remove(resourceId),
+    removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
+    invalidateNodeChildren: () => this.nodes.invalidateChildren(),
+    invalidateNodeHierarchy: () => GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.nodeHierarchy),
+    invalidateEntityMembership: () => GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.entityMembership),
+    invalidateNodeReference: (resourceId) => GlobalViewStore.invalidateReference({ namespace: 'node', id: resourceId }),
+    invalidateEntityReference: (entityTypeId, resourceId) => GlobalViewStore.invalidateReference({
+      namespace: `entity:${entityTypeId}`,
+      id: resourceId,
+    }),
+  });
+
+  private applyResourceCacheChange(change: ResourceCacheChange): void {
+    this.resourceCacheInvalidation.apply(change);
+  }
 
   /**
    * Invalidates every client-side projection affected by a type mutation.
@@ -491,7 +483,7 @@ export class GlobalCacheClient {
     this.entityCaches.forEach((cache) => cache.purge());
     GlobalViewStore.invalidateNamespace('node');
     GlobalViewStore.invalidateNamespacePrefix('entity:');
-    this.invalidateEntityViews();
+    GlobalViewStore.invalidateDependency(VIEW_DEPENDENCIES.entityMembership);
     this.notifyCacheSubscribers();
   }
 
@@ -523,7 +515,7 @@ export class GlobalCacheClient {
           if (this.getCacheEpoch() === requestEpoch) {
             const entityTypeKey = newEntity.entityTypeId;
             this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false, 'mutation:createEntity');
-            this.invalidateEntityViews();
+            this.applyResourceCacheChange({ resourceType: 'entity', resourceId: newEntity.id, changeType: 'created', entityTypeId: entityTypeKey });
           }
         },
       ) as unknown as ClientEntity;
@@ -547,7 +539,7 @@ export class GlobalCacheClient {
           if (this.getCacheEpoch() === requestEpoch) {
             const entityTypeKey = updatedEntity.entityTypeId;
             this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false, 'mutation:updateEntity');
-            this.invalidateEntityViews();
+            this.applyResourceCacheChange({ resourceType: 'entity', resourceId: updatedEntity.id, changeType: 'updated', entityTypeId: entityTypeKey });
           }
         },
       ) as unknown as ClientEntity;
@@ -576,10 +568,12 @@ export class GlobalCacheClient {
         },
         (deleted) => {
           if (this.getCacheEpoch() !== requestEpoch) return;
-          const cache = this.getEntityCache(entityTypeKey ?? deleted.entityTypeId);
-          cache.remove(entityId);
-          GlobalViewStore.invalidateReference({ namespace: `entity:${entityTypeKey ?? deleted.entityTypeId}`, id: entityId });
-          this.invalidateEntityViews();
+          this.applyResourceCacheChange({
+            resourceType: 'entity',
+            resourceId: entityId,
+            changeType: 'deleted',
+            entityTypeId: entityTypeKey ?? deleted.entityTypeId,
+          });
         },
       );
     } catch (err: unknown) {
@@ -604,8 +598,7 @@ export class GlobalCacheClient {
           const clientNode = created as ClientNode;
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
-          this.nodes.invalidateChildren();
-          this.invalidateNodeChildrenViews();
+          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'created' });
         },
       );
     } catch (err: unknown) {
@@ -628,9 +621,7 @@ export class GlobalCacheClient {
           const clientNode: ClientNode = updated as unknown as ClientNode;
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
-          this.nodes.invalidateChildren();
-          this.invalidateNodeChildrenViews();
-          this.invalidateNodeHierarchyViews();
+          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'updated' });
         },
       );
     } catch (err: unknown) {
@@ -659,9 +650,7 @@ export class GlobalCacheClient {
           if (!moved || this.getCacheEpoch() !== requestEpoch) return;
           const clientNode = moved as ClientNode;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
-          this.nodes.invalidateChildren();
-          this.invalidateNodeChildrenViews();
-          this.invalidateNodeHierarchyViews();
+          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'moved' });
         },
       );
     } catch (err: unknown) {
@@ -683,15 +672,7 @@ export class GlobalCacheClient {
         },
         () => {
           if (this.getCacheEpoch() !== requestEpoch) return;
-          this.nodes.remove(nodeId);
-          // The normalized node-list queries are separate from GlobalViewStore.
-          // Invalidate them explicitly because the local realtime event is
-          // intentionally ignored by ResourceMutationCoordinator.
-          this.nodes.invalidateChildren();
-          GlobalViewStore.invalidateReference({ namespace: 'node', id: nodeId });
-          this.invalidateNodeChildrenViews();
-          this.invalidateNodeHierarchyViews();
-          this.invalidateEntityViews();
+          this.applyResourceCacheChange({ resourceType: 'node', resourceId: nodeId, changeType: 'deleted' });
         },
       );
     } catch (err: unknown) {

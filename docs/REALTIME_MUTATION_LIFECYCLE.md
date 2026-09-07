@@ -13,8 +13,19 @@ private-realtime-policy-{policyHash}-data
 Il server risolve il nodo padre e tutti gli antenati, applica allow/deny e
 pubblica su ogni policy che include la risorsa. In caso di spostamento vengono
 considerati anche gli antenati della posizione precedente. Il frontend lascia
-alla cache la decisione di aggiornare l'entità, invalidare una vista o ignorare
-un evento già superato dal `rowVersion`.
+al coordinatore di invalidazione la decisione di aggiornare il read model,
+invalidare una vista o ignorare un evento già superato dal `rowVersion`.
+
+## Protocollo unico di invalidazione client
+
+Le mutation locali e gli eventi realtime esterni convergono nello stesso evento
+semantico (`resourceType`, `resourceId`, `changeType` ed eventuali
+`affectedResourceIds`). `ResourceCacheInvalidationCoordinator` applica in un
+solo punto gli effetti su record normalizzati, liste figli, gerarchie, viste
+subtree e membership delle entità. Un evento realtime prodotto dalla sessione
+locale può quindi essere ignorato senza perdere invalidazioni: la risposta
+locale ha già attraversato lo stesso coordinatore. I componenti e le action non
+devono scegliere direttamente quale cache invalidare.
 
 I canali lock restano separati dai dati: hanno frequenza, ciclo di vita e
 semantica di errore diversi dagli eventi dati.
