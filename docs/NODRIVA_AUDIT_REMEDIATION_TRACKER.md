@@ -18,7 +18,7 @@ Verifica governance corrente:
 | F-08 | Risolto | SQLite query port | ACL applicata nella query paginata con `LIMIT + 1`, senza scansione progressiva del sottoalbero; ordine backward e parità diretta SQLite/PostgreSQL coperti. |
 | F-09 | Risolto | Collection read model | Tipi ed edge attivi letti in batch; query-count e parity SQLite/PostgreSQL verdi. I boundary paginati e limitati del sottoalbero sono consolidati in F-08, senza modifiche parziali al contratto della cache. |
 | F-10 | Risolto | Attachment envelope | Envelope plaintext/cifrato esplicito; formati legacy non supportati e rifiutati in fase di sviluppo. |
-| F-11 | Aperto | Database bootstrap | Baseline in `db/`, schema vuoto e upgrade verificati. |
+| F-11 | Risolto | Database bootstrap | Baseline in `db/`; bootstrap su schema vuoto, upgrade storico, riapplicazione idempotente e ruolo applicativo ristretto verificati in CI. |
 
 ## Attività post-risoluzione
 

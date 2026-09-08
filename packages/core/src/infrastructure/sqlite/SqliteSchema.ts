@@ -190,6 +190,13 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       consumed_at TEXT,
       created_by TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS account_action_delivery_outbox (
+      id TEXT PRIMARY KEY, email TEXT NOT NULL,
+      purpose TEXT NOT NULL CHECK (purpose IN ('invitation','password_reset')),
+      token_ciphertext TEXT NOT NULL, expires_at TEXT NOT NULL, delivered_at TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, locked_at TEXT,
+      locked_by TEXT, last_error TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
     CREATE TABLE IF NOT EXISTS user_mfa_totp (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       secret_ciphertext TEXT NOT NULL,

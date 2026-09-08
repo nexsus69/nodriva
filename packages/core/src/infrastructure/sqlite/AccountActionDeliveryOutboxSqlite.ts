@@ -1,0 +1,11 @@
+/** Persists retryable account-action deliveries for the SQLite profile. */
+import type { AccountActionDeliveryOutboxPort, PendingAccountActionDelivery } from '../../application/ports/AccountActionDeliveryOutboxPort.js';
+import type { SqliteDatabase } from './SqliteDatabase.js';
+
+export class AccountActionDeliveryOutboxSqlite implements AccountActionDeliveryOutboxPort {
+  constructor(private readonly database: SqliteDatabase) {}
+  async enqueue(input: PendingAccountActionDelivery): Promise<void> { this.database.run('INSERT INTO account_action_delivery_outbox(id,email,purpose,token_ciphertext,expires_at) VALUES(?,?,?,?,?)', [input.id, input.email, input.purpose, input.tokenCiphertext, input.expiresAt.toISOString()]); }
+  async claimPending(workerId: string, limit: number): Promise<PendingAccountActionDelivery[]> { const now = new Date().toISOString(); const rows = this.database.all<{ id:string;email:string;purpose:PendingAccountActionDelivery['purpose'];token_ciphertext:string;expires_at:string }>('SELECT id,email,purpose,token_ciphertext,expires_at FROM account_action_delivery_outbox WHERE delivered_at IS NULL AND expires_at>? AND (next_attempt_at IS NULL OR next_attempt_at<=?) AND locked_at IS NULL ORDER BY created_at LIMIT ?', [now, now, limit]); for (const row of rows) this.database.run('UPDATE account_action_delivery_outbox SET locked_at=?,locked_by=? WHERE id=? AND locked_at IS NULL', [now, workerId, row.id]); return rows.map((row) => ({ id:row.id,email:row.email,purpose:row.purpose,tokenCiphertext:row.token_ciphertext,expiresAt:new Date(row.expires_at) })); }
+  async markDelivered(id:string, workerId:string): Promise<void> { this.database.run('UPDATE account_action_delivery_outbox SET delivered_at=?,token_ciphertext=\'\',locked_at=NULL,locked_by=NULL,last_error=NULL WHERE id=? AND locked_by=?', [new Date().toISOString(),id,workerId]); }
+  async markFailed(id:string, workerId:string, error:string): Promise<void> { this.database.run('UPDATE account_action_delivery_outbox SET attempts=attempts+1,last_error=?,next_attempt_at=?,locked_at=NULL,locked_by=NULL WHERE id=? AND locked_by=?', [error.slice(0,1000),new Date(Date.now()+1000).toISOString(),id,workerId]); }
+}
