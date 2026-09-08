@@ -28,5 +28,8 @@ drain() {
 while :; do
   drain 'realtime-worker' "$REALTIME_DRAIN_URL"
   drain 'workflow-worker' "$WORKFLOW_DRAIN_URL"
+  if [ -n "${ACCOUNT_ACTION_DRAIN_URL:-}" ]; then
+    drain 'account-action-worker' "$ACCOUNT_ACTION_DRAIN_URL"
+  fi
   sleep "$interval"
 done
