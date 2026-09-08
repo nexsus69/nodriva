@@ -3,6 +3,7 @@ import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../applicat
 import { User } from '../../domain/models/User.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
+import { hasSqlitePermissionCoverage } from './SqlitePermissionCoverage.js';
 
 interface UserRow { id: string; email: string; password_hash: string; is_active: number; is_super_admin: number; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; }
 
@@ -58,8 +59,6 @@ export class UserRepositorySqlite implements UserRepository {
       'INSERT INTO users (id,email,password_hash,is_active,is_super_admin,row_version,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)',
       [user.id, user.email, user.passwordHash, user.isActive ? 1 : 0, user.isSuperAdmin ? 1 : 0, user.rowVersion, user.createdAt.toISOString(), user.updatedAt.toISOString()],
     );
-    const defaultReader = this.database.get<{ id: string }>("SELECT id FROM roles WHERE role_key='default_reader' AND deleted_at IS NULL");
-    if (defaultReader) this.database.run('INSERT OR IGNORE INTO user_roles (user_id,role_id) VALUES (?,?)', [user.id, defaultReader.id]);
     for (const roleId of roleIds) this.database.run('INSERT OR IGNORE INTO user_roles (user_id,role_id) VALUES (?,?)', [user.id, roleId]);
   }
   async updateUser(user: User): Promise<void> { const result = this.database.run('UPDATE users SET email=?,password_hash=?,is_active=?,is_super_admin=?,row_version=?,updated_at=? WHERE id=? AND row_version=? AND deleted_at IS NULL', [user.email, user.passwordHash, user.isActive ? 1 : 0, user.isSuperAdmin ? 1 : 0, user.rowVersion, user.updatedAt.toISOString(), user.id, user.rowVersion - 1]); if (!result.changes) { const row = this.database.get<{ row_version: number }>('SELECT row_version FROM users WHERE id=? AND deleted_at IS NULL', [user.id]); throw new RowVersionMismatchError(user.rowVersion - 1, row?.row_version ?? 0); } }
@@ -80,32 +79,7 @@ export class UserRepositorySqlite implements UserRepository {
 
   /** Verifies that the actor can delegate scope.assign over a target assignment. */
   private actorCanDelegateScope(actorUserId: string, nodeId: string, propagation: 'self' | 'subtree'): boolean {
-    const target = this.database.get<{ path: string }>('SELECT path FROM nodes WHERE id=? AND deleted_at IS NULL', [nodeId]);
-    if (!target) return false;
-    const allow = this.database.get(
-      `SELECT 1
-       FROM node_scope_assignments sa
-       JOIN nodes assigned_node ON assigned_node.id=sa.node_id
-       JOIN role_permissions rp ON rp.role_id=sa.role_id
-       JOIN permissions p ON p.id=rp.permission_id
-       WHERE sa.user_id=? AND sa.assignment_effect='allow' AND sa.propagation='subtree'
-         AND p.permission_key='scope.assign'
-         AND (?=assigned_node.path OR ? LIKE assigned_node.path || '.%')`,
-      [actorUserId, target.path, target.path],
-    );
-    if (!allow) return false;
-    const deny = this.database.get(
-      `SELECT 1
-       FROM node_scope_assignments sa
-       JOIN nodes assigned_node ON assigned_node.id=sa.node_id
-       JOIN role_permissions rp ON rp.role_id=sa.role_id
-       JOIN permissions p ON p.id=rp.permission_id
-       WHERE sa.user_id=? AND sa.assignment_effect='deny' AND p.permission_key='scope.assign'
-         AND ((sa.propagation='self' AND assigned_node.path=? )
-           OR (sa.propagation='subtree' AND (?=assigned_node.path OR ? LIKE assigned_node.path || '.%')))`,
-      [actorUserId, target.path, target.path, target.path],
-    );
-    return !deny && (propagation === 'self' || propagation === 'subtree');
+    return hasSqlitePermissionCoverage(this.database, actorUserId, 'scope.assign', nodeId, propagation);
   }
   private map(row: UserRow): User { return new User(row.id, row.email, row.password_hash, row.is_active === 1, row.is_super_admin === 1, row.row_version, new Date(row.created_at), new Date(row.updated_at), row.deleted_at ? new Date(row.deleted_at) : null); }
 }

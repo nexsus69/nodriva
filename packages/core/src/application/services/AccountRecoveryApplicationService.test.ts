@@ -33,6 +33,7 @@ function createService() {
   const audit: AuditPort = { record: vi.fn() };
   const transactions: TransactionPort = {
     runInTransaction: vi.fn(async (operation) => operation()), afterCommit: vi.fn(),
+    runInAuthorizationMutation: vi.fn(async (operation) => operation()),
   };
   const access = {
     assertIsSuperAdmin: vi.fn(), assertHasPermission: vi.fn(), assertCanCreateNode: vi.fn(),
@@ -41,7 +42,7 @@ function createService() {
     assertCanReadNode: vi.fn(), assertHasPermissionCoverage: vi.fn(), assertHasPermissionCoverageBatch: vi.fn(),
   } satisfies AccessControlPort;
   const mfa: MfaTotpPort = {
-    findByUserId: vi.fn(), savePending: vi.fn(), enable: vi.fn(), consumeRecoveryCode: vi.fn(), deleteForUser: vi.fn(),
+    findByUserId: vi.fn(), savePending: vi.fn(), promotePending: vi.fn(), consumeRecoveryCode: vi.fn(), deleteForUser: vi.fn(),
   };
   const outbox: AccountActionDeliveryOutboxPort = { enqueue: vi.fn(), claimPending: vi.fn(), markDelivered: vi.fn(), markFailed: vi.fn() };
   const cipher: AccountActionTokenCipherPort = { encrypt: vi.fn((token) => `encrypted:${token}`), decrypt: vi.fn() };

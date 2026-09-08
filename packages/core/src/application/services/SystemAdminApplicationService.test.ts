@@ -41,6 +41,7 @@ describe('SystemAdminApplicationService', () => {
 
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work) => await work()),
     };
 
     mockIdGenerator = {

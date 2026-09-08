@@ -1,3 +1,4 @@
+/** Verifies ACL and causal-root filtering for the SQLite recycle bin. */
 import { describe, expect, it } from 'vitest';
 import { Entity } from '../../domain/models/Entity.js';
 import { Node } from '../../domain/models/Node.js';
@@ -10,7 +11,7 @@ import { ensureSqliteSchema } from './SqliteSchema.js';
 const now = new Date('2026-01-01T00:00:00.000Z');
 
 describe('SQLite recycle-bin scope filtering', () => {
-  it('returns only deleted nodes and entities covered by restore permissions', async () => {
+  it('returns only independently actionable deletes covered by restore permissions', async () => {
     const database = new SqliteDatabase();
     ensureSqliteSchema(database);
     const access = new AccessControlPortSqlite(database);
@@ -36,7 +37,7 @@ describe('SQLite recycle-bin scope filtering', () => {
     await nodes.softDeleteSubtree('hidden', 'actor', 1, 'hidden-batch');
 
     expect((await nodes.listDeletedByScope('actor')).map((row) => row.id)).toEqual(['visible']);
-    expect((await entities.listDeletedByScope('actor')).map((row) => row.id)).toEqual(['visible-entity']);
+    expect((await entities.listDeletedByScope('actor')).map((row) => row.id)).toEqual([]);
     database.close();
   });
 });

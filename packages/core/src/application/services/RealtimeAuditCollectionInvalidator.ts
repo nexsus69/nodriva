@@ -3,6 +3,7 @@ import type { AuditCollectionInvalidation, AuditCollectionInvalidationPort } fro
 import type { IdGeneratorPort } from "../ports/IdGeneratorPort.js";
 import type { RealtimeOutboxPort } from "../ports/RealtimeOutboxPort.js";
 import type { RuntimeConfigurationPort } from "../ports/RuntimeConfigurationPort.js";
+import type { RealtimeResourceType } from "../ports/RealtimeEventBus.js";
 
 export const REALTIME_CAPABILITY_KEY = "realtime";
 
@@ -32,5 +33,25 @@ export class RealtimeAuditCollectionInvalidator implements AuditCollectionInvali
       scopeNodeIds: [],
       directScopeNodeIds: [],
     });
+    const administrativeResource = this.administrativeResource(event.resourceKind);
+    if (administrativeResource) {
+      await this.outbox.enqueue({
+        eventId: this.ids.generate(),
+        occurredAt: this.now().toISOString(),
+        resourceType: administrativeResource,
+        resourceId: event.resourceId,
+        changeType: "updated",
+        actorUserId: event.actorUserId ?? "system",
+        scopeNodeIds: [],
+        directScopeNodeIds: [],
+      });
+    }
+  }
+
+  private administrativeResource(resourceKind: string): RealtimeResourceType | null {
+    if (resourceKind === 'user' || resourceKind === 'role' || resourceKind === 'node_type' || resourceKind === 'entity_type' || resourceKind === 'placement_policy') return resourceKind;
+    if (resourceKind === 'scope_assignment') return 'scope';
+    if (resourceKind === 'system_setting' || resourceKind === 'runtime_capability' || resourceKind.startsWith('workflow_')) return 'system';
+    return null;
   }
 }

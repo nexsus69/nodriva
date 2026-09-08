@@ -26,6 +26,7 @@ import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { SecurityRepository } from '../ports/SecurityRepository.js';
 import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
+import { withRequiredBaselineRole } from './UserRoleAssignmentPolicy.js';
 
 export class UserAdminApplicationService {
   constructor(
@@ -49,26 +50,24 @@ export class UserAdminApplicationService {
 
   async createUser(cmd: CreateUserCommand): Promise<User> {
     const v = this.validateCommand(CreateUserCommandSchema, cmd, 'creating user');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.create', null);
     // This legacy path is reserved for the exceptional superadmin identity.
     // Every ordinary identity must be created with its first scoped grant by
     // ScopedUserProvisioningService, so no active user can lack a perimeter.
-    await this.assertActorIsSuperAdmin(v.actorUserId, 'create users');
     if (!v.isSuperAdmin) {
       throw new ForbiddenError('Ordinary users must be created together with at least one role scope.', {
         actorUserId: v.actorUserId,
       });
     }
 
-    // user_roles grants global administrative capabilities. Local data access
-    // must instead be granted through node_scope_assignments, where delegation
-    // is checked against the actor's effective permissions.
-    if ((v.roleIds?.length ?? 0) > 0) {
-      await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
-      await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles while creating a user');
-    }
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.create', null);
+      await this.assertActorIsSuperAdmin(v.actorUserId, 'create users');
+      if ((v.roleIds?.length ?? 0) > 0) {
+        // user_roles grants global administrative capabilities. Local data
+        // access must instead use coverage-checked node scope assignments.
+        await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
+        await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles while creating a user');
+      }
       const existing = await this.userRepository.findByEmail(v.email);
       if (existing) {
         throw new UserEmailAlreadyExistsError(v.email);
@@ -89,7 +88,7 @@ export class UserAdminApplicationService {
         v.isSuperAdmin ?? false
       );
 
-      await this.userRepository.createUser(user, v.roleIds ?? []);
+      await this.userRepository.createUser(user, await withRequiredBaselineRole(this.userRepository, v.roleIds ?? []));
       await this.auditPort.record(
         v.actorUserId,
         'user.create',
@@ -111,9 +110,8 @@ export class UserAdminApplicationService {
         userId: ['Sign in with another administrator to disable this account.'],
       });
     }
-    await this.assertUserManageable(v.actorUserId, v.userId, 'change user status');
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.assertUserManageable(v.actorUserId, v.userId, 'change user status');
       const user = await this.userRepository.findById(v.userId);
       if (!user) {
         throw new UserNotFoundError(v.userId);
@@ -158,9 +156,8 @@ export class UserAdminApplicationService {
 
   async updateUser(cmd: UpdateUserCommand): Promise<User> {
     const v = this.validateCommand(UpdateUserCommandSchema, cmd, 'updating user details');
-    await this.assertUserManageable(v.actorUserId, v.userId, 'modify user identities');
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.assertUserManageable(v.actorUserId, v.userId, 'modify user identities');
       const user = await this.userRepository.findById(v.userId);
       if (!user) {
         throw new UserNotFoundError(v.userId);
@@ -215,10 +212,9 @@ export class UserAdminApplicationService {
 
   async assignUserRoles(cmd: AssignUserRolesCommand): Promise<void> {
     const v = this.validateCommand(AssignUserRolesCommandSchema, cmd, 'assigning user roles');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
-    await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles');
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.assign_roles', null);
+      await this.assertActorIsSuperAdmin(v.actorUserId, 'assign global roles');
       const user = await this.userRepository.findById(v.userId);
       if (!user) {
         throw new UserNotFoundError(v.userId);
@@ -248,7 +244,7 @@ export class UserAdminApplicationService {
       );
 
       await this.userRepository.updateUser(updated);
-      await this.userRepository.assignUserRoles(v.userId, v.roleIds);
+      await this.userRepository.assignUserRoles(v.userId, await withRequiredBaselineRole(this.userRepository, v.roleIds));
       await this.auditPort.record(
         v.actorUserId,
         'user.assign_roles',
@@ -272,10 +268,9 @@ export class UserAdminApplicationService {
 
   async resetUserPassword(cmd: ResetUserPasswordCommand): Promise<User> {
     const v = this.validateCommand(ResetUserPasswordCommandSchema, cmd, 'resetting user password');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.update', null);
-    await this.assertActorIsSuperAdmin(v.actorUserId, 'reset user passwords');
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'user.update', null);
+      await this.assertActorIsSuperAdmin(v.actorUserId, 'reset user passwords');
       const user = await this.userRepository.findById(v.userId);
       if (!user) {
         throw new UserNotFoundError(v.userId);
@@ -322,6 +317,10 @@ export class UserAdminApplicationService {
       throw new UserAdminValidationError(`Validation failed for ${actionName}.`, issues);
     }
     return res.data;
+  }
+
+  private runAuthorizationMutation<T>(work: () => Promise<T>): Promise<T> {
+    return this.transactionPort.runInAuthorizationMutation(work);
   }
 
   private async assertActorIsSuperAdmin(actorUserId: string, action: string): Promise<void> {

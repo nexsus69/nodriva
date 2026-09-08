@@ -103,6 +103,7 @@ describe('NodeApplicationService', () => {
 
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work) => await work()),
     };
     mockWorkflowEventPublisher = { publish: vi.fn() };
 
@@ -373,6 +374,12 @@ describe('NodeApplicationService', () => {
 
       await service.moveNode(cmd);
 
+      expect(mockLockService.requireOwnedLock).toHaveBeenCalledTimes(1);
+      expect(mockLockService.requireOwnedLock).toHaveBeenCalledWith(
+        { resourceType: 'node', resourceId: childNode.id },
+        cmd.actorUserId,
+        cmd.actorSessionId,
+      );
       expect(mockNodeRepository.moveSubtree).toHaveBeenCalledWith(
         childNode.id,
         siblingNode.id,

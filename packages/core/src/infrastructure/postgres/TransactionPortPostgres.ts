@@ -1,21 +1,38 @@
+/** Provides PostgreSQL transactions with authorization-policy serialization. */
 import type pg from 'pg';
 import type { TransactionPort } from '../../application/ports/TransactionPort.js';
 import { PgTransactionContext } from './PgTransactionContext.js';
 
 export class TransactionPortPostgres implements TransactionPort {
+  private static readonly AUTHORIZATION_POLICY_LOCK = 1_845_102_820;
   private readonly afterCommitEffects = new WeakMap<pg.PoolClient, Array<() => void | Promise<void>>>();
 
   constructor(private readonly pool: pg.Pool) {}
 
   async runInTransaction<T>(work: () => Promise<T>): Promise<T> {
+    return this.run(work, false);
+  }
+
+  async runInAuthorizationMutation<T>(work: () => Promise<T>): Promise<T> {
+    return this.run(work, true);
+  }
+
+  private async run<T>(work: () => Promise<T>, authorizationMutation: boolean): Promise<T> {
     const existingClient = PgTransactionContext.getClient();
     if (existingClient) {
+      if (authorizationMutation) {
+        throw new Error('Authorization-policy mutations must own the outermost transaction.');
+      }
       return await work();
     }
 
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query(
+        authorizationMutation ? 'SELECT pg_advisory_xact_lock($1)' : 'SELECT pg_advisory_xact_lock_shared($1)',
+        [TransactionPortPostgres.AUTHORIZATION_POLICY_LOCK],
+      );
       this.afterCommitEffects.set(client, []);
       const result = await PgTransactionContext.run(client, async () => {
         return await work();

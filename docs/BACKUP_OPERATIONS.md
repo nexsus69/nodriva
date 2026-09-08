@@ -10,6 +10,10 @@ Il backup verificato può essere eseguito automaticamente con
 - restituisce codice diverso da zero in caso di errore, consentendo alert
   tramite systemd, cron o il monitoraggio di sistema.
 
+La verifica avviene sul database temporaneo ripristinato e non usa conteggi del
+database live: resta quindi valida sia durante scritture concorrenti sia per un
+archivio storico.
+
 Nel Compose completo lo stesso wrapper gira nel servizio `backup`, collegato
 direttamente a PostgreSQL sulla rete Docker; non richiede accesso al socket
 Docker dell’host.

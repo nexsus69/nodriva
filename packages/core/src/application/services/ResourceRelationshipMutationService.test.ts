@@ -101,7 +101,10 @@ function createService(field = relationshipField(), firstSourceDocuments: string
     auditPort,
     revisionPort,
     { isCapabilityEnabled: vi.fn().mockResolvedValue(true) } as never,
-    { runInTransaction: async <T>(work: () => Promise<T>) => work() },
+    {
+      runInTransaction: async <T>(work: () => Promise<T>) => work(),
+      runInAuthorizationMutation: async <T>(work: () => Promise<T>) => work(),
+    },
   );
   return { service, entityRepository, relationshipService, auditPort, revisionPort };
 }

@@ -108,7 +108,7 @@ export class AuditQueryPortPostgres implements AuditQueryPort {
       FROM audit_logs a
       LEFT JOIN users u ON a.actor_user_id = u.id
       ${whereClause}
-      ORDER BY a.created_at DESC
+      ORDER BY a.created_at DESC, a.id DESC
       ${limitOffsetClause}
     `;
 

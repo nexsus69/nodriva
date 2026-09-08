@@ -82,6 +82,8 @@ import {
   PolicyAuditRecorder,
   DescriptiveAuditPort,
   RealtimeAuditCollectionInvalidator,
+  AttachmentCleanupPortPostgres,
+  AttachmentCleanupService,
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
@@ -309,6 +311,13 @@ const attachmentStorageValues: Readonly<Record<string, unknown>> = attachmentSto
   ? attachmentStorageDeployment.values
   : {};
 export const attachmentStorage = new LocalAttachmentStorage(typeof attachmentStorageValues.path === 'string' ? attachmentStorageValues.path : undefined, securityKeys.attachmentEncryptionKey, securityKeys.attachmentEncryptionKeys, securityKeys.attachmentEncryptionActiveVersion ?? 'v1', attachmentStorageValues.encryptionRequired === true);
+export const attachmentCleanupPort = sqliteMode
+  ? sqliteInfrastructure!.attachmentCleanupPort
+  : new AttachmentCleanupPortPostgres(pgExecutor!);
+export const attachmentCleanupService = new AttachmentCleanupService(
+  attachmentCleanupPort,
+  attachmentStorage,
+);
 const antivirusDeployment = deploymentConfigurationSource.getSync('antivirus');
 const antivirusValues: Readonly<Record<string, unknown>> = antivirusDeployment?.providerKey === 'clamav'
   ? antivirusDeployment.values
@@ -318,7 +327,7 @@ export const deletedResourcePurgeService = new DeletedResourcePurgeService(
   transactionPort,
   accessControlPort,
   auditPort,
-  attachmentStorage,
+  attachmentCleanupService,
 );
 export const attachmentRateLimiter = sqliteMode
   ? sqliteInfrastructure!.attachmentRateLimitPort
@@ -371,7 +380,7 @@ export const accountActionDeliveryDrainer = accountActionDelivery && accountActi
   : undefined;
 export const mfaTotpPort = sqliteMode ? sqliteInfrastructure!.mfaTotpPort : new MfaTotpPortPostgres(pgExecutor!);
 export const mfaTotpService = securityKeys.mfaEncryptionKey
-  ? new MfaTotpApplicationService(mfaTotpPort, auditPort, securityKeys.mfaEncryptionKey)
+  ? new MfaTotpApplicationService(mfaTotpPort, auditPort, transactionPort, securityKeys.mfaEncryptionKey)
   : undefined;
 
 // Registry degli schemi ed invalidazione

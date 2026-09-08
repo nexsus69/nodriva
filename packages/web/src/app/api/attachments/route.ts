@@ -55,7 +55,7 @@ export const POST = auth(async (request) => {
     const access = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     if (!(await assertAttachmentField(target.resourceType, access.resourceTypeId, target.fieldKey, target.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { attachmentStorage, attachmentRateLimiter, attachmentScanner, auditPort, attachmentRepository, resourceSecurityPolicyResolver, transactionPort } = await import('../../../server/db');
+    const { attachmentStorage, attachmentCleanupService, attachmentRateLimiter, attachmentScanner, auditPort, attachmentRepository, resourceSecurityPolicyResolver, transactionPort } = await import('../../../server/db');
     if (!(await attachmentRateLimiter.consume(actorUserId, defaultAttachmentSecurityPolicy.maxUploadsPerHour))) {
       return NextResponse.json({ error: 'ATTACHMENT_RATE_LIMITED' }, { status: 429, headers: { 'Retry-After': '3600' } });
     }
@@ -72,26 +72,40 @@ export const POST = auth(async (request) => {
     const attachmentId = randomUUID();
     const safeName = file.name.replace(/[\r\n"\\/]/g, '_').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-255) || 'upload';
     const storageKey = `${target.resourceType}/${target.resourceId}/${attachmentId}-${safeName}`;
+    // The staging record is durable before the non-transactional blob write.
+    // A crash at any later point therefore leaves a recoverable cleanup job.
+    await attachmentCleanupService.scheduleUploadStaging(storageKey);
     const stored = await attachmentStorage.put(storageKey, content, { encrypt: securityPolicy.encryptionEnabled });
     try {
       await transactionPort.runInTransaction(async () => {
+        const transactionalAccess = await assertAttachmentAccess(actorUserId, target.resourceType, target.resourceId);
+        if (!transactionalAccess) throw new Error('Attachment target disappeared during upload.');
         const created = await attachmentRepository.createWithinQuota(
           { id: attachmentId, resourceType: target.resourceType, resourceId: target.resourceId, fieldKey: target.fieldKey, kind: target.kind, fileName: safeName, mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, storageKey: stored.storageKey, checksum: stored.checksum, createdBy: actorUserId },
           defaultAttachmentSecurityPolicy.maxResourceBytes,
         );
         if (!created) throw new AttachmentQuotaExceededError('Attachment resource quota exceeded');
-        await auditPort.record(actorUserId, 'attachment.upload', 'attachment', attachmentId, access.scopeNodeId, null, {
+        await auditPort.record(actorUserId, 'attachment.upload', 'attachment', attachmentId, transactionalAccess.scopeNodeId, null, {
           resourceType: target.resourceType, resourceId: target.resourceId, fileName: safeName,
           mimeType: detected.mimeType, sizeBytes: stored.sizeBytes, checksum: stored.checksum,
         });
+        await attachmentCleanupService.cancel(stored.storageKey);
       });
     } catch (error) {
-      await attachmentStorage.delete(storageKey).catch((cleanupError) => console.error('[Attachments] Orphan cleanup failed', cleanupError));
+      try {
+        await attachmentStorage.delete(storageKey);
+        await attachmentCleanupService.cancel(storageKey);
+      } catch (cleanupError) {
+        console.error('[Attachments] Immediate orphan cleanup failed; durable retry retained', cleanupError);
+      }
       if (error instanceof AttachmentQuotaExceededError) {
         return NextResponse.json({ error: 'ATTACHMENT_QUOTA_EXCEEDED' }, { status: 413 });
       }
       throw error;
     }
+    void attachmentCleanupService.drain().catch((error) => {
+      console.error('[Attachments] Post-commit cleanup drain failed', error);
+    });
     void publishRealtimeChange({
       resourceType: target.resourceType,
       resourceId: target.resourceId,

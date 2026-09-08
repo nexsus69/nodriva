@@ -421,7 +421,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       staleEntityRestoreError: 'RowVersionMismatchError',
       restoredEntityVersion: 4,
       lock: { owner: ids.actor, conflictError: 'LockConflictError', forbiddenReleaseError: 'LockForbiddenError', released: true },
-      deletedSubtree: { ids: [ids.child, ids.grandchild], entityWasDeleted: true, visibleNodes: [ids.child, ids.grandchild], hiddenNodes: [] },
+      deletedSubtree: { ids: [ids.child, ids.grandchild], entityWasDeleted: true, visibleNodes: [ids.child], hiddenNodes: [] },
       staleNodeRestoreError: 'RowVersionMismatchError',
       restoredSubtree: { ids: [ids.child, ids.grandchild], entityWasRestored: true },
       pathReuseAllowed: true,

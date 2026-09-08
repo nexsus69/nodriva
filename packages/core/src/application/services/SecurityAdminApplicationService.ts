@@ -62,10 +62,9 @@ export class SecurityAdminApplicationService {
 
   async createRole(cmd: CreateRoleCommand): Promise<Role> {
     const v = this.validateCommand(CreateRoleCommandSchema, cmd, 'creating role');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.create', null);
-    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.create', null);
+      await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
       const existing = await this.securityRepository.findRoleByKey(v.roleKey);
       if (existing) {
         throw new RoleKeyAlreadyExistsError(v.roleKey);
@@ -91,10 +90,9 @@ export class SecurityAdminApplicationService {
 
   async updateRolePermissions(cmd: UpdateRolePermissionsCommand): Promise<void> {
     const v = this.validateCommand(UpdateRolePermissionsCommandSchema, cmd, 'updating role permissions');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
-    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
+      await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
       const role = await this.securityRepository.findRoleByKey(v.roleKey);
       if (!role) {
         throw new RoleNotFoundError(v.roleKey);
@@ -137,9 +135,9 @@ export class SecurityAdminApplicationService {
 
   async updateRoleMetadata(cmd: UpdateRoleMetadataCommand): Promise<void> {
     const v = this.validateCommand(UpdateRoleMetadataCommandSchema, cmd, 'updating role metadata');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
-    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
+      await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
       const role = await this.securityRepository.findRoleByKey(v.roleKey);
       if (!role) throw new RoleNotFoundError(v.roleKey);
       if (role.isSystem) throw new SystemRoleForbiddenError(role.roleKey);
@@ -152,10 +150,9 @@ export class SecurityAdminApplicationService {
   /** Updates role metadata and permissions in the same transaction and audit event. */
   async updateRole(cmd: UpdateRoleCommand): Promise<void> {
     const v = this.validateCommand(UpdateRoleCommandSchema, cmd, 'updating role');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
-    await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'role.update', null);
+      await this.accessControlPort.assertIsSuperAdmin(v.actorUserId);
       const role = await this.securityRepository.findRoleByKey(v.roleKey);
       if (!role) throw new RoleNotFoundError(v.roleKey);
       if (role.isSystem) throw new SystemRoleForbiddenError(role.roleKey);
@@ -207,13 +204,10 @@ export class SecurityAdminApplicationService {
 
   async createScopeAssignment(cmd: CreateScopeAssignmentCommand): Promise<void> {
     const v = this.validateCommand(CreateScopeAssignmentCommandSchema, cmd, 'creating scope assignment');
-    await this.assertTargetUserManageable(v.actorUserId, v.userId);
-    await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', v.nodeId, v.propagation);
-    if (v.assignmentEffect === 'allow') {
-      await this.assertCanDelegateRole(v.actorUserId, v.roleId, v.nodeId, v.propagation);
-    }
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      await this.assertTargetUserManageable(v.actorUserId, v.userId);
+      await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', v.nodeId, v.propagation);
+      if (v.assignmentEffect === 'allow') await this.assertCanDelegateRole(v.actorUserId, v.roleId, v.nodeId, v.propagation);
       const assignmentId = this.idGenerator.generate();
 
       await this.securityRepository.createScopeAssignment(
@@ -241,17 +235,12 @@ export class SecurityAdminApplicationService {
 
   async updateScopeAssignment(cmd: UpdateScopeAssignmentCommand): Promise<void> {
     const v = this.validateCommand(UpdateScopeAssignmentCommandSchema, cmd, 'updating scope assignment');
-    const assignment = await this.securityRepository.getScopeAssignmentManageableBy(v.actorUserId, v.assignmentId);
-    if (!assignment) {
-      throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
-    }
-    await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
-    await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', assignment.nodeId, v.propagation);
-    if (v.assignmentEffect === 'allow') {
-      await this.assertCanDelegateRole(v.actorUserId, v.roleId, assignment.nodeId, v.propagation);
-    }
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      const assignment = await this.securityRepository.getScopeAssignmentManageableBy(v.actorUserId, v.assignmentId);
+      if (!assignment) throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
+      await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
+      await this.accessControlPort.assertHasPermissionCoverage(v.actorUserId, 'scope.assign', assignment.nodeId, v.propagation);
+      if (v.assignmentEffect === 'allow') await this.assertCanDelegateRole(v.actorUserId, v.roleId, assignment.nodeId, v.propagation);
       await this.securityRepository.updateScopeAssignment(
         v.assignmentId,
         v.roleId,
@@ -278,14 +267,11 @@ export class SecurityAdminApplicationService {
 
   async deleteScopeAssignment(cmd: DeleteScopeAssignmentCommand): Promise<void> {
     const v = this.validateCommand(DeleteScopeAssignmentCommandSchema, cmd, 'deleting scope assignment');
-    const assignment = await this.securityRepository.getScopeAssignmentManageableBy(v.actorUserId, v.assignmentId);
-    if (!assignment) {
-      throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
-    }
-    await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'scope.delete', assignment.nodeId);
-
-    return await this.transactionPort.runInTransaction(async () => {
+    return await this.runAuthorizationMutation(async () => {
+      const assignment = await this.securityRepository.getScopeAssignmentManageableBy(v.actorUserId, v.assignmentId);
+      if (!assignment) throw new SecurityAdminValidationError(`Scope assignment '${v.assignmentId}' not found.`);
+      await this.assertTargetUserManageable(v.actorUserId, assignment.userId);
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'scope.delete', assignment.nodeId);
       await this.securityRepository.deleteScopeAssignment(v.assignmentId);
       await this.auditPort.record(
         v.actorUserId,
@@ -345,6 +331,10 @@ export class SecurityAdminApplicationService {
         userId,
       });
     }
+  }
+
+  private runAuthorizationMutation<T>(work: () => Promise<T>): Promise<T> {
+    return this.transactionPort.runInAuthorizationMutation(work);
   }
 
   private async reconcileDelegatedScopes(actorUserId: string, reason: string): Promise<void> {

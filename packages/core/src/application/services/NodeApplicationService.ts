@@ -218,10 +218,8 @@ export class NodeApplicationService {
           throw new NodeNotFoundError(validatedCmd.newParentNodeId);
         }
 
-        // 5d. Locking sul nuovo parent
-        if (isLockingEnabled) {
-          await this.lockService.requireOwnedLock({ resourceType: 'node', resourceId: newParent.id }, validatedCmd.actorUserId, validatedCmd.actorSessionId);
-        }
+        // 5d. Il parent è una destinazione autorizzativa e non viene modificato:
+        // il lock resta quindi richiesto soltanto sul nodo spostato.
 
         // 5e. Verifica collisione pathLabel nel nuovo parent
         const collision = await this.nodeRepository.existsByParentAndPathLabel(

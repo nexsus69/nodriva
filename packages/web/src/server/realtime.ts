@@ -103,5 +103,12 @@ export async function runWithRealtimeOutbox<T>(
 
 /** Compatibility entry point for non-transactional legacy callers. */
 export async function publishRealtimeChange(input: RealtimeChangeInput): Promise<void> {
-  await runWithRealtimeOutbox(async () => undefined, () => input);
+  try {
+    await runWithRealtimeOutbox(async () => undefined, () => input);
+  } catch (error) {
+    // Legacy callers run after their business transaction. Never turn a
+    // committed mutation into a false failure; audited administration changes
+    // already enqueue their authoritative invalidation with the audit record.
+    console.error('[Realtime] Legacy compatibility enqueue failed:', error);
+  }
 }

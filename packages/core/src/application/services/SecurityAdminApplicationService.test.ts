@@ -57,6 +57,7 @@ describe('SecurityAdminApplicationService', () => {
 
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work) => await work()),
     };
 
     mockIdGenerator = {
@@ -159,7 +160,7 @@ describe('SecurityAdminApplicationService', () => {
       actorUserId: ACTOR_ID,
     });
 
-    expect(mockTransactionPort.runInTransaction).toHaveBeenCalledTimes(1);
+    expect(mockTransactionPort.runInAuthorizationMutation).toHaveBeenCalledTimes(1);
     expect(mockSecurityRepository.updateRole).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Updated role', rowVersion: 2 }),
     );

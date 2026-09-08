@@ -40,6 +40,17 @@ medesimo risultato persistente ma non viene accodata una notifica che il
 profilo non può consegnare. Nel profilo completo il worker pubblica l'evento
 solo dopo il commit; la UI coalesca le invalidazioni della collection visibile.
 
+Per risorse amministrative note, lo stesso invalidatore aggiunge anche il
+segnale della collection semantica (`user`, `role`, `scope`, tipi o `system`).
+Record audit e tutti i segnali autorevoli entrano quindi nella medesima
+transazione della mutation. Le pubblicazioni legacy post-commit restano soltanto
+un acceleratore compatibile e un loro guasto non trasforma una mutation già
+committata in un errore applicativo.
+
+Le query audit applicano sempre l'ordine totale decrescente
+`timestamp, id`; elementi con lo stesso timestamp non cambiano pagina in modo
+non deterministico.
+
 ## Estensione
 
 Per rendere configurabile un'altra famiglia di eventi si aggiunge una

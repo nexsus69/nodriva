@@ -56,6 +56,10 @@ export class TransactionPortSqlite implements TransactionPort {
     }
   }
 
+  async runInAuthorizationMutation<T>(work: () => Promise<T>): Promise<T> {
+    return this.runInTransaction(work);
+  }
+
   afterCommit(effect: () => void | Promise<void>): void {
     const state = this.context.getStore();
     if (!state) {

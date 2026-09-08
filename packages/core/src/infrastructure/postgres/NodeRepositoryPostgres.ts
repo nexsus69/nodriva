@@ -78,8 +78,14 @@ export class NodeRepositoryPostgres implements NodeRepository {
       JOIN node_types nt ON nt.id = n.node_type_id
       LEFT JOIN nodes parent ON parent.id = n.parent_id
       WHERE n.deleted_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM nodes batch_parent
+          WHERE batch_parent.id = n.parent_id
+            AND batch_parent.deleted_at IS NOT NULL
+            AND batch_parent.deletion_batch_id = n.deletion_batch_id
+        )
         AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.restore')}
-      ORDER BY n.deleted_at DESC
+      ORDER BY n.deleted_at DESC, n.id DESC
       LIMIT $2 OFFSET $3`, [actorUserId, limit, offset]);
     return result.rows;
   }

@@ -43,9 +43,8 @@ export class SystemAdminApplicationService {
 
   async updateCapabilityStatus(cmd: UpdateCapabilityStatusCommand): Promise<void> {
     const v = this.validateCommand(UpdateCapabilityStatusCommandSchema, cmd, 'updating capability status');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const capabilityId = await this.systemConfigRepository.updateCapabilityStatus(v.capabilityKey, v.status, v.actorUserId);
       if (capabilityId) {
         await this.auditPort.record(
@@ -69,9 +68,8 @@ export class SystemAdminApplicationService {
 
   async updateSetting(cmd: UpdateSystemSettingCommand): Promise<void> {
     const v = this.validateCommand(UpdateSystemSettingCommandSchema, cmd, 'updating system setting');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const settingId = await this.systemConfigRepository.updateSetting(
         v.settingKey,
         v.settingValueText,
@@ -105,9 +103,8 @@ export class SystemAdminApplicationService {
 
   async createPlacementPolicy(cmd: CreatePlacementPolicyCommand): Promise<PlacementPolicyDetailDto> {
     const v = this.validateCommand(CreatePlacementPolicyCommandSchema, cmd, 'creating placement policy');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const existing = await this.systemConfigRepository.findPlacementPolicyByKey(v.policyKey);
       if (existing) {
         throw new PlacementPolicyKeyAlreadyExistsError(v.policyKey);
@@ -141,9 +138,8 @@ export class SystemAdminApplicationService {
 
   async updatePlacementPolicy(cmd: UpdatePlacementPolicyCommand): Promise<PlacementPolicyDetailDto> {
     const v = this.validateCommand(UpdatePlacementPolicyCommandSchema, cmd, 'updating placement policy');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const policyId = await this.systemConfigRepository.updatePlacementPolicy(
         v.policyKey,
         v.name,
@@ -171,9 +167,8 @@ export class SystemAdminApplicationService {
 
   async deletePlacementPolicy(cmd: DeletePlacementPolicyCommand): Promise<void> {
     const v = this.validateCommand(DeletePlacementPolicyCommandSchema, cmd, 'deleting placement policy');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const policyId = await this.systemConfigRepository.deletePlacementPolicy(
         v.policyKey,
         v.expectedRowVersion
@@ -194,9 +189,8 @@ export class SystemAdminApplicationService {
 
   async createPlacementRule(cmd: CreatePlacementRuleCommand): Promise<void> {
     const v = this.validateCommand(CreatePlacementRuleCommandSchema, cmd, 'creating placement rule');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       const policy = await this.systemConfigRepository.findPlacementPolicyByKey(v.policyKey);
       if (!policy) {
         throw new PlacementPolicyNotFoundError(v.policyKey);
@@ -228,9 +222,8 @@ export class SystemAdminApplicationService {
 
   async deletePlacementRule(cmd: DeletePlacementRuleCommand): Promise<void> {
     const v = this.validateCommand(DeletePlacementRuleCommandSchema, cmd, 'deleting placement rule');
-    await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
-
     return await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(v.actorUserId, 'system.config', null);
       await this.systemConfigRepository.deletePlacementRule(v.ruleId);
       await this.auditPort.record(
         v.actorUserId,

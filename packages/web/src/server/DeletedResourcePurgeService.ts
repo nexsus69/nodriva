@@ -1,4 +1,5 @@
-import type { AccessControlPort, AttachmentStoragePort, AuditPort, ResourcePurgeRepository, TransactionPort } from '@dashboard/core';
+/** Purges tombstones and durably schedules their attachment blob cleanup. */
+import type { AccessControlPort, AttachmentCleanupService, AuditPort, ResourcePurgeRepository, TransactionPort } from '@dashboard/core';
 
 export class DeletedResourcePurgeService {
   constructor(
@@ -6,7 +7,7 @@ export class DeletedResourcePurgeService {
     private readonly transaction: TransactionPort,
     private readonly accessControl: AccessControlPort,
     private readonly audit: AuditPort,
-    private readonly storage: AttachmentStoragePort,
+    private readonly attachmentCleanup: AttachmentCleanupService,
   ) {}
 
   async purgeEntity(actorUserId: string, entityId: string): Promise<void> {
@@ -18,16 +19,12 @@ export class DeletedResourcePurgeService {
       await assertPurge(actorUserId, 'entity.purge', context.parentNodeId);
       const entity = await this.repository.purgeEntity(entityId);
       await this.audit.record(actorUserId, 'entity.purge', 'entity', entityId, context.parentNodeId, { name: context.name }, null);
+      for (const storageKey of entity.storageKeys) await this.attachmentCleanup.scheduleDeletion(storageKey);
       return entity.storageKeys;
     });
-
-    for (const storageKey of storageKeys) {
-      try {
-        await this.storage.delete(storageKey);
-      } catch (error) {
-        console.error('[DeletedResourcePurge] Attachment cleanup failed', { storageKey, error });
-      }
-    }
+    if (storageKeys.length > 0) void this.attachmentCleanup.drain().catch((error) => {
+      console.error('[DeletedResourcePurge] Attachment cleanup drain failed', error);
+    });
   }
 
   async purgeNodeSubtree(actorUserId: string, nodeId: string): Promise<void> {
@@ -39,10 +36,11 @@ export class DeletedResourcePurgeService {
       await assertPurge(actorUserId, 'node.purge', nodeId);
       const node = await this.repository.purgeNodeSubtree(nodeId);
       await this.audit.record(actorUserId, 'node.purge', 'node', nodeId, context.parentNodeId, { name: context.name, deletionBatchId: context.deletionBatchId }, null);
+      for (const storageKey of node.storageKeys) await this.attachmentCleanup.scheduleDeletion(storageKey);
       return node.storageKeys;
     });
-    for (const storageKey of storageKeys) {
-      try { await this.storage.delete(storageKey); } catch (error) { console.error('[DeletedResourcePurge] Attachment cleanup failed', { storageKey, error }); }
-    }
+    if (storageKeys.length > 0) void this.attachmentCleanup.drain().catch((error) => {
+      console.error('[DeletedResourcePurge] Attachment cleanup drain failed', error);
+    });
   }
 }

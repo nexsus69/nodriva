@@ -140,6 +140,7 @@ describe('EntityApplicationService', () => {
 
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work) => await work()),
     };
     mockWorkflowEventPublisher = { publish: vi.fn() };
 

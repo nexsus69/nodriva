@@ -1,9 +1,12 @@
+/** Orchestrates encrypted TOTP enrollment and atomic factor lifecycle changes. */
 import crypto from 'crypto';
 import type { AuditPort } from '../ports/AuditPort.js';
 import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
+import type { TransactionPort } from '../ports/TransactionPort.js';
 import { UnauthorizedError, ValidationError } from '../../domain/errors/ApplicationErrors.js';
 
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const MFA_PENDING_ENROLLMENT_TTL_MS = 10 * 60 * 1000;
 
 function encodeBase32(value: Buffer): string {
   let bits = '';
@@ -32,7 +35,7 @@ function decodeBase32(value: string): Buffer {
 export class MfaTotpApplicationService {
   private readonly encryptionKey: Buffer;
 
-  constructor(private readonly mfa: MfaTotpPort, private readonly audit: AuditPort, encryptionKey: string) {
+  constructor(private readonly mfa: MfaTotpPort, private readonly audit: AuditPort, private readonly transactions: TransactionPort, encryptionKey: string) {
     this.encryptionKey = Buffer.from(encryptionKey, 'base64');
     if (this.encryptionKey.length !== 32) {
       throw new Error('MFA_ENCRYPTION_KEY must be a base64-encoded 32-byte key.');
@@ -42,12 +45,12 @@ export class MfaTotpApplicationService {
   async beginEnrollment(userId: string, email: string, currentCode?: string): Promise<{ secret: string; otpauthUri: string }> {
     const existing = await this.mfa.findByUserId(userId);
     if (existing?.enabledAt) {
-      if (!currentCode || !this.verifyTotp(this.decrypt(existing.secretCiphertext), currentCode.trim())) {
+      if (!existing.secretCiphertext || !currentCode || !this.verifyTotp(this.decrypt(existing.secretCiphertext), currentCode.trim())) {
         throw new UnauthorizedError('A valid current MFA code is required to replace the factor.');
       }
     }
     const secret = encodeBase32(crypto.randomBytes(20));
-    await this.mfa.savePending(userId, this.encrypt(secret));
+    await this.mfa.savePending(userId, this.encrypt(secret), new Date(Date.now() + MFA_PENDING_ENROLLMENT_TTL_MS));
     const label = encodeURIComponent(`Dashboard:${email}`);
     const issuer = encodeURIComponent('Dashboard');
     return { secret, otpauthUri: `otpauth://totp/${label}?secret=${secret}&issuer=${issuer}&algorithm=SHA1&digits=6&period=30` };
@@ -55,12 +58,17 @@ export class MfaTotpApplicationService {
 
   async confirmEnrollment(userId: string, code: string): Promise<string[]> {
     const record = await this.mfa.findByUserId(userId);
-    if (!record || !this.verifyTotp(this.decrypt(record.secretCiphertext), code)) {
+    if (!record?.pendingSecretCiphertext || !record.pendingExpiresAt || record.pendingExpiresAt.getTime() <= Date.now()
+      || !this.verifyTotp(this.decrypt(record.pendingSecretCiphertext), code)) {
       throw new UnauthorizedError('Invalid MFA code');
     }
     const recoveryCodes = Array.from({ length: 10 }, () => crypto.randomBytes(6).toString('hex').toUpperCase());
-    await this.mfa.enable(userId, recoveryCodes.map((item) => this.hash(item)), new Date());
-    await this.audit.record(userId, 'user.mfa_enabled', 'user', userId, null, null, null);
+    await this.transactions.runInTransaction(async () => {
+      if (!await this.mfa.promotePending(userId, recoveryCodes.map((item) => this.hash(item)), new Date())) {
+        throw new UnauthorizedError('Invalid or expired MFA enrollment');
+      }
+      await this.audit.record(userId, 'user.mfa_enabled', 'user', userId, null, null, null);
+    });
     return recoveryCodes;
   }
 
@@ -69,18 +77,22 @@ export class MfaTotpApplicationService {
     if (!record?.enabledAt) return;
     if (!code) throw new UnauthorizedError('Invalid credentials');
     const normalized = code.replace(/[\s-]/g, '').toUpperCase();
-    if (/^\d{6}$/.test(normalized) && this.verifyTotp(this.decrypt(record.secretCiphertext), normalized)) return;
-    if (await this.mfa.consumeRecoveryCode(userId, this.hash(normalized))) {
+    if (/^\d{6}$/.test(normalized) && record.secretCiphertext && this.verifyTotp(this.decrypt(record.secretCiphertext), normalized)) return;
+    const consumed = await this.transactions.runInTransaction(async () => {
+      if (!await this.mfa.consumeRecoveryCode(userId, this.hash(normalized))) return false;
       await this.audit.record(userId, 'user.mfa_recovery_used', 'user', userId, null, null, null);
-      return;
-    }
+      return true;
+    });
+    if (consumed) return;
     throw new UnauthorizedError('Invalid credentials');
   }
 
   async disable(userId: string, code: string): Promise<void> {
     await this.verifyLogin(userId, code);
-    await this.mfa.deleteForUser(userId);
-    await this.audit.record(userId, 'user.mfa_disabled', 'user', userId, null, null, null);
+    await this.transactions.runInTransaction(async () => {
+      await this.mfa.deleteForUser(userId);
+      await this.audit.record(userId, 'user.mfa_disabled', 'user', userId, null, null, null);
+    });
   }
 
   private verifyTotp(secret: string, code: string, now = Date.now()): boolean {

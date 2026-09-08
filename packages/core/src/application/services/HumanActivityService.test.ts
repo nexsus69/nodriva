@@ -1,3 +1,4 @@
+/** Verifies session and lock renewal driven by genuine human activity. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Lock } from '../../domain/models/Lock.js';
 import type { LockEventBus } from '../ports/LockEventBus.js';
@@ -47,6 +48,7 @@ function createContext() {
   const locks = new LockService(lockRepository, events, { generate: () => 'lock-id' }, 300);
   const transactions: TransactionPort = {
     runInTransaction: vi.fn(async (work) => await work()),
+    runInAuthorizationMutation: vi.fn(async (work) => await work()),
   };
   const service = new HumanActivityService(sessions, locks, transactions, 300, 100);
   return { service, sessions, lockRepository };

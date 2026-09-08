@@ -58,6 +58,10 @@ Il comando crea un file in `var/backups/postgres/`, il relativo `.sha256`,
 verifica il checksum, valida la leggibilità dell’archivio e ripristina il dump
 in un database temporaneo il cui nome contiene sempre `test`. Al termine il
 database temporaneo viene eliminato anche quando una verifica fallisce.
+La verifica interroga esclusivamente lo snapshot ripristinato: non confronta i
+conteggi con il database operativo corrente, che può essere cambiato dopo la
+creazione del dump. Controlla invece schema richiesto, leggibilità delle tabelle
+e integrità strutturale dell'archivio.
 
 Per usare un percorso esplicito:
 

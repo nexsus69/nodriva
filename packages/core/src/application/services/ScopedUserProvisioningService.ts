@@ -10,6 +10,7 @@ import { User } from '../../domain/models/User.js';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import { UserEmailAlreadyExistsError, UserAdminValidationError } from '../../domain/errors/UserAdminErrors.js';
 import { RoleNotFoundError } from '../../domain/errors/SecurityAdminErrors.js';
+import { withRequiredBaselineRole } from './UserRoleAssignmentPolicy.js';
 
 /** Creates an identity and its first local grants atomically. */
 export class ScopedUserProvisioningService {
@@ -27,24 +28,23 @@ export class ScopedUserProvisioningService {
     if (!parsed.success) throw new UserAdminValidationError('Validation failed for scoped user creation.');
     const value = parsed.data;
 
-    for (const assignment of value.assignments) {
-      const role = await this.security.findRoleById(assignment.roleId);
-      if (!role) throw new RoleNotFoundError(assignment.roleId);
-      const permissionKeys = await this.security.listRolePermissionKeys(assignment.roleId);
-      await this.access.assertHasPermissionCoverageBatch(
-        value.actorUserId,
-        ['user.create', 'scope.assign', ...permissionKeys],
-        assignment.nodeId,
-        assignment.propagation
-      );
-    }
-
-    return this.transactions.runInTransaction(async () => {
+    return this.transactions.runInAuthorizationMutation(async () => {
+      for (const assignment of value.assignments) {
+        const role = await this.security.findRoleById(assignment.roleId);
+        if (!role) throw new RoleNotFoundError(assignment.roleId);
+        const permissionKeys = await this.security.listRolePermissionKeys(assignment.roleId);
+        await this.access.assertHasPermissionCoverageBatch(
+          value.actorUserId,
+          ['user.create', 'scope.assign', ...permissionKeys],
+          assignment.nodeId,
+          assignment.propagation,
+        );
+      }
       if (await this.users.findByEmail(value.email)) throw new UserEmailAlreadyExistsError(value.email);
       const user = User.create(this.ids.generate(), value.email, PasswordHasher.hash(value.password));
       // Default reader is inert without a scope; local access is supplied only
       // by the assignments below.
-      await this.users.createUser(user);
+      await this.users.createUser(user, await withRequiredBaselineRole(this.users, []));
       for (const assignment of value.assignments) {
         await this.security.createScopeAssignment(
           this.ids.generate(), user.id, assignment.nodeId, assignment.roleId,

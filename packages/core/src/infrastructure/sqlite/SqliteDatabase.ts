@@ -75,7 +75,7 @@ export class SqliteDatabase {
   }
 
   hasColumn(tableName: string, columnName: string): boolean {
-    const supportedTables = new Set(['node_types', 'entity_types', 'node_type_fields', 'entity_type_fields', 'audit_logs', 'resource_relationships']);
+    const supportedTables = new Set(['node_types', 'entity_types', 'node_type_fields', 'entity_type_fields', 'audit_logs', 'resource_relationships', 'user_mfa_totp']);
     if (!supportedTables.has(tableName)) {
       throw new Error(`Unsupported SQLite schema table '${tableName}'.`);
     }

@@ -1,6 +1,8 @@
 /** Defines durable, idempotent delivery work for account-action messages. */
 import type { AccountActionPurpose } from './AccountActionTokenPort.js';
 
+export const ACCOUNT_ACTION_DELIVERY_LEASE_MS = 5 * 60_000;
+
 export interface PendingAccountActionDelivery {
   id: string;
   email: string;

@@ -38,8 +38,8 @@ export class WorkflowAdminApplicationService {
   }
 
   async registerEventType(actorUserId: string, definition: EventTypeDefinition): Promise<void> {
-    await this.accessControlPort.assertHasPermission(actorUserId, 'system.config', null);
     await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(actorUserId, 'system.config', null);
       await this.definitions.registerEventType(definition);
       await this.auditPort.record(actorUserId, 'workflow.register_event_type', 'workflow_event_type', definition.eventType, null, null, {
         subjectKinds: definition.subjectKinds, payloadVersion: definition.payloadVersion, isActive: definition.isActive,
@@ -48,7 +48,6 @@ export class WorkflowAdminApplicationService {
   }
 
   async publishDefinition(actorUserId: string, definition: WorkflowDefinition): Promise<void> {
-    await this.accessControlPort.assertHasPermission(actorUserId, 'system.config', null);
     const unavailableActions = definition.steps
       .map((step) => step.actionType)
       .filter((actionType) => !this.availableActionTypes.has(actionType));
@@ -58,6 +57,7 @@ export class WorkflowAdminApplicationService {
       });
     }
     await this.transactionPort.runInTransaction(async () => {
+      await this.accessControlPort.assertHasPermission(actorUserId, 'system.config', null);
       await this.definitions.saveDefinition(definition);
       await this.auditPort.record(actorUserId, 'workflow.publish_definition', 'workflow_definition', `${definition.workflowId}@${definition.version}`, null, null, {
         workflowId: definition.workflowId, version: definition.version, triggerEventTypes: definition.triggerEventTypes,

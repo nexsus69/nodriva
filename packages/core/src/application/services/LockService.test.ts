@@ -31,7 +31,10 @@ function createService(lock: Lock | null) {
     publishLockForceReleased: vi.fn().mockResolvedValue(undefined),
   };
   const auditPort: AuditPort = { record: vi.fn().mockResolvedValue(undefined) };
-  const transactions: TransactionPort = { runInTransaction: vi.fn(async <T>(work: () => Promise<T>) => work()) };
+  const transactions: TransactionPort = {
+    runInTransaction: vi.fn(async <T>(work: () => Promise<T>) => work()),
+    runInAuthorizationMutation: vi.fn(async <T>(work: () => Promise<T>) => work()),
+  };
   return {
     service: new LockService(repository, eventBus, { generate: () => 'lock-id' }, 120, auditPort, transactions),
     repository,

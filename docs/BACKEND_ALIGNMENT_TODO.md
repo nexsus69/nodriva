@@ -129,9 +129,10 @@ e [`RUNTIME_CONFIGURATION_CATALOG.md`](./RUNTIME_CONFIGURATION_CATALOG.md).
 - [x] Define audit retention, export and access-review procedures.
 - [x] Add password-reset/invitation workflow, rate limits and optional MFA for
   administrative identities.
-- [ ] Make MFA factor replacement atomic: keep the active factor enabled until
-  the new TOTP secret is confirmed; store pending secrets separately with an
-  expiry and add recovery-code regeneration/status handling.
+- [x] Make MFA factor replacement atomic: keep the active factor enabled until
+  the new TOTP secret is confirmed and store pending secrets separately with an
+  expiry.
+- [ ] Add recovery-code regeneration and explicit MFA status handling.
 - [x] Document and test portability boundaries outside PostgreSQL (`ltree`,
   locking and dynamic SQL are currently PostgreSQL-specific).
 

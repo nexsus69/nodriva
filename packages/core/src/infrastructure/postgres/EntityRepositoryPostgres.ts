@@ -169,8 +169,14 @@ export class EntityRepositoryPostgres implements EntityRepository {
       FROM entities e
       JOIN nodes n ON n.id = e.parent_node_id
       JOIN entity_types et ON et.id = e.entity_type_id
-      WHERE e.deleted_at IS NOT NULL AND (${scopeSql})
-      ORDER BY e.deleted_at DESC
+      WHERE e.deleted_at IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM nodes deletion_root
+          WHERE deletion_root.deleted_at IS NOT NULL
+            AND deletion_root.deletion_batch_id = e.deletion_batch_id
+        )
+        AND (${scopeSql})
+      ORDER BY e.deleted_at DESC, e.id DESC
       LIMIT $2 OFFSET $3
     `, [actorUserId, limit, offset]);
     return result.rows;

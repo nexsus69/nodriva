@@ -18,6 +18,7 @@ const record = vi.fn(
 const invalidatePersistedAudit = vi.fn(async () => undefined);
 const transactions: TransactionPort = {
   runInTransaction: vi.fn(async <T>(work: () => Promise<T>) => work()),
+  runInAuthorizationMutation: vi.fn(async <T>(work: () => Promise<T>) => work()),
 };
 
 function createRecorder(settingValue: boolean | Error) {

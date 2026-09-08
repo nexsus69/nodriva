@@ -202,7 +202,14 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
       secret_ciphertext TEXT NOT NULL,
       enabled_at TEXT,
       recovery_code_hashes TEXT NOT NULL DEFAULT '[]',
+      pending_secret_ciphertext TEXT,
+      pending_expires_at TEXT,
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS attachment_cleanup_outbox (
+      storage_key TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at TEXT NOT NULL, locked_at TEXT, locked_by TEXT,
+      last_error TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
     CREATE TABLE IF NOT EXISTS node_revisions (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))), node_id TEXT NOT NULL, revision_number INTEGER NOT NULL,
@@ -467,6 +474,8 @@ export function ensureSqliteSchema(database: SqliteDatabase): void {
   }
   if (!database.hasColumn('entity_types', 'placement_policy_id')) database.exec('ALTER TABLE entity_types ADD COLUMN placement_policy_id TEXT');
   if (!database.hasColumn('audit_logs', 'resource_label')) database.exec('ALTER TABLE audit_logs ADD COLUMN resource_label TEXT');
+  if (!database.hasColumn('user_mfa_totp', 'pending_secret_ciphertext')) database.exec('ALTER TABLE user_mfa_totp ADD COLUMN pending_secret_ciphertext TEXT');
+  if (!database.hasColumn('user_mfa_totp', 'pending_expires_at')) database.exec('ALTER TABLE user_mfa_totp ADD COLUMN pending_expires_at TEXT');
   if (!database.hasColumn('resource_relationships', 'suspended_at')) database.exec('ALTER TABLE resource_relationships ADD COLUMN suspended_at TEXT');
   if (!database.hasColumn('resource_relationships', 'suspension_deletion_batch_id')) database.exec('ALTER TABLE resource_relationships ADD COLUMN suspension_deletion_batch_id TEXT');
   database.exec('CREATE INDEX IF NOT EXISTS idx_sqlite_resource_relationships_suspension_batch ON resource_relationships (suspension_deletion_batch_id) WHERE suspended_at IS NOT NULL');

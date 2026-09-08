@@ -10,7 +10,8 @@ function createInvalidator(realtimeEnabled: boolean) {
   const runtime = {
     isCapabilityEnabled: vi.fn().mockResolvedValue(realtimeEnabled),
   } as unknown as RuntimeConfigurationPort;
-  const ids: IdGeneratorPort = { generate: () => "event-1" };
+  let sequence = 0;
+  const ids: IdGeneratorPort = { generate: () => `event-${sequence += 1}` };
   return { outbox, runtime, invalidator: new RealtimeAuditCollectionInvalidator(outbox, runtime, ids, () => new Date("2026-08-30T12:00:00.000Z")) };
 }
 
@@ -30,6 +31,19 @@ describe("RealtimeAuditCollectionInvalidator", () => {
       scopeNodeIds: [],
       directScopeNodeIds: [],
     });
+  });
+
+  it("enqueues the affected administration collection in the same audit transaction", async () => {
+    const { outbox, invalidator } = createInvalidator(true);
+
+    await invalidator.invalidatePersistedAudit({ actorUserId: "user-1", resourceKind: "scope_assignment", resourceId: "scope-1" });
+
+    expect(outbox.enqueue).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      eventId: "event-2",
+      resourceType: "scope",
+      resourceId: "scope-1",
+      changeType: "updated",
+    }));
   });
 
   it("does not leave undeliverable outbox rows when realtime is disabled", async () => {

@@ -1,3 +1,4 @@
+/** Composes all persistence adapters for the standalone SQLite profile. */
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { NodeRepositorySqlite } from './NodeRepositorySqlite.js';
@@ -32,6 +33,7 @@ import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js'
 import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
 import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.js';
+import { AttachmentCleanupPortSqlite } from './AttachmentCleanupPortSqlite.js';
 import { ResourceRelationshipRepositorySqlite } from './ResourceRelationshipRepositorySqlite.js';
 import { ResourceRelationshipDefinitionReaderSqlite } from './ResourceRelationshipDefinitionReaderSqlite.js';
 import { WorkflowRepositorySqlite } from './WorkflowRepositorySqlite.js';
@@ -72,6 +74,7 @@ export class SqliteInfrastructure {
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
   readonly systemSeedService: SystemSeedSqlite;
   readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
+  readonly attachmentCleanupPort: AttachmentCleanupPortSqlite;
   readonly resourceRelationshipRepository: ResourceRelationshipRepositorySqlite;
   readonly resourceRelationshipDefinitionReader: ResourceRelationshipDefinitionReaderSqlite;
   readonly workflowRepository: WorkflowRepositorySqlite;
@@ -99,6 +102,7 @@ export class SqliteInfrastructure {
     this.storageTableManagement = new StorageTableManagementSqlite(this.database);
     this.attachmentRepository = new AttachmentRepositorySqlite(this.database);
     this.attachmentRateLimitPort = new AttachmentRateLimitPortSqlite(this.database);
+    this.attachmentCleanupPort = new AttachmentCleanupPortSqlite(this.database);
     this.resourceRelationshipRepository = new ResourceRelationshipRepositorySqlite(this.database);
     this.resourceRelationshipDefinitionReader = new ResourceRelationshipDefinitionReaderSqlite(this.database);
     this.workflowRepository = new WorkflowRepositorySqlite(this.database);

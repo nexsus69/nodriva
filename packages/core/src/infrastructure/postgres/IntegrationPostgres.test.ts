@@ -8,6 +8,7 @@ import { NodeRepositoryPostgres } from './NodeRepositoryPostgres.js';
 import { EntityRepositoryPostgres } from './EntityRepositoryPostgres.js';
 import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
 import { AccountActionDeliveryOutboxPostgres } from './AccountActionDeliveryOutboxPostgres.js';
+import { AttachmentCleanupPortPostgres } from './AttachmentCleanupPortPostgres.js';
 import { StorageTableManagementPostgres } from './StorageTableManagementPostgres.js';
 import { SessionRepositoryPostgres } from './SessionRepositoryPostgres.js';
 import { Node } from '../../domain/models/Node.js';
@@ -32,6 +33,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
   let entityRepo: EntityRepositoryPostgres;
   let realtimeOutbox: RealtimeOutboxPostgres;
   let accountActionOutbox: AccountActionDeliveryOutboxPostgres;
+  let attachmentCleanupOutbox: AttachmentCleanupPortPostgres;
   let storageTableManager: StorageTableManagementPostgres;
   let sessionRepo: SessionRepositoryPostgres;
   let adminPool: pg.Pool | undefined;
@@ -60,6 +62,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     entityRepo = new EntityRepositoryPostgres(executor);
     realtimeOutbox = new RealtimeOutboxPostgres(executor);
     accountActionOutbox = new AccountActionDeliveryOutboxPostgres(executor);
+    attachmentCleanupOutbox = new AttachmentCleanupPortPostgres(executor);
     storageTableManager = new StorageTableManagementPostgres(executor);
     sessionRepo = new SessionRepositoryPostgres(executor);
     const adminDatabaseUrl = process.env.INTEGRATION_DATABASE_ADMIN_URL;
@@ -315,6 +318,38 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       await accountActionOutbox.markDelivered(deliveryId, 'account-worker-2');
       const delivered = await executor.query<{ token_ciphertext: string; delivered_at: Date | null }>('SELECT token_ciphertext, delivered_at FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
       expect(delivered.rows[0]).toEqual({ token_ciphertext: '', delivered_at: expect.any(Date) });
+    });
+  });
+
+  describe('Attachment cleanup outbox parity', () => {
+    const storageKey = 'integration/entity/orphan.bin';
+
+    beforeAll(async () => {
+      await executor.query('DELETE FROM attachment_cleanup_outbox WHERE storage_key = $1', [storageKey]);
+    });
+
+    afterAll(async () => {
+      await executor.query('DELETE FROM attachment_cleanup_outbox WHERE storage_key = $1', [storageKey]);
+    });
+
+    it('deduplicates, leases, retries and completes cleanup like SQLite', async () => {
+      await attachmentCleanupOutbox.schedule(storageKey, new Date());
+      await attachmentCleanupOutbox.schedule(storageKey, new Date());
+      await expect(attachmentCleanupOutbox.claimPending('attachment-worker-1', 1)).resolves.toEqual([{ storageKey }]);
+      await expect(attachmentCleanupOutbox.claimPending('attachment-worker-2', 1)).resolves.toEqual([]);
+
+      await attachmentCleanupOutbox.markFailed(storageKey, 'attachment-worker-1', 'disk busy');
+      const failed = await executor.query<{ attempts: number; locked_by: string | null }>(
+        'SELECT attempts,locked_by FROM attachment_cleanup_outbox WHERE storage_key=$1',
+        [storageKey],
+      );
+      expect(failed.rows[0]).toEqual({ attempts: 1, locked_by: null });
+
+      await executor.query('UPDATE attachment_cleanup_outbox SET next_attempt_at=now() WHERE storage_key=$1', [storageKey]);
+      await expect(attachmentCleanupOutbox.claimPending('attachment-worker-2', 1)).resolves.toEqual([{ storageKey }]);
+      await attachmentCleanupOutbox.markCompleted(storageKey, 'attachment-worker-2');
+      await expect(executor.query('SELECT 1 FROM attachment_cleanup_outbox WHERE storage_key=$1', [storageKey]))
+        .resolves.toMatchObject({ rowCount: 0 });
     });
   });
 

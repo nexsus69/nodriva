@@ -147,6 +147,13 @@ transaction.
 
 Critical mutations must follow the same sequence: structural input validation, transaction start, persistence/update work, commit, then post-commit side effects such as schema invalidation or event propagation.[cite:32][cite:13]
 
+Authorization-dependent writes repeat the authoritative permission check inside
+the transaction that persists data and audit. PostgreSQL transactions acquire a
+shared authorization-policy advisory lock; role, scope, permission and identity
+policy mutations acquire its exclusive counterpart. This prevents an ACL change
+from committing between authorization and the protected write. SQLite obtains
+the same observable guarantee from its serialized transaction boundary.
+
 ### Dynamic schema resolution
 
 Dynamic schemas have one implementation path for both `node` and `entity`:
@@ -182,6 +189,11 @@ role changes and superadmin privileges are therefore superadmin-only. A local
 administrator creates identities through the atomic `createScopedUser` flow:
 the new identity has no global administrative role and receives one or more
 initial `allow` assignments in the same transaction and audit record.
+
+`default_reader` is the application-owned baseline role for every created user
+and every replacement of global role assignments. Application services pass the
+complete normalized role set to both persistence adapters; adapters do not add
+implicit roles independently.
 
 The local management boundary is computed in PostgreSQL, never in memory. It
 contains only active `scope.assign` grants with `subtree` propagation whose

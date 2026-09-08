@@ -56,3 +56,9 @@ sia quello con capability disattivata.
 L’autorizzazione resta nel backend e nel routing Pusher: il browser reagisce
 solo a eventi già consegnati su canali autorizzati e non ricava visibilità dal
 payload realtime.
+
+Le mutation amministrative non dipendono da una seconda transazione per la
+notifica. Il `PolicyAuditRecorder` persiste audit e invalidazioni delle
+collection amministrative nella stessa outbox transazionale; il worker le
+pubblica soltanto dopo il commit. Una consegna duplicata è ammessa e viene
+coalescata dal lifecycle, mentre la perdita del segnale autorevole non lo è.

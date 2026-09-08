@@ -56,25 +56,23 @@ export const DELETE = auth(async (request, context: { params: Promise<{ attachme
     const access = await assertAttachmentAccess(actorUserId, attachment.resourceType, attachment.resourceId);
     if (!access) return NextResponse.json({ error: 'RESOURCE_NOT_FOUND' }, { status: 404 });
     if (!(await assertAttachmentField(attachment.resourceType, access.resourceTypeId, attachment.fieldKey, attachment.kind))) return NextResponse.json({ error: 'INVALID_ATTACHMENT_FIELD' }, { status: 400 });
-    const { attachmentStorage, auditPort, attachmentRepository, transactionPort } = await import('../../../../server/db');
+    const { attachmentCleanupService, auditPort, attachmentRepository, transactionPort } = await import('../../../../server/db');
     await transactionPort.runInTransaction(async () => {
+      const transactionalAccess = await assertAttachmentAccess(actorUserId, attachment.resourceType, attachment.resourceId);
+      if (!transactionalAccess) throw new Error('Attachment target disappeared during deletion.');
       await attachmentRepository.delete(attachmentId);
-      await auditPort.record(actorUserId, 'attachment.delete', 'attachment', attachment.id, access.scopeNodeId, {
+      await auditPort.record(actorUserId, 'attachment.delete', 'attachment', attachment.id, transactionalAccess.scopeNodeId, {
         resourceType: attachment.resourceType,
         resourceId: attachment.resourceId,
         fileName: attachment.fileName,
       }, null);
+      await attachmentCleanupService.scheduleDeletion(attachment.storageKey);
     });
 
-    // The database record and audit trail are durable before removing the
-    // blob. A storage failure can leave an orphan for later cleanup, but can
-    // never leave a live attachment record pointing to missing content.
-    await attachmentStorage.delete(attachment.storageKey).catch((error: unknown) => {
-      console.error('[Attachments] Post-commit storage cleanup failed', {
-        attachmentId,
-        storageKey: attachment.storageKey,
-        error,
-      });
+    // The durable cleanup record commits with metadata deletion and audit.
+    // Best-effort draining reduces latency; retries remain worker-driven.
+    void attachmentCleanupService.drain().catch((error) => {
+      console.error('[Attachments] Post-commit cleanup drain failed', error);
     });
     void publishRealtimeChange({
       resourceType: attachment.resourceType,

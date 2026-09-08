@@ -16,7 +16,10 @@ const event = {
 };
 
 function createProcessor(overrides: Partial<WorkflowRepository> = {}) {
-  const transactionPort: TransactionPort = { runInTransaction: vi.fn(async (work) => work()) };
+  const transactionPort: TransactionPort = {
+    runInTransaction: vi.fn(async (work) => work()),
+    runInAuthorizationMutation: vi.fn(async (work) => work()),
+  };
   const repository: WorkflowRepository = {
     registerEventType: vi.fn(),
     findEventType: vi.fn().mockResolvedValue({ eventType: event.eventType, subjectKinds: ['scope-assignment'], payloadVersion: 1, isActive: true }),

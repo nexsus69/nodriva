@@ -13,7 +13,10 @@ function service() {
     recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
   };
   const audit: AuditPort = { record: vi.fn() };
-  const transaction: TransactionPort = { runInTransaction: vi.fn(async (work) => work()) };
+  const transaction: TransactionPort = {
+    runInTransaction: vi.fn(async (work) => work()),
+    runInAuthorizationMutation: vi.fn(async (work) => work()),
+  };
   const access: AccessControlPort = { assertHasPermission: vi.fn(), assertCanCreateNode: vi.fn(), assertCanMoveNode: vi.fn(), assertCanReadNode: vi.fn(), assertCanCreateEntity: vi.fn(), assertCanEditEntity: vi.fn(), assertCanDeleteEntity: vi.fn(), assertCanMoveEntity: vi.fn(), assertHasPermissionCoverage: vi.fn(), assertHasPermissionCoverageBatch: vi.fn(), assertIsSuperAdmin: vi.fn() };
   return { app: new WorkflowAdminApplicationService(repository, audit, transaction, access, new Set(['audit.record'])), repository, audit, access };
 }

@@ -18,9 +18,11 @@ describe('AccessControlPortSqlite', () => {
     database.run('INSERT INTO users (id) VALUES (?)', ['user']); database.run('INSERT INTO roles (id,role_key) VALUES (?,?)', ['role', 'reader']); database.run('INSERT INTO permissions (id,permission_key) VALUES (?,?)', ['perm', 'node.read']); database.run('INSERT INTO user_roles VALUES (?,?)', ['user', 'role']); database.run('INSERT INTO role_permissions VALUES (?,?)', ['role', 'perm']);
     database.run('INSERT INTO node_scope_assignments VALUES (?,?,?,?,?,?)', ['allow', 'user', 'role', 'root', 'allow', 'subtree']);
     await expect(acl.assertCanReadNode('user', 'child')).resolves.toBeUndefined();
+    await expect(acl.assertHasPermissionCoverage('user', 'node.read', 'root', 'subtree')).resolves.toBeUndefined();
     database.run('INSERT INTO node_scope_assignments VALUES (?,?,?,?,?,?)', ['deny', 'user', 'role', 'child', 'deny', 'self']);
     await expect(acl.assertCanReadNode('user', 'child')).rejects.toThrow('lacks permission');
     await expect(acl.assertCanReadNode('user', 'root')).resolves.toBeUndefined();
+    await expect(acl.assertHasPermissionCoverage('user', 'node.read', 'root', 'subtree')).rejects.toThrow('lacks subtree permission');
     await expect(acl.listReadableResourceIds('user', 'node', ['child', 'root'])).resolves.toEqual(['root']);
     database.close();
   });

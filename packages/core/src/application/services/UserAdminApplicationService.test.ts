@@ -19,6 +19,7 @@ const USER_ID = '00000000-0000-0000-0000-000000000010';
 const ACTOR_ID = '00000000-0000-0000-0000-000000000001';
 const ROLE_ID_1 = '00000000-0000-0000-0000-000000000020';
 const ROLE_ID_2 = '00000000-0000-0000-0000-000000000021';
+const BASELINE_ROLE_ID = '00000000-0000-0000-0000-000000000022';
 
 describe('UserAdminApplicationService', () => {
   let mockUserRepository: UserRepository;
@@ -38,7 +39,7 @@ describe('UserAdminApplicationService', () => {
       getUserDetailManageableBy: vi.fn(),
       isUserManageableBy: vi.fn().mockResolvedValue(true),
       getUserDetail: vi.fn(),
-      listAllRoles: vi.fn().mockResolvedValue([]),
+      listAllRoles: vi.fn().mockResolvedValue([{ id: BASELINE_ROLE_ID, roleKey: 'default_reader', name: 'Default Reader' }]),
       createUser: vi.fn().mockResolvedValue(undefined),
       updateUser: vi.fn().mockResolvedValue(undefined),
       assignUserRoles: vi.fn().mockResolvedValue(undefined),
@@ -50,6 +51,7 @@ describe('UserAdminApplicationService', () => {
 
     mockTransactionPort = {
       runInTransaction: vi.fn().mockImplementation(async (work) => await work()),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work) => await work()),
     };
 
     mockIdGenerator = {
@@ -190,7 +192,7 @@ describe('UserAdminApplicationService', () => {
       actorUserId: ACTOR_ID,
     });
 
-    expect(mockUserRepository.assignUserRoles).toHaveBeenCalledWith(USER_ID, [ROLE_ID_1, ROLE_ID_2]);
+    expect(mockUserRepository.assignUserRoles).toHaveBeenCalledWith(USER_ID, [BASELINE_ROLE_ID, ROLE_ID_1, ROLE_ID_2]);
     expect(mockAuditPort.record).toHaveBeenCalledWith(
       ACTOR_ID,
       'user.assign_roles',

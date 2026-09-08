@@ -14,7 +14,7 @@ Verifica governance corrente:
 | F-04 | Risolto | Node move use case | `expectedRowVersion` nel write atomico e test PostgreSQL/SQLite. |
 | F-05 | Risolto | Lock ownership policy | Subtree lock usa `(userId, sessionId)` in PostgreSQL/SQLite. |
 | F-06 | Risolto | Access-control policy | Solo `permission_key`, collisione nome/chiave e parity coperti. |
-| F-07 | Risolto | Account recovery transaction | `AccountRecoveryApplicationService` persiste hash token, audit e outbox nello stesso `TransactionPort`; il token nell'outbox e' AES-GCM cifrato, il drain post-commit usa lease/backoff e la stessa chiave di idempotenza a ogni retry. Rollback SQLite, failure/retry e parita' PostgreSQL/SQLite sono verdi. |
+| F-07 | Risolto | Account recovery transaction | `AccountRecoveryApplicationService` persiste hash token, audit e outbox nello stesso `TransactionPort`; il token nell'outbox e' AES-GCM cifrato, il drain post-commit usa lease/backoff, lease esclusivo con recupero stale anche in SQLite e la stessa chiave di idempotenza a ogni retry. Rollback SQLite, failure/retry e parita' PostgreSQL/SQLite sono verdi. |
 | F-08 | Risolto | SQLite query port | ACL applicata nella query paginata con `LIMIT + 1`, senza scansione progressiva del sottoalbero; ordine backward e parità diretta SQLite/PostgreSQL coperti. |
 | F-09 | Risolto | Collection read model | Tipi ed edge attivi letti in batch; query-count e parity SQLite/PostgreSQL verdi. I boundary paginati e limitati del sottoalbero sono consolidati in F-08, senza modifiche parziali al contratto della cache. |
 | F-10 | Risolto | Attachment envelope | Envelope plaintext/cifrato esplicito; formati legacy non supportati e rifiutati in fase di sviluppo. |

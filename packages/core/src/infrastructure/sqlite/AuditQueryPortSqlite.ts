@@ -68,7 +68,7 @@ export class AuditQueryPortSqlite implements AuditQueryPort {
               a.resource_id AS resourceId, a.resource_label AS resourceLabel, a.node_id AS nodeId,
               a.occurred_at AS createdAt, COUNT(*) OVER() AS total
          FROM audit_logs a LEFT JOIN users u ON u.id = a.actor_user_id
-         ${where} ORDER BY a.occurred_at DESC LIMIT ? OFFSET ?`,
+         ${where} ORDER BY a.occurred_at DESC, a.id DESC LIMIT ? OFFSET ?`,
       [...parameters, pageSize, (page - 1) * pageSize],
     );
     const total = Number(rows[0]?.total ?? 0);

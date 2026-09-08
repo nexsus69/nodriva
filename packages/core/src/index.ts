@@ -209,6 +209,10 @@ export type {
   StoredAttachment,
 } from "./application/ports/AttachmentStoragePort.js";
 export type {
+  AttachmentCleanupPort,
+  PendingAttachmentCleanup,
+} from "./application/ports/AttachmentCleanupPort.js";
+export type {
   AttachmentScannerPort,
   AttachmentScanResult,
 } from "./application/ports/AttachmentScannerPort.js";
@@ -421,6 +425,7 @@ export { TypeAdminApplicationService } from "./application/services/TypeAdminApp
 export { LockService } from "./application/services/LockService.js";
 export { ScopedUserProvisioningService } from "./application/services/ScopedUserProvisioningService.js";
 export { MfaTotpApplicationService } from "./application/services/MfaTotpApplicationService.js";
+export { AttachmentCleanupService, ATTACHMENT_UPLOAD_STAGING_MS } from "./application/services/AttachmentCleanupService.js";
 
 // ─── Infrastructure (PostgreSQL & Compilers) ──────────────────────────────────
 export { PgExecutor } from "./infrastructure/postgres/PgExecutor.js";
@@ -646,6 +651,8 @@ export type {
 } from "./application/ports/AttachmentRepository.js";
 export { AttachmentRepositoryPostgres } from "./infrastructure/postgres/AttachmentRepositoryPostgres.js";
 export { AttachmentRepositorySqlite } from "./infrastructure/sqlite/AttachmentRepositorySqlite.js";
+export { AttachmentCleanupPortPostgres } from "./infrastructure/postgres/AttachmentCleanupPortPostgres.js";
+export { AttachmentCleanupPortSqlite } from "./infrastructure/sqlite/AttachmentCleanupPortSqlite.js";
 export type { AttachmentRateLimitPort } from "./application/ports/AttachmentRateLimitPort.js";
 export { AttachmentRateLimitPortPostgres } from "./infrastructure/postgres/AttachmentRateLimitPortPostgres.js";
 export { AttachmentRateLimitPortSqlite } from "./infrastructure/sqlite/AttachmentRateLimitPortSqlite.js";

@@ -60,6 +60,16 @@ Enrollment secrets are AES-256-GCM encrypted; recovery codes are stored only as
 SHA-256 hashes. Rotate this key only with a planned re-enrollment or a dedicated
 data re-encryption procedure.
 
+A replacement enrollment is kept in separate pending columns for ten minutes.
+The active factor and its recovery codes remain valid until a correct code
+promotes the pending secret. Promotion, factor deletion and recovery-code
+consumption commit with their required audit evidence in one transaction; an
+expired or concurrently consumed pending enrollment cannot replace the factor.
+
+Account-action delivery claims use an exclusive lease with bounded stale-lease
+recovery in both PostgreSQL and SQLite. A second worker cannot receive the same
+live claim; a crashed worker's claim becomes retryable after five minutes.
+
 ## Portability review
 
 PostgreSQL-specific features are confined to `infrastructure/postgres` and its

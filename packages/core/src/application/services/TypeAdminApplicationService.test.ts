@@ -1,3 +1,4 @@
+/** Verifies transactional type administration and schema invariants. */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TypeAdminApplicationService } from './TypeAdminApplicationService.js';
 import type { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
@@ -96,7 +97,10 @@ describe('TypeAdminApplicationService', () => {
   };
   let mockInvalidation: { invalidate: ReturnType<typeof vi.fn> };
   let mockAudit: { record: ReturnType<typeof vi.fn> };
-  let mockTransaction: { runInTransaction: ReturnType<typeof vi.fn> };
+  let mockTransaction: {
+    runInTransaction: ReturnType<typeof vi.fn>;
+    runInAuthorizationMutation: ReturnType<typeof vi.fn>;
+  };
   let mockIdGen: { generate: ReturnType<typeof vi.fn> };
   let mockStorageTableManager: {
     createStorageTable: ReturnType<typeof vi.fn>;
@@ -170,6 +174,7 @@ describe('TypeAdminApplicationService', () => {
           insideTransaction = false;
         }
       }),
+      runInAuthorizationMutation: vi.fn().mockImplementation(async (work: () => Promise<unknown>) => work()),
     };
 
     mockIdGen = { generate: vi.fn().mockReturnValue(GENERATED_ID) };

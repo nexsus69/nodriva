@@ -3,6 +3,7 @@ import type { AccessControlPort } from '../../application/ports/AccessControlPor
 import type { TypeDomain } from '../../application/dto/TypeFieldDefinition.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
+import { hasSqlitePermissionCoverage } from './SqlitePermissionCoverage.js';
 
 export class AccessControlPortSqlite implements AccessControlPort {
   constructor(private readonly database: SqliteDatabase) {}
@@ -58,7 +59,7 @@ export class AccessControlPortSqlite implements AccessControlPort {
   async assertHasPermission(user: string, permission: string, node: string | null): Promise<void> { await this.assert(user, permission, node, { permissionKey: permission, nodeId: node }); }
   async assertHasPermissionCoverage(user: string, permission: string, node: string, propagation: 'self' | 'subtree'): Promise<void> {
     if (propagation === 'self') return this.assertHasPermission(user, permission, node);
-    const allowed = await this.hasPermission(user, permission, node, 'subtree');
+    const allowed = hasSqlitePermissionCoverage(this.database, user, permission, node, 'subtree');
     if (!allowed) throw new ForbiddenError(`User '${user}' lacks subtree permission '${permission}'.`, { user, permission, node, propagation });
   }
   async assertHasPermissionCoverageBatch(user: string, permissions: readonly string[], node: string, propagation: 'self' | 'subtree'): Promise<void> { for (const permission of new Set(permissions)) await this.assertHasPermissionCoverage(user, permission, node, propagation); }
