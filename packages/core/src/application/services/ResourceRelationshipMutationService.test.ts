@@ -63,6 +63,7 @@ function createService(field = relationshipField(), firstSourceDocuments: string
     replaceValues: vi.fn(),
     removeForResource: vi.fn(),
     listActiveOutgoing: vi.fn().mockResolvedValue([]),
+    listActiveOutgoingForSources: vi.fn().mockResolvedValue([]),
     listActiveIncomingForTargets: vi.fn().mockResolvedValue([]),
     suspendActiveOutgoingForSources: vi.fn(),
     restoreSuspendedOutgoingForSources: vi.fn(),

@@ -4,15 +4,23 @@ import type { EntityRepository } from '../ports/EntityRepository.js';
 import type { EntityTypeRepository } from '../ports/EntityTypeRepository.js';
 import type { NodeRepository } from '../ports/NodeRepository.js';
 import type { NodeTypeRepository } from '../ports/NodeTypeRepository.js';
-import type { ResourceRelationshipRepository } from '../ports/ResourceRelationshipRepository.js';
+import type { ResourceRelationshipEdge, ResourceRelationshipRepository } from '../ports/ResourceRelationshipRepository.js';
 import type { TypeDefinitionReader } from '../ports/TypeDefinitionReader.js';
-import type { TypeDomain } from '../dto/TypeFieldDefinition.js';
+import type { TypeDefinition, TypeDomain } from '../dto/TypeFieldDefinition.js';
 
 export interface SynchronizeResourceRelationshipsInput {
   actorUserId: string;
   sourceDomain: TypeDomain;
   sourceResourceId: string;
   sourceTypeKey: string;
+  payload: Readonly<Record<string, unknown>>;
+}
+
+/** A persisted resource to rehydrate for a collection read. */
+export interface HydrateResourcePayloadInput {
+  sourceDomain: TypeDomain;
+  sourceResourceId: string;
+  sourceTypeId: string;
   payload: Readonly<Record<string, unknown>>;
 }
 
@@ -103,6 +111,61 @@ export class ResourceRelationshipService {
     return this.hydratePayloadInternal(actorUserId, sourceDomain, sourceResourceId, sourceTypeKey, payload);
   }
 
+  /**
+   * Rehydrates a collection through bounded metadata and edge reads. Authorization
+   * remains identical to hydratePayload; only the persistence access pattern changes.
+   */
+  async hydratePayloads(
+    actorUserId: string,
+    resources: readonly HydrateResourcePayloadInput[],
+  ): Promise<Map<string, Record<string, unknown>>> {
+    if (resources.length === 0) return new Map();
+    const uniqueResources = [...new Map(resources.map((resource) => [resourceKey(resource.sourceDomain, resource.sourceResourceId), resource])).values()];
+    const [nodeTypes, entityTypes, edges] = await Promise.all([
+      this.nodeTypeRepository.listAll(),
+      this.entityTypeRepository.listAll(),
+      this.relationshipRepository.listActiveOutgoingForSources(uniqueResources.map((resource) => ({ domain: resource.sourceDomain, resourceId: resource.sourceResourceId }))),
+    ]);
+    const typeKeys = new Map<string, string>();
+    for (const type of nodeTypes) typeKeys.set(resourceKey('node', type.id), type.typeKey);
+    for (const type of entityTypes) typeKeys.set(resourceKey('entity', type.id), type.typeKey);
+    const definitionKeys = [...new Set(uniqueResources.flatMap((resource) => {
+      const typeKey = typeKeys.get(resourceKey(resource.sourceDomain, resource.sourceTypeId));
+      return typeKey ? [resourceKey(resource.sourceDomain, typeKey)] : [];
+    }))];
+    const definitions = new Map(await Promise.all(definitionKeys.map(async (key) => {
+      const [domain, typeKey] = splitResourceKey(key);
+      return [key, await this.typeDefinitionReader.readDefinition(domain, typeKey)] as const;
+    })));
+    const [activeNodeIds, activeEntityIds] = await Promise.all([
+      this.nodeRepository.listActiveIds(edges.filter((edge) => edge.targetDomain === 'node').map((edge) => edge.targetResourceId)),
+      this.entityRepository.listActiveIds(edges.filter((edge) => edge.targetDomain === 'entity').map((edge) => edge.targetResourceId)),
+    ]);
+    const resolver = this.accessControlPort.listReadableResourceIds;
+    const [readableNodeIds, readableEntityIds] = resolver
+      ? await Promise.all([
+        resolver.call(this.accessControlPort, actorUserId, 'node', activeNodeIds),
+        resolver.call(this.accessControlPort, actorUserId, 'entity', activeEntityIds),
+      ])
+      : [[], []];
+    const readableTargetIds = new Set([...readableNodeIds, ...readableEntityIds]);
+    const edgesBySource = new Map<string, ResourceRelationshipEdge[]>();
+    for (const edge of edges) {
+      const key = resourceKey(edge.sourceDomain, edge.sourceResourceId);
+      const values = edgesBySource.get(key) ?? [];
+      values.push(edge);
+      edgesBySource.set(key, values);
+    }
+    const hydrated = new Map<string, Record<string, unknown>>();
+    for (const resource of uniqueResources) {
+      const sourceKey = resourceKey(resource.sourceDomain, resource.sourceResourceId);
+      const typeKey = typeKeys.get(resourceKey(resource.sourceDomain, resource.sourceTypeId));
+      const definition = typeKey ? definitions.get(resourceKey(resource.sourceDomain, typeKey)) : null;
+      hydrated.set(sourceKey, this.hydrateFromDefinition(resource.payload, definition ?? null, edgesBySource.get(sourceKey) ?? [], readableTargetIds));
+    }
+    return hydrated;
+  }
+
   /** Internal lifecycle projection: retains every active target and must never feed a user read model. */
   async hydratePayloadForPersistence(
     sourceDomain: TypeDomain,
@@ -136,6 +199,16 @@ export class ResourceRelationshipService {
       ])
       : actorUserId ? [[], []] : [activeNodeIds, activeEntityIds];
     const activeTargetIds = new Set([...readableNodeIds, ...readableEntityIds]);
+    return this.hydrateFromDefinition(payload, definition, edges, activeTargetIds);
+  }
+
+  private hydrateFromDefinition(
+    payload: Readonly<Record<string, unknown>>,
+    definition: TypeDefinition | null,
+    edges: readonly ResourceRelationshipEdge[],
+    activeTargetIds: ReadonlySet<string>,
+  ): Record<string, unknown> {
+    if (!definition) return { ...payload };
     const edgesByField = new Map<string, string[]>();
     for (const edge of edges) {
       if (!activeTargetIds.has(edge.targetResourceId)) continue;
@@ -183,6 +256,12 @@ export class ResourceRelationshipService {
     }
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', target.parentNodeId);
   }
+}
+
+function resourceKey(domain: TypeDomain, id: string): string { return `${domain}:${id}`; }
+function splitResourceKey(key: string): [TypeDomain, string] {
+  const separator = key.indexOf(':');
+  return [key.slice(0, separator) as TypeDomain, key.slice(separator + 1)];
 }
 
 /** Normalizes an externally supplied relation value into unique target ids. */

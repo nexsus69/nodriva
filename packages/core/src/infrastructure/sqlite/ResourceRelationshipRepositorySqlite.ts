@@ -45,6 +45,19 @@ export class ResourceRelationshipRepositorySqlite implements ResourceRelationshi
        ORDER BY source_field_id, position, target_resource_id`, [sourceDomain, sourceResourceId]).map(mapRelationshipRow);
   }
 
+  async listActiveOutgoingForSources(sources: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]> {
+    if (sources.length === 0) return [];
+    const orderedSources = sortRelationshipResources(sources);
+    const clauses = orderedSources.map(() => '(source_domain=? AND source_resource_id=?)').join(' OR ');
+    return this.database.all<RelationshipRow>(
+      `SELECT source_field_id, source_domain, source_resource_id, target_domain,
+              target_resource_id, position, source_cardinality, target_is_unique, suspended_at
+       FROM resource_relationships WHERE suspended_at IS NULL AND (${clauses})
+       ORDER BY source_domain, source_resource_id, source_field_id, position, target_resource_id`,
+      orderedSources.flatMap((source) => [source.domain, source.resourceId]),
+    ).map(mapRelationshipRow);
+  }
+
   async listActiveIncomingForTargets(targets: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]> {
     if (targets.length === 0) return [];
     const orderedTargets = sortRelationshipResources(targets);

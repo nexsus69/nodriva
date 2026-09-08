@@ -15,8 +15,8 @@ Verifica governance corrente:
 | F-05 | Risolto | Lock ownership policy | Subtree lock usa `(userId, sessionId)` in PostgreSQL/SQLite. |
 | F-06 | Risolto | Access-control policy | Solo `permission_key`, collisione nome/chiave e parity coperti. |
 | F-07 | Aperto | Account recovery transaction | Token, audit e outbox atomici con retry/idempotenza. |
-| F-08 | Aperto | SQLite query port | Paginazione ACL batch e benchmark. |
-| F-09 | Aperto | Collection read model | Tipi/edge batch e query-count test. |
+| F-08 | Risolto | SQLite query port | ACL applicata nella query paginata con `LIMIT + 1`, senza scansione progressiva del sottoalbero; ordine backward e parità diretta SQLite/PostgreSQL coperti. |
+| F-09 | Risolto | Collection read model | Tipi ed edge attivi letti in batch; query-count e parity SQLite/PostgreSQL verdi. I boundary paginati e limitati del sottoalbero sono consolidati in F-08, senza modifiche parziali al contratto della cache. |
 | F-10 | Risolto | Attachment envelope | Envelope plaintext/cifrato esplicito; formati legacy non supportati e rifiutati in fase di sviluppo. |
 | F-11 | Aperto | Database bootstrap | Baseline in `db/`, schema vuoto e upgrade verificati. |
 

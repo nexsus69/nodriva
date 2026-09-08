@@ -33,6 +33,7 @@ function createService() {
     replaceValues: vi.fn(),
     removeForResource: vi.fn(),
     listActiveOutgoing: vi.fn().mockResolvedValue([]),
+    listActiveOutgoingForSources: vi.fn().mockResolvedValue([]),
     listActiveIncomingForTargets: vi.fn().mockResolvedValue([]),
     suspendActiveOutgoingForSources: vi.fn(),
     restoreSuspendedOutgoingForSources: vi.fn(),
@@ -46,20 +47,24 @@ function createService() {
     }),
     listActiveIds: vi.fn().mockResolvedValue([]),
   };
+  const definitionReader = { readDefinition: vi.fn().mockResolvedValue(sourceType) };
+  const nodeRepository = { findById: vi.fn(), listActiveIds: vi.fn().mockResolvedValue([]) };
+  const nodeTypeRepository = { findByKey: vi.fn(), findById: vi.fn(), listAll: vi.fn().mockResolvedValue([]) };
+  const entityTypeRepository = {
+    findByKey: vi.fn().mockResolvedValue({ id: 'task-type' }),
+    findById: vi.fn(),
+    listAll: vi.fn().mockResolvedValue([{ id: 'task-type', typeKey: 'task' }]),
+  };
   const service = new ResourceRelationshipService(
     relationshipRepository,
-    { readDefinition: vi.fn().mockResolvedValue(sourceType) },
-    { findById: vi.fn(), listActiveIds: vi.fn().mockResolvedValue([]) } as never,
+    definitionReader,
+    nodeRepository as never,
     entityRepository as never,
-    { findByKey: vi.fn(), findById: vi.fn(), listAll: vi.fn() } as never,
-    {
-      findByKey: vi.fn().mockResolvedValue({ id: 'task-type' }),
-      findById: vi.fn(),
-      listAll: vi.fn(),
-    } as never,
+    nodeTypeRepository as never,
+    entityTypeRepository as never,
     accessControl as never,
   );
-  return { service, relationshipRepository, entityRepository, accessControl };
+  return { service, relationshipRepository, entityRepository, nodeRepository, accessControl, definitionReader, nodeTypeRepository, entityTypeRepository };
 }
 
 describe('ResourceRelationshipService', () => {
@@ -119,5 +124,25 @@ describe('ResourceRelationshipService', () => {
     await expect(service.hydratePayload('scoped-reader', 'entity', 'source', 'task', { dependsOn: 'legacy' }))
       .resolves.toEqual({ dependsOn: null });
     expect(accessControl.listReadableResourceIds).toHaveBeenCalledWith('scoped-reader', 'entity', ['33333333-3333-4333-8333-333333333333']);
+  });
+
+  it('hydrates a same-type collection with one type batch, edge batch and definition read', async () => {
+    const { service, relationshipRepository, definitionReader, entityTypeRepository, accessControl } = createService();
+    relationshipRepository.listActiveOutgoingForSources.mockResolvedValue([
+      { sourceFieldId: 'relation-field', sourceDomain: 'entity', sourceResourceId: 'source-a', targetDomain: 'entity', targetResourceId: '33333333-3333-4333-8333-333333333333', position: 0, sourceCardinality: 'one', targetIsUnique: false, suspendedAt: null },
+      { sourceFieldId: 'relation-field', sourceDomain: 'entity', sourceResourceId: 'source-b', targetDomain: 'entity', targetResourceId: '33333333-3333-4333-8333-333333333333', position: 0, sourceCardinality: 'one', targetIsUnique: false, suspendedAt: null },
+    ]);
+    entityTypeRepository.listAll.mockResolvedValue([{ id: 'task-type', typeKey: 'task' }]);
+    const result = await service.hydratePayloads('actor', [
+      { sourceDomain: 'entity', sourceResourceId: 'source-a', sourceTypeId: 'task-type', payload: { dependsOn: 'legacy' } },
+      { sourceDomain: 'entity', sourceResourceId: 'source-b', sourceTypeId: 'task-type', payload: { dependsOn: 'legacy' } },
+    ]);
+
+    expect(relationshipRepository.listActiveOutgoingForSources).toHaveBeenCalledTimes(1);
+    expect(entityTypeRepository.listAll).toHaveBeenCalledTimes(1);
+    expect(definitionReader.readDefinition).toHaveBeenCalledTimes(1);
+    expect(accessControl.listReadableResourceIds).toHaveBeenCalledTimes(2);
+    expect(result.get('entity:source-a')).toEqual({ dependsOn: null });
+    expect(result.get('entity:source-b')).toEqual({ dependsOn: null });
   });
 });

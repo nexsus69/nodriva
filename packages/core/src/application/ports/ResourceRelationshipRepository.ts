@@ -63,6 +63,8 @@ export interface ResourceRelationshipRepository {
   listOutgoing(sourceDomain: TypeDomain, sourceResourceId: string): Promise<ResourceRelationshipEdge[]>;
   listIncoming(targetDomain: TypeDomain, targetResourceId: string): Promise<ResourceRelationshipEdge[]>;
   listActiveOutgoing(sourceDomain: TypeDomain, sourceResourceId: string): Promise<ResourceRelationshipEdge[]>;
+  /** Batch live-edge projection for a collection; preserves the per-source ordering contract. */
+  listActiveOutgoingForSources(sources: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]>;
   listActiveIncomingForTargets(targets: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]>;
   suspendActiveOutgoingForSources(sources: readonly ResourceRelationshipResource[], deletionBatchId: string): Promise<void>;
   restoreSuspendedOutgoingForSources(sources: readonly ResourceRelationshipResource[], deletionBatchId: string): Promise<void>;

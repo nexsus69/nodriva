@@ -21,6 +21,19 @@ import { AttachmentRateLimitPortPostgres } from './postgres/AttachmentRateLimitP
 import { StorageTableManagementPostgres } from './postgres/StorageTableManagementPostgres.js';
 import { FieldEncryptionService } from './postgres/FieldEncryptionService.js';
 import { FieldEncryptionServiceSqlite } from './sqlite/FieldEncryptionServiceSqlite.js';
+import { ResourceRelationshipService } from '../application/services/ResourceRelationshipService.js';
+import type { ResourceRelationshipRepository } from '../application/ports/ResourceRelationshipRepository.js';
+import type { TypeDefinitionReader } from '../application/ports/TypeDefinitionReader.js';
+import type { NodeTypeRepository } from '../application/ports/NodeTypeRepository.js';
+import type { EntityTypeRepository } from '../application/ports/EntityTypeRepository.js';
+import type { AccessControlPort } from '../application/ports/AccessControlPort.js';
+import type { EntitySubtreeQueryPort } from '../application/ports/EntitySubtreeQueryPort.js';
+import { ResourceRelationshipRepositoryPostgres } from './postgres/ResourceRelationshipRepositoryPostgres.js';
+import { TypeDefinitionReaderPostgres } from './postgres/TypeDefinitionReaderPostgres.js';
+import { NodeTypeRepositoryPostgres } from './postgres/NodeTypeRepositoryPostgres.js';
+import { EntityTypeRepositoryPostgres } from './postgres/EntityTypeRepositoryPostgres.js';
+import { AccessControlPortPostgres } from './postgres/AccessControlPortPostgres.js';
+import { EntitySubtreeQueryPortPostgres } from './postgres/EntitySubtreeQueryPortPostgres.js';
 
 const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const integrationDatabaseName = integrationDatabaseUrl ? new URL(integrationDatabaseUrl).pathname.slice(1) : '';
@@ -37,6 +50,7 @@ const ids = {
   entityType: '10000000-0000-0000-0000-000000009111',
   entityField: '10000000-0000-0000-0000-000000009112',
   entitySecretField: '10000000-0000-0000-0000-000000009113',
+  entityRelationField: '10000000-0000-0000-0000-000000009114',
   root: '10000000-0000-0000-0000-000000009120',
   child: '10000000-0000-0000-0000-000000009121',
   grandchild: '10000000-0000-0000-0000-000000009122',
@@ -44,8 +58,13 @@ const ids = {
   reusable: '10000000-0000-0000-0000-000000009124',
   replacement: '10000000-0000-0000-0000-000000009125',
   transactionProbe: '10000000-0000-0000-0000-000000009126',
+  subtreeRoot: '10000000-0000-0000-0000-000000009127',
+  subtreeChild: '10000000-0000-0000-0000-000000009128',
   alphaEntity: '10000000-0000-0000-0000-000000009130',
   zetaEntity: '10000000-0000-0000-0000-000000009131',
+  subtreeAlphaEntity: '10000000-0000-0000-0000-000000009132',
+  subtreeBravoEntity: '10000000-0000-0000-0000-000000009133',
+  subtreeCharlieEntity: '10000000-0000-0000-0000-000000009134',
   attachmentOne: '10000000-0000-0000-0000-000000009140',
   attachmentTwo: '10000000-0000-0000-0000-000000009141',
   lockOne: '10000000-0000-0000-0000-000000009150',
@@ -54,8 +73,8 @@ const ids = {
   reuseBatch: '10000000-0000-0000-0000-000000009161',
 } as const;
 
-const allNodeIds: string[] = [ids.root, ids.child, ids.grandchild, ids.duplicate, ids.reusable, ids.replacement, ids.transactionProbe];
-const allEntityIds: string[] = [ids.alphaEntity, ids.zetaEntity];
+const allNodeIds: string[] = [ids.root, ids.child, ids.grandchild, ids.duplicate, ids.reusable, ids.replacement, ids.transactionProbe, ids.subtreeRoot, ids.subtreeChild];
+const allEntityIds: string[] = [ids.alphaEntity, ids.zetaEntity, ids.subtreeAlphaEntity, ids.subtreeBravoEntity, ids.subtreeCharlieEntity];
 
 interface AdapterHarness {
   nodeRepository: NodeRepository;
@@ -64,6 +83,12 @@ interface AdapterHarness {
   transactionPort: TransactionPort;
   attachmentRepository: AttachmentRepository;
   attachmentRateLimitPort: AttachmentRateLimitPort;
+  relationshipRepository: ResourceRelationshipRepository;
+  typeDefinitionReader: TypeDefinitionReader;
+  nodeTypeRepository: NodeTypeRepository;
+  entityTypeRepository: EntityTypeRepository;
+  accessControlPort: AccessControlPort;
+  entitySubtreeQueryPort: EntitySubtreeQueryPort;
   inspectEncryptedStorage(): Promise<{ rawContainsSecret: boolean; sidecarCount: number }>;
   setup(): Promise<void>;
   cleanup(): Promise<void>;
@@ -268,6 +293,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       await executor.query('DELETE FROM attachment_upload_events WHERE actor_id = ANY($1::uuid[])', [[ids.actor, ids.otherActor]]);
       await executor.query('DELETE FROM resource_attachments WHERE id = ANY($1::uuid[])', [[ids.attachmentOne, ids.attachmentTwo]]);
       await executor.query('DELETE FROM resource_field_ciphertexts WHERE resource_id = ANY($1::uuid[])', [[...allNodeIds, ...allEntityIds]]);
+      await executor.query('DELETE FROM resource_relationships WHERE source_field_id = $1', [ids.entityRelationField]);
       await executor.query('DELETE FROM locks WHERE id = ANY($1::uuid[]) OR session_id = ANY($2::uuid[])', [[ids.lockOne, ids.lockTwo], [ids.session, ids.otherSession]]);
       await executor.query('DELETE FROM user_sessions WHERE id = ANY($1::uuid[])', [[ids.session, ids.otherSession]]);
       await executor.query('DELETE FROM entities WHERE id = ANY($1::uuid[])', [allEntityIds]);
@@ -285,6 +311,12 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       transactionPort: new TransactionPortPostgres(pool),
       attachmentRepository: new AttachmentRepositoryPostgres(executor),
       attachmentRateLimitPort: new AttachmentRateLimitPortPostgres(executor),
+      relationshipRepository: new ResourceRelationshipRepositoryPostgres(executor),
+      typeDefinitionReader: new TypeDefinitionReaderPostgres(executor),
+      nodeTypeRepository: new NodeTypeRepositoryPostgres(executor),
+      entityTypeRepository: new EntityTypeRepositoryPostgres(executor),
+      accessControlPort: new AccessControlPortPostgres(executor),
+      entitySubtreeQueryPort: new EntitySubtreeQueryPortPostgres(executor, new FieldEncryptionService(executor, enabledEncryptionConfig() as never, '11'.repeat(32))),
       inspectEncryptedStorage: async () => {
         const raw = await executor.query<{ value_text: string | null; secret_text: string | null }>('SELECT value_text, secret_text FROM entity_parity_probe WHERE entity_id = $1', [ids.alphaEntity]);
         const sidecar = await executor.query<{ count: string }>("SELECT count(*) FROM resource_field_ciphertexts WHERE resource_type = 'entity' AND resource_id = $1", [ids.alphaEntity]);
@@ -314,9 +346,11 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
         await executor.query(
           `INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES
            ($1,$2,'value','Value','value_text','string','plaintext',1),
-           ($3,$2,'secret','Secret','secret_text','string','encrypted',2)`,
-          [ids.entityField, ids.entityType, ids.entitySecretField],
+           ($3,$2,'secret','Secret','secret_text','string','encrypted',2),
+           ($4,$2,'dependsOn','Depends on','depends_on','relation','plaintext',3)`,
+          [ids.entityField, ids.entityType, ids.entitySecretField, ids.entityRelationField],
         );
+        await executor.query("UPDATE entity_type_fields SET relation_target_domain='entity', relation_target_type_key='parity-entity', relation_source_cardinality='one' WHERE id=$1", [ids.entityRelationField]);
         const storageExists = await executor.query<{ exists: boolean }>(
           "SELECT to_regclass('public.entity_parity_probe') IS NOT NULL AS exists",
         );
@@ -338,6 +372,12 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       transactionPort: sqliteInfrastructure.transactionPort,
       attachmentRepository: sqliteInfrastructure.attachmentRepository,
       attachmentRateLimitPort: sqliteInfrastructure.attachmentRateLimitPort,
+      relationshipRepository: sqliteInfrastructure.resourceRelationshipRepository,
+      typeDefinitionReader: sqliteInfrastructure.typeDefinitionReader,
+      nodeTypeRepository: sqliteInfrastructure.nodeTypeRepository,
+      entityTypeRepository: sqliteInfrastructure.entityTypeRepository,
+      accessControlPort: sqliteInfrastructure.accessControlPort,
+      entitySubtreeQueryPort: sqliteInfrastructure.entitySubtreeQueryPort,
       inspectEncryptedStorage: async () => {
         const raw = sqliteInfrastructure.database.get<{ payload: string }>('SELECT payload FROM entities WHERE id=?', [ids.alphaEntity]);
         return {
@@ -353,6 +393,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
         sqliteInfrastructure.database.run('INSERT INTO entity_types(id,type_key,name,description,storage_table) VALUES (?,?,?,?,?)', [ids.entityType, 'parity-entity', 'Parity entity', '', 'entity_parity_probe']);
         sqliteInfrastructure.database.run('INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES (?,?,?,?,?,?,?,?)', [ids.entityField, ids.entityType, 'value', 'Value', 'value_text', 'string', 'plaintext', 1]);
         sqliteInfrastructure.database.run('INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position) VALUES (?,?,?,?,?,?,?,?)', [ids.entitySecretField, ids.entityType, 'secret', 'Secret', 'secret_text', 'string', 'encrypted', 2]);
+        sqliteInfrastructure.database.run("INSERT INTO entity_type_fields(id,entity_type_id,field_key,label,column_name,data_type,encryption_mode,position,relation_target_domain,relation_target_type_key,relation_source_cardinality) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [ids.entityRelationField, ids.entityType, 'dependsOn', 'Depends on', 'depends_on', 'relation', 'plaintext', 3, 'entity', 'parity-entity', 'one']);
       },
     };
     await Promise.all([postgres.setup(), sqlite.setup()]);
@@ -389,6 +430,80 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       rateLimit: [true, true, false],
       encryption: { rawContainsSecret: false, sidecarCount: 1 },
       deleteResponse: { deleted: true, parentNodeId: ids.root, persistedParentId: ids.root, deletedNodeId: ids.child },
+    });
+  }, 30_000);
+
+  it('returns the same ACL-filtered paginated subtree pages for both adapters', async () => {
+    const observePages = async (harness: AdapterHarness) => {
+      await harness.nodeRepository.create(makeNode(ids.subtreeRoot, null, 'subtree_parity', 'subtree_parity', 0, 'Subtree parity'));
+      await harness.nodeRepository.create(makeNode(ids.subtreeChild, ids.subtreeRoot, 'subtree_parity.child', 'child', 1, 'Subtree child'));
+      await harness.entityRepository.create(new Entity(
+        ids.subtreeCharlieEntity, ids.entityType, ids.subtreeChild, 'Charlie', 'Charlie description', 1,
+        new Date('2026-01-01T08:00:00.000Z'), new Date('2026-01-01T08:00:00.000Z'), null, ids.actor, ids.actor,
+        { value: 'charlie-value', secret: 'charlie-secret' },
+      ));
+      await harness.entityRepository.create(new Entity(
+        ids.subtreeAlphaEntity, ids.entityType, ids.subtreeChild, 'Alpha', 'Alpha description', 1,
+        new Date('2026-01-01T08:00:00.000Z'), new Date('2026-01-01T08:00:00.000Z'), null, ids.actor, ids.actor,
+        { value: 'alpha-value', secret: 'alpha-secret' },
+      ));
+      await harness.entityRepository.create(new Entity(
+        ids.subtreeBravoEntity, ids.entityType, ids.subtreeChild, 'Bravo', 'Bravo description', 1,
+        new Date('2026-01-01T08:00:00.000Z'), new Date('2026-01-01T08:00:00.000Z'), null, ids.actor, ids.actor,
+        { value: 'bravo-value', secret: 'bravo-secret' },
+      ));
+
+      const first = await harness.entitySubtreeQueryPort.findSubtreeEntitiesPaginated({
+        baseNodeId: ids.subtreeRoot, actorUserId: ids.actor, limit: 2,
+      });
+      if (!first.nextCursor) throw new Error('Expected a forward page cursor.');
+      const previous = await harness.entitySubtreeQueryPort.findSubtreeEntitiesPaginated({
+        baseNodeId: ids.subtreeRoot, actorUserId: ids.actor, limit: 2, direction: 'backward', cursor: first.nextCursor,
+      });
+      return { first, previous };
+    };
+
+    const [postgresPages, sqlitePages] = await Promise.all([observePages(postgres), observePages(sqlite)]);
+    expect(postgresPages).toEqual(sqlitePages);
+    expect(postgresPages.first).toMatchObject({
+      hasMore: true,
+      items: [
+        { id: ids.subtreeAlphaEntity, name: 'Alpha', payload: { value: 'alpha-value', secret: 'alpha-secret' } },
+        { id: ids.subtreeBravoEntity, name: 'Bravo', payload: { value: 'bravo-value', secret: 'bravo-secret' } },
+      ],
+    });
+    expect(postgresPages.previous.items.map((item) => item.name)).toEqual(['Alpha']);
+  }, 30_000);
+
+  it('hydrates the same relationship collection after ACL and soft-delete filtering', async () => {
+    const hydrate = async (harness: AdapterHarness) => {
+      await harness.relationshipRepository.replaceValues({
+        sourceFieldId: ids.entityRelationField, sourceDomain: 'entity', sourceResourceId: ids.alphaEntity,
+        targetDomain: 'entity', targetResourceIds: [ids.zetaEntity], sourceCardinality: 'one', targetIsUnique: false,
+      });
+      await harness.relationshipRepository.replaceValues({
+        sourceFieldId: ids.entityRelationField, sourceDomain: 'entity', sourceResourceId: ids.zetaEntity,
+        targetDomain: 'entity', targetResourceIds: [ids.alphaEntity], sourceCardinality: 'one', targetIsUnique: false,
+      });
+      const alpha = await harness.entityRepository.findById(ids.alphaEntity);
+      if (!alpha) throw new Error('Parity fixture entity is unavailable.');
+      await harness.entityRepository.softDelete(ids.alphaEntity, ids.actor, alpha.rowVersion, ids.deleteBatch);
+      const service = new ResourceRelationshipService(
+        harness.relationshipRepository, harness.typeDefinitionReader, harness.nodeRepository,
+        harness.entityRepository, harness.nodeTypeRepository, harness.entityTypeRepository, harness.accessControlPort,
+      );
+      return Object.fromEntries(await service.hydratePayloads(ids.actor, [
+        { sourceDomain: 'entity', sourceResourceId: ids.alphaEntity, sourceTypeId: ids.entityType, payload: { dependsOn: 'legacy-alpha' } },
+        { sourceDomain: 'entity', sourceResourceId: ids.zetaEntity, sourceTypeId: ids.entityType, payload: { dependsOn: 'legacy-zeta' } },
+      ]));
+    };
+
+    const postgresPayloads = await hydrate(postgres);
+    const sqlitePayloads = await hydrate(sqlite);
+    expect(postgresPayloads).toEqual(sqlitePayloads);
+    expect(postgresPayloads).toEqual({
+      [`entity:${ids.alphaEntity}`]: { dependsOn: ids.zetaEntity },
+      [`entity:${ids.zetaEntity}`]: { dependsOn: null },
     });
   }, 30_000);
 });

@@ -48,6 +48,22 @@ export class ResourceRelationshipRepositoryPostgres implements ResourceRelations
     return result.rows.map(mapRelationshipRow);
   }
 
+  async listActiveOutgoingForSources(sources: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]> {
+    if (sources.length === 0) return [];
+    const orderedSources = sortRelationshipResources(sources);
+    const result = await this.executor.query<RelationshipRow>(
+      `SELECT source_field_id, source_domain, source_resource_id, target_domain,
+              target_resource_id, position, source_cardinality, target_is_unique, suspended_at
+       FROM resource_relationships r
+       WHERE r.suspended_at IS NULL
+         AND EXISTS (SELECT 1 FROM unnest($1::varchar[], $2::uuid[]) AS source(domain, id)
+                     WHERE r.source_domain=source.domain AND r.source_resource_id=source.id)
+       ORDER BY source_domain, source_resource_id, source_field_id, position, target_resource_id`,
+      [orderedSources.map((source) => source.domain), orderedSources.map((source) => source.resourceId)],
+    );
+    return result.rows.map(mapRelationshipRow);
+  }
+
   async listActiveIncomingForTargets(targets: readonly ResourceRelationshipResource[]): Promise<ResourceRelationshipEdge[]> {
     if (targets.length === 0) return [];
     const orderedTargets = sortRelationshipResources(targets);

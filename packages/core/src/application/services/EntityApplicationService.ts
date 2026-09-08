@@ -479,10 +479,13 @@ export class EntityApplicationService {
     await this.accessControlPort.assertHasPermission(actorUserId, 'entity.read', parentNodeId);
     const entities = await this.entityRepository.listByNode(parentNodeId, limit, offset);
     if (!this.resourceRelationshipService) return entities;
-    return Promise.all(entities.map(async (entity) => {
-      const entityType = await this.entityTypeRepository.findById(entity.entityTypeId);
-      return entityType ? this.withHydratedRelationships(entity, entityType.typeKey, actorUserId) : entity;
-    }));
+    const payloads = await this.resourceRelationshipService.hydratePayloads(actorUserId, entities.map((entity) => ({
+      sourceDomain: 'entity' as const,
+      sourceResourceId: entity.id,
+      sourceTypeId: entity.entityTypeId,
+      payload: entity.payload,
+    })));
+    return entities.map((entity) => this.withHydratedPayload(entity, payloads.get(`entity:${entity.id}`) ?? entity.payload));
   }
 
   async listEntityTypes(): Promise<{ id: string; typeKey: string; name: string; description: string; storageTable: string; currentSchemaVersion: number }[]> {
@@ -504,6 +507,10 @@ export class EntityApplicationService {
       typeKey,
       entity.payload,
     );
+    return this.withHydratedPayload(entity, payload);
+  }
+
+  private withHydratedPayload(entity: Entity, payload: Record<string, unknown>): Entity {
     return new Entity(
       entity.id,
       entity.entityTypeId,

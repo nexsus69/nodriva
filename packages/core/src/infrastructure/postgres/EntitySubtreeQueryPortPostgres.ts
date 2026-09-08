@@ -1,3 +1,4 @@
+/** Provides the PostgreSQL subtree entity read model with scoped pagination. */
 import type {
   EntitySubtreeQueryPort,
   EntitySubtreeQueryParams,
@@ -76,7 +77,10 @@ export class EntitySubtreeQueryPortPostgres implements EntitySubtreeQueryPort {
     );
     const fieldsByType = new Map<string, EntityFieldMetaRow[]>();
     for (const field of fieldsResult.rows) {
-      if (['file', 'image'].includes((field.data_type ?? '').toLowerCase())) continue;
+      // Relation values are authoritative in resource_relationships and are
+      // hydrated by the application service, just as in the SQLite JSON
+      // profile. They must not be read from the legacy physical column.
+      if (['file', 'image', 'relation'].includes((field.data_type ?? '').toLowerCase())) continue;
       const fields = fieldsByType.get(field.entity_type_id) ?? [];
       fields.push(field);
       fieldsByType.set(field.entity_type_id, fields);

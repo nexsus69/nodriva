@@ -548,7 +548,13 @@ export class NodeApplicationService {
 
   private async hydrateRelationshipNodes(nodes: readonly Node[], actorUserId: string): Promise<Node[]> {
     if (!this.resourceRelationshipService) return [...nodes];
-    return Promise.all(nodes.map((node) => this.withHydratedRelationships(node, actorUserId)));
+    const payloads = await this.resourceRelationshipService.hydratePayloads(actorUserId, nodes.map((node) => ({
+      sourceDomain: 'node' as const,
+      sourceResourceId: node.id,
+      sourceTypeId: node.nodeTypeId,
+      payload: node.payload,
+    })));
+    return nodes.map((node) => this.withHydratedPayload(node, payloads.get(`node:${node.id}`) ?? node.payload));
   }
 
   private async withHydratedRelationships(node: Node, actorUserId: string): Promise<Node> {
@@ -561,6 +567,10 @@ export class NodeApplicationService {
       nodeType.typeKey,
       node.payload,
     );
+    return this.withHydratedPayload(node, payload);
+  }
+
+  private withHydratedPayload(node: Node, payload: Record<string, unknown>): Node {
     return new Node(
       node.id,
       node.parentId,
