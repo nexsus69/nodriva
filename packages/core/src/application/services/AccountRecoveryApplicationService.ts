@@ -1,3 +1,4 @@
+/** Owns atomic issuance and completion of account recovery actions. */
 import crypto from 'crypto';
 import type { AccountActionPurpose, AccountActionTokenPort } from '../ports/AccountActionTokenPort.js';
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
@@ -12,23 +13,36 @@ import { UserPasswordSchema } from '../commands/UserAdminCommands.js';
 import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
 import { ValidationError } from '../../domain/errors/ApplicationErrors.js';
 import type { AccountActionDeliveryPort } from '../ports/AccountActionDeliveryPort.js';
+import type { AccountActionDeliveryOutboxPort } from '../ports/AccountActionDeliveryOutboxPort.js';
+import type { AccountActionTokenCipherPort } from '../ports/AccountActionTokenCipherPort.js';
+import type { AccountActionDeliveryDrainer } from './AccountActionDeliveryDrainer.js';
 
 export class AccountRecoveryApplicationService {
   constructor(private readonly tokens: AccountActionTokenPort, private readonly users: UserRepository,
     private readonly sessions: SessionRepositoryPort, private readonly audit: AuditPort,
     private readonly transactions: TransactionPort, private readonly access: AccessControlPort,
-    private readonly mfa?: MfaTotpPort, private readonly delivery?: AccountActionDeliveryPort) {}
+    private readonly mfa?: MfaTotpPort, private readonly delivery?: AccountActionDeliveryPort,
+    private readonly outbox?: AccountActionDeliveryOutboxPort, private readonly cipher?: AccountActionTokenCipherPort,
+    private readonly drainer?: AccountActionDeliveryDrainer) {}
 
   async issue(actorUserId: string, userId: string, purpose: AccountActionPurpose): Promise<{ token: string; expiresAt: Date }> {
     await this.access.assertIsSuperAdmin(actorUserId);
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedError('User not found');
-    if (!this.delivery) throw new Error('Account action delivery is not configured.');
+    if (!this.delivery || !this.outbox || !this.cipher || !this.drainer) throw new Error('Account action delivery is not configured.');
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await this.tokens.create({ userId, purpose, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt, createdBy: actorUserId });
-    await this.delivery.deliver({ email: user.email, purpose, token, expiresAt });
-    await this.audit.record(actorUserId, `user.${purpose}_issued`, 'user', userId, null, null, { expiresAt: expiresAt.toISOString() });
+    const deliveryId = crypto.randomUUID();
+    await this.transactions.runInTransaction(async () => {
+      await this.tokens.create({ userId, purpose, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt, createdBy: actorUserId });
+      await this.outbox!.enqueue({ id: deliveryId, email: user.email, purpose, tokenCiphertext: this.cipher!.encrypt(token), expiresAt });
+      await this.audit.record(actorUserId, `user.${purpose}_issued`, 'user', userId, null, null, { expiresAt: expiresAt.toISOString(), deliveryId });
+      this.transactions.afterCommit?.(async () => {
+        await this.drainer!.drain().catch((error: unknown) => {
+        console.error('[AccountRecovery] Account action outbox drain failed:', error);
+        });
+      });
+    });
     return { token, expiresAt };
   }
 

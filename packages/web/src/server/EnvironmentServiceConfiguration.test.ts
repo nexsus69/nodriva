@@ -97,6 +97,7 @@ describe('Environment service configuration', () => {
       FIELD_ENCRYPTION_ACTIVE_VERSION: 'v2',
       ATTACHMENTS_ENCRYPTION_KEYS: 'v1=' + '22'.repeat(32),
       MFA_ENCRYPTION_KEY: '33'.repeat(32),
+      ACCOUNT_ACTION_ENCRYPTION_KEY: '44'.repeat(32),
     });
 
     expect(configuration).toEqual({
@@ -107,6 +108,9 @@ describe('Environment service configuration', () => {
       attachmentEncryptionKeys: 'v1=' + '22'.repeat(32),
       attachmentEncryptionActiveVersion: undefined,
       mfaEncryptionKey: '33'.repeat(32),
+      accountActionEncryptionKey: '44'.repeat(32),
+      accountActionEncryptionKeys: undefined,
+      accountActionEncryptionActiveVersion: undefined,
     });
   });
 

@@ -20,6 +20,7 @@ export class WebhookAccountActionDelivery implements AccountActionDeliveryPort {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
+          'idempotency-key': input.idempotencyKey,
           ...(this.secret ? { authorization: `Bearer ${this.secret}` } : {}),
         },
         body: JSON.stringify({

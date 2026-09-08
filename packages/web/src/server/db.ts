@@ -41,6 +41,9 @@ import {
   SessionRepositoryPostgres,
   LoginRateLimitPortPostgres,
   AccountActionTokenPortPostgres,
+  AccountActionDeliveryOutboxPostgres,
+  AccountActionTokenCipherAesGcm,
+  AccountActionDeliveryDrainer,
   AccountRecoveryApplicationService,
   MfaTotpPortPostgres,
   MfaTotpApplicationService,
@@ -339,6 +342,9 @@ export const attachmentScanner: AttachmentScannerPort | undefined = typeof antiv
   : undefined;
 export const loginRateLimitPort = sqliteMode ? sqliteInfrastructure!.loginRateLimitPort : new LoginRateLimitPortPostgres(pgExecutor!);
 export const accountActionTokenPort = sqliteMode ? sqliteInfrastructure!.accountActionTokenPort : new AccountActionTokenPortPostgres(pgExecutor!);
+export const accountActionDeliveryOutbox = sqliteMode
+  ? sqliteInfrastructure!.accountActionDeliveryOutbox
+  : new AccountActionDeliveryOutboxPostgres(pgExecutor!);
 const mailDeployment = deploymentConfigurationSource.getSync('mail');
 const mailValues: Readonly<Record<string, unknown>> = mailDeployment?.providerKey === 'webhook' ? mailDeployment.values : {};
 export const accountActionDelivery = typeof mailValues.endpoint === 'string'
@@ -349,6 +355,19 @@ export const accountActionDelivery = typeof mailValues.endpoint === 'string'
       typeof mailValues.token === 'string' ? deploymentSecretResolver.resolveSync(mailValues.token) ?? undefined : undefined,
       typeof mailValues.timeoutMs === 'number' ? mailValues.timeoutMs : undefined,
     )
+  : undefined;
+const accountActionTokenCipher = securityKeys.accountActionEncryptionKey
+  ? new AccountActionTokenCipherAesGcm(
+    securityKeys.accountActionEncryptionKey,
+    securityKeys.accountActionEncryptionKeys,
+    securityKeys.accountActionEncryptionActiveVersion ?? 'v1',
+  )
+  : undefined;
+if (accountActionDelivery && !accountActionTokenCipher) {
+  throw new Error('ACCOUNT_ACTION_ENCRYPTION_KEY is required when account action delivery is configured.');
+}
+export const accountActionDeliveryDrainer = accountActionDelivery && accountActionTokenCipher
+  ? new AccountActionDeliveryDrainer(accountActionDeliveryOutbox, accountActionTokenCipher, accountActionDelivery)
   : undefined;
 export const mfaTotpPort = sqliteMode ? sqliteInfrastructure!.mfaTotpPort : new MfaTotpPortPostgres(pgExecutor!);
 export const mfaTotpService = securityKeys.mfaEncryptionKey
@@ -515,5 +534,5 @@ export const humanActivityService = new HumanActivityService(
 );
 export const accountRecoveryService = new AccountRecoveryApplicationService(
   accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort,
-  mfaTotpPort, accountActionDelivery,
+  mfaTotpPort, accountActionDelivery, accountActionDeliveryOutbox, accountActionTokenCipher, accountActionDeliveryDrainer,
 );

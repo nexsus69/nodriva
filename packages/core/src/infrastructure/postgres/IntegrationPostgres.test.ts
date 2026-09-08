@@ -7,6 +7,7 @@ import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import { NodeRepositoryPostgres } from './NodeRepositoryPostgres.js';
 import { EntityRepositoryPostgres } from './EntityRepositoryPostgres.js';
 import { RealtimeOutboxPostgres } from './RealtimeOutboxPostgres.js';
+import { AccountActionDeliveryOutboxPostgres } from './AccountActionDeliveryOutboxPostgres.js';
 import { StorageTableManagementPostgres } from './StorageTableManagementPostgres.js';
 import { SessionRepositoryPostgres } from './SessionRepositoryPostgres.js';
 import { Node } from '../../domain/models/Node.js';
@@ -30,6 +31,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
   let nodeRepo: NodeRepositoryPostgres;
   let entityRepo: EntityRepositoryPostgres;
   let realtimeOutbox: RealtimeOutboxPostgres;
+  let accountActionOutbox: AccountActionDeliveryOutboxPostgres;
   let storageTableManager: StorageTableManagementPostgres;
   let sessionRepo: SessionRepositoryPostgres;
   let adminPool: pg.Pool | undefined;
@@ -57,6 +59,7 @@ describeIntegration('PostgreSQL Integration Tests', () => {
     nodeRepo = new NodeRepositoryPostgres(executor);
     entityRepo = new EntityRepositoryPostgres(executor);
     realtimeOutbox = new RealtimeOutboxPostgres(executor);
+    accountActionOutbox = new AccountActionDeliveryOutboxPostgres(executor);
     storageTableManager = new StorageTableManagementPostgres(executor);
     sessionRepo = new SessionRepositoryPostgres(executor);
     const adminDatabaseUrl = process.env.INTEGRATION_DATABASE_ADMIN_URL;
@@ -281,6 +284,37 @@ describeIntegration('PostgreSQL Integration Tests', () => {
       );
       expect(published.rows[0]?.published_at).not.toBeNull();
       expect(published.rows[0]?.last_error).toBeNull();
+    });
+  });
+
+  describe('Account action delivery outbox parity', () => {
+    const deliveryId = '00000000-0000-0000-0000-000000000778';
+
+    beforeAll(async () => {
+      await executor.query('DELETE FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
+    });
+
+    afterAll(async () => {
+      await executor.query('DELETE FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
+    });
+
+    it('deduplicates, retries a leased ciphertext and clears it only after delivery like SQLite', async () => {
+      const item = { id: deliveryId, email: 'person@example.test', purpose: 'password_reset' as const, tokenCiphertext: 'opaque-ciphertext', expiresAt: new Date(Date.now() + 60_000) };
+      await accountActionOutbox.enqueue(item);
+      await accountActionOutbox.enqueue(item);
+      const inserted = await executor.query<{ count: string }>('SELECT COUNT(*)::text AS count FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
+      expect(inserted.rows[0]?.count).toBe('1');
+
+      await expect(accountActionOutbox.claimPending('account-worker-1', 1)).resolves.toEqual([expect.objectContaining(item)]);
+      await accountActionOutbox.markFailed(deliveryId, 'account-worker-1', 'mail down');
+      const failed = await executor.query<{ attempts: number; token_ciphertext: string; locked_by: string | null }>('SELECT attempts, token_ciphertext, locked_by FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
+      expect(failed.rows[0]).toEqual({ attempts: 1, token_ciphertext: 'opaque-ciphertext', locked_by: null });
+
+      await executor.query('UPDATE account_action_delivery_outbox SET next_attempt_at = now() WHERE id = $1', [deliveryId]);
+      await expect(accountActionOutbox.claimPending('account-worker-2', 1)).resolves.toEqual([expect.objectContaining(item)]);
+      await accountActionOutbox.markDelivered(deliveryId, 'account-worker-2');
+      const delivered = await executor.query<{ token_ciphertext: string; delivered_at: Date | null }>('SELECT token_ciphertext, delivered_at FROM account_action_delivery_outbox WHERE id = $1', [deliveryId]);
+      expect(delivered.rows[0]).toEqual({ token_ciphertext: '', delivered_at: expect.any(Date) });
     });
   });
 

@@ -188,6 +188,9 @@ export class EnvironmentServiceDeploymentConfigurationSource implements ServiceD
       ...(this.environment.ATTACHMENTS_ENCRYPTION_KEYS ? { attachmentEncryptionKeys: 'secret://env/ATTACHMENTS_ENCRYPTION_KEYS' } : {}),
       ...(this.environment.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION ? { attachmentEncryptionActiveVersion: this.environment.ATTACHMENTS_ENCRYPTION_ACTIVE_VERSION } : {}),
       ...(this.environment.MFA_ENCRYPTION_KEY ? { mfaEncryptionKey: 'secret://env/MFA_ENCRYPTION_KEY' } : {}),
+      ...(this.environment.ACCOUNT_ACTION_ENCRYPTION_KEY ? { accountActionEncryptionKey: 'secret://env/ACCOUNT_ACTION_ENCRYPTION_KEY' } : {}),
+      ...(this.environment.ACCOUNT_ACTION_ENCRYPTION_KEYS ? { accountActionEncryptionKeys: 'secret://env/ACCOUNT_ACTION_ENCRYPTION_KEYS' } : {}),
+      ...(this.environment.ACCOUNT_ACTION_ENCRYPTION_ACTIVE_VERSION ? { accountActionEncryptionActiveVersion: this.environment.ACCOUNT_ACTION_ENCRYPTION_ACTIVE_VERSION } : {}),
     };
     return Object.keys(values).length > 0 ? { providerKey: 'environment', values } : null;
   }
@@ -233,6 +236,9 @@ export interface SecurityKeyConfiguration {
   attachmentEncryptionKeys?: string;
   attachmentEncryptionActiveVersion?: string;
   mfaEncryptionKey?: string;
+  accountActionEncryptionKey?: string;
+  accountActionEncryptionKeys?: string;
+  accountActionEncryptionActiveVersion?: string;
 }
 
 /** Resolves deployment-only encryption secrets for server-side adapter construction. */
@@ -256,6 +262,9 @@ export function getSecurityKeyConfiguration(environment: Environment | Environme
     attachmentEncryptionKeys: resolve('attachmentEncryptionKeys'),
     attachmentEncryptionActiveVersion: typeof values.attachmentEncryptionActiveVersion === 'string' ? values.attachmentEncryptionActiveVersion : undefined,
     mfaEncryptionKey: resolve('mfaEncryptionKey'),
+    accountActionEncryptionKey: resolve('accountActionEncryptionKey'),
+    accountActionEncryptionKeys: resolve('accountActionEncryptionKeys'),
+    accountActionEncryptionActiveVersion: typeof values.accountActionEncryptionActiveVersion === 'string' ? values.accountActionEncryptionActiveVersion : undefined,
   };
 }
 

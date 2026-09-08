@@ -9,6 +9,7 @@ import { AccessControlPortSqlite } from './AccessControlPortSqlite.js';
 import { AuditPortSqlite } from './AuditPortSqlite.js';
 import { RevisionPortSqlite } from './RevisionPortSqlite.js';
 import { RealtimeOutboxSqlite } from './RealtimeOutboxSqlite.js';
+import { AccountActionDeliveryOutboxSqlite } from './AccountActionDeliveryOutboxSqlite.js';
 import { ConfigurationRepositorySqlite } from './ConfigurationRepositorySqlite.js';
 import { RuntimeConfigurationPortSqlite } from './RuntimeConfigurationPortSqlite.js';
 import { SessionRepositorySqlite } from './SessionRepositorySqlite.js';
@@ -49,6 +50,7 @@ export class SqliteInfrastructure {
   readonly auditPort: AuditPortSqlite;
   revisionPort: RevisionPortSqlite;
   readonly realtimeOutbox: RealtimeOutboxSqlite;
+  readonly accountActionDeliveryOutbox: AccountActionDeliveryOutboxSqlite;
   readonly configurationRepository: ConfigurationRepositorySqlite;
   readonly runtimeConfigurationPort: RuntimeConfigurationPortSqlite;
   readonly sessionRepository: SessionRepositorySqlite;
@@ -87,6 +89,7 @@ export class SqliteInfrastructure {
     this.auditPort = new AuditPortSqlite(this.database);
     this.revisionPort = new RevisionPortSqlite(this.database);
     this.realtimeOutbox = new RealtimeOutboxSqlite(this.database);
+    this.accountActionDeliveryOutbox = new AccountActionDeliveryOutboxSqlite(this.database);
     this.configurationRepository = new ConfigurationRepositorySqlite(this.database);
     this.runtimeConfigurationPort = new RuntimeConfigurationPortSqlite(this.database);
     this.sessionRepository = new SessionRepositorySqlite(this.database);
