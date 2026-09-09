@@ -1,3 +1,4 @@
+/** Verifies the shared lifecycle that protects concurrent node and entity edits. */
 import { describe, expect, it } from 'vitest';
 import {
   abandonConcurrentEdit,
