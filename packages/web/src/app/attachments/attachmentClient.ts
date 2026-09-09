@@ -1,3 +1,5 @@
+import { AppCache } from '../cache/GlobalCacheClient';
+
 export interface AttachmentItem {
   id: string;
   resourceType: 'node' | 'entity';
@@ -40,7 +42,9 @@ export async function uploadResourceAttachment(input: {
   form.set('fieldKey', input.fieldKey);
   form.set('kind', input.kind);
   form.set('file', input.file);
-  return await readResponse(await fetch('/api/attachments', { method: 'POST', body: form })) as AttachmentItem;
+  const attachment = await readResponse(await fetch('/api/attachments', { method: 'POST', body: form })) as AttachmentItem;
+  AppCache.notifyAttachmentCollectionChanged(input);
+  return attachment;
 }
 
 export async function listResourceAttachments(resourceType: 'node' | 'entity', resourceId: string, fieldKey: string, kind: 'file' | 'image'): Promise<AttachmentItem[]> {
@@ -48,7 +52,8 @@ export async function listResourceAttachments(resourceType: 'node' | 'entity', r
   return await readResponse(await fetch(`/api/attachments?${query.toString()}`, { cache: 'no-store' })) as AttachmentItem[];
 }
 
-export async function deleteResourceAttachment(id: string): Promise<void> {
-  await readResponse(await fetch(`/api/attachments/${id}`, { method: 'DELETE' }));
+export async function deleteResourceAttachment(input: { id: string; resourceType: 'node' | 'entity'; resourceId: string }): Promise<void> {
+  await readResponse(await fetch(`/api/attachments/${input.id}`, { method: 'DELETE' }));
+  AppCache.notifyAttachmentCollectionChanged(input);
 }
 import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';

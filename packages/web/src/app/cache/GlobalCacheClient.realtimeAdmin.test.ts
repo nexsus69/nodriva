@@ -1,6 +1,7 @@
 /** Exercises the browser realtime bridge through administrative cache invalidations. */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GlobalCacheClient } from "./GlobalCacheClient";
+import { receiveAttachmentCollection } from '../attachments/attachmentCollectionModel';
 
 type Handler = (payload: unknown) => void;
 
@@ -86,5 +87,42 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
     });
 
     expect(invalidations).toEqual([["types", "type-detail", "type-definition"]]);
+  });
+
+  it('notifies only the affected attachment collection after a realtime attachment change', () => {
+    const cache = new GlobalCacheClient();
+    const changed = vi.fn();
+    const untouched = vi.fn();
+    cache.subscribeAttachmentCollectionInvalidation({ resourceType: 'entity', resourceId: 'entity-1' }, changed);
+    cache.subscribeAttachmentCollectionInvalidation({ resourceType: 'entity', resourceId: 'entity-2' }, untouched);
+
+    (cache as unknown as { applyRealtimeEvent: (event: unknown) => void }).applyRealtimeEvent({
+      eventId: 'attachment-1',
+      occurredAt: '2026-09-09T00:00:00.000Z',
+      resourceType: 'entity',
+      resourceId: 'entity-1',
+      entityTypeId: 'task',
+      changeType: 'updated',
+      actorUserId: 'user-1',
+      subresourceKind: 'attachment',
+    });
+
+    expect(changed).toHaveBeenCalledOnce();
+    expect(untouched).not.toHaveBeenCalled();
+  });
+
+  it('keeps one shared attachment snapshot per resource collection', () => {
+    const cache = new GlobalCacheClient();
+    const target = { resourceType: 'node' as const, resourceId: 'node-1', fieldKey: 'documents', kind: 'file' as const };
+    const changed = vi.fn();
+    cache.subscribeAttachmentCollection(target, changed);
+    const state = receiveAttachmentCollection([{
+      id: 'attachment-1', resourceType: 'node', resourceId: 'node-1', fieldKey: 'documents', kind: 'file', fileName: 'brief.pdf', mimeType: 'application/pdf', sizeBytes: 10,
+    }]);
+
+    cache.setAttachmentCollection(target, state);
+
+    expect(cache.getAttachmentCollection(target)).toBe(state);
+    expect(changed).toHaveBeenCalledOnce();
   });
 });

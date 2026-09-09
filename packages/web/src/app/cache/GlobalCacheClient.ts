@@ -26,12 +26,26 @@ import {
   ResourceCacheInvalidationCoordinator,
   type ResourceCacheChange,
 } from './ResourceCacheInvalidationCoordinator';
+import {
+  INITIAL_ATTACHMENT_COLLECTION,
+  type AttachmentCollectionState,
+} from '../attachments/attachmentCollectionModel';
 
 export interface CachedLockState {
   locked: boolean;
   byUserId?: string;
   bySessionId?: string;
   expiresAt?: string;
+}
+
+export interface AttachmentResourceTarget {
+  resourceType: Extract<ResourceKind, 'node' | 'entity'>;
+  resourceId: string;
+}
+
+export interface AttachmentCollectionTarget extends AttachmentResourceTarget {
+  fieldKey: string;
+  kind: 'file' | 'image';
 }
 
 const EMPTY_LOCK_STATE: CachedLockState = { locked: false };
@@ -104,6 +118,9 @@ export class GlobalCacheClient {
   private realtimeCapabilityEnabled = true;
   private readonly realtimeStateSubscribers = new Set<() => void>();
   private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
+  private readonly attachmentCollectionSubscribers = new Map<string, Set<() => void>>();
+  private readonly attachmentCollectionInvalidationSubscribers = new Map<string, Set<() => void>>();
+  private readonly attachmentCollections = new Map<string, AttachmentCollectionState>();
   private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
     (event) => this.applyRealtimeEvent(event),
@@ -206,6 +223,66 @@ export class GlobalCacheClient {
     this.adminRealtimeInvalidationSubscribers.add(subscriber);
     return () => this.adminRealtimeInvalidationSubscribers.delete(subscriber);
   };
+
+  /** Subscribes a UI surface to the shared attachment snapshot for one resource. */
+  public subscribeAttachmentCollection = (
+    target: AttachmentCollectionTarget,
+    subscriber: () => void,
+  ): (() => void) => {
+    const key = this.attachmentCollectionKey(target);
+    const subscribers = this.attachmentCollectionSubscribers.get(key) ?? new Set();
+    subscribers.add(subscriber);
+    this.attachmentCollectionSubscribers.set(key, subscribers);
+    return () => {
+      const current = this.attachmentCollectionSubscribers.get(key);
+      if (!current) return;
+      current.delete(subscriber);
+      if (current.size === 0) this.attachmentCollectionSubscribers.delete(key);
+    };
+  };
+
+  public getAttachmentCollection = (target: AttachmentCollectionTarget): AttachmentCollectionState =>
+    this.attachmentCollections.get(this.attachmentCollectionKey(target)) ?? INITIAL_ATTACHMENT_COLLECTION;
+
+  public setAttachmentCollection = (
+    target: AttachmentCollectionTarget,
+    state: AttachmentCollectionState,
+  ): void => {
+    const key = this.attachmentCollectionKey(target);
+    this.attachmentCollections.set(key, state);
+    this.attachmentCollectionSubscribers.get(key)?.forEach((subscriber) => subscriber());
+  };
+
+  /** Signals that an authoritative reread is required after a local or realtime mutation. */
+  public subscribeAttachmentCollectionInvalidation = (
+    target: AttachmentResourceTarget,
+    subscriber: () => void,
+  ): (() => void) => {
+    const key = this.attachmentResourceKey(target);
+    const subscribers = this.attachmentCollectionInvalidationSubscribers.get(key) ?? new Set();
+    subscribers.add(subscriber);
+    this.attachmentCollectionInvalidationSubscribers.set(key, subscribers);
+    return () => {
+      const current = this.attachmentCollectionInvalidationSubscribers.get(key);
+      if (!current) return;
+      current.delete(subscriber);
+      if (current.size === 0) this.attachmentCollectionInvalidationSubscribers.delete(key);
+    };
+  };
+
+  public notifyAttachmentCollectionChanged = (target: AttachmentResourceTarget): void => {
+    this.attachmentCollectionInvalidationSubscribers
+      .get(this.attachmentResourceKey(target))
+      ?.forEach((subscriber) => subscriber());
+  };
+
+  private attachmentCollectionKey(target: AttachmentCollectionTarget): string {
+    return `${this.attachmentResourceKey(target)}:${target.fieldKey}:${target.kind}`;
+  }
+
+  private attachmentResourceKey(target: AttachmentResourceTarget): string {
+    return `${target.resourceType}:${target.resourceId}`;
+  }
 
   private invalidateAdminFromRealtime(keys: readonly string[]): void {
     this.admin.invalidate([...keys]);
@@ -340,6 +417,11 @@ export class GlobalCacheClient {
       return;
     }
     if (event.subresourceKind === 'attachment') {
+      if (event.resourceType !== 'node' && event.resourceType !== 'entity') return;
+      this.notifyAttachmentCollectionChanged({
+        resourceType: event.resourceType,
+        resourceId: event.resourceId,
+      });
       if (event.resourceType === 'node') this.nodes.invalidate(event.resourceId);
       else if (event.entityTypeId) {
         GlobalViewStore.invalidateReference({
@@ -705,6 +787,7 @@ export class GlobalCacheClient {
     this.hydratedLockKeys.clear();
     this.pendingLockHydrations.clear();
     this.virtualRootNodeIds.clear();
+    this.attachmentCollections.clear();
   }
 
   /**
