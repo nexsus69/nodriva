@@ -1,13 +1,13 @@
 /** Coordinates node detail state, cache reads, lock state and user-driven mutations. */
 
-import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSemanticNodeList } from '../../../hooks/useSemanticNodeList';
 import { useSemanticEntityCollection } from '../../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { useCacheNode } from '../../../hooks/useCacheNode';
 import { useLock } from '../../../hooks/useLock';
-import { AppCache, hasStaleOptimisticEdit, isRowVersionMismatch } from '../../../cache/GlobalCacheClient';
+import { AppCache, isRowVersionMismatch } from '../../../cache/GlobalCacheClient';
 import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
 import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
@@ -16,6 +16,14 @@ import { resolveNodeAccess, type NodeAccessState } from './nodeAccessState';
 import { requestConfirmation } from '../../../components/ui/feedback/ConfirmDialogStore';
 import { useDeletionReturnContext } from '../../../navigation/returnContext';
 import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
+import {
+  abandonConcurrentEdit,
+  acceptConcurrentEditVersion,
+  beginConcurrentEdit,
+  canSubmitConcurrentEdit,
+  IDLE_CONCURRENT_EDIT,
+  reconcileConcurrentEdit,
+} from '../../../editing/ConcurrentEditLifecycle';
 
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
@@ -33,8 +41,7 @@ export function useNodeDetail(nodeId: string) {
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
   const [dynamicNodePayload, setDynamicNodePayload] = useState<Record<string, unknown>>({});
   const [attachmentsByField, setAttachmentsByField] = useState<Record<string, readonly File[]>>({});
-  const editingRowVersion = useRef<number | null>(null);
-  const [formStale, setFormStale] = useState(false);
+  const [editLifecycle, setEditLifecycle] = useState(IDLE_CONCURRENT_EDIT);
   const [entityDefinitions, setEntityDefinitions] = useState<Record<string, EntityTypeDefinition>>({});
   const [isSavingNode, startNodeUpdate] = useTransition();
 
@@ -43,6 +50,13 @@ export function useNodeDetail(nodeId: string) {
   const { entityTypes, nodeTypes } = useSemanticMetadata();
   const lock = useLock({ resourceType: 'node', resourceId: nodeId });
   const { data: currentNode, error: nodeError, isLoading: isLoadingNode } = useCacheNode(nodeId);
+  const reconciledEditLifecycle = reconcileConcurrentEdit(editLifecycle, {
+    ownsLock: lock.isMyLock,
+    currentRowVersion: currentNode?.rowVersion,
+    mutationPending: AppCache.mutations.isPending(`node:${nodeId}`),
+    currentVersionIsLocal: currentNode ? AppCache.mutations.isLocalVersion(`node:${nodeId}`, currentNode.rowVersion) : false,
+  });
+  const formStale = reconciledEditLifecycle.stale;
   const deletionFallback = currentNode?.parentId ? `/nodes/${currentNode.parentId}` : '/';
   const deletionReturnTo = useDeletionReturnContext(deletionFallback, `/nodes/${nodeId}`);
   const readOnly = !lock.isMyLock;
@@ -107,8 +121,7 @@ export function useNodeDetail(nodeId: string) {
     setNodeDescription(currentNode.description || '');
     setDynamicNodePayload(currentNode.payload ?? {});
     setAttachmentsByField({});
-    editingRowVersion.current = currentNode.rowVersion;
-    setFormStale(false);
+    setEditLifecycle(beginConcurrentEdit(currentNode.rowVersion));
     return lock.acquireLock();
   };
 
@@ -120,34 +133,22 @@ export function useNodeDetail(nodeId: string) {
       setDynamicNodePayload(currentNode.payload ?? {});
     }
     setAttachmentsByField({});
-    editingRowVersion.current = null;
-    setFormStale(false);
+    setEditLifecycle(abandonConcurrentEdit());
     await lock.releaseLock();
   };
-
-  useEffect(() => {
-    if (!lock.isMyLock || !currentNode || editingRowVersion.current === null
-      || AppCache.mutations.isPending(`node:${nodeId}`)
-      || AppCache.mutations.isLocalVersion(`node:${nodeId}`, currentNode.rowVersion)) return;
-    if (hasStaleOptimisticEdit(editingRowVersion.current, currentNode.rowVersion)) {
-      setFormStale(true);
-      setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
-    }
-  }, [currentNode, lock.isMyLock, nodeId]);
 
   const reloadFresh = async () => {
     const refreshed = await AppCache.refreshNode(nodeId);
     if (!refreshed) return;
     setNodeName(refreshed.name); setNodeDescription(refreshed.description || ''); setDynamicNodePayload(refreshed.payload ?? {}); setAttachmentsByField({});
-    editingRowVersion.current = refreshed.rowVersion;
-    setFormStale(false);
+    setEditLifecycle(acceptConcurrentEditVersion(refreshed.rowVersion));
     setErrorMessage('Dati aggiornati. Puoi continuare la modifica.');
   };
 
   const handleUpdateNode = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!currentNode || !lock.isMyLock) return;
-    if (formStale || hasStaleOptimisticEdit(editingRowVersion.current, currentNode.rowVersion)) return;
+    if (!canSubmitConcurrentEdit(reconciledEditLifecycle, currentNode.rowVersion)) return;
     setErrorMessage(null);
     setSuccessMessage(null);
     startNodeUpdate(async () => {
@@ -161,8 +162,7 @@ export function useNodeDetail(nodeId: string) {
         });
         // The local mutation response is authoritative. Advance the editing
         // snapshot before the asynchronous lock release can trigger a render.
-        editingRowVersion.current = updatedNode.rowVersion;
-        setFormStale(false);
+        setEditLifecycle(acceptConcurrentEditVersion(updatedNode.rowVersion));
         for (const field of dynamicNodeFields.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
           for (const file of attachmentsByField[field.fieldKey] ?? []) {
             await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
@@ -179,8 +179,7 @@ export function useNodeDetail(nodeId: string) {
             setNodeDescription(refreshed.description || '');
             setDynamicNodePayload(refreshed.payload ?? {});
             setAttachmentsByField({});
-            editingRowVersion.current = refreshed.rowVersion;
-            setFormStale(false);
+            setEditLifecycle(acceptConcurrentEditVersion(refreshed.rowVersion));
             setErrorMessage('I dati sono stati aggiornati da un altro utente. I campi sono stati ricaricati; puoi continuare la modifica o uscire intenzionalmente.');
             return;
           }
@@ -218,7 +217,9 @@ export function useNodeDetail(nodeId: string) {
     });
   };
 
-  const displayedError = errorMessage
+  const displayedError = formStale
+    ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.'
+    : errorMessage
     ?? (childrenError ? `Errore nel caricamento del nodo: ${childrenError.message}`
       : entitiesError ? `Errore nel caricamento delle entità: ${entitiesError.message}` : null);
   const nodeErrorCode = (nodeError as (Error & { code?: string }) | null)?.code;

@@ -1,9 +1,9 @@
 'use client';
 
 /** Coordinates entity detail editing, soft deletion, locking, and safe return navigation. */
-import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppCache, hasStaleOptimisticEdit, isRowVersionMismatch } from '../../../../../cache/GlobalCacheClient';
+import { AppCache, isRowVersionMismatch } from '../../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../../hooks/useLock';
@@ -17,6 +17,14 @@ import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/
 import { requestConfirmation } from '../../../../../components/ui/feedback/ConfirmDialogStore';
 import { useDeletionReturnContext } from '../../../../../navigation/returnContext';
 import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../../../errors/resourceDeleteError';
+import {
+  abandonConcurrentEdit,
+  acceptConcurrentEditVersion,
+  beginConcurrentEdit,
+  canSubmitConcurrentEdit,
+  IDLE_CONCURRENT_EDIT,
+  reconcileConcurrentEdit,
+} from '../../../../../editing/ConcurrentEditLifecycle';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
@@ -38,9 +46,15 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
-  const editingRowVersion = useRef<number | null>(null);
-  const [formStale, setFormStale] = useState(false);
+  const [editLifecycle, setEditLifecycle] = useState(IDLE_CONCURRENT_EDIT);
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
+  const reconciledEditLifecycle = reconcileConcurrentEdit(editLifecycle, {
+    ownsLock: lock.isMyLock,
+    currentRowVersion: detail.entity?.rowVersion,
+    mutationPending: AppCache.mutations.isPending(`entity:${entityId}`),
+    currentVersionIsLocal: detail.entity ? AppCache.mutations.isLocalVersion(`entity:${entityId}`, detail.entity.rowVersion) : false,
+  });
+  const formStale = reconciledEditLifecycle.stale;
   const entityType = detail.entity
     ? Object.values(entityTypes).find(
         (type) => type.id === detail.entity!.entityTypeId || type.typeKey === detail.entity!.entityTypeId,
@@ -65,42 +79,29 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const beginEditing = async () => {
     if (!detail.entity) return false;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
-    editingRowVersion.current = detail.entity.rowVersion;
-    setFormStale(false);
+    setEditLifecycle(beginConcurrentEdit(detail.entity.rowVersion));
     return lock.acquireLock();
   };
   const cancelEditing = async () => {
     if (!detail.entity) return;
     if (!(await navigationGuard.confirmDiscard())) return;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
-    editingRowVersion.current = null;
-    setFormStale(false);
+    setEditLifecycle(abandonConcurrentEdit());
     await lock.releaseLock();
   };
-
-  useEffect(() => {
-    if (!lock.isMyLock || !detail.entity || editingRowVersion.current === null
-      || AppCache.mutations.isPending(`entity:${entityId}`)
-      || AppCache.mutations.isLocalVersion(`entity:${entityId}`, detail.entity.rowVersion)) return;
-    if (hasStaleOptimisticEdit(editingRowVersion.current, detail.entity.rowVersion)) {
-      setFormStale(true);
-      setErrorMessage('I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.');
-    }
-  }, [detail.entity, lock.isMyLock, entityId]);
 
   const reloadFresh = async () => {
     const refreshed = await AppCache.refreshEntity(entityId, detail.entity?.entityTypeId ?? '');
     if (!refreshed) return;
     setName(refreshed.name); setDescription(refreshed.description || ''); setPayload(refreshed.payload || {}); setAttachments({});
-    editingRowVersion.current = refreshed.rowVersion;
-    setFormStale(false);
+    setEditLifecycle(acceptConcurrentEditVersion(refreshed.rowVersion));
     setErrorMessage('Dati aggiornati. Puoi continuare la modifica.');
   };
 
   const save = (event: FormEvent) => {
     event.preventDefault();
     if (!detail.entity) return;
-    if (formStale || hasStaleOptimisticEdit(editingRowVersion.current, detail.entity.rowVersion)) return;
+    if (!canSubmitConcurrentEdit(reconciledEditLifecycle, detail.entity.rowVersion)) return;
     setErrorMessage(null); setSuccessMessage(null);
     startTransition(async () => {
       try {
@@ -117,8 +118,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         const updatedEntity = await AppCache.updateEntity({ entityId, name, description, payloadDelta: processed, expectedRowVersion: detail.entity!.rowVersion });
         // The local mutation response is authoritative. Advance the editing
         // snapshot before the asynchronous lock release can trigger a render.
-        editingRowVersion.current = updatedEntity.rowVersion;
-        setFormStale(false);
+        setEditLifecycle(acceptConcurrentEditVersion(updatedEntity.rowVersion));
         await uploadDynamicAttachments('entity', entityId, fields, attachments);
         setAttachments({});
         await lock.releaseLock(); setSuccessMessage('Entità aggiornata con successo.');
@@ -130,8 +130,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
             setDescription(refreshed.description || '');
             setPayload(refreshed.payload || {});
             setAttachments({});
-            editingRowVersion.current = refreshed.rowVersion;
-            setFormStale(false);
+            setEditLifecycle(acceptConcurrentEditVersion(refreshed.rowVersion));
             setErrorMessage('I dati sono stati aggiornati da un altro utente. I campi sono stati ricaricati; puoi continuare la modifica o uscire intenzionalmente.');
             return;
           }
@@ -173,5 +172,5 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     confirmDelete();
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage, deleteRestriction, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
+  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage: formStale ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.' : errorMessage, deleteRestriction, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }
