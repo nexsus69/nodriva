@@ -131,6 +131,80 @@ Prima di modificare cache, fetch o resolver per un'anomalia UI, verificare in
 ordine: persistenza/risposta, scrittura canonica, notifica, memoizzazione e
 rendering. La modifica deve fermarsi al primo livello che fallisce.
 
+## Continuità delle interazioni
+
+Ogni superficie interattiva — screen, pagina, collection, albero, dettaglio,
+form, drawer, modale e controllo riusabile — osserva lo stesso contratto di
+continuità. Il contratto riguarda la transizione percepita dalla persona,
+non il particolare componente che la rende.
+
+### Identità stabile
+
+Un controller, una view cache, una form surface o una sottoscrizione può
+dipendere soltanto dal proprio contesto semantico stabile: identità/sessione,
+route, scope autorizzato, risorsa selezionata e dichiarazione immutabile della
+funzione. Non può dipendere da un risultato temporaneo di un'interazione, da
+un errore, da un flag pending, dal contenuto di una bozza o da dati ricevuti
+dopo il mount.
+
+Questi ultimi sono snapshot del lifecycle del controller esistente. Cambiarli
+non può costruire un nuovo controller, azzerare la cache della vista,
+riavviare il caricamento iniziale, rimontare una superficie o perdere stato
+utente. Un cambio reale di contesto semantico crea invece una nuova identità e
+deve dichiarare esplicitamente il destino di selezione, filtri, pagina, scroll,
+lock e bozze.
+
+### Classi di operazione
+
+Ogni callback asincrona dichiara una sola semantica primaria e usa il
+lifecycle condiviso del proprio owner:
+
+| Classe | Effetto sulla proiezione | Stato utente da preservare |
+|---|---|---|
+| caricamento iniziale | acquisisce la prima proiezione autorevole | geometria di caricamento e focus quando applicabili |
+| refresh o invalidazione realtime | rilegge la proiezione sul controller corrente | righe precedenti, filtri, ordinamento, pagina, scroll, selezione e bozze compatibili |
+| probe o verifica | aggiorna l'esito dell'operazione o della risorsa interessata | intera vista e tutte le superfici non coinvolte |
+| mutazione | applica il risultato autorevole oppure invalida e rilegge la proiezione corrente | vista, contesto di lavoro e bozze non rese invalide dalla mutazione |
+| navigazione, logout o cambio identità | sostituisce intenzionalmente il contesto | solo lo stato dichiarato dal contratto di transizione |
+
+Un refresh in background non trasforma una vista già utilizzabile in skeleton.
+Un probe non è un refresh nascosto. Una mutazione non può dichiararsi riuscita
+finché il suo risultato autorevole, invalidazione o errore non è stato
+riconciliato nel proprio owner. Logout, risposta non autorizzata e cambio
+identità restano transizioni di sicurezza e possono effettuare il purge
+globale previsto dalla sezione Sessione e sicurezza.
+
+### Owner e composizione
+
+Lo stato condiviso appartiene a cache, coordinator o controller; lo stato di
+una superficie appartiene alla sua form surface, navigation controller o
+interaction controller. `useState` locale è ammesso soltanto per dettagli di
+presentazione effimeri, quali apertura di un menu, focus, query non ancora
+applicata o espansione locale. Non deve possedere una seconda copia di dati
+autorevoli, né decidere in autonomia refresh, retry, invalidazione, lock,
+sessione, draft persistenti o transizioni di navigazione.
+
+Una screen compone owner già definiti e fornisce configurazione immutabile. Se
+due screen condividono una categoria di operazione, il protocollo di pending,
+errore, conciliazione e conservazione dello stato vive in un oggetto generico
+riusabile, non in callback locali equivalenti. L'owner non deve diventare una
+classe universale: cache di dominio, controller di form e controller di
+collection possono differire internamente, ma espongono le stesse transizioni
+osservabili per la stessa classe di operazione.
+
+### Verifica obbligatoria
+
+Ogni owner di lifecycle copre con test le proprie transizioni: primo
+caricamento, refresh con dati precedenti visibili, risposta obsoleta, errore e
+retry. Un owner che esegue probe o mutazioni copre inoltre controller stabile,
+assenza di reload non richiesto, conservazione di selezione/filtro/bozza e
+riconciliazione dell'esito. Le transizioni di navigazione, sessione e lock
+coprono il loro cleanup esplicito.
+
+Prima di introdurre un nuovo hook o stato locale, il modulo deve indicare
+l'owner già esistente oppure motivare un nuovo owner in base a una transizione
+osservabile non coperta. Una pagina non è un owner di lifecycle.
+
 ## Contratto progettuale obbligatorio per componenti e hook
 
 Prima di introdurre o modificare in modo sostanziale un componente, uno screen
