@@ -14,6 +14,11 @@ ENV NEXT_PUBLIC_PUSHER_KEY=${NEXT_PUBLIC_PUSHER_KEY} \
     NEXT_PUBLIC_PUSHER_HOST=${NEXT_PUBLIC_PUSHER_HOST} \
     NEXT_PUBLIC_PUSHER_PORT=${NEXT_PUBLIC_PUSHER_PORT} \
     NEXT_PUBLIC_PUSHER_SCHEME=${NEXT_PUBLIC_PUSHER_SCHEME}
+# Next evaluates server configuration while collecting page data. This value is
+# syntactically valid but unreachable and is replaced by the deployment secret
+# at runtime, so a clean image build never embeds a database credential.
+ENV DATABASE_ADAPTER=postgres \
+    DATABASE_URL=postgresql://build:build@postgres:5432/dashboard
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/core/package.json packages/core/package.json
