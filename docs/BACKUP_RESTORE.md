@@ -78,8 +78,9 @@ Per verificare un archivio già prodotto:
 Il file `.sha256` affiancato è obbligatorio anche per `verify`: un checksum
 mancante, malformato o non corrispondente interrompe la procedura prima del
 restore. La verifica controlla inoltre la presenza e l'interrogabilità delle
-tabelle principali e confronta fra sorgente e copia ripristinata i conteggi di
-utenti, nodi, entità, tipi, audit, allegati, cifratura campi e outbox realtime.
+tabelle principali e verifica che i conteggi siano interrogabili nella copia
+ripristinata per utenti, nodi, entità, tipi, audit, allegati, cifratura campi e
+outbox realtime. Non confronta il database sorgente che può essere cambiato.
 
 ## Restore operativo
 
@@ -110,3 +111,12 @@ Il backup deve essere schedulato esternamente con retention, copia fuori host,
 monitoraggio degli errori e alert sull’assenza dell’ultimo backup verificato.
 Un backup è considerato valido solo se il restore temporaneo è riuscito; la
 sola presenza del file non è sufficiente.
+
+## Copertura automatica
+
+La CI esegue `pnpm db:backup:verify` contro il servizio PostgreSQL di test,
+utilizzando `pg_dump` e `pg_restore` della stessa immagine del server. Il restore
+avviene sempre in un secondo database temporaneo. Per SQLite esegue
+`node scripts/sqlite-backup-verify.test.mjs` dopo la build Core: schema
+applicativo reale, record di controllo conservato nello snapshot, manifest,
+maintenance e sospensione tramite policy runtime.

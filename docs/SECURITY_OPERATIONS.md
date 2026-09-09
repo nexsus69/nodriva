@@ -70,6 +70,19 @@ Account-action delivery claims use an exclusive lease with bounded stale-lease
 recovery in both PostgreSQL and SQLite. A second worker cannot receive the same
 live claim; a crashed worker's claim becomes retryable after five minutes.
 
+Account recovery issuance checks the actor's superadmin authority and reads the
+recipient inside the transaction that persists the token, audit and delivery
+intent. An authorization revocation committed before that transaction must
+prevent issuance on both adapters. `AccountRecoveryApplicationService` owns
+this rule through the existing access-control and transaction ports.
+
+The public completion action uses the shared Web error mapper with an explicit
+account-completion context: invalid, expired and consumed tokens share one
+safe message; invalid passwords remain validation failures; infrastructure
+failures receive a retryable internal-error message, never an invalid-link
+message. A failed transaction leaves the token available for retry and the
+form retains the entered password. Internal error details stay server-side.
+
 ## Portability review
 
 PostgreSQL-specific features are confined to `infrastructure/postgres` and its

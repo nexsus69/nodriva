@@ -51,6 +51,21 @@ operativa isolata. Per servizi esterni, la verifica operativa appartiene al
 relativo provider/orchestratore; Nodriva non richiede Docker né un timer
 systemd per funzionare.
 
+## Verifiche CI isolate
+
+La CI esegue integrazioni e contract PostgreSQL con ruolo ristretto, restore
+PostgreSQL in database temporaneo e snapshot/restore SQLite sullo schema
+applicativo. Il job browser ha due profili: `parity` mantiene realtime
+esplicitamente disabilitato e include il recovery con errore audit e retry;
+`realtime` usa Soketi con credenziali di test e `pnpm e2e:realtime`.
+Quest'ultimo verifica frame websocket di acquisizione/rilascio lock, aggiornamento
+di un nodo nella seconda sessione senza reload, pubblicazione outbox e
+protezione dell'endpoint worker. La sola comparsa di una modifica dopo polling
+non soddisfa il test realtime.
+
+Le verifiche CI non certificano HTTPS, antivirus, alert esterni o un recovery
+coordinato degli allegati e delle chiavi nel deployment di destinazione.
+
 ## Backup e restore verificato
 
 Il backup è considerato valido solo dopo un restore in un database temporaneo:

@@ -1,7 +1,10 @@
 'use server';
 
+/** Completes one-time account actions with safe, contextual error responses. */
+
 import type { AccountActionPurpose } from '@dashboard/core';
 import { AuthResolver } from './auth/AuthResolver';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 
 export async function issueAccountActionAction(userId: string, purpose: AccountActionPurpose) {
   const actorUserId = await AuthResolver.resolveActorUserId();
@@ -16,9 +19,7 @@ export async function completeAccountActionAction(token: string, password: strin
     await accountRecoveryService.complete(token, password);
     return { success: true as const };
   } catch (error) {
-    const message = error instanceof Error && error.message === 'Invalid password.'
-      ? error.message
-      : 'Il link non è valido, è scaduto o è già stato utilizzato.';
-    return { success: false as const, error: message };
+    const mapped = mapAppErrorToApiErrorResponse(error, 'account-completion');
+    return { success: false as const, error: mapped.message };
   }
 }

@@ -1,3 +1,5 @@
+/** Verifies application-schema SQLite snapshots, recovery and scheduled policy. */
+import { SqliteInfrastructure } from '../packages/core/dist/index.js';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
@@ -7,8 +9,10 @@ import { spawnSync } from 'node:child_process';
 const root = await mkdtemp(path.join(os.tmpdir(), 'nodriva-sqlite-backup-'));
 try {
   const source = path.join(root, 'source.sqlite');
+  const infrastructure = new SqliteInfrastructure(source);
+  infrastructure.close();
   const db = new DatabaseSync(source);
-  db.exec("CREATE TABLE records (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO records(value) VALUES ('verified'); CREATE TABLE system_settings (setting_key TEXT PRIMARY KEY, value_text TEXT, deleted_at TEXT);");
+  db.exec("CREATE TABLE records (id INTEGER PRIMARY KEY, value TEXT); INSERT INTO records(value) VALUES ('verified');");
   db.close();
   const backup = path.join(root, 'backup.sqlite');
   const result = spawnSync(process.execPath, ['scripts/sqlite-backup-verify.mjs', 'backup-verify', backup], { cwd: process.cwd(), env: { ...process.env, SQLITE_DATABASE_PATH: source } });
@@ -27,7 +31,8 @@ try {
   const status = JSON.parse(await readFile(path.join(maintenanceRoot, 'last-status.json'), 'utf8'));
   if (status.status !== 'completed' || status.restoreVerification !== 'passed') throw new Error('invalid maintenance status');
   const policy = new DatabaseSync(source);
-  policy.exec("INSERT INTO system_settings(setting_key, value_text, deleted_at) VALUES ('backup.scheduledEnabled', 'false', NULL)");
+  const updated = policy.prepare("UPDATE system_settings SET value_text='false' WHERE setting_key='backup.scheduledEnabled'").run();
+  if (updated.changes !== 1) throw new Error('backup scheduling policy is missing from the application schema');
   policy.close();
   const paused = spawnSync(process.execPath, ['scripts/sqlite-backup-maintenance.mjs'], {
     cwd: process.cwd(),

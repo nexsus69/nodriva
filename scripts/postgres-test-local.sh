@@ -23,3 +23,6 @@ export REQUIRE_RESTRICTED_DB_ROLE=true
 
 cd "${workspace_dir}"
 pnpm test:postgres
+
+# Optional additional checks share this isolated database before teardown.
+if [[ $# -gt 0 ]]; then "$@"; fi

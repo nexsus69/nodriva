@@ -5,6 +5,7 @@ import {
   PgExecutor,
   SqliteInfrastructure,
   SystemSeedPostgres,
+  ServiceConfigurationRepositoryPostgres,
   TransactionPortPostgres,
 } from '../packages/core/dist/index.js';
 
@@ -43,13 +44,19 @@ function parityNode(id = nodeId, path = 'admin_parity_root', name = 'Admin parit
   );
 }
 
+// Configure the authoritative capability policy, not the legacy capability rows.
+async function configureRealtime(repository, enabled) {
+  const current = await repository.get('realtime');
+  await repository.setRuntimeValues('realtime', 'soketi', { enabled }, current?.version ?? 1);
+}
+
 async function seedSqlite() {
   process.env.SEED_ADMIN_PASSWORD = password;
   process.env.SEED_ADMIN_EMAIL = adminEmail;
   const infrastructure = new SqliteInfrastructure(sqlitePath);
   try {
     await infrastructure.systemSeedService.seedDatabase();
-    infrastructure.database.run("UPDATE runtime_capabilities SET default_status='disabled' WHERE capability_key='realtime'");
+    await configureRealtime(infrastructure.serviceConfigurationRepository, false);
     infrastructure.database.run(
       'INSERT INTO node_types(id,type_key,name,description) VALUES(?,?,?,?)',
       [nodeTypeId, 'admin_parity_root', 'Admin parity root', 'Fixture E2E'],
@@ -71,7 +78,7 @@ async function seedPostgres() {
     // so the configured fixture administrator receives the canonical id.
     await executor.query('DELETE FROM users');
     await new SystemSeedPostgres(executor, transaction, password, adminEmail).seedDatabase();
-    await executor.query("UPDATE runtime_capabilities SET default_status='disabled' WHERE capability_key='realtime'");
+    await configureRealtime(new ServiceConfigurationRepositoryPostgres(executor), process.env.PARITY_REALTIME_ENABLED === 'true');
     await executor.query('DELETE FROM users WHERE id<>$1', [adminId]);
     await executor.query(
       `INSERT INTO node_types(id,type_key,name,description)

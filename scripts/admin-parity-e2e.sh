@@ -11,6 +11,7 @@ sqlite_attachments="$(mktemp -d /tmp/dashboard-admin-parity-sqlite-attachments-X
 postgres_attachments="$(mktemp -d /tmp/dashboard-admin-parity-postgres-attachments-XXXXXX)"
 sqlite_log="$(mktemp /tmp/dashboard-admin-parity-sqlite-XXXXXX.log)"
 postgres_log="$(mktemp /tmp/dashboard-admin-parity-postgres-XXXXXX.log)"
+realtime_enabled="${PARITY_REALTIME_ENABLED:-false}"
 session_idle_timeout_seconds="${PARITY_SESSION_IDLE_TIMEOUT_SECONDS:-1800}"
 sqlite_pid=""
 postgres_pid=""
@@ -95,7 +96,7 @@ upgrade_test_database
 
 if [[ "${PARITY_SKIP_BUILD:-false}" != true ]]; then
   pnpm --filter @dashboard/core build
-  NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" pnpm --filter @dashboard/web build
+  NEXT_PUBLIC_REALTIME_ENABLED="${realtime_enabled}" NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" pnpm --filter @dashboard/web build
 fi
 
 admin_email="admin-parity@dashboard.test"
@@ -113,17 +114,18 @@ NEXTAUTH_SECRET="${common_secret}" \
 NEXTAUTH_URL="http://127.0.0.1:3101" \
 ACCOUNT_ACTION_PUBLIC_BASE_URL="http://127.0.0.1:3101" \
 NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" \
-NEXT_PUBLIC_REALTIME_ENABLED=false \
+NEXT_PUBLIC_REALTIME_ENABLED="${realtime_enabled}" \
 ATTACHMENTS_ROOT="${sqlite_attachments}" \
 pnpm --filter @dashboard/web exec next start -p 3101 >"${sqlite_log}" 2>&1 &
 sqlite_pid="$!"
 
+DATABASE_ADAPTER=postgres \
 DATABASE_URL="${postgres_app_url}" \
 NEXTAUTH_SECRET="${common_secret}" \
 NEXTAUTH_URL="http://127.0.0.1:3102" \
 ACCOUNT_ACTION_PUBLIC_BASE_URL="http://127.0.0.1:3102" \
 NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" \
-NEXT_PUBLIC_REALTIME_ENABLED=false \
+NEXT_PUBLIC_REALTIME_ENABLED="${realtime_enabled}" \
 ATTACHMENTS_ROOT="${postgres_attachments}" \
 pnpm --filter @dashboard/web exec next start -p 3102 >"${postgres_log}" 2>&1 &
 postgres_pid="$!"
@@ -152,6 +154,13 @@ fi
 # Exposed only to the Playwright process. The URL targets the isolated
 # dashboard_admin_e2e_test database created above and lets diagnostic E2E
 # assertions distinguish an HTTP/UI projection problem from persistence.
+E2E_RUN=true \
+E2E_REALTIME_RUN="${realtime_enabled}" \
+E2E_BASE_URL="http://127.0.0.1:3102" \
+E2E_EMAIL="${admin_email}" \
+E2E_PASSWORD="${admin_password}" \
+E2E_USER_ID="00000000-0000-0000-0000-000000000001" \
+E2E_SQLITE_DATABASE_PATH="${sqlite_path}" \
 E2E_ADMIN_PARITY_RUN=true \
 E2E_SQLITE_BASE_URL="http://127.0.0.1:3101" \
 E2E_POSTGRES_BASE_URL="http://127.0.0.1:3102" \

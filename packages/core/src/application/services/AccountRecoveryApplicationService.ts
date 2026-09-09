@@ -26,14 +26,14 @@ export class AccountRecoveryApplicationService {
     private readonly drainer?: AccountActionDeliveryDrainer) {}
 
   async issue(actorUserId: string, userId: string, purpose: AccountActionPurpose): Promise<{ token: string; expiresAt: Date }> {
-    await this.access.assertIsSuperAdmin(actorUserId);
-    const user = await this.users.findById(userId);
-    if (!user) throw new UnauthorizedError('User not found');
-    if (!this.delivery || !this.outbox || !this.cipher || !this.drainer) throw new Error('Account action delivery is not configured.');
     const token = crypto.randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const deliveryId = crypto.randomUUID();
     await this.transactions.runInTransaction(async () => {
+      await this.access.assertIsSuperAdmin(actorUserId);
+      const user = await this.users.findById(userId);
+      if (!user) throw new UnauthorizedError('User not found');
+      if (!this.delivery || !this.outbox || !this.cipher || !this.drainer) throw new Error('Account action delivery is not configured.');
       await this.tokens.create({ userId, purpose, tokenHash: crypto.createHash('sha256').update(token).digest('hex'), expiresAt, createdBy: actorUserId });
       await this.outbox!.enqueue({ id: deliveryId, email: user.email, purpose, tokenCiphertext: this.cipher!.encrypt(token), expiresAt });
       await this.audit.record(actorUserId, `user.${purpose}_issued`, 'user', userId, null, null, { expiresAt: expiresAt.toISOString(), deliveryId });

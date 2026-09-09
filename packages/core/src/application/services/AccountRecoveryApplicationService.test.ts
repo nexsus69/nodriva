@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AccountRecoveryApplicationService } from './AccountRecoveryApplicationService.js';
 import { User } from '../../domain/models/User.js';
+import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { AccountActionTokenPort } from '../ports/AccountActionTokenPort.js';
 import type { UserRepository } from '../ports/UserRepository.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
@@ -55,6 +56,35 @@ function createService() {
 }
 
 describe('AccountRecoveryApplicationService', () => {
+  it('checks authority and reads the recipient only inside the issuance transaction', async () => {
+    const context = createService();
+    let inTransaction = false;
+    vi.mocked(context.transactions.runInTransaction).mockImplementation(async (work) => {
+      inTransaction = true;
+      try { return await work(); } finally { inTransaction = false; }
+    });
+    vi.mocked(context.access.assertIsSuperAdmin).mockImplementation(async () => {
+      expect(inTransaction).toBe(true);
+    });
+    vi.mocked(context.users.findById).mockImplementation(async () => {
+      expect(inTransaction).toBe(true);
+      return User.create('recipient', 'recipient@example.test', 'unused');
+    });
+    await context.service.issue('admin', 'recipient', 'password_reset');
+    expect(context.access.assertIsSuperAdmin).toHaveBeenCalledOnce();
+  });
+
+  it('preserves authorization denials when delivery is not configured', async () => {
+    const context = createService();
+    vi.mocked(context.access.assertIsSuperAdmin).mockRejectedValue(new ForbiddenError());
+    const service = new AccountRecoveryApplicationService(
+      context.tokens, context.users, context.sessions, context.audit, context.transactions, context.access,
+    );
+    await expect(service.issue('operator', 'recipient', 'password_reset')).rejects.toMatchObject({ code: 'ACCESS_FORBIDDEN' });
+    expect(context.users.findById).not.toHaveBeenCalled();
+    expect(context.tokens.create).not.toHaveBeenCalled();
+  });
+
   it('rejects a weak password before consuming the one-time token', async () => {
     const context = createService();
     await expect(context.service.complete('token', 'weak')).rejects.toThrow('Invalid password');

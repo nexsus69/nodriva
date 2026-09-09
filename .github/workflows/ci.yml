@@ -46,6 +46,9 @@ jobs:
       - name: Verify repository
         run: pnpm check
 
+      - name: Verify SQLite snapshot, restore and maintenance
+        run: node scripts/sqlite-backup-verify.test.mjs
+
       - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
@@ -110,8 +113,20 @@ jobs:
       - name: Run PostgreSQL integration and parity tests
         run: pnpm test:postgres
 
+      - name: Verify PostgreSQL backup and disposable restore
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          POSTGRES_DATABASE: dashboard_ci_test
+          POSTGRES_USER: postgres
+          BACKUP_ROOT: ${{ runner.temp }}/postgres-backup-test
+        run: pnpm db:backup:verify
+
   e2e-parity:
-    name: Browser parity on SQLite and PostgreSQL
+    name: Browser ${{ matrix.profile }}
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [parity, realtime]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -125,6 +140,20 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d dashboard_e2e_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      soketi:
+        image: quay.io/soketi/soketi:1.6-16-alpine
+        env:
+          SOKETI_DEFAULT_APP_ID: dashboard-e2e
+          SOKETI_DEFAULT_APP_KEY: dashboard-e2e-key
+          SOKETI_DEFAULT_APP_SECRET: dashboard-e2e-secret
+          SOKETI_PORT: "6001"
+        ports:
+          - 6001:6001
+        options: >-
+          --health-cmd "wget -q -O- http://127.0.0.1:6001/ready"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
@@ -165,13 +194,30 @@ jobs:
         run: ./scripts/postgres-test-bootstrap.sh
 
       - name: Run SQLite/PostgreSQL browser parity
+        if: matrix.profile == 'parity'
         run: pnpm e2e:parity
+
+      - name: Verify realtime delivery between browser sessions
+        if: matrix.profile == 'realtime'
+        env:
+          PUSHER_APP_ID: dashboard-e2e
+          NEXT_PUBLIC_PUSHER_KEY: dashboard-e2e-key
+          PUSHER_SECRET: dashboard-e2e-secret
+          NEXT_PUBLIC_PUSHER_CLUSTER: mt1
+          NEXT_PUBLIC_PUSHER_HOST: 127.0.0.1
+          NEXT_PUBLIC_PUSHER_PORT: "6001"
+          NEXT_PUBLIC_PUSHER_SCHEME: http
+          REALTIME_INTERNAL_HOST: 127.0.0.1
+          REALTIME_INTERNAL_PORT: "6001"
+          REALTIME_INTERNAL_SCHEME: http
+          REALTIME_WORKER_SECRET: dashboard-e2e-worker-secret
+        run: pnpm e2e:realtime
 
       - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-parity-results
+          name: playwright-${{ matrix.profile }}-results
           path: |
             test-results
             playwright-report

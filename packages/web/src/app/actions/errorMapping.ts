@@ -60,7 +60,18 @@ function resourceDeleteReferencers(details: Record<string, unknown> | undefined)
  * Domain errors may retain technical messages internally, but only this
  * function decides what is safe and stable to expose to the browser.
  */
-export function mapAppErrorToApiErrorResponse(error: unknown): ApiErrorResponse {
+export function mapAppErrorToApiErrorResponse(
+  error: unknown,
+  context?: 'account-completion',
+): ApiErrorResponse {
+  if (context === 'account-completion' && error instanceof AppError) {
+    if (error.code === 'AUTH_UNAUTHORIZED') {
+      return { code: error.code, message: 'Il link non è valido, è scaduto o è già stato utilizzato.' };
+    }
+    if (error.code === 'VALIDATION_FAILED') {
+      return { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.' };
+    }
+  }
   const authorizationError = mapAuthorizationError(error);
   if (authorizationError) return authorizationError;
 
