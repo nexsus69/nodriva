@@ -418,104 +418,155 @@ async function restoreAndAudit(
   return { restored: true, actions: actions.sort() };
 }
 
-async function closeContexts(contexts: BrowserContext[]): Promise<void> {
-  await Promise.all(contexts.map((context) => context.close()));
+async function runCanonicalPhase<T>(
+  adapter: string,
+  phase: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  console.info(`[canonical:${adapter}] phase=${phase} started`);
+  try {
+    const result = await operation();
+    console.info(`[canonical:${adapter}] phase=${phase} completed durationMs=${Date.now() - startedAt}`);
+    return result;
+  } catch (error) {
+    console.error(`[canonical:${adapter}] phase=${phase} failed durationMs=${Date.now() - startedAt}`, error);
+    throw error;
+  }
+}
+
+async function closeContexts(contexts: BrowserContext[], adapter: string): Promise<void> {
+  const results = await Promise.allSettled(contexts.map((context) => context.close()));
+  const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
+  if (failures.length > 0) {
+    console.warn(`[canonical:${adapter}] browser context cleanup failed after the scenario completed`, failures.map(({ reason }) => reason));
+  }
 }
 
 async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adapter: string): Promise<CanonicalOutcome> {
   const names = scenarioNames(adapter);
-  const adminContext = await browser.newContext();
-  const firstOperatorContext = await browser.newContext();
-  const secondOperatorContext = await browser.newContext();
-  const adminPage = await adminContext.newPage();
-  const firstOperatorPage = await firstOperatorContext.newPage();
-  const secondOperatorPage = await secondOperatorContext.newPage();
+  const [adminContext, firstOperatorContext, secondOperatorContext] = await runCanonicalPhase(
+    adapter,
+    'browser-context-create',
+    () => Promise.all([browser.newContext(), browser.newContext(), browser.newContext()]),
+  );
+  const [adminPage, firstOperatorPage, secondOperatorPage] = await runCanonicalPhase(
+    adapter,
+    'browser-page-create',
+    () => Promise.all([adminContext.newPage(), firstOperatorContext.newPage(), secondOperatorContext.newPage()]),
+  );
 
   try {
-    await login(adminPage, baseUrl, process.env.E2E_ADMIN_EMAIL!, process.env.E2E_ADMIN_PASSWORD!);
-    await createType(adminPage, baseUrl, names);
-    await addManagedEnumOption(adminPage, baseUrl, names);
-    await createOperatorAccess(adminPage, baseUrl, names);
+    await runCanonicalPhase(adapter, 'admin-login', () => login(adminPage, baseUrl, process.env.E2E_ADMIN_EMAIL!, process.env.E2E_ADMIN_PASSWORD!));
+    await runCanonicalPhase(adapter, 'type-and-field-setup', () => createType(adminPage, baseUrl, names));
+    await runCanonicalPhase(adapter, 'managed-enum', () => addManagedEnumOption(adminPage, baseUrl, names));
+    await runCanonicalPhase(adapter, 'operator-access', () => createOperatorAccess(adminPage, baseUrl, names));
 
-    await Promise.all([
-      login(firstOperatorPage, baseUrl, names.operatorEmail, OPERATOR_PASSWORD),
-      login(secondOperatorPage, baseUrl, names.operatorEmail, OPERATOR_PASSWORD),
-    ]);
-    await expect(firstOperatorPage.getByText('Admin parity root', { exact: true })).toBeVisible();
-    await expect(firstOperatorPage.getByText('Outside parity root', { exact: true })).toHaveCount(0);
-    await firstOperatorPage.goto(`${baseUrl}/nodes/${OUTSIDE_NODE_ID}`);
-    await expect(firstOperatorPage.getByRole('heading', { name: 'Accesso al nodo negato' })).toBeVisible();
+    await runCanonicalPhase(adapter, 'operator-login-and-scope', async () => {
+      await Promise.all([
+        login(firstOperatorPage, baseUrl, names.operatorEmail, OPERATOR_PASSWORD),
+        login(secondOperatorPage, baseUrl, names.operatorEmail, OPERATOR_PASSWORD),
+      ]);
+      await expect(firstOperatorPage.getByText('Admin parity root', { exact: true })).toBeVisible();
+      await expect(firstOperatorPage.getByText('Outside parity root', { exact: true })).toHaveCount(0);
+      await firstOperatorPage.goto(`${baseUrl}/nodes/${OUTSIDE_NODE_ID}`);
+      await expect(firstOperatorPage.getByRole('heading', { name: 'Accesso al nodo negato' })).toBeVisible();
+    });
 
-    const childNodeId = await createChildNode(firstOperatorPage, baseUrl, names);
-    await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
-    await firstOperatorPage.reload();
-    const nodeBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
-    await expect(nodeBreadcrumb).toContainText('Admin parity root');
-    await expect(nodeBreadcrumb).toContainText(names.childName);
-    await expect(nodeBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
+    const childNodeId = await runCanonicalPhase(adapter, 'child-node-and-breadcrumb', async () => {
+      const nodeId = await createChildNode(firstOperatorPage, baseUrl, names);
+      await firstOperatorPage.goto(`${baseUrl}/nodes/${nodeId}`);
+      await firstOperatorPage.reload();
+      const nodeBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
+      await expect(nodeBreadcrumb).toContainText('Admin parity root');
+      await expect(nodeBreadcrumb).toContainText(names.childName);
+      await expect(nodeBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
+      return nodeId;
+    });
 
-    await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
-    await openChildCreationFromMenu(firstOperatorPage, names.childName, 'Nuovo sotto-nodo');
-    await firstOperatorPage.getByRole('button', { name: 'Annulla' }).click();
-    await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+    await runCanonicalPhase(adapter, 'creation-navigation-cancel', async () => {
+      await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+      await openChildCreationFromMenu(firstOperatorPage, names.childName, 'Nuovo sotto-nodo');
+      await firstOperatorPage.getByRole('button', { name: 'Annulla' }).click();
+      await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+    });
 
-    const firstEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName, undefined, ROOT_NODE_ID);
-    const secondEntityUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.secondEntityName, names.firstEntityName);
-    await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.thirdEntityName, names.firstEntityName);
+    const [firstEntityUrl, secondEntityUrl] = await runCanonicalPhase(adapter, 'entity-creation', async () => {
+      const firstUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.firstEntityName, undefined, ROOT_NODE_ID);
+      const secondUrl = await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.secondEntityName, names.firstEntityName);
+      await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.thirdEntityName, names.firstEntityName);
+      return [firstUrl, secondUrl] as const;
+    });
 
-    const inverseRelationReplacementReviewed = await exerciseInverseRelationReplacementReview(
-      firstOperatorPage,
-      secondEntityUrl,
-      names,
+    const inverseRelationReplacementReviewed = await runCanonicalPhase(
+      adapter,
+      'inverse-relation-replacement',
+      () => exerciseInverseRelationReplacementReview(firstOperatorPage, secondEntityUrl, names),
     );
 
-    await firstOperatorPage.goto(secondEntityUrl);
-    await firstOperatorPage.reload();
-    const entityBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
-    await expect(entityBreadcrumb).toContainText('Admin parity root');
-    await expect(entityBreadcrumb).toContainText(names.childName);
-    await expect(entityBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
-    await expect(firstOperatorPage.getByText('Planned', { exact: true })).toBeVisible();
-    await expect(firstOperatorPage.getByRole('link', { name: new RegExp(`^${names.firstEntityName}\\s*→$`) })).toBeVisible();
+    await runCanonicalPhase(adapter, 'entity-breadcrumb', async () => {
+      await firstOperatorPage.goto(secondEntityUrl);
+      await firstOperatorPage.reload();
+      const entityBreadcrumb = firstOperatorPage.getByRole('navigation', { name: 'Breadcrumb nodi' });
+      await expect(entityBreadcrumb).toContainText('Admin parity root');
+      await expect(entityBreadcrumb).toContainText(names.childName);
+      await expect(entityBreadcrumb).not.toContainText(/Catena in caricamento|Breadcrumb non disponibile/);
+      await expect(firstOperatorPage.getByText('Planned', { exact: true })).toBeVisible();
+      await expect(firstOperatorPage.getByRole('link', { name: new RegExp(`^${names.firstEntityName}\\s*→$`) })).toBeVisible();
+    });
 
-    const concurrency = await exerciseConcurrency(firstOperatorPage, secondOperatorPage, firstEntityUrl);
+    const concurrency = await runCanonicalPhase(
+      adapter,
+      'concurrent-edit-lock-and-row-version',
+      () => exerciseConcurrency(firstOperatorPage, secondOperatorPage, firstEntityUrl),
+    );
 
-    await firstOperatorPage.goto(secondEntityUrl);
-    await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
-    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
-    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
-    await expect(firstOperatorPage.getByText('Impossibile eliminare la risorsa perché possiede riferimenti attivi.')).toBeVisible();
-    await expect(firstOperatorPage.getByText(/Referenzianti visibili:/)).toBeVisible();
-    await expect(firstOperatorPage.getByText(names.thirdEntityName, { exact: false }).first()).toBeVisible();
-    await expect(firstOperatorPage.locator('[data-resource-delete-restriction="true"]').getByRole('link', { name: 'Apri' })).toBeVisible();
-    await removeIncomingRelationship(firstOperatorPage, names.thirdEntityName);
-    await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
-    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
-    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
-    await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${childNodeId}`);
+    await runCanonicalPhase(adapter, 'restricted-entity-delete', async () => {
+      await firstOperatorPage.goto(secondEntityUrl);
+      await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
+      await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
+      await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
+      await expect(firstOperatorPage.getByText('Impossibile eliminare la risorsa perché possiede riferimenti attivi.')).toBeVisible();
+      await expect(firstOperatorPage.getByText(/Referenzianti visibili:/)).toBeVisible();
+      await expect(firstOperatorPage.getByText(names.thirdEntityName, { exact: false }).first()).toBeVisible();
+      await expect(firstOperatorPage.locator('[data-resource-delete-restriction="true"]').getByRole('link', { name: 'Apri' })).toBeVisible();
+      await removeIncomingRelationship(firstOperatorPage, names.thirdEntityName);
+      await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
+      await firstOperatorPage.getByRole('menuitem', { name: 'Elimina entità' }).click();
+      await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina' }).click();
+      await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${childNodeId}`);
+    });
 
-    const lifecycle = await restoreAndAudit(adminPage, baseUrl, names.secondEntityName, adapter);
-    await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
-    await firstOperatorPage.locator('h1').getByRole('button', { name: `Azioni per ${names.childName}` }).click();
-    await firstOperatorPage.getByRole('menuitem', { name: 'Elimina nodo' }).click();
-    await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina nodo' }).click();
-    await expect(firstOperatorPage.getByText(/Errore durante l'eliminazione del nodo/i)).toHaveCount(0);
-    await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
-    await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
-    const nodeDeletedViaMenu = true;
+    const lifecycle = await runCanonicalPhase(
+      adapter,
+      'entity-restore-and-audit',
+      () => restoreAndAudit(adminPage, baseUrl, names.secondEntityName, adapter),
+    );
+    const nodeDeletedViaMenu = await runCanonicalPhase(adapter, 'node-delete', async () => {
+      await firstOperatorPage.goto(`${baseUrl}/nodes/${childNodeId}`);
+      await firstOperatorPage.locator('h1').getByRole('button', { name: `Azioni per ${names.childName}` }).click();
+      await firstOperatorPage.getByRole('menuitem', { name: 'Elimina nodo' }).click();
+      await firstOperatorPage.getByRole('alertdialog').getByRole('button', { name: 'Elimina nodo' }).click();
+      await expect(firstOperatorPage.getByText(/Errore durante l'eliminazione del nodo/i)).toHaveCount(0);
+      await expect(firstOperatorPage).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+      await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toHaveCount(0);
+      return true;
+    });
 
-    await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
-    await adminPage.reload();
-    const subtreeOperation = adminPage.getByRole('row').filter({ hasText: names.childName });
-    await expect(subtreeOperation).toContainText('Nodo e contenuto');
-    await expect(adminPage.getByText(names.firstEntityName, { exact: true })).toHaveCount(0);
-    await expect(adminPage.getByText(names.thirdEntityName, { exact: true })).toHaveCount(0);
-    await subtreeOperation.getByRole('button', { name: /Azioni|Actions/i }).click();
-    await adminPage.getByRole('menuitem', { name: 'Ripristina tutto' }).click();
-    await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina tutto' }).click();
-    await expect(adminPage.getByText(names.childName, { exact: true })).toHaveCount(0);
-    await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
-    await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toBeVisible();
+    await runCanonicalPhase(adapter, 'subtree-restore', async () => {
+      await adminPage.goto(`${baseUrl}/admin/governance/recycle-bin`);
+      await adminPage.reload();
+      const subtreeOperation = adminPage.getByRole('row').filter({ hasText: names.childName });
+      await expect(subtreeOperation).toContainText('Nodo e contenuto');
+      await expect(adminPage.getByText(names.firstEntityName, { exact: true })).toHaveCount(0);
+      await expect(adminPage.getByText(names.thirdEntityName, { exact: true })).toHaveCount(0);
+      await subtreeOperation.getByRole('button', { name: /Azioni|Actions/i }).click();
+      await adminPage.getByRole('menuitem', { name: 'Ripristina tutto' }).click();
+      await adminPage.getByRole('alertdialog').getByRole('button', { name: 'Ripristina tutto' }).click();
+      await expect(adminPage.getByText(names.childName, { exact: true })).toHaveCount(0);
+      await firstOperatorPage.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+      await expect(firstOperatorPage.getByRole('link', { name: names.childName, exact: true })).toBeVisible();
+    });
 
     return {
       outsideScopeDenied: true,
@@ -533,7 +584,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       auditActions: lifecycle.actions,
     };
   } finally {
-    await closeContexts([adminContext, firstOperatorContext, secondOperatorContext]);
+    await closeContexts([adminContext, firstOperatorContext, secondOperatorContext], adapter);
   }
 }
 

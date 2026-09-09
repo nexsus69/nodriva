@@ -84,9 +84,21 @@ if [[ -n "${PARITY_POSTGRES_ADMIN_URL:-}" || -n "${PARITY_POSTGRES_APP_URL:-}" ]
 else
   postgres_ip="$(docker inspect --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${postgres_container}")"
   postgres_password="$(docker exec "${postgres_container}" printenv POSTGRES_PASSWORD)"
-  production_app_url="$(docker exec "${web_container}" printenv DATABASE_URL)"
-  production_app_url="${production_app_url/@postgres:/@${postgres_ip}:}"
-  postgres_admin_url="postgresql://postgres:${postgres_password}@${postgres_ip}:5432/${test_database}"
+  if production_app_url="$(docker exec "${web_container}" printenv DATABASE_URL 2>/dev/null)"; then
+    production_app_url="${production_app_url/@postgres:/@${postgres_ip}:}"
+    postgres_admin_url="postgresql://postgres:${postgres_password}@${postgres_ip}:5432/${test_database}"
+  else
+    # The production runtime derives DATABASE_URL in its entrypoint so the
+    # database password is never retained in the container environment.
+    # Reconstruct the isolated test URL from the same inputs without logging
+    # any credential, preserving compatibility with the older direct-URL form.
+    dashboard_web_password="$(docker exec "${web_container}" printenv DASHBOARD_WEB_PASSWORD)"
+    encoded_dashboard_web_password="$(DASHBOARD_WEB_PASSWORD="${dashboard_web_password}" node -p 'encodeURIComponent(process.env.DASHBOARD_WEB_PASSWORD)')"
+    encoded_postgres_password="$(POSTGRES_PASSWORD="${postgres_password}" node -p 'encodeURIComponent(process.env.POSTGRES_PASSWORD)')"
+    postgres_port="$(docker exec "${web_container}" printenv DASHBOARD_POSTGRES_PORT)"
+    production_app_url="postgresql://dashboard_web:${encoded_dashboard_web_password}@${postgres_ip}:${postgres_port}/dashboard"
+    postgres_admin_url="postgresql://postgres:${encoded_postgres_password}@${postgres_ip}:${postgres_port}/${test_database}"
+  fi
 fi
 postgres_app_url="${production_app_url%/*}/${test_database}"
 
