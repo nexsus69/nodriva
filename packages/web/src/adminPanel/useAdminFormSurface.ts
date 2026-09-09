@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import type { SetStateAction } from "react";
 import {
   useAdminWorkspaceStore,
+  type AdminFormDraft,
   type AdminSurfaceState,
 } from "./AdminWorkspaceStore";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
@@ -35,6 +36,26 @@ export interface AdminFormSurfaceIdentity {
   resourceId?: string;
 }
 
+/** Resolves an open form from its stable surface identity and persisted draft. */
+export function resolveAdminFormSurfaceState<T extends object>({
+  initialValues,
+  draft,
+  surface,
+  moduleKey,
+  surfaceKey,
+}: {
+  initialValues: T;
+  draft?: AdminFormDraft;
+  surface: AdminSurfaceState | null;
+  moduleKey: string;
+  surfaceKey: string;
+}) {
+  const values = { ...initialValues, ...(draft?.values as Partial<T> | undefined) };
+  const baseline = draft?.baseline ?? (initialValues as Record<string, unknown>);
+  const isOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
+  return { values, isOpen, isDirty: draft !== undefined && !areValuesEqual(values, baseline) };
+}
+
 /** Exposes a reload-safe form surface with configurable draft cleanup semantics. */
 export function useAdminFormSurface<T extends object>({
   moduleKey,
@@ -61,15 +82,13 @@ export function useAdminFormSurface<T extends object>({
   const closeSurface = useAdminWorkspaceStore((state) => state.closeSurface);
   const saveDraft = useAdminWorkspaceStore((state) => state.saveDraft);
   const removeDraft = useAdminWorkspaceStore((state) => state.removeDraft);
-  const values = useMemo(
-    () => ({ ...initialValues, ...(draft?.values as Partial<T> | undefined) }),
-    [draft?.values, initialValues],
+  const resolvedState = useMemo(
+    () => resolveAdminFormSurfaceState({ initialValues, draft, surface, moduleKey, surfaceKey }),
+    [draft, initialValues, moduleKey, surface, surfaceKey],
   );
-  const baseline = draft?.baseline ?? (initialValues as Record<string, unknown>);
-  const isOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
+  const { values, isOpen, isDirty } = resolvedState;
   // A draft is dirty only when its values differ from the initial form state.
   // This lets a user type, clear the field, and close without a false warning.
-  const isDirty = draft !== undefined && !areValuesEqual(values, baseline);
   useUnsavedChanges(isDirty);
 
   /** Opens the configured modal or drawer without changing its draft. */
