@@ -99,6 +99,29 @@ describe("AdminResourceController", () => {
     expect(controller.getSnapshot().rows).toEqual([{ id: "2", name: "Updated" }]);
   });
 
+  it("reconciles a successful mutation with one authoritative reload while preserving visible rows", async () => {
+    let resolveReload!: (rows: readonly Row[]) => void;
+    const reload = new Promise<readonly Row[]>((resolve) => { resolveReload = resolve; });
+    const load = vi.fn()
+      .mockResolvedValueOnce([{ id: "1", name: "Initial" }])
+      .mockReturnValueOnce(reload);
+    const definition = defineAdminResource<Row>({
+      key: "mutating", moduleKey: "example.module", label: "Mutating", description: "Mutating",
+      list: { load, columns: [], emptyLabel: "Empty", loadingLabel: "Loading" },
+    });
+    const controller = new AdminResourceController(definition, undefined);
+    await controller.loadList();
+
+    const mutation = controller.executeAction({ key: "save", label: "Save", execute: async () => undefined }, { id: "1", name: "Initial" });
+    expect(controller.getSnapshot().pending).toBe(true);
+    expect(controller.getSnapshot().rows).toEqual([{ id: "1", name: "Initial" }]);
+    resolveReload([{ id: "1", name: "Saved" }]);
+    await mutation;
+
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(controller.getSnapshot()).toMatchObject({ pending: false, loading: false, rows: [{ id: "1", name: "Saved" }] });
+  });
+
   it("ignores an obsolete list response after a newer reload", async () => {
     let resolveFirst!: (rows: readonly Row[]) => void;
     const first = new Promise<readonly Row[]>((resolve) => { resolveFirst = resolve; });

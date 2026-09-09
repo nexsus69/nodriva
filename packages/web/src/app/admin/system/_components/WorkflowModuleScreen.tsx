@@ -137,7 +137,7 @@ export function WorkflowModuleScreen() {
       const result = await AppCache.admin.publishWorkflowDefinition(workflow);
       if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
     } }, { ...workflow, id: `${workflow.workflowId}@${workflow.version}` });
-    if (succeeded) { surface.complete(); await collection.reload(); }
+    if (succeeded) surface.complete();
   };
   const screen: AdminCollectionDefinition<WorkflowRow> = {
     title: resource.label, description: resource.description, icon: "activity", columns: resource.list.columns, rows: collection.rows,
