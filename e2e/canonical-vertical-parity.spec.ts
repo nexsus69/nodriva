@@ -210,7 +210,10 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
     new RegExp(names.nodeTypeKey),
   );
   await page.getByLabel('Nome Nodo *').fill(names.childName);
-  await page.getByRole('button', { name: 'Crea Sotto-Nodo' }).click();
+  const createButton = page.getByRole('button', { name: 'Crea Sotto-Nodo' });
+  await expect(page.getByLabel('Nome Nodo *')).toHaveValue(names.childName);
+  await expect(createButton).toBeEnabled();
+  await createButton.click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
   await expect(page.getByText('Modalità modifica')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toBeEnabled();

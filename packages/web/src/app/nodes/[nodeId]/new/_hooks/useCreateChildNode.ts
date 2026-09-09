@@ -21,6 +21,7 @@ export function useCreateChildNode(parentNodeId: string) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [typeKey, setTypeKey] = useState('');
+  const selectedTypeKey = typeKey || nodeTypesList[0]?.typeKey || '';
   const [fields, setFields] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
@@ -36,19 +37,15 @@ export function useCreateChildNode(parentNodeId: string) {
   );
 
   useEffect(() => {
-    const selectedType = typeKey || nodeTypesList[0]?.typeKey;
-    if (!selectedType) return;
-    const timer = window.setTimeout(() => {
-      if (!typeKey) setTypeKey(selectedType);
-      void AppCache.admin.getTypeDefinition('node', selectedType).then((definition) => {
-        const nextFields = definition?.fields ?? [];
-        const nextPayload = initializeDynamicPayload(nextFields);
-        setInitialPayload(nextPayload);
-        setFields(nextFields); setPayload(nextPayload); setAttachments({});
-      });
-    }, 0);
+    if (!selectedTypeKey) return;
+    const timer = window.setTimeout(() => void AppCache.admin.getTypeDefinition('node', selectedTypeKey).then((definition) => {
+      const nextFields = definition?.fields ?? [];
+      const nextPayload = initializeDynamicPayload(nextFields);
+      setInitialPayload(nextPayload);
+      setFields(nextFields); setPayload(nextPayload); setAttachments({});
+    }), 0);
     return () => window.clearTimeout(timer);
-  }, [nodeTypesList, typeKey]);
+  }, [selectedTypeKey]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -57,7 +54,7 @@ export function useCreateChildNode(parentNodeId: string) {
     startTransition(async () => {
       try {
         await validateDynamicAttachments(fields, attachments);
-        const resourceId = createdId.current ?? (await AppCache.createNode({ parentNodeId, nodeTypeKey: typeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
+        const resourceId = createdId.current ?? (await AppCache.createNode({ parentNodeId, nodeTypeKey: selectedTypeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
         createdId.current = resourceId;
         setHasCreatedResource(true);
         await uploadDynamicAttachments('node', resourceId, fields, attachments);
@@ -82,5 +79,5 @@ export function useCreateChildNode(parentNodeId: string) {
     router.push(returnTo);
   };
 
-  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
+  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
 }
