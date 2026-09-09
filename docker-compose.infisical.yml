@@ -1,3 +1,5 @@
+name: nodriva-infisical
+
 services:
   infisical-db:
     image: postgres:17
@@ -8,7 +10,7 @@ services:
       POSTGRES_PASSWORD: ${INFISICAL_DB_PASSWORD:?INFISICAL_DB_PASSWORD must be set}
     command: ["postgres", "-p", "${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set}"]
     volumes:
-      - dashboard_infisical_db:/var/lib/postgresql/data
+      - nodriva_infisical_db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -p ${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set} -U infisical -d infisical"]
       interval: 5s
@@ -20,7 +22,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--port", "${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set}"]
     volumes:
-      - dashboard_infisical_redis:/data
+      - nodriva_infisical_redis:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -p ${INFISICAL_REDIS_PORT:?INFISICAL_REDIS_PORT must be set} ping"]
       interval: 5s
@@ -51,5 +53,5 @@ services:
       retries: 20
 
 volumes:
-  dashboard_infisical_db:
-  dashboard_infisical_redis:
+  nodriva_infisical_db:
+  nodriva_infisical_redis:
