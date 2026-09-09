@@ -1,13 +1,14 @@
 "use client";
 
 /** Presents scoped, authorized service operations without editing deployment or secrets. */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { PublicBackupStatus, PublicServiceConfiguration, ServiceHealthCheckResult } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { Alert, StatusBadge } from "@/app/components/ui/feedback";
 import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
+import type { AdminTableColumn } from "@/adminPanel/components/AdminTable";
 import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
 import {
   providerLabel,
@@ -19,6 +20,36 @@ import {
 } from "./serviceOperationsModel";
 
 type ServiceRow = PublicServiceConfiguration & { id: string };
+type ServiceHealthState = {
+  health: Record<string, ServiceHealthCheckResult>;
+  healthFailures: ReadonlySet<string>;
+};
+
+class ServiceHealthStateStore {
+  private snapshot: ServiceHealthState = { health: {}, healthFailures: new Set() };
+  private readonly listeners = new Set<() => void>();
+
+  readonly getSnapshot = () => this.snapshot;
+  readonly subscribe = (listener: () => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  recordSuccess(serviceId: string, result: ServiceHealthCheckResult): void {
+    const healthFailures = new Set(this.snapshot.healthFailures);
+    healthFailures.delete(serviceId);
+    this.update({ health: { ...this.snapshot.health, [serviceId]: result }, healthFailures });
+  }
+
+  recordFailure(serviceId: string): void {
+    this.update({ health: this.snapshot.health, healthFailures: new Set(this.snapshot.healthFailures).add(serviceId) });
+  }
+
+  private update(snapshot: ServiceHealthState): void {
+    this.snapshot = snapshot;
+    this.listeners.forEach((listener) => listener());
+  }
+}
 
 const SCOPE_CONTENT: Record<ServiceOperationsScope, { moduleKey: string; titleKey: string; descriptionKey: string; emptyKey: string; loadingKey: string }> = {
   integrations: { moduleKey: "platform.integrations", titleKey: "admin.integrations", descriptionKey: "admin.integrationsDescription", emptyKey: "admin.noIntegrations", loadingKey: "admin.loadingIntegrations" },
@@ -37,11 +68,36 @@ function backupStatusTone(status: PublicBackupStatus['status']): 'success' | 'wa
   return 'warning';
 }
 
+/**
+ * Columns read the latest health state without changing the resource definition.
+ * Recreating that definition would recreate its controller and reload the list.
+ */
+export function createServiceOperationsColumns(
+  t: (key: string) => string,
+  getHealthState: () => ServiceHealthState,
+): readonly AdminTableColumn<ServiceRow>[] {
+  const presentationStatus = (row: ServiceRow) => {
+    const { health, healthFailures } = getHealthState();
+    return healthFailures.has(row.id) ? 'unavailable' : servicePresentationStatus(row, health[row.id]);
+  };
+
+  return [
+    { key: "service", label: t("admin.name"), render: (row) => <div><p className="font-medium text-slate-900">{t(serviceLabelKey(row.serviceKey))}</p><p className="mt-0.5 text-xs text-slate-500">{t(`admin.serviceFallback.${row.fallback}`)}</p></div>, sortValue: (row) => t(serviceLabelKey(row.serviceKey)) },
+    { key: "provider", label: t("admin.provider"), render: (row) => providerLabel(row.providerKey, t), sortValue: (row) => providerLabel(row.providerKey, t) },
+    { key: "availability", label: t("admin.availability"), render: (row) => {
+      const status = presentationStatus(row);
+      return <StatusBadge tone={serviceStatusTone(status)}>{statusLabel(status, t)}</StatusBadge>;
+    }, sortValue: presentationStatus },
+    { key: "dependencies", label: t("admin.dependencies"), render: (row) => row.dependencies.length === 0 ? t("admin.none") : row.dependencies.map((dependency) => t(serviceLabelKey(dependency))).join(", ") },
+    { key: "reload", label: t("admin.reload"), render: (row) => t(`admin.serviceReload.${row.reload}`) },
+  ];
+}
+
 /** Uses one resource lifecycle for integrations, recovery evidence, and service health. */
 export function ServiceIntegrationsModuleScreen({ scope = 'integrations' }: { scope?: ServiceOperationsScope }) {
   const { t } = useAppLocale();
-  const [health, setHealth] = useState<Record<string, ServiceHealthCheckResult>>({});
-  const [healthFailures, setHealthFailures] = useState<ReadonlySet<string>>(() => new Set());
+  const healthStore = useMemo(() => new ServiceHealthStateStore(), []);
+  useSyncExternalStore(healthStore.subscribe, healthStore.getSnapshot, healthStore.getSnapshot);
   const [backupStatus, setBackupStatus] = useState<PublicBackupStatus | null>(null);
   const [backupStatusError, setBackupStatusError] = useState<string | null>(null);
   const content = SCOPE_CONTENT[scope];
@@ -75,20 +131,11 @@ export function ServiceIntegrationsModuleScreen({ scope = 'integrations' }: { sc
         if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loadingIntegrations"));
         return servicesForScope(result.data, scope).map((service) => ({ ...service, id: service.serviceKey }));
       },
-      columns: [
-        { key: "service", label: t("admin.name"), render: (row) => <div><p className="font-medium text-slate-900">{t(serviceLabelKey(row.serviceKey))}</p><p className="mt-0.5 text-xs text-slate-500">{t(`admin.serviceFallback.${row.fallback}`)}</p></div>, sortValue: (row) => t(serviceLabelKey(row.serviceKey)) },
-        { key: "provider", label: t("admin.provider"), render: (row) => providerLabel(row.providerKey, t), sortValue: (row) => providerLabel(row.providerKey, t) },
-        { key: "availability", label: t("admin.availability"), render: (row) => {
-          const status = healthFailures.has(row.id) ? 'unavailable' : servicePresentationStatus(row, health[row.id]);
-          return <StatusBadge tone={serviceStatusTone(status)}>{statusLabel(status, t)}</StatusBadge>;
-        }, sortValue: (row) => healthFailures.has(row.id) ? 'unavailable' : servicePresentationStatus(row, health[row.id]) },
-        { key: "dependencies", label: t("admin.dependencies"), render: (row) => row.dependencies.length === 0 ? t("admin.none") : row.dependencies.map((dependency) => t(serviceLabelKey(dependency))).join(", ") },
-        { key: "reload", label: t("admin.reload"), render: (row) => t(`admin.serviceReload.${row.reload}`) },
-      ],
+      columns: createServiceOperationsColumns(t, healthStore.getSnapshot),
       emptyLabel: t(content.emptyKey),
       loadingLabel: t(content.loadingKey),
     },
-  }), [content, health, healthFailures, scope, t]);
+  }), [content, healthStore, scope, t]);
   const controller = useAdminResourceController(resource, undefined);
 
   const definition: AdminCollectionDefinition<ServiceRow> = {
@@ -103,14 +150,9 @@ export function ServiceIntegrationsModuleScreen({ scope = 'integrations' }: { sc
       onClick: (row) => {
         void AppCache.admin.checkServiceHealth(row.serviceKey).then((result) => {
           if (result.success && result.data) {
-            setHealth((current) => ({ ...current, [row.id]: result.data! }));
-            setHealthFailures((current) => {
-              const next = new Set(current);
-              next.delete(row.id);
-              return next;
-            });
+            healthStore.recordSuccess(row.id, result.data);
           } else {
-            setHealthFailures((current) => new Set(current).add(row.id));
+            healthStore.recordFailure(row.id);
           }
         });
       },
