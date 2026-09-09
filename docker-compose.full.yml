@@ -1,3 +1,5 @@
+name: nodriva
+
 services:
   postgres:
     image: postgres:17
@@ -8,7 +10,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
     volumes:
-      - dashboard_full_db_data:/var/lib/postgresql/data
+      - nodriva_db_data:/var/lib/postgresql/data
       - ./Specifiche/dashboard_v4_schema_corrected.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -p ${DASHBOARD_POSTGRES_PORT:?DASHBOARD_POSTGRES_PORT must be set} -U postgres -d dashboard"]
@@ -106,8 +108,8 @@ services:
       BACKUP_ROOT: ${BACKUP_ROOT:-}
       BACKUP_STATUS_FILE: ${BACKUP_STATUS_FILE:-}
     volumes:
-      - dashboard_full_attachments:/app/data/attachments
-      - dashboard_full_backups:/backups:ro
+      - nodriva_attachments:/app/data/attachments
+      - nodriva_backups:/backups:ro
     expose:
       - "${DASHBOARD_WEB_PORT:?DASHBOARD_WEB_PORT must be set}"
     healthcheck:
@@ -133,15 +135,15 @@ services:
       - "${DASHBOARD_BIND_ADDRESS:?DASHBOARD_BIND_ADDRESS must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}:${DASHBOARD_HTTPS_PORT:?DASHBOARD_HTTPS_PORT must be set}"
     volumes:
       - ./docker/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - dashboard_full_caddy_data:/data
-      - dashboard_full_caddy_config:/config
+      - nodriva_caddy_data:/data
+      - nodriva_caddy_config:/config
     restart: unless-stopped
 
 volumes:
-  dashboard_full_db_data:
-  dashboard_full_attachments:
+  nodriva_db_data:
+  nodriva_attachments:
   # Mounted read-only by Web even when the optional backup job is absent, so a
   # later backup overlay can expose its status without changing Web storage.
-  dashboard_full_backups:
-  dashboard_full_caddy_data:
-  dashboard_full_caddy_config:
+  nodriva_backups:
+  nodriva_caddy_data:
+  nodriva_caddy_config:

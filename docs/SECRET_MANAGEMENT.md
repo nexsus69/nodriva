@@ -29,7 +29,7 @@ pubblico e porte sono dichiarati con le variabili `INFISICAL_*` del deployment.
    ```
 
    e aprire `$INFISICAL_PUBLIC_URL` sul computer dell'operatore.
-4. Creare un progetto `dashboard-ultimate`, gli ambienti necessari e una
+4. Creare un progetto `nodriva`, gli ambienti necessari e una
    machine identity con permessi minimi di sola lettura per il deploy.
 5. Conservare il token della machine identity fuori dal repository. Il token
    è il solo bootstrap secret del deploy e deve essere ruotabile.
@@ -50,16 +50,16 @@ fuori dal repository:
 
 ```bash
 ./scripts/infisical-export-env.sh \
-  /home/marco/.config/dashboard-ultimate/dashboard-production.env \
+  /home/marco/.config/nodriva/dashboard-production.env \
   .env.docker
 ```
 
 Il file predefinito è
-`/home/marco/.config/dashboard-ultimate/dashboard-production.env`. Per usarlo
+`/home/marco/.config/nodriva/dashboard-production.env`. Per usarlo
 con il profilo Compose di base:
 
 ```bash
-docker compose --env-file /home/marco/.config/dashboard-ultimate/dashboard-production.env \
+docker compose --env-file /home/marco/.config/nodriva/dashboard-production.env \
   -f docker-compose.full.yml up -d --build
 ```
 

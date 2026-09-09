@@ -5,7 +5,7 @@
 > corrente.
 
 ```text
-Analizza integralmente il repository `/home/marco/docker_container/dashboard_ultimate` come una code review tecnica e operativa prima di iniziare P3.
+Analizza integralmente il repository `/home/marco/docker_container/Nodriva` come una code review tecnica e operativa prima di iniziare P3.
 
 Contesto:
 - Stack: monorepo pnpm, Core TypeScript, Next.js Web, PostgreSQL Docker, Soketi/Pusher-compatible realtime, worker outbox e Prometheus opzionale.

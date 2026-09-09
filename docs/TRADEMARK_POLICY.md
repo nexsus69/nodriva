@@ -2,8 +2,8 @@
 
 ## Stato attuale
 
-Dashboard Ultimate è un progetto open source distribuito con Apache License
-2.0. Al momento il nome “Dashboard Ultimate” e il logo del progetto, quando
+Nodriva è un progetto open source distribuito con Apache License
+2.0. Al momento il nome “Nodriva” e il logo del progetto, quando
 presente, non sono marchi registrati.
 
 La licenza Apache 2.0 si applica al codice e agli altri materiali coperti dalla
@@ -15,7 +15,7 @@ ufficiale.
 
 È consentito:
 
-- indicare Dashboard Ultimate come progetto d'origine di un fork;
+- indicare Nodriva come progetto d'origine di un fork;
 - usare il nome in descrizioni accurate e non ingannevoli;
 - modificare il codice e distribuire opere derivate nel rispetto della Apache
   License 2.0;

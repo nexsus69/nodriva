@@ -6,7 +6,7 @@ services:
       REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:-}
       REALTIME_METRICS_TARGET: ${DASHBOARD_WEB_INTERNAL_HOST:?}:${DASHBOARD_WEB_PORT:?}
       PROMETHEUS_PORT: ${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}
-    volumes: [dashboard_full_prometheus:/prometheus]
+    volumes: [nodriva_prometheus:/prometheus]
     ports: ["${DASHBOARD_METRICS_BIND_ADDRESS:?}:${PROMETHEUS_PORT:?}:${PROMETHEUS_PORT:?}"]
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://${CONTAINER_LOOPBACK_HOST:?CONTAINER_LOOPBACK_HOST must be set}:${PROMETHEUS_PORT:?PROMETHEUS_PORT must be set}/-/ready"]
@@ -16,4 +16,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  dashboard_full_prometheus:
+  nodriva_prometheus:

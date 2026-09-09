@@ -1,6 +1,6 @@
-# Dashboard Ultimate Web
+# Nodriva Web
 
-Il frontend Next.js di Dashboard Ultimate contiene l’interfaccia operativa,
+Il frontend Next.js di Nodriva contiene l’interfaccia operativa,
 il pannello amministrativo, le Server Actions e gli endpoint HTTP.
 
 La documentazione generale del progetto e le istruzioni per lo stack completo

@@ -5,6 +5,6 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-WorkingDirectory=/opt/dashboard_ultimate
-ExecStart=/opt/dashboard_ultimate/scripts/postgres-backup-maintenance.sh
+WorkingDirectory=/opt/nodriva
+ExecStart=/opt/nodriva/scripts/postgres-backup-maintenance.sh
 EnvironmentFile=/etc/dashboard/dashboard-backup.env

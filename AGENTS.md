@@ -1,8 +1,8 @@
-# Dashboard Ultimate — istruzioni operative
+# Nodriva — istruzioni operative
 
 ## Obiettivo del prodotto
 
-Dashboard Ultimate è una piattaforma generica per modellare e gestire dati
+Nodriva è una piattaforma generica per modellare e gestire dati
 operativi tramite nodi gerarchici, entità, tipi, campi, relazioni e allegati.
 Non deve diventare un gestionale legato a un singolo dominio applicativo.
 

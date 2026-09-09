@@ -11,7 +11,7 @@
 
 This document freezes the architectural layer map, dependency rules, and placement rules for Dashboard V2 so that new implementation work does not continuously reopen already-settled structural decisions. The goal is to define where each responsibility belongs before coding, reducing design loops and preventing accidental leakage of infrastructure concerns into application or domain code.[cite:13][cite:30]
 
-Dashboard ultimate is intended to be a modular monolith with clear internal boundaries, dynamic type definitions, dedicated relational tables, runtime schema reconstruction, and a configurable frontend/read-model layer rather than a fixed UI layout.[cite:26][cite:10][cite:11]
+Nodriva is intended to be a modular monolith with clear internal boundaries, dynamic type definitions, dedicated relational tables, runtime schema reconstruction, and a configurable frontend/read-model layer rather than a fixed UI layout.[cite:26][cite:10][cite:11]
 
 ## Core principle
 

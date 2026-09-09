@@ -17,8 +17,8 @@ L'URL pubblico è obbligatorio e coincide con quello configurato nel deployment:
 DASHBOARD_PUBLIC_URL=https://dashboard.example.com ./scripts/stack-healthcheck.sh
 ```
 
-Il progetto Compose predefinito è `dashboard_ultimate`; usare
-`DASHBOARD_COMPOSE_PROJECT` se il deployment ha un nome differente. Il backup
+Il progetto Compose predefinito è `nodriva`; usare
+`NODRIVA_COMPOSE_PROJECT` se il deployment ha un nome differente. Il backup
 verificato può avere al massimo 93600 secondi (26 ore); la soglia è regolabile
 con `BACKUP_MAX_AGE_SECONDS` in base alla RPO del deployment. Per rendere
 obbligatorie le verifiche dei servizi opzionali, passare gli stessi profili del

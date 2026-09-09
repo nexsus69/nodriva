@@ -4,7 +4,7 @@
 > operativo usato per chiudere il P0; non è una lista di attività corrente. Lo
 > stato normativo è in `BACKEND_ALIGNMENT_TODO.md` e `ARCHITECTURE.md`.
 
-Lavora nel workspace corrente: `/home/marco/docker_container/dashboard_ultimate`.
+Lavora nel workspace corrente: `/home/marco/docker_container/Nodriva`.
 
 ## Obiettivo unico
 

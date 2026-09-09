@@ -1,6 +1,6 @@
 # Architectural portability ledger
 
-This document records the database portability boundary for Dashboard Ultimate.
+This document records the database portability boundary for Nodriva.
 It is a working guardrail for future changes and must be updated when a new
 storage or messaging capability is introduced.
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-deploy_env="${INFISICAL_DEPLOY_ENV_FILE:-$HOME/.config/dashboard-ultimate/infisical-deploy.env}"
-target_path="${1:-$HOME/.config/dashboard-ultimate/dashboard-production.env}"
+deploy_env="${INFISICAL_DEPLOY_ENV_FILE:-$HOME/.config/nodriva/infisical-deploy.env}"
+target_path="${1:-$HOME/.config/nodriva/dashboard-production.env}"
 base_env="${2:-${INFISICAL_BASE_ENV_FILE:-}}"
 
 test -r "$deploy_env" || {

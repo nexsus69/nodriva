@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-target_path="${1:-$HOME/.config/dashboard-ultimate/infisical.env}"
+target_path="${1:-$HOME/.config/nodriva/infisical.env}"
 
 if [[ -e "$target_path" ]]; then
   printf 'File gia presente: %s\n' "$target_path" >&2

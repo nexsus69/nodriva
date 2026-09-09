@@ -2,8 +2,8 @@
 set -euo pipefail
 
 workspace_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-postgres_container="${PARITY_POSTGRES_CONTAINER:-dashboard_ultimate-postgres-1}"
-web_container="${PARITY_WEB_CONTAINER:-dashboard_ultimate-web-1}"
+postgres_container="${PARITY_POSTGRES_CONTAINER:-nodriva-postgres-1}"
+web_container="${PARITY_WEB_CONTAINER:-nodriva-web-1}"
 test_database="dashboard_admin_e2e_test"
 template_database="${PARITY_POSTGRES_TEMPLATE_DATABASE:-dashboard_test}"
 sqlite_path="$(mktemp /tmp/dashboard-admin-parity-XXXXXX.sqlite)"

@@ -2,7 +2,7 @@ services:
   clamav:
     image: clamav/clamav:1.4
     restart: unless-stopped
-    volumes: [dashboard_full_clamav_db:/var/lib/clamav]
+    volumes: [nodriva_clamav_db:/var/lib/clamav]
     expose: ["${CLAMAV_PORT:?CLAMAV_PORT must be set}"]
     mem_limit: 4g
     mem_reservation: 3g
@@ -17,4 +17,4 @@ services:
       CLAMAV_PORT: ${CLAMAV_PORT:?CLAMAV_PORT must be set}
 
 volumes:
-  dashboard_full_clamav_db:
+  nodriva_clamav_db:

@@ -1,6 +1,6 @@
 # Nodriva
 
-[![CI](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/dashboard_ultimate/actions/workflows/ci.yml)
+[![CI](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml)
 
 Nodriva is an open-source platform for defining and managing connected data
 structures without imposing a specific application domain. It provides generic
