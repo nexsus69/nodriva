@@ -25,7 +25,7 @@ unset REALTIME_INTERNAL_PORT REALTIME_INTERNAL_SCHEME CLAMAV_HOST CLAMAV_PORT
 unset ATTACHMENTS_REQUIRE_SCAN BACKUP_ROOT BACKUP_STATUS_FILE
 
 export POSTGRES_PASSWORD='compose-contract-postgres'
-export DASHBOARD_WEB_PASSWORD='compose-contract-web'
+export DASHBOARD_WEB_PASSWORD='compose-contract/with+reserved%chars@='
 export SEED_ADMIN_PASSWORD='compose-contract-admin'
 export NEXTAUTH_SECRET='compose-contract-nextauth-secret-at-least-32-characters'
 export DASHBOARD_PUBLIC_URL='https://dashboard.contract.test'

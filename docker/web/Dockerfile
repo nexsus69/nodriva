@@ -34,6 +34,7 @@ ENV NODE_ENV=production
 COPY --chown=node:node --from=build /app/packages/web/.next/standalone ./
 COPY --chown=node:node --from=build /app/packages/web/.next/static ./packages/web/.next/static
 COPY --chown=node:node --from=build /app/packages/web/public ./packages/web/public
-RUN mkdir -p /app/data/attachments && chown -R node:node /app/data && chmod 700 /app/data /app/data/attachments
+COPY --chown=node:node docker/web/runtime-entrypoint.sh ./runtime-entrypoint.sh
+RUN mkdir -p /app/data/attachments && chown -R node:node /app/data && chmod 700 /app/data /app/data/attachments && chmod 0555 /app/runtime-entrypoint.sh
 USER node
-CMD ["node", "packages/web/server.js"]
+CMD ["./runtime-entrypoint.sh"]

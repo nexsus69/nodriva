@@ -81,7 +81,9 @@ senza porta interna del container. `NEXT_PUBLIC_*` è pubblico e non deve conten
 secret del worker restano nel secret manager. Se il realtime è attivo, i valori
 `NEXT_PUBLIC_*` sono usati durante la build dell’immagine Web: dopo una modifica
 è necessario ricostruire `web`. Il riferimento dichiara esplicitamente
-`DATABASE_ADAPTER=postgres`. Il realtime server-side è governato dalla
+`DATABASE_ADAPTER=postgres`. `DASHBOARD_WEB_PASSWORD` può contenere caratteri
+riservati nelle URL: l'entrypoint Web la codifica prima di costruire la URI di
+PostgreSQL. Il realtime server-side è governato dalla
 capability runtime `realtime`, mentre `NEXT_PUBLIC_REALTIME_ENABLED` controlla
 solo la sottoscrizione del client.
 
