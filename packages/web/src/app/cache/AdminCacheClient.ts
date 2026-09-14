@@ -27,11 +27,20 @@ function isFailedActionResult(value: unknown): boolean {
 export class AdminCacheClient {
   private readonly reads = new Map<string, Promise<unknown>>();
 
-  public constructor(private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined) {}
+  public constructor(
+    private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined,
+    private readonly verifyCacheHit: () => Promise<boolean> = () => Promise.resolve(true),
+  ) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
     const cached = this.reads.get(key);
-    if (cached) return cached as Promise<T>;
+    if (cached) {
+      return this.verifyCacheHit().then((continuous) => {
+        if (continuous && this.reads.get(key) === cached) return cached as Promise<T>;
+        if (this.reads.get(key) === cached) this.reads.delete(key);
+        return this.read(key, action);
+      });
+    }
     const request = action()
       .then((result) => {
         if (isFailedActionResult(result) && this.reads.get(key) === request) {

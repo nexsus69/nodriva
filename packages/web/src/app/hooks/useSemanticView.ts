@@ -1,3 +1,4 @@
+/** Resolves and subscribes to semantic views after authoritative cache-hit validation. */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GlobalViewStore, ViewState, getViewHasMoreForward, getViewHasMoreBackward } from '../cache/ViewStore';
 import { ViewResolver } from '../cache/CacheService';
@@ -13,7 +14,7 @@ export function useSemanticView(
 ) {
   const viewKey = ViewKeyBuilder.build(params);
   
-  const [viewState, setViewState] = useState<ViewState | null>(() => GlobalViewStore.get(viewKey));
+  const [viewState, setViewState] = useState<ViewState | null>(null);
   const [lastFailedAction, setLastFailedAction] = useState<'initial' | 'forward' | 'backward' | null>(null);
   const [isLoadingMoreForward, setIsLoadingMoreForward] = useState(false);
   const [isLoadingMoreBackward, setIsLoadingMoreBackward] = useState(false);
@@ -31,8 +32,9 @@ export function useSemanticView(
   }, [params]);
 
   useEffect(() => {
+    let mayExposeCachedView = false;
     const unsubscribe = subscribeSemanticViewState(viewKey, (newState) => {
-      setViewState(newState);
+      if (mayExposeCachedView || newState?.status !== 'success') setViewState(newState);
       if (newState?.status === 'success') {
         setLastFailedAction(null);
       }
@@ -56,6 +58,9 @@ export function useSemanticView(
       type: 'resolve',
       params: paramsRef.current,
       requireComplete
+    }).then((resolved) => {
+      mayExposeCachedView = true;
+      setViewState(resolved);
     }).catch(() => {
       setLastFailedAction('initial');
     });

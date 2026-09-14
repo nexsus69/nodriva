@@ -122,6 +122,9 @@ export class GlobalCacheClient {
   private realtimeReadModelState: RealtimeReadModelState = 'initializing';
   private realtimeChannelKey: string | null = null;
   private readonly realtimeStateSubscribers = new Set<() => void>();
+  private realtimeChannelRelease: (() => void) | null = null;
+  private retainedRealtimeChannelKey = '';
+  private pendingRealtimeAccessSync: Promise<boolean> | null = null;
   private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
   private readonly attachmentCollectionSubscribers = new Map<string, Set<() => void>>();
   private readonly attachmentCollectionInvalidationSubscribers = new Map<string, Set<() => void>>();
@@ -297,6 +300,45 @@ export class GlobalCacheClient {
     this.admin.invalidate([...keys]);
     this.adminRealtimeInvalidationSubscribers.forEach((subscriber) => subscriber(keys));
   }
+
+  /** Verifies the server stream heads before a cached logical read is reused. */
+  public ensureReadModelContinuityForCacheHit = (): Promise<boolean> => {
+    if (this.realtimeReadModelState !== 'live') return Promise.resolve(false);
+    return this.synchronizeRealtimeAccess();
+  };
+
+  /** Synchronizes the authenticated channel policy and stream checkpoints once for all callers. */
+  public synchronizeRealtimeAccess = (): Promise<boolean> => {
+    if (this.pendingRealtimeAccessSync) return this.pendingRealtimeAccessSync;
+    const request = fetch('/api/sync/access', { method: 'GET', cache: 'no-store' })
+      .then(async (response) => {
+        if (response.status === 401 || (response.redirected && new URL(response.url).pathname === '/login')) {
+          this.purgeAll();
+          return false;
+        }
+        if (!response.ok) { this.markRealtimeContinuityUnknown(); return false; }
+        const result = await response.json() as { dataChannels: string[]; lockChannels: string[]; virtualRootNodeIds: string[]; realtimeEnabled: boolean; realtimeCheckpoints: RealtimeChannelCheckpoint[] };
+        this.setRealtimeEnabled(result.realtimeEnabled);
+        this.observeRealtimeChannels(result.dataChannels);
+        this.observeRealtimeCheckpoints(result.realtimeCheckpoints);
+        const channelKey = JSON.stringify([[...result.dataChannels].sort(), [...result.lockChannels].sort()]);
+        if (!result.realtimeEnabled) {
+          this.realtimeChannelRelease?.();
+          this.realtimeChannelRelease = null;
+          this.retainedRealtimeChannelKey = '';
+        } else if (channelKey !== this.retainedRealtimeChannelKey) {
+          this.realtimeChannelRelease?.();
+          this.realtimeChannelRelease = this.retainRealtimeChannels(result.dataChannels, result.lockChannels);
+          this.retainedRealtimeChannelKey = channelKey;
+        }
+        this.setVirtualRootNodeIds(result.virtualRootNodeIds);
+        return this.realtimeReadModelState === 'live';
+      })
+      .catch(() => { this.markRealtimeContinuityUnknown(); return false; })
+      .finally(() => { if (this.pendingRealtimeAccessSync === request) this.pendingRealtimeAccessSync = null; });
+    this.pendingRealtimeAccessSync = request;
+    return request;
+  };
 
   public setRealtimeEnabled = (enabled: boolean): void => {
     if (this.realtimeCapabilityEnabled === enabled) return;
@@ -593,7 +635,9 @@ export class GlobalCacheClient {
     }
   }
 
-  private readonly kernel = new CacheKernel();
+  private readonly kernel = new CacheKernel({
+    verifyCacheHit: () => this.ensureReadModelContinuityForCacheHit(),
+  });
 
   public nodes = new KernelNodeCacheClient(this.kernel, this.notifyCacheSubscribers);
 
@@ -601,7 +645,10 @@ export class GlobalCacheClient {
 
   public readonly metadata = new MetadataCacheClient(this.kernel);
   public readonly users = new UserCacheClient(this.kernel, this.notifyCacheSubscribers);
-  public readonly admin = new AdminCacheClient((kind, typeKey) => this.invalidateMetadata(kind, typeKey));
+  public readonly admin = new AdminCacheClient(
+    (kind, typeKey) => this.invalidateMetadata(kind, typeKey),
+    () => this.ensureReadModelContinuityForCacheHit(),
+  );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -857,6 +904,10 @@ export class GlobalCacheClient {
    * (o dati confidenziali) leakino all'utente successivo nella stessa sessione browser.
    */
   public purgeAll(): void {
+    this.realtimeChannelRelease?.();
+    this.realtimeChannelRelease = null;
+    this.retainedRealtimeChannelKey = '';
+    this.realtimeChannelKey = null;
     this.kernel.purge();
     this.nodes?.purge();
     this.lists.purge();

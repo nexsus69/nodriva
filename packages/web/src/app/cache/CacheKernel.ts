@@ -49,6 +49,7 @@ export interface CacheMutationOptions<TResult> {
 export interface CacheKernelOptions {
   now?: () => number;
   getRecordVersion?: (record: CacheRecord) => number | undefined;
+  verifyCacheHit?: () => Promise<boolean>;
 }
 
 /** Signals that a session reset invalidated an in-flight cache read. */
@@ -110,10 +111,12 @@ export class CacheKernel {
   private readonly now: () => number;
   /** Extracts optimistic row versions without coupling the kernel to a model. */
   private readonly getRecordVersion: (record: CacheRecord) => number | undefined;
+  private readonly verifyCacheHit: () => Promise<boolean>;
 
   /** Creates an isolated cache kernel with production defaults or test policies. */
   public constructor(options: CacheKernelOptions = {}) {
     this.now = options.now ?? (() => Date.now());
+    this.verifyCacheHit = options.verifyCacheHit ?? (() => Promise.resolve(true));
     this.getRecordVersion = options.getRecordVersion ?? ((record) => {
       const rowVersion = (record as { rowVersion?: unknown }).rowVersion;
       return typeof rowVersion === 'number' ? rowVersion : undefined;
@@ -256,7 +259,13 @@ export class CacheKernel {
     options: CacheQueryOptions = {}
   ): Promise<CacheQuerySnapshot> {
     const cached = this.getQuery(key);
-    if (cached) return Promise.resolve(cached);
+    if (cached) {
+      return this.verifyCacheHit().then((continuous) => {
+        if (continuous && this.getQuery(key) === cached) return cached;
+        if (this.getQuery(key) === cached) this.invalidateQuery(key);
+        return this.readQuery(key, loader, options);
+      });
+    }
 
     const pending = this.queryLoads.get(key);
     if (pending) return pending;

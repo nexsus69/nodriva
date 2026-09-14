@@ -183,3 +183,40 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
     expect(cache.nodes.get('node-1')).toBeNull();
   });
 });
+
+describe('GlobalCacheClient cache-hit continuity gate', () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_REALTIME_ENABLED = 'true';
+    process.env.NEXT_PUBLIC_PUSHER_KEY = 'test-key';
+  });
+
+  it('deduplicates one authoritative checkpoint for concurrent cache hits', async () => {
+    const cache = new GlobalCacheClient();
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 4 }]);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      dataChannels: ['channel-data'], lockChannels: [], virtualRootNodeIds: [], realtimeEnabled: true,
+      realtimeCheckpoints: [{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 4 }],
+    }), { status: 200 }));
+
+    await expect(Promise.all([
+      cache.ensureReadModelContinuityForCacheHit(),
+      cache.ensureReadModelContinuityForCacheHit(),
+    ])).resolves.toEqual([true, true]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    fetchMock.mockRestore();
+  });
+
+  it('rejects a cache hit and purges the read model when its continuity checkpoint fails', async () => {
+    const cache = new GlobalCacheClient();
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 4 }]);
+    cache.nodes.inject('node-1', { id: 'node-1', name: 'Cached node' } as never);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('network unavailable'));
+
+    await expect(cache.ensureReadModelContinuityForCacheHit()).resolves.toBe(false);
+
+    expect(cache.getRealtimeReadModelState()).toBe('unreliable');
+    expect(cache.nodes.get('node-1')).toBeNull();
+    fetchMock.mockRestore();
+  });
+});

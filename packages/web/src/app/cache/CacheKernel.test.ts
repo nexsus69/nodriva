@@ -104,6 +104,20 @@ describe('CacheKernel', () => {
     expect(loader).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects a logical cache hit when its continuity verifier fails and reloads it', async () => {
+    const verifyCacheHit = vi.fn().mockResolvedValue(false);
+    const guardedKernel = new CacheKernel({ verifyCacheHit });
+    const loader = vi.fn()
+      .mockResolvedValueOnce({ ids: ['stale'] })
+      .mockResolvedValueOnce({ ids: ['fresh'] });
+
+    await guardedKernel.readQuery('entities', loader);
+
+    await expect(guardedKernel.readQuery('entities', loader)).resolves.toMatchObject({ ids: ['fresh'] });
+    expect(verifyCacheHit).toHaveBeenCalledTimes(1);
+    expect(loader).toHaveBeenCalledTimes(2);
+  });
+
   it('does not retain full completeness when a newer partial version arrives', () => {
     kernel.upsertRecord<TestRecord>('entity', { id: '1', name: 'Complete', rowVersion: 1 });
     kernel.upsertRecord<TestRecord>(

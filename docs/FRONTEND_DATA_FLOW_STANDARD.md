@@ -52,8 +52,8 @@ dell'evento precedente. Il browser considera il canale continuo solo se:
 
 - la WebSocket e la sottoscrizione sono attive;
 - ogni evento ricevuto segue il precedente cursore del medesimo canale;
-- il checkpoint periodico autenticato del server coincide con l'ultimo cursore
-  applicato dal browser;
+- il checkpoint autenticato del server coincide con l'ultimo cursore
+  applicato dal browser prima di riusare un cache hit;
 - l'`epoch` del server non è cambiata.
 
 Il server ricava sempre i canali dalla sessione e dalla policy corrente; non
@@ -71,7 +71,9 @@ bozze non salvate restano stato della form, separato dal read model.
 
 Una riconnessione non rende di per sé affidabile la cache. Solo un checkpoint
 continuo dopo l'invalidazione consente alle successive letture autorevoli di
-popolare la nuova generazione. Il primo checkpoint di una sessione appena
+popolare la nuova generazione. Ogni cache hit passa inoltre dal medesimo
+checkpoint deduplicato; dati assenti o incompleti fanno invece direttamente il
+fetch autorevole, senza una richiesta preventiva ridondante. Il primo checkpoint di una sessione appena
 autenticata non invalida le letture già avviate: logout e cambio identità hanno
 già svuotato il read model prima del bootstrap. Se HTTP non è raggiungibile, la
 UI può mantenere la bozza ma non avvia azioni dipendenti da uno snapshot non

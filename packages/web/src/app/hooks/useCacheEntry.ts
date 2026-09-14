@@ -1,4 +1,6 @@
+/** Exposes one cache record only after its cache-hit continuity gate completes. */
 import { useState, useEffect } from 'react';
+import { AppCache } from '../cache/GlobalCacheClient';
 
 interface CacheEntryClient<T extends { id: string }> {
   get(id: string): T | null;
@@ -14,7 +16,7 @@ export function useCacheEntry<T extends { id: string }>(
   id: string | null,
   requireComplete: boolean = false
 ) {
-  const [data, setData] = useState<T | null>(id ? cacheClient.get(id) : null);
+  const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(
@@ -29,34 +31,43 @@ export function useCacheEntry<T extends { id: string }>(
     // 1. Retain the entry (Increment RefCount)
     cacheClient.retain(id);
     let isMounted = true;
+    let mayExposeCachedData = false;
 
-    const hydrate = () => {
-      if (!cacheClient.needsFetch(id, requireComplete)) return;
+    const load = async () => {
+      const cached = cacheClient.get(id);
+      const cacheHit = cached !== null && !cacheClient.needsFetch(id, requireComplete);
       setIsLoading(true);
-      void cacheClient.fetchIfMissing(id, requireComplete)
-        .catch((fetchError: unknown) => {
-          if (!isMounted) return;
-          setData(null);
-          setError(fetchError instanceof Error ? fetchError : new Error(String(fetchError)));
-          setErrorId(id);
-        })
-        .finally(() => {
-          if (isMounted) setIsLoading(false);
-        });
+      try {
+        if (cacheHit) {
+          const continuous = await AppCache.ensureReadModelContinuityForCacheHit();
+          if (continuous) {
+            mayExposeCachedData = true;
+            if (isMounted) setData(cacheClient.get(id));
+            return;
+          }
+        }
+        mayExposeCachedData = true;
+        const fetched = await cacheClient.fetchIfMissing(id, requireComplete);
+        if (isMounted) setData(fetched);
+      } catch (fetchError: unknown) {
+        if (!isMounted) return;
+        setData(null);
+        setError(fetchError instanceof Error ? fetchError : new Error(String(fetchError)));
+        setErrorId(id);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
     };
 
-    // 2. Subscribe to changes
+    // 2. Subscribe only after the cache-hit continuity gate has completed.
     const unsubscribe = cacheClient.subscribe(id, (newData, newError) => {
-      setData(newData);
+      if (mayExposeCachedData || newData === null) setData(newData);
       setError(newError);
       setErrorId(newError ? id : null);
-      
-      setIsLoading(cacheClient.needsFetch(id, requireComplete));
-      if (!newError) hydrate();
     });
 
-    // 3. Trigger fetch if missing or partial
-    hydrate();
+    // 3. A missing or incomplete record fetches directly; a cache hit is gated.
+    void load();
 
     // 4. Release on unmount (Decrement RefCount / GC)
     return () => {
@@ -67,8 +78,8 @@ export function useCacheEntry<T extends { id: string }>(
   }, [cacheClient, id, requireComplete]);
 
   return {
-    data: id ? cacheClient.get(id) ?? (data?.id === id ? data : null) : null,
+    data: id && data?.id === id ? data : null,
     error: id && errorId === id ? error : null,
-    isLoading: id ? cacheClient.needsFetch(id, requireComplete) || isLoading : false,
+    isLoading: id ? isLoading : false,
   };
 }

@@ -1,3 +1,4 @@
+/** Resolves semantic views through canonical cache state and authoritative fetches. */
 import { ViewKeyBuilder, SemanticViewKeyParams } from './SemanticViewKey';
 import { 
   GlobalViewStore, 
@@ -693,6 +694,10 @@ export class ViewResolver {
 
   private static async executeResolve(intent: ViewIntent, viewKey: string): Promise<ViewState | null> {
     let inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+    if (intent.type === 'resolve' && inspection.status === 'satisfied') {
+      const continuous = await AppCache.ensureReadModelContinuityForCacheHit();
+      if (!continuous) inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+    }
     const inspectedView = GlobalViewStore.get(viewKey);
     if (inspectedView && inspectedView.satisfactionStatus !== inspection.status) {
       GlobalViewStore.set(viewKey, {
