@@ -1,3 +1,4 @@
+/** Exercises browser-side realtime delivery, debug events, and continuity gap detection. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
 
@@ -94,5 +95,33 @@ describe('RealtimeCacheBridge debug events', () => {
     channel?.emit('data:changed', { eventId: 'evt-2', metadataKind: 'node', metadataSequence: 6 });
 
     expect(gaps).toEqual([{ stream: 'metadata', key: 'node', expected: 5, received: 6 }]);
+  });
+
+  it('detects a channel cursor discontinuity even when resource versions are unrelated', () => {
+    const gaps: { stream: string; key: string; expected: number; received: number }[] = [];
+    const bridge = new RealtimeCacheBridge(vi.fn(), undefined, undefined, undefined, (gap) => gaps.push(gap));
+
+    bridge.retainPolicyChannels(['channel-data'], []);
+    const channel = MockPusher.instance.channels.get('channel-data');
+    channel?.emit('data:changed', {
+      eventId: 'evt-1', resourceType: 'node', resourceId: 'node-1',
+      stream: { channelId: 'channel-data', epoch: 'epoch-1', cursor: 1, previousCursor: 0, previousEventId: null },
+    });
+    channel?.emit('data:changed', {
+      eventId: 'evt-3', resourceType: 'entity', resourceId: 'entity-1',
+      stream: { channelId: 'channel-data', epoch: 'epoch-1', cursor: 3, previousCursor: 2, previousEventId: 'evt-2' },
+    });
+
+    expect(gaps).toEqual([{ stream: 'channel', key: 'channel-data', expected: 1, received: 3 }]);
+  });
+
+  it('detects a missed event from the server checkpoint without waiting for another event', () => {
+    const gaps: { stream: string; key: string; expected: number; received: number }[] = [];
+    const bridge = new RealtimeCacheBridge(vi.fn(), undefined, undefined, undefined, (gap) => gaps.push(gap));
+
+    expect(bridge.reconcileChannelCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 4 }])).toBe(true);
+    expect(bridge.reconcileChannelCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 6 }])).toBe(false);
+
+    expect(gaps).toEqual([{ stream: 'channel', key: 'channel-data', expected: 4, received: 6 }]);
   });
 });

@@ -28,7 +28,12 @@ import {
 export type DynamicNodeField = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>['fields'][number];
 export type EntityTypeDefinition = NonNullable<Awaited<ReturnType<typeof AppCache.admin.getTypeDefinition>>>;
 
-export function useNodeDetail(nodeId: string) {
+export interface NodeDetailNavigation {
+  afterDelete: string;
+  detailPath: string;
+}
+
+export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation) {
   const router = useRouter();
   const [nodeAccessResult, setNodeAccessResult] = useState<{ nodeId: string; state: NodeAccessState }>({ nodeId, state: 'checking' });
   const nodeAccess = nodeAccessResult.nodeId === nodeId ? nodeAccessResult.state : 'checking';
@@ -57,8 +62,8 @@ export function useNodeDetail(nodeId: string) {
     currentVersionIsLocal: currentNode ? AppCache.mutations.isLocalVersion(`node:${nodeId}`, currentNode.rowVersion) : false,
   });
   const formStale = reconciledEditLifecycle.stale;
-  const deletionFallback = currentNode?.parentId ? `/nodes/${currentNode.parentId}` : '/';
-  const deletionReturnTo = useDeletionReturnContext(deletionFallback, `/nodes/${nodeId}`);
+  const deletionFallback = navigation?.afterDelete ?? (currentNode?.parentId ? `/nodes/${currentNode.parentId}` : '/');
+  const deletionReturnTo = useDeletionReturnContext(deletionFallback, navigation?.detailPath ?? `/nodes/${nodeId}`);
   const readOnly = !lock.isMyLock;
   const hasUnsavedChanges = Boolean(lock.isMyLock && currentNode && (
     nodeName !== currentNode.name

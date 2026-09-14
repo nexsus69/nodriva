@@ -15,6 +15,10 @@ realtime_enabled="${PARITY_REALTIME_ENABLED:-false}"
 session_idle_timeout_seconds="${PARITY_SESSION_IDLE_TIMEOUT_SECONDS:-1800}"
 sqlite_pid=""
 postgres_pid=""
+realtime_container=""
+realtime_port=""
+realtime_environment=()
+realtime_worker_secret="dashboard-admin-parity-realtime-worker-secret"
 
 # CI can supply two explicit PostgreSQL URLs instead of local Docker container
 # names. The admin URL is used only to create/drop the isolated E2E database;
@@ -60,6 +64,7 @@ cleanup() {
   if [[ -n "${postgres_pid}" ]]; then kill "${postgres_pid}" 2>/dev/null || true; fi
   wait "${sqlite_pid}" 2>/dev/null || true
   wait "${postgres_pid}" 2>/dev/null || true
+  if [[ -n "${realtime_container}" ]]; then docker rm -f "${realtime_container}" >/dev/null 2>&1 || true; fi
   drop_test_database || true
   rm -f "${sqlite_path}"
   rm -rf "${sqlite_attachments}" "${postgres_attachments}"
@@ -106,9 +111,57 @@ drop_test_database
 create_test_database
 upgrade_test_database
 
+if [[ "${realtime_enabled}" == true ]]; then
+  # The browser and both local Next.js processes share this isolated broker.
+  # It prevents the realtime E2E profile from depending on deployment Soketi.
+  realtime_container="dashboard-admin-parity-soketi-$$"
+  realtime_container="$(docker run --detach --rm --name "${realtime_container}" \
+    --publish 127.0.0.1::6001 \
+    --env SOKETI_DEFAULT_APP_ID=dashboard-admin-parity \
+    --env SOKETI_DEFAULT_APP_KEY=dashboard-admin-parity-key \
+    --env SOKETI_DEFAULT_APP_SECRET=dashboard-admin-parity-secret \
+    --env SOKETI_DEFAULT_APP_CLUSTER=mt1 \
+    --env SOKETI_PORT=6001 \
+    quay.io/soketi/soketi:1.6-16-alpine)"
+  realtime_port="$(docker port "${realtime_container}" 6001/tcp | awk -F: 'NR == 1 { print $NF }')"
+  if [[ -z "${realtime_port}" ]]; then
+    echo "Unable to determine the isolated realtime test port." >&2
+    exit 1
+  fi
+  realtime_environment=(
+    NEXT_PUBLIC_PUSHER_KEY=dashboard-admin-parity-key
+    NEXT_PUBLIC_PUSHER_CLUSTER=mt1
+    NEXT_PUBLIC_PUSHER_HOST=127.0.0.1
+    NEXT_PUBLIC_PUSHER_PORT="${realtime_port}"
+    NEXT_PUBLIC_PUSHER_SCHEME=http
+    PUSHER_APP_ID=dashboard-admin-parity
+    PUSHER_SECRET=dashboard-admin-parity-secret
+    REALTIME_INTERNAL_HOST=127.0.0.1
+    REALTIME_INTERNAL_PORT="${realtime_port}"
+    REALTIME_INTERNAL_SCHEME=http
+    REALTIME_WORKER_SECRET="${realtime_worker_secret}"
+  )
+  realtime_ready=false
+  for _ in $(seq 1 30); do
+    if curl --fail --silent "http://127.0.0.1:${realtime_port}/ready" >/dev/null; then
+      realtime_ready=true
+      break
+    fi
+    sleep 1
+  done
+  if [[ "${realtime_ready}" != true ]]; then
+    echo "Isolated realtime test broker is unavailable." >&2
+    docker logs "${realtime_container}" >&2 || true
+    exit 1
+  fi
+fi
+
 if [[ "${PARITY_SKIP_BUILD:-false}" != true ]]; then
   pnpm --filter @dashboard/core build
-  NEXT_PUBLIC_REALTIME_ENABLED="${realtime_enabled}" NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" pnpm --filter @dashboard/web build
+  env "${realtime_environment[@]}" \
+    NEXT_PUBLIC_REALTIME_ENABLED="${realtime_enabled}" \
+    NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS="${session_idle_timeout_seconds}" \
+    pnpm --filter @dashboard/web build
 fi
 
 admin_email="admin-parity@dashboard.test"
@@ -120,6 +173,7 @@ PARITY_ADMIN_PASSWORD="${admin_password}" \
 node scripts/admin-parity-fixtures.mjs
 
 common_secret="admin-parity-nextauth-secret-2026-at-least-32-characters"
+env "${realtime_environment[@]}" \
 DATABASE_ADAPTER=sqlite \
 SQLITE_DATABASE_PATH="${sqlite_path}" \
 NEXTAUTH_SECRET="${common_secret}" \
@@ -131,6 +185,7 @@ ATTACHMENTS_ROOT="${sqlite_attachments}" \
 pnpm --filter @dashboard/web exec next start -p 3101 >"${sqlite_log}" 2>&1 &
 sqlite_pid="$!"
 
+env "${realtime_environment[@]}" \
 DATABASE_ADAPTER=postgres \
 DATABASE_URL="${postgres_app_url}" \
 NEXTAUTH_SECRET="${common_secret}" \
@@ -167,6 +222,7 @@ fi
 # dashboard_admin_e2e_test database created above and lets diagnostic E2E
 # assertions distinguish an HTTP/UI projection problem from persistence.
 E2E_RUN=true \
+REALTIME_WORKER_SECRET="${realtime_worker_secret}" \
 E2E_REALTIME_RUN="${realtime_enabled}" \
 E2E_BASE_URL="http://127.0.0.1:3102" \
 E2E_EMAIL="${admin_email}" \

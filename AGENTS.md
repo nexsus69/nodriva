@@ -250,6 +250,12 @@ un ambiente isolato.
 - Non usare dati o credenziali operative nei test.
 - Non modificare o eliminare cambiamenti locali dell'utente non pertinenti.
 - Non applicare migrazioni distruttive al database operativo.
+- Per un deploy applicativo, ricostruire e ricreare soltanto i servizi toccati.
+  Per esempio, dopo una modifica Web usare `docker compose ... build web` e
+  `docker compose ... up -d --no-deps web`; non eseguire `up -d --build`
+  sull'intero stack. Il deploy completo è ammesso solo quando cambiano
+  Compose, migrazioni, immagini o configurazioni condivise, oppure una
+  dipendenza del servizio richiede esplicitamente il riavvio.
 - Non creare commit, tag o push salvo richiesta esplicita dell'utente.
 
 ## Documentazione

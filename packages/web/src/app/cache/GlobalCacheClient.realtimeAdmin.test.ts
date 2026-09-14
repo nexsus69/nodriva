@@ -22,11 +22,20 @@ class MockChannel {
 const { MockPusher } = vi.hoisted(() => {
   class HoistedMockPusher {
     static instance: HoistedMockPusher;
-    connection = { bind: vi.fn() };
+    private readonly connectionHandlers = new Map<string, Handler[]>();
+    connection = {
+      bind: vi.fn((eventName: string, handler: Handler) => {
+        this.connectionHandlers.set(eventName, [...(this.connectionHandlers.get(eventName) ?? []), handler]);
+      }),
+    };
     channels = new Map<string, MockChannel>();
 
     constructor() {
       HoistedMockPusher.instance = this;
+    }
+
+    emitConnection(eventName: string, payload: unknown): void {
+      this.connectionHandlers.get(eventName)?.forEach((handler) => handler(payload));
     }
 
     subscribe(channelName: string): MockChannel {
@@ -124,5 +133,53 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
 
     expect(cache.getAttachmentCollection(target)).toBe(state);
     expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it('keeps authenticated bootstrap loads alive when realtime starts disabled but requires their revalidation', () => {
+    const cache = new GlobalCacheClient();
+    const epoch = cache.getCacheEpoch();
+    cache.nodes.inject('node-1', { id: 'node-1', name: 'Bootstrap node' } as never);
+
+    cache.setRealtimeEnabled(false);
+
+    expect(cache.getRealtimeReadModelState()).toBe('disabled');
+    expect(cache.getCacheEpoch()).toBe(epoch);
+    expect(cache.nodes.get('node-1')?.name).toBe('Bootstrap node');
+    expect(cache.nodes.needsFetch('node-1', true)).toBe(true);
+  });
+
+  it('purges a previously trusted read model when realtime is disabled', () => {
+    const cache = new GlobalCacheClient();
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 1 }]);
+    cache.nodes.inject('node-1', { id: 'node-1', name: 'Cached node' } as never);
+
+    cache.setRealtimeEnabled(false);
+
+    expect(cache.getRealtimeReadModelState()).toBe('disabled');
+    expect(cache.nodes.get('node-1')).toBeNull();
+  });
+
+  it('abandons the shared read model after a realtime transport outage and forces the next authoritative read', () => {
+    const cache = new GlobalCacheClient();
+    cache.retainRealtimeChannels(['channel-data'], []);
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 3 }]);
+    cache.nodes.inject('node-1', { id: 'node-1', name: 'Cached node' } as never);
+
+    MockPusher.instance.emitConnection('state_change', { current: 'unavailable' });
+
+    expect(cache.getRealtimeReadModelState()).toBe('unreliable');
+    expect(cache.nodes.get('node-1')).toBeNull();
+    expect(cache.nodes.needsFetch('node-1', true)).toBe(true);
+  });
+
+  it('purges the read model when a channel checkpoint proves the browser missed events', () => {
+    const cache = new GlobalCacheClient();
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 1 }]);
+    cache.nodes.inject('node-1', { id: 'node-1', name: 'Cached node' } as never);
+
+    cache.observeRealtimeCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 2 }]);
+
+    expect(cache.getRealtimeReadModelState()).toBe('unreliable');
+    expect(cache.nodes.get('node-1')).toBeNull();
   });
 });

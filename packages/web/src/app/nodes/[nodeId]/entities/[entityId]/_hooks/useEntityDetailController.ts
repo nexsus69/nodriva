@@ -28,14 +28,19 @@ import {
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 
-export function useEntityDetailController(entityId: string, parentNodeId: string) {
+export interface EntityDetailNavigation {
+  afterDelete: string;
+  detailPath: string;
+}
+
+export function useEntityDetailController(entityId: string, parentNodeId: string, navigation?: EntityDetailNavigation) {
   const router = useRouter();
   const detail = useSemanticEntityDetail(entityId, parentNodeId);
   const { entities: siblingEntities } = useSemanticEntityCollection(parentNodeId);
   const { entityTypes, entityTypesList } = useSemanticMetadata();
   const deletionReturnTo = useDeletionReturnContext(
-    `/nodes/${parentNodeId}`,
-    `/nodes/${parentNodeId}/entities/${entityId}`,
+    navigation?.afterDelete ?? `/nodes/${parentNodeId}`,
+    navigation?.detailPath ?? `/nodes/${parentNodeId}/entities/${entityId}`,
   );
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState('');

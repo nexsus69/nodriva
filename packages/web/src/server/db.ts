@@ -87,6 +87,7 @@ import {
 } from '@dashboard/core';
 import type { RealtimeChannelPolicy } from '@dashboard/core';
 import { RealtimeMetrics } from './RealtimeMetrics';
+import { RealtimeChannelStreamRegistry } from './RealtimeChannelStreamRegistry';
 import { WebhookAccountActionDelivery } from './WebhookAccountActionDelivery';
 import { runtimeTiming } from '../config/runtimeTiming';
 import crypto from 'crypto';
@@ -142,6 +143,8 @@ const realtimePusherConfiguration = getRealtimePusherConfiguration(deploymentCon
 
 const realtimePolicyCache = new MemoryCache<string, RealtimeChannelPolicy[]>(runtimeTiming.cacheSweepIntervalMs);
 export const realtimeMetrics = new RealtimeMetrics();
+/** Volatile continuity watermark; restart intentionally requires browser cache reset. */
+export const realtimeChannelStreams = new RealtimeChannelStreamRegistry();
 
 export function invalidateRealtimePolicyCache(): void {
   realtimePolicyCache.invalidate('all');
@@ -177,12 +180,15 @@ export const pusherEventBus = new PusherEventBus({
   // Il backend gira nella rete Docker: l'endpoint pubblico usato dal browser
   // non coincide necessariamente con quello raggiungibile dal server.
   isEnabled: isRealtimeCapabilityEnabled,
-  resolveDataChannelNames: async (event) => {
+  resolveDataChannelDeliveries: async (event) => {
     const startedAt = Date.now();
     const policies = await getRealtimeChannelPolicies();
     const channels = new RealtimeChannelRouter(policies).dataChannels(event);
     realtimeMetrics.recordRouting('data', Date.now() - startedAt, channels.length);
-    return channels;
+    return channels.map((channelName) => ({
+      channelName,
+      payload: realtimeChannelStreams.decorate(channelName, event),
+    }));
   },
   resolveLockChannelNames: async (resourceType, resourceId, scopeNodeId) => {
     const startedAt = Date.now();

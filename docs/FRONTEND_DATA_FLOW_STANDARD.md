@@ -40,6 +40,54 @@ Componente
 
 La cache aggiorna il read model solo dopo una risposta backend valida o un evento realtime accettato. Non autorizza mai l’operazione e non è fonte autorevole.
 
+## Continuità realtime e fallback conservativo
+
+La cache è un read model di sessione, non una fonte autorevole. Realtime è il
+percorso normale: propaga subito invalidazioni autorizzate e riduce le letture
+HTTP. La correttezza non dipende però dal trasporto WebSocket.
+
+Ogni canale dati autorizzato ha un `epoch` di processo e un cursore monotono.
+Ogni consegna contiene cursore, cursore precedente, `eventId` e identificatore
+dell'evento precedente. Il browser considera il canale continuo solo se:
+
+- la WebSocket e la sottoscrizione sono attive;
+- ogni evento ricevuto segue il precedente cursore del medesimo canale;
+- il checkpoint periodico autenticato del server coincide con l'ultimo cursore
+  applicato dal browser;
+- l'`epoch` del server non è cambiata.
+
+Il server ricava sempre i canali dalla sessione e dalla policy corrente; non
+accetta dal browser una scelta di canali come autorizzazione. Il registro dei
+cursori è volutamente volatile nella prima implementazione: restart del Web o
+cambio istanza cambia `epoch` e richiede il fallback conservativo, senza replay
+di eventi.
+
+Disconnessione, errore di sottoscrizione, `epoch` diversa, cursore non
+contiguo, checkpoint differente, cambio dei canali autorizzati o fallimento del
+checkpoint portano l'intero read model nello stato `unreliable`. In tale stato
+la cache avanza una generazione e rende non utilizzabili tutte le proiezioni
+precedenti: record, liste, metadata, amministrazione, lock e view store. Le
+bozze non salvate restano stato della form, separato dal read model.
+
+Una riconnessione non rende di per sé affidabile la cache. Solo un checkpoint
+continuo dopo l'invalidazione consente alle successive letture autorevoli di
+popolare la nuova generazione. Il primo checkpoint di una sessione appena
+autenticata non invalida le letture già avviate: logout e cambio identità hanno
+già svuotato il read model prima del bootstrap. Se HTTP non è raggiungibile, la
+UI può mantenere la bozza ma non avvia azioni dipendenti da uno snapshot non
+verificato.
+
+Quando realtime è deliberatamente disabilitato, il read model resta nello stato
+`disabled`: ogni accesso logico significativo carica dal server la proiezione
+necessaria. Durante il primo bootstrap non deve annullare le letture autorevoli
+già avviate dalla sessione vuota; le conserva come snapshot da rivalidare. La
+cache può deduplicare richieste concorrenti della stessa operazione, ma non
+riusa snapshot di una generazione precedente come dati correnti.
+
+Le mutazioni, i lock, l'accesso e il controllo `rowVersion` restano sempre
+richieste backend non condizionali e atomiche. La continuità della cache non può
+concedere un'azione né eliminare una gara tra due sessioni.
+
 ## Sessione e sicurezza
 
 La sessione NextAuth resta la fonte dell’identità corrente e comprende
@@ -82,7 +130,9 @@ uno alla volta dal componente né mostrare identificatori tecnici come fallback.
 - dichiarare dipendenze strutturali tramite token e dipendenze dai dati tramite riferimenti tipizzati;
 - non duplicare lo stesso oggetto in `useState` come cache parallela;
 - centralizzare mapping errori, retry, session refresh e purge;
-- aggiungere test di cache hit/miss, deduplicazione, rowVersion, evento realtime e cambio sessione.
+- aggiungere test di cache hit/miss, deduplicazione, `notModified`, revisione
+  modificata, indisponibilità di rete, reconnect realtime, rowVersion, evento
+  realtime e cambio sessione.
 
 ## Interazione amministrativa e valori semantici
 

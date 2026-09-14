@@ -16,15 +16,16 @@ import {
   type AdminEntityRow,
   type AdminNodeRow,
 } from "./contentResourceLoaders";
+import { adminEntityDetailHref, adminNodeDetailHref } from '../adminContentDetailRoute';
 
 type ContentKind = "node" | "entity";
 type ContentRow = AdminNodeRow | AdminEntityRow;
 
-/** Returns the canonical workspace route for a scoped content record. */
-function workspaceHref(kind: ContentKind, row: ContentRow): string {
+/** Returns the Admin detail route for a scoped content record. */
+function adminDetailHref(kind: ContentKind, row: ContentRow): string {
   return kind === "node"
-    ? `/nodes/${row.id}`
-    : `/nodes/${(row as AdminEntityRow).parentNodeId}/entities/${row.id}`;
+    ? adminNodeDetailHref(row.id)
+    : adminEntityDetailHref((row as AdminEntityRow).parentNodeId, row.id);
 }
 
 /** Hosts a scoped resource catalogue while canonical editors retain mutation ownership. */
@@ -90,7 +91,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
   const countLabel = countTemplate
     .replace("{visible}", String(visibleRows.length))
     .replace("{total}", String(collection.rows.length));
-  const open = (row: ContentRow) => router.push(workspaceHref(kind, row));
+  const open = (row: ContentRow) => router.push(adminDetailHref(kind, row));
 
   const definition: AdminCollectionDefinition<ContentRow> = {
     title: resource.label,
@@ -117,7 +118,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     actionMenuLabel: t("admin.actions"),
     actions: [{
       key: "open-workspace",
-      label: t("admin.openWorkspace"),
+      label: t("admin.openDetail"),
       icon: "external",
       tone: "primary",
       onClick: open,

@@ -36,6 +36,40 @@ through the `--admin-accent-*` tokens on `.admin-page`. Navigation, buttons,
 focus rings, pagination, toolbars and dashboard cards must consume this shared
 accent contract; a component must not introduce a separate purple/blue palette.
 
+## Dettagli amministrativi delle risorse
+
+Le collection `Content → Nodes` e `Content → Entities` aprono dettagli figli
+nelle route `/admin/content/nodes/:nodeId` e
+`/admin/content/entities/:parentNodeId/:entityId`. Le route sono superfici di
+consultazione e intervento amministrativo, non moduli autonomi della sidebar:
+mantengono contesto, ritorno e azioni dentro `Admin → Content`.
+
+Il dettaglio amministrativo usa la stessa lettura autorizzata, lo stesso
+controller di lock/bozza e gli stessi comandi applicativi di nodo o entità del
+workspace operativo. Non esiste un secondo controllo ACL, lock, `rowVersion`,
+deletion policy, allegati o audit nel pannello Admin. `NodeApplicationService`,
+`EntityApplicationService` e i relativi confini transazionali restano gli owner
+di tali policy; il controller Admin possiede solo composizione, navigazione e
+stato di presentazione.
+
+Un amministratore vede una risorsa solo se la normale lettura node-bound o
+entity-bound la autorizza nel suo scope. La route non trasforma
+`system.config.read`, il ruolo Admin o la presenza nella lista in un permesso
+aggiuntivo. Un diniego espone la stessa semantica di accesso negato della
+superficie operativa, senza rivelare dati o esistenza della risorsa fuori scope.
+
+La schermata mostra identità, tipo, path o contenitore, `rowVersion`, stato del
+lock, campi dinamici, relazioni e allegati. Le modifiche sono intenzionali:
+prima acquisiscono il lock e mantengono bozza, conflitto di versione e
+invalidazione realtime con il lifecycle condiviso. Una cancellazione riuscita
+torna alla rispettiva collection Admin; non reindirizza al workspace operativo.
+
+Le collection Admin dichiarano una navigazione `Apri dettaglio amministrativo`;
+l'eventuale collegamento al workspace operativo resta un'azione secondaria ed
+esplicita. Testare per nodi ed entità: mapping riga→route, lettura in scope,
+diniego fuori scope, modifica con lock e `rowVersion`, ritorno dopo
+cancellazione, invalidazione realtime e parità SQLite/PostgreSQL.
+
 Le azioni di aggiornamento amministrative usano sempre `AdminRefreshButton`.
 Il componente centralizza icona, etichetta, callback, accessibilità e
 dimensionamento: mostra sempre l'etichetta localizzata insieme all'icona e

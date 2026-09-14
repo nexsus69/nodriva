@@ -389,6 +389,7 @@ export {
   RealtimeDataChangedEvent,
   RealtimeResourceType,
   RealtimeChangeType,
+  RealtimeChannelStreamPosition,
 } from "./application/ports/RealtimeEventBus.js";
 export { SessionRepositoryPort } from "./application/ports/SessionRepositoryPort.js";
 export { RealtimeScopeResolver } from "./application/ports/RealtimeScopeResolver.js";

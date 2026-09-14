@@ -19,6 +19,9 @@ import AdminTypesPage from "../types/_components/TypesModuleScreen";
 import { TypeDetailPage } from "../types/_components/TypeDetailPage";
 import { AdminOverviewScreen } from "./AdminOverviewScreen";
 import { AdminContentModuleScreen } from "../content/_components/AdminContentModuleScreen";
+import { AdminNodeDetailScreen } from '../content/_components/AdminNodeDetailScreen';
+import { AdminEntityDetailScreen } from '../content/_components/AdminEntityDetailScreen';
+import { parseAdminContentDetailRoute } from '../content/adminContentDetailRoute';
 import Link from "@/app/components/navigation/GuardedLink";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 
@@ -54,6 +57,9 @@ function AdminUnknownModuleScreen() {
 /** Renders a detail compatibility route or the screen registered for the path. */
 export function AdminRouteScreen() {
   const pathname = usePathname();
+  const contentDetail = parseAdminContentDetailRoute(pathname);
+  if (contentDetail?.kind === 'node') return <AdminNodeDetailScreen nodeId={contentDetail.nodeId} />;
+  if (contentDetail?.kind === 'entity') return <AdminEntityDetailScreen parentNodeId={contentDetail.parentNodeId} entityId={contentDetail.entityId} />;
   const rolePrefix = "/admin/access/roles/";
   const userPrefix = "/admin/access/users/";
   const typePrefix = "/admin/model/types/";

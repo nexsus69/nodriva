@@ -10,12 +10,14 @@ import { runtimeTiming } from '../../config/runtimeTiming';
 import { activityDebugStore } from '../activity/ActivityDebugStore';
 import { useHumanActivity } from '../activity/ActivityProvider';
 import { reconcileMetadataBestEffort } from '../cache/metadataReconciliation';
+import type { RealtimeChannelCheckpoint } from '../cache/RealtimeCacheBridge';
 
 interface PassiveSyncResponse {
   dataChannels: string[];
   lockChannels: string[];
   virtualRootNodeIds: string[];
   realtimeEnabled: boolean;
+  realtimeCheckpoints: RealtimeChannelCheckpoint[];
 }
 
 function isLoginRedirect(response: Response): boolean {
@@ -50,6 +52,7 @@ export function CacheInitializer() {
     let disposed = false;
     let retainedChannelKey = '';
     const synchronizeAccess = () => {
+      if (document.visibilityState !== 'visible') return;
       const startedAt = performance.now();
       activityDebugStore.syncStarted();
       void fetch('/api/sync/access', {
@@ -63,11 +66,14 @@ export function CacheInitializer() {
           return;
         }
         if (!response.ok) {
+          AppCache.markRealtimeContinuityUnknown();
           activityDebugStore.syncFinished('server-error', performance.now() - startedAt);
           return;
         }
         const result = await response.json() as PassiveSyncResponse;
         AppCache.setRealtimeEnabled(result.realtimeEnabled);
+        AppCache.observeRealtimeChannels(result.dataChannels);
+        AppCache.observeRealtimeCheckpoints(result.realtimeCheckpoints);
         if (!result.realtimeEnabled) {
           releaseChannels?.();
           releaseChannels = undefined;
@@ -92,8 +98,9 @@ export function CacheInitializer() {
           virtualRoots: result.virtualRootNodeIds.length,
         });
       }).catch(() => {
-        // Il polling è una rete di sicurezza: una sospensione o perdita di rete
-        // non deve produrre errori applicativi né invalidare cache/sessione.
+        // A transport failure leaves the rendered snapshot intact only until
+        // the shared cache can mark it unreliable and request fresh data.
+        AppCache.markRealtimeContinuityUnknown();
         activityDebugStore.syncFinished('network-error', performance.now() - startedAt);
       });
     };
@@ -112,9 +119,10 @@ export function CacheInitializer() {
       }
     };
     document.addEventListener('visibilitychange', synchronizeWhenVisible);
+    window.addEventListener('online', synchronizeAccess);
     const accessRefresh = window.setInterval(
       synchronizeAccess,
-      timing.syncPollingIntervalMs,
+      runtimeTiming.realtimeContinuityCheckIntervalMs,
     );
     const metadataRefresh = window.setInterval(
       () => reconcileMetadata('periodic polling'),
@@ -124,12 +132,13 @@ export function CacheInitializer() {
     return () => {
       disposed = true;
       document.removeEventListener('visibilitychange', synchronizeWhenVisible);
+      window.removeEventListener('online', synchronizeAccess);
       window.clearInterval(accessRefresh);
       window.clearInterval(metadataRefresh);
       CacheGarbageCollector.stop();
       releaseChannels?.();
     };
-  }, [isSessionExpired, timing.metadataReconciliationIntervalMs, timing.syncPollingIntervalMs, userId]);
+  }, [isSessionExpired, timing.metadataReconciliationIntervalMs, userId]);
 
   return null;
 }

@@ -20,6 +20,10 @@ const sessionExpirySafetyBufferMs = Math.max(
   1,
   Math.floor((sessionUpdateAgeSeconds * 1000) / 50),
 );
+const realtimeContinuityCheckIntervalMs = Math.max(
+  10_000,
+  Math.min(60_000, Math.floor((sessionUpdateAgeSeconds * 1000) / 10)),
+);
 
 /**
  * Operational timings derived from one public, non-secret session policy.
@@ -33,6 +37,7 @@ export const runtimeTiming = Object.freeze({
   lockTtlSeconds,
   activityHeartbeatThrottleMs: sessionUpdateAgeSeconds * 1000,
   syncPollingIntervalMs: sessionUpdateAgeSeconds * 1000,
+  realtimeContinuityCheckIntervalMs,
   metadataReconciliationIntervalMs: sessionUpdateAgeSeconds * 1000,
   sessionExpirySafetyBufferMs,
   debugPanelRefreshIntervalMs: sessionExpirySafetyBufferMs,

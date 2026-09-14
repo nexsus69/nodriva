@@ -15,6 +15,19 @@ export type RealtimeResourceType =
   | 'placement_policy';
 export type RealtimeChangeType = 'created' | 'updated' | 'deleted' | 'moved' | 'restored';
 
+/**
+ * Position assigned by the delivery coordinator for one authorized channel.
+ * It is deliberately optional: the transactional outbox stores domain events
+ * before their concrete realtime destinations are resolved.
+ */
+export interface RealtimeChannelStreamPosition {
+  channelId: string;
+  epoch: string;
+  cursor: number;
+  previousCursor: number;
+  previousEventId: string | null;
+}
+
 export interface RealtimeDataChangedEvent extends Omit<ResourceReference, 'resourceType'> {
   resourceType: RealtimeResourceType;
   eventId: string;
@@ -43,6 +56,8 @@ export interface RealtimeDataChangedEvent extends Omit<ResourceReference, 'resou
   resourceVersion?: number;
   /** A resource-owned projection changed without changing the resource row. */
   subresourceKind?: 'attachment';
+  /** Delivery metadata for the one policy channel that receives this copy. */
+  stream?: RealtimeChannelStreamPosition;
 }
 
 export interface RealtimeEventBus {

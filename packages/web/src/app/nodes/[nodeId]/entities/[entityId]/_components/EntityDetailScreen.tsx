@@ -3,6 +3,7 @@
 /** Composes the interactive entity detail screen from shared resource surfaces. */
 
 import { useParams } from 'next/navigation';
+import Link from '@/app/components/navigation/GuardedLink';
 import type { ReactNode } from 'react';
 import { LockBadge } from '../../../../../components/LockBadge';
 import { LockIndicator } from '../../../../../components/LockIndicator';
@@ -14,14 +15,20 @@ import { RelationPanel } from '../../../../../components/ui/relations';
 import { EntityDetailContent } from './EntityDetailContent';
 import { useEntityDetailController } from '../_hooks/useEntityDetailController';
 
-export function EntityDetailScreen() {
+export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, nodeId: suppliedNodeId }: { admin?: boolean; entityId?: string; nodeId?: string }) {
   const { nodeId, entityId } = useParams<{ nodeId: string; entityId: string }>();
-  const controller = useEntityDetailController(entityId, nodeId);
+  const resolvedNodeId = suppliedNodeId ?? nodeId;
+  const resolvedEntityId = suppliedEntityId ?? entityId;
+  const controller = useEntityDetailController(
+    resolvedEntityId,
+    resolvedNodeId,
+    admin ? { afterDelete: '/admin/content/entities', detailPath: `/admin/content/entities/${resolvedNodeId}/${resolvedEntityId}` } : undefined,
+  );
   if (controller.isLoading || !controller.entity) {
     return (
       <PageShell className="max-w-2xl">
         <div className="flex min-w-0 items-center gap-1">
-          <NodeBreadcrumb nodeId={nodeId} currentNodeLinkable />
+          {admin ? <Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← Entità</Link> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
           <span className="text-slate-400">/</span>
           <Skeleton className="h-3 w-20" />
         </div>
@@ -66,8 +73,8 @@ export function EntityDetailScreen() {
   const entity = controller.entity;
   return (
     <PageShell className="max-w-2xl">
-      <div className="flex min-w-0 items-center gap-1">
-        <NodeBreadcrumb nodeId={nodeId} currentNodeLinkable />
+      <div aria-label={admin ? 'Percorso dettaglio amministrativo' : undefined} className="flex min-w-0 items-center gap-1">
+        {admin ? <><Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← Entità</Link><span className="text-xs font-semibold text-slate-500">Dettaglio amministrativo</span></> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
         <span className="text-slate-400">/</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-mono font-semibold text-slate-800">
           <span className="truncate">{entity.name}</span>
@@ -84,7 +91,7 @@ export function EntityDetailScreen() {
             <EntityResourceMenu
               entityId={entity.id}
               entityName={entity.name}
-              parentNodeId={nodeId}
+              parentNodeId={resolvedNodeId}
               onEdit={() => void controller.beginEditing()}
               onDelete={() => { void controller.requestDelete(); }}
               editDisabled={controller.lock.isMyLock}

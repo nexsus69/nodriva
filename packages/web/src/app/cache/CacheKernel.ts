@@ -104,6 +104,8 @@ export class CacheKernel {
   private readonly tokenGenerations = new Map<string, number>();
   /** Session generation incremented when all cached state is purged. */
   private epoch = 0;
+  /** Prevents a degraded transport from certifying a browser snapshot as current. */
+  private readModelTrusted = true;
   /** Clock used for TTL and update timestamps. */
   private readonly now: () => number;
   /** Extracts optimistic row versions without coupling the kernel to a model. */
@@ -128,6 +130,11 @@ export class CacheKernel {
     return this.epoch;
   }
 
+  /** Sets the single freshness policy used by every normalized cache facade. */
+  public setReadModelTrusted(trusted: boolean): void {
+    this.readModelTrusted = trusted;
+  }
+
   /** Reads one canonical record without exposing the internal storage wrapper. */
   public getRecord<T extends CacheRecord>(namespace: string, id: string): T | null {
     return (this.records.get(this.recordKey(namespace, id))?.record as T | undefined) ?? null;
@@ -141,6 +148,7 @@ export class CacheKernel {
   ): RecordSatisfaction {
     const stored = this.records.get(this.recordKey(namespace, id));
     if (!stored) return 'missing';
+    if (!this.readModelTrusted) return 'stale';
     if (stored.stale) return 'stale';
     if (requiredCompleteness === 'full' && stored.completeness !== 'full') return 'incomplete';
     return 'satisfied';
@@ -224,7 +232,7 @@ export class CacheKernel {
   /** Returns a fresh query projection, or null when it must be reloaded. */
   public getQuery(key: string): CacheQuerySnapshot | null {
     const query = this.queries.get(key);
-    if (!query || query.stale || (query.ttlMs !== undefined && this.now() - query.fetchedAt >= query.ttlMs)) {
+    if (!this.readModelTrusted || !query || query.stale || (query.ttlMs !== undefined && this.now() - query.fetchedAt >= query.ttlMs)) {
       return null;
     }
     return query;

@@ -1,3 +1,4 @@
+/** Verifies normalized cache records, query invalidation, epochs, and shared freshness policy. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CacheEpochChangedError, CacheKernel } from './CacheKernel';
 
@@ -88,6 +89,19 @@ describe('CacheKernel', () => {
       { completeness: 'full' },
     );
     expect(kernel.getRecordSatisfaction('entity', '1', 'full')).toBe('satisfied');
+  });
+
+  it('requires an authoritative reread while the shared read model is not trusted', async () => {
+    kernel.upsertRecord<TestRecord>('entity', { id: '1', name: 'Cached', rowVersion: 1 });
+    const loader = vi.fn(async () => ({ ids: ['1'], recordNamespace: 'entity' }));
+    await kernel.readQuery('entities', loader, { recordNamespace: 'entity' });
+
+    kernel.setReadModelTrusted(false);
+
+    expect(kernel.getRecordSatisfaction('entity', '1')).toBe('stale');
+    expect(kernel.getQuery('entities')).toBeNull();
+    await kernel.readQuery('entities', loader, { recordNamespace: 'entity' });
+    expect(loader).toHaveBeenCalledTimes(2);
   });
 
   it('does not retain full completeness when a newer partial version arrives', () => {

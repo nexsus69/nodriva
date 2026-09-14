@@ -501,6 +501,20 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       return [firstUrl, secondUrl] as const;
     });
 
+    await runCanonicalPhase(adapter, 'admin-content-details', async () => {
+      await adminPage.goto(`${baseUrl}/admin/content/nodes`);
+      await adminPage.getByRole('row', { name: new RegExp(names.childName) }).click();
+      await expect(adminPage).toHaveURL(`${baseUrl}/admin/content/nodes/${childNodeId}`);
+      await expect(adminPage.getByRole('heading', { name: names.childName })).toBeVisible();
+      await expect(adminPage.getByLabel('Percorso dettaglio amministrativo')).toContainText(names.childName);
+
+      await adminPage.goto(`${baseUrl}/admin/content/entities`);
+      await adminPage.getByRole('row', { name: new RegExp(names.secondEntityName) }).click();
+      await expect(adminPage).toHaveURL(`${baseUrl}/admin/content/entities/${childNodeId}/${new URL(secondEntityUrl).pathname.split('/').at(-1)}`);
+      await expect(adminPage.getByRole('heading', { name: names.secondEntityName })).toBeVisible();
+      await expect(adminPage.getByLabel('Percorso dettaglio amministrativo')).toContainText(names.secondEntityName);
+    });
+
     const inverseRelationReplacementReviewed = await runCanonicalPhase(
       adapter,
       'inverse-relation-replacement',

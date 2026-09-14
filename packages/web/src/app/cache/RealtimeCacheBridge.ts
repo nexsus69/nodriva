@@ -1,5 +1,7 @@
 'use client';
 
+/** Bridges Pusher deliveries into the browser cache and verifies stream continuity. */
+
 import Pusher, { Channel } from 'pusher-js';
 import type { RealtimeDataChangedEvent, ResourceKind } from '@dashboard/core';
 
@@ -16,7 +18,18 @@ export interface RealtimeDebugEvent {
 export type RealtimeDebugListener = (event: RealtimeDebugEvent) => void;
 export type RealtimeConnectionState = 'initialized' | 'connecting' | 'connected' | 'unavailable' | 'disconnected' | 'failed';
 export type RealtimeConnectionStateListener = (state: RealtimeConnectionState) => void;
-export type RealtimeEventGapListener = (details: { stream: 'metadata' | 'resource'; key: string; expected: number; received: number }) => void;
+export type RealtimeEventGapListener = (details: {
+  stream: 'metadata' | 'resource' | 'channel';
+  key: string;
+  expected: number;
+  received: number;
+}) => void;
+
+export interface RealtimeChannelCheckpoint {
+  channelId: string;
+  epoch: string;
+  cursor: number;
+}
 
 let debugEventSequence = 0;
 
@@ -50,6 +63,7 @@ export class RealtimeCacheBridge {
   private readonly handledEventIds = new Set<string>();
   private lastMetadataSequence: number | null = null;
   private readonly lastResourceVersions = new Map<string, number>();
+  private readonly lastChannelPositions = new Map<string, { epoch: string; cursor: number }>();
   private scopeRelease: (() => void) | null = null;
 
   constructor(
@@ -89,6 +103,26 @@ export class RealtimeCacheBridge {
         if (this.handledEventIds.size > 1000) {
           const oldestEventId = this.handledEventIds.values().next().value;
           if (oldestEventId) this.handledEventIds.delete(oldestEventId);
+        }
+
+        const stream = event.stream;
+        if (stream) {
+          const previous = this.lastChannelPositions.get(channelName);
+          const expected = previous?.cursor ?? stream.previousCursor;
+          const continuous = stream.channelId === channelName
+            && (previous === undefined
+              ? stream.previousCursor === 0
+              : previous.epoch === stream.epoch && stream.previousCursor === previous.cursor)
+            && stream.cursor === stream.previousCursor + 1;
+          if (!continuous) {
+            this.emitDebugEvent('__pusher_connection__', 'realtime:event_gap', {
+              channelName,
+              expected,
+              received: stream.cursor,
+            });
+            this.onEventGap?.({ stream: 'channel', key: channelName, expected, received: stream.cursor });
+          }
+          this.lastChannelPositions.set(channelName, { epoch: stream.epoch, cursor: stream.cursor });
         }
 
         if (event.metadataKind && typeof event.metadataSequence === 'number') {
@@ -135,6 +169,13 @@ export class RealtimeCacheBridge {
         console.error(
           `[RealtimeCacheBridge] Subscription failed for ${channelName}: ${details}`
         );
+        const previous = this.lastChannelPositions.get(channelName);
+        this.onEventGap?.({
+          stream: 'channel',
+          key: channelName,
+          expected: previous?.cursor ?? 0,
+          received: previous?.cursor ?? 0,
+        });
       });
       state = { channel, listeners: new Set() };
       this.channels.set(channelName, state);
@@ -211,6 +252,46 @@ export class RealtimeCacheBridge {
       this.disconnectIfUnused();
     };
     return this.scopeRelease;
+  }
+
+  /**
+   * Confirms that browser and server agree on each authorized stream head.
+   * The server never accepts a client supplied channel list; callers pass only
+   * checkpoints returned by the authenticated access synchronization endpoint.
+   */
+  reconcileChannelCheckpoints(checkpoints: readonly RealtimeChannelCheckpoint[]): boolean {
+    let continuous = true;
+    for (const checkpoint of checkpoints) {
+      const previous = this.lastChannelPositions.get(checkpoint.channelId);
+      if (!previous) {
+        this.lastChannelPositions.set(checkpoint.channelId, {
+          epoch: checkpoint.epoch,
+          cursor: checkpoint.cursor,
+        });
+        continue;
+      }
+      if (previous.epoch !== checkpoint.epoch || previous.cursor !== checkpoint.cursor) {
+        continuous = false;
+        this.emitDebugEvent('__pusher_connection__', 'realtime:checkpoint_gap', {
+          channelName: checkpoint.channelId,
+          expected: previous.cursor,
+          received: checkpoint.cursor,
+          previousEpoch: previous.epoch,
+          epoch: checkpoint.epoch,
+        });
+        this.onEventGap?.({
+          stream: 'channel',
+          key: checkpoint.channelId,
+          expected: previous.cursor,
+          received: checkpoint.cursor,
+        });
+      }
+      this.lastChannelPositions.set(checkpoint.channelId, {
+        epoch: checkpoint.epoch,
+        cursor: checkpoint.cursor,
+      });
+    }
+    return continuous;
   }
 
   private disconnectIfUnused(): void {

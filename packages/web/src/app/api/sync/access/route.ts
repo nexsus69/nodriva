@@ -1,3 +1,4 @@
+/** Returns authenticated realtime authorization and server stream checkpoints for one browser session. */
 import {
   AppError,
   getRealtimeDataChannelName,
@@ -11,7 +12,11 @@ export const GET = auth(async (request) => {
   if (!userId) return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
 
   try {
-    const { securityRepository, isRealtimeCapabilityEnabled } = await import('../../../../server/db');
+    const {
+      securityRepository,
+      isRealtimeCapabilityEnabled,
+      realtimeChannelStreams,
+    } = await import('../../../../server/db');
     const realtimeEnabled = await isRealtimeCapabilityEnabled();
     const [policies, virtualRootNodeIds] = await Promise.all([
       !realtimeEnabled
@@ -19,9 +24,13 @@ export const GET = auth(async (request) => {
         : securityRepository.listRealtimeChannelPoliciesForUser(userId),
       securityRepository.listRealtimeVirtualRootNodeIds(userId),
     ]);
+    const dataChannels = policies.map(getRealtimeDataChannelName);
     return NextResponse.json({
-      dataChannels: policies.map(getRealtimeDataChannelName),
+      dataChannels,
       lockChannels: policies.map(getRealtimeLockChannelName),
+      realtimeCheckpoints: realtimeEnabled
+        ? realtimeChannelStreams.checkpoints(dataChannels)
+        : [],
       virtualRootNodeIds,
       realtimeEnabled,
     }, { headers: { 'Cache-Control': 'no-store' } });

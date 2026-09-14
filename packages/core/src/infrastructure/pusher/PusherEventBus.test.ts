@@ -1,3 +1,4 @@
+/** Verifies channel routing and per-channel payload delivery for the Pusher event bus. */
 import { describe, expect, it, vi } from 'vitest';
 import { Lock } from '../../domain/models/Lock.js';
 import { PusherEventBus } from './PusherEventBus.js';
@@ -39,6 +40,22 @@ describe('PusherEventBus', () => {
     expect(mock.trigger).toHaveBeenCalledTimes(2);
     expect(mock.trigger).toHaveBeenCalledWith('channel-1', 'data:changed', event);
     expect(mock.trigger).toHaveBeenCalledWith('channel-2', 'data:changed', event);
+  });
+
+  it('publishes a stream position specific to each channel when the coordinator provides deliveries', async () => {
+    const mock = transport();
+    const bus = new PusherEventBus({
+      appId: 'app', key: 'key', secret: 'secret', cluster: 'eu',
+      resolveDataChannelDeliveries: async (input) => [
+        { channelName: 'channel-1', payload: { ...input, stream: { channelId: 'channel-1', epoch: 'epoch', cursor: 1, previousCursor: 0, previousEventId: null } } },
+        { channelName: 'channel-2', payload: { ...input, stream: { channelId: 'channel-2', epoch: 'epoch', cursor: 4, previousCursor: 3, previousEventId: 'event-0' } } },
+      ],
+    }, mock);
+
+    await bus.publishDataChanged(event);
+
+    expect(mock.trigger).toHaveBeenCalledWith('channel-1', 'data:changed', expect.objectContaining({ stream: expect.objectContaining({ cursor: 1 }) }));
+    expect(mock.trigger).toHaveBeenCalledWith('channel-2', 'data:changed', expect.objectContaining({ stream: expect.objectContaining({ cursor: 4 }) }));
   });
 
   it('propagates transport failures to the caller for outbox retry handling', async () => {

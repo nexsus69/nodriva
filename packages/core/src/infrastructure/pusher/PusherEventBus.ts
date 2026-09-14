@@ -1,3 +1,4 @@
+/** Publishes authorized realtime and lock notifications through a Pusher-compatible transport. */
 import type { LockEventBus } from '../../application/ports/LockEventBus.js';
 import type {
   RealtimeDataChangedEvent,
@@ -8,8 +9,14 @@ import type { LockEventScope } from '../../application/ports/LockEventBus.js';
 import type { ResourceReference } from '../../domain/models/ResourceReference.js';
 import { PusherTransport, type PusherTransportPort, type PusherTransportConfig } from './PusherTransport.js';
 
+export interface RealtimeDataChannelDelivery {
+  channelName: string;
+  payload: RealtimeDataChangedEvent;
+}
+
 export interface PusherConfig extends PusherTransportConfig {
   resolveDataChannelNames?: (event: RealtimeDataChangedEvent) => Promise<string[]>;
+  resolveDataChannelDeliveries?: (event: RealtimeDataChangedEvent) => Promise<RealtimeDataChannelDelivery[]>;
   resolveLockChannelNames?: (resourceType: string, resourceId: string, scopeNodeId?: string) => Promise<string[]>;
   onPublishMetric?: (metric: { eventName: string; durationMs: number; channelCount: number; success: boolean }) => void;
   isEnabled?: () => Promise<boolean>;
@@ -18,6 +25,7 @@ export interface PusherConfig extends PusherTransportConfig {
 export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   private readonly transport: PusherTransportPort;
   private readonly resolveDataChannelNames?: PusherConfig['resolveDataChannelNames'];
+  private readonly resolveDataChannelDeliveries?: PusherConfig['resolveDataChannelDeliveries'];
   private readonly resolveLockChannelNames?: PusherConfig['resolveLockChannelNames'];
   private readonly onPublishMetric?: PusherConfig['onPublishMetric'];
   private readonly isEnabled?: PusherConfig['isEnabled'];
@@ -28,14 +36,37 @@ export class PusherEventBus implements LockEventBus, RealtimeEventBus {
   ) {
     this.transport = transport;
     this.resolveDataChannelNames = config.resolveDataChannelNames;
+    this.resolveDataChannelDeliveries = config.resolveDataChannelDeliveries;
     this.resolveLockChannelNames = config.resolveLockChannelNames;
     this.onPublishMetric = config.onPublishMetric;
     this.isEnabled = config.isEnabled;
   }
 
   async publishDataChanged(event: RealtimeDataChangedEvent): Promise<void> {
-    if (!(await this.enabled()) || !this.resolveDataChannelNames) return;
+    if (!(await this.enabled()) || (!this.resolveDataChannelNames && !this.resolveDataChannelDeliveries)) return;
+    if (this.resolveDataChannelDeliveries) {
+      await this.publishDataDeliveries(event);
+      return;
+    }
     await this.publish('data:changed', event, () => this.resolveDataChannelNames!(event));
+  }
+
+  private async publishDataDeliveries(event: RealtimeDataChangedEvent): Promise<void> {
+    const startedAt = Date.now();
+    let channelCount = 0;
+    try {
+      const deliveries = await this.resolveDataChannelDeliveries!(event);
+      const uniqueDeliveries = new Map<string, RealtimeDataChangedEvent>();
+      deliveries.forEach((delivery) => uniqueDeliveries.set(delivery.channelName, delivery.payload));
+      channelCount = uniqueDeliveries.size;
+      await Promise.all([...uniqueDeliveries].map(([channelName, payload]) => (
+        this.transport.trigger(channelName, 'data:changed', payload)
+      )));
+      this.onPublishMetric?.({ eventName: 'data:changed', durationMs: Date.now() - startedAt, channelCount, success: true });
+    } catch (error) {
+      this.onPublishMetric?.({ eventName: 'data:changed', durationMs: Date.now() - startedAt, channelCount, success: false });
+      throw error;
+    }
   }
 
   /** Disconnects authenticated clients so their next subscription is checked

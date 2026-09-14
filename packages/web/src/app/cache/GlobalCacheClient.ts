@@ -11,6 +11,7 @@ import type { RealtimeDataChangedEvent, ResourceKind } from '@dashboard/core';
 import type {
   LockChannelEvent,
   RealtimeDebugEvent,
+  RealtimeChannelCheckpoint,
   RealtimeConnectionState,
 } from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
@@ -37,6 +38,8 @@ export interface CachedLockState {
   bySessionId?: string;
   expiresAt?: string;
 }
+
+export type RealtimeReadModelState = 'initializing' | 'live' | 'unreliable' | 'disabled';
 
 export interface AttachmentResourceTarget {
   resourceType: Extract<ResourceKind, 'node' | 'entity'>;
@@ -116,6 +119,8 @@ export class GlobalCacheClient {
   private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
   private realtimeConnectionState: RealtimeConnectionState = 'initialized';
   private realtimeCapabilityEnabled = true;
+  private realtimeReadModelState: RealtimeReadModelState = 'initializing';
+  private realtimeChannelKey: string | null = null;
   private readonly realtimeStateSubscribers = new Set<() => void>();
   private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
   private readonly attachmentCollectionSubscribers = new Map<string, Set<() => void>>();
@@ -127,15 +132,17 @@ export class GlobalCacheClient {
     (eventName, event) => this.applyLockEvent(eventName, event),
     (event) => this.recordRealtimeDebugEvent(event),
     (state: RealtimeConnectionState) => {
+      this.realtimeConnectionState = state;
+      if (state !== 'connected' && this.realtimeCapabilityEnabled && this.realtimeReadModelState === 'live') {
+        this.markRealtimeUnreliable(`connection:${state}`);
+      }
+      this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
       if (state === 'connected') {
         reconcileMetadataBestEffort(() => this.reconcileMetadata(), 'realtime connection');
       }
     },
     (gap) => {
-      if (gap.stream === 'metadata') {
-        reconcileMetadataBestEffort(() => this.reconcileMetadata(), 'realtime metadata gap');
-      }
-      else this.reconcileResources();
+      this.markRealtimeUnreliable(`gap:${gap.stream}:${gap.key}`);
     },
   );
 
@@ -206,6 +213,8 @@ export class GlobalCacheClient {
   public getRealtimeConnectionState = (): RealtimeConnectionState => this.realtimeConnectionState;
 
   public getRealtimeCapabilityEnabled = (): boolean => this.realtimeCapabilityEnabled;
+
+  public getRealtimeReadModelState = (): RealtimeReadModelState => this.realtimeReadModelState;
 
   public setRealtimeOriginSession = (sessionId: string | null | undefined): void => {
     this.mutations.setOriginSessionId(sessionId);
@@ -292,9 +301,87 @@ export class GlobalCacheClient {
   public setRealtimeEnabled = (enabled: boolean): void => {
     if (this.realtimeCapabilityEnabled === enabled) return;
     this.realtimeCapabilityEnabled = enabled;
-    if (!enabled) this.realtimeConnectionState = 'unavailable';
+    if (!enabled) {
+      this.realtimeConnectionState = 'unavailable';
+      if (this.realtimeReadModelState === 'initializing') {
+        // The authenticated bootstrap owns no prior trusted generation. Keep
+        // in-flight authoritative loads alive while requiring fresh reads.
+        this.realtimeReadModelState = 'disabled';
+        this.kernel.setReadModelTrusted(false);
+        this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+        return;
+      }
+      this.markRealtimeUnreliable('capability-disabled', 'disabled');
+      return;
+    }
+    this.realtimeReadModelState = 'initializing';
     this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
   };
+
+  /**
+   * Applies the authenticated server view of the browser's authorized channels.
+   * A policy change can revoke data already present in the read model, so a
+   * changed channel set is a global cache boundary rather than a local refresh.
+   */
+  public observeRealtimeChannels = (dataChannels: readonly string[]): void => {
+    const nextKey = JSON.stringify([...dataChannels].sort());
+    if (this.realtimeChannelKey !== null && this.realtimeChannelKey !== nextKey) {
+      this.markRealtimeUnreliable('authorized-channel-set-changed');
+    }
+    this.realtimeChannelKey = nextKey;
+  };
+
+  /** Confirms continuity only when server and browser agree on every channel head. */
+  public observeRealtimeCheckpoints = (checkpoints: readonly RealtimeChannelCheckpoint[]): void => {
+    if (!this.realtimeCapabilityEnabled) return;
+    const continuous = this.realtimeBridge.reconcileChannelCheckpoints(checkpoints);
+    if (!continuous) {
+      this.markRealtimeUnreliable('channel-checkpoint-mismatch');
+      return;
+    }
+    // A newly authenticated session already starts from an empty cache. A
+    // previous gap has already purged every old projection before this point.
+    // Avoid resetting in-flight bootstrap reads after their authenticated load
+    // has begun; that would turn a safe baseline into a visible load failure.
+    this.realtimeReadModelState = 'live';
+    this.kernel.setReadModelTrusted(true);
+    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+  };
+
+  /** A failed authenticated continuity probe means cached authorization and data are no longer trusted. */
+  public markRealtimeContinuityUnknown = (): void => {
+    if (this.realtimeCapabilityEnabled) this.markRealtimeUnreliable('continuity-probe-failed');
+  };
+
+  private markRealtimeUnreliable(
+    _reason: string,
+    nextState: Extract<RealtimeReadModelState, 'unreliable' | 'disabled'> = 'unreliable',
+  ): void {
+    if (this.realtimeReadModelState === nextState) return;
+    this.invalidateReadModel();
+    this.realtimeReadModelState = nextState;
+    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+  }
+
+  /** Invalidates all data-derived projections but preserves UI subscriptions and unsaved form drafts. */
+  private invalidateReadModel(): void {
+    this.kernel.purge();
+    this.kernel.setReadModelTrusted(false);
+    this.entityCaches.clear();
+    this.nodes.purge();
+    this.lists.purge();
+    this.users.purge();
+    this.admin.invalidate();
+    GlobalViewStore.purge();
+    GlobalPolicyRegistry.purge();
+    this.lockStates.clear();
+    this.hydratedLockKeys.clear();
+    this.pendingLockHydrations.clear();
+    this.attachmentCollections.clear();
+    this.virtualRootNodeIds.clear();
+    this.attachmentCollectionSubscribers.forEach((subscribers) => subscribers.forEach((subscriber) => subscriber()));
+    this.notifyCacheSubscribers();
+  }
 
   public setVirtualRootNodeIds = (nodeIds: string[]): void => {
     this.virtualRootNodeIds = new Set(nodeIds);

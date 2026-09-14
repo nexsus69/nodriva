@@ -29,19 +29,45 @@ risorsa non è ancora tradotta in una chiave di collection, il mapping viene
 aggiunto una sola volta nel `GlobalCacheClient`, con test di autorizzazione e
 invalidazione, prima di usare la dipendenza nel componente.
 
+## Finestre paginate e ancoraggio
+
+Una collection amministrativa potenzialmente non limitata — dati creati dagli
+utenti, risorse operative, utenti, assegnazioni, cestino, audit o workflow —
+usa paginazione remota. Il backend possiede scope, filtri, ordinamento, cursore
+o offset e conteggio necessario alla navigazione; il browser richiede soltanto
+la finestra selezionata. Non è ammesso percorrere tutte le pagine backend per
+costruire una lista locale e applicare poi la paginazione visiva.
+
+La cache può trattenere un numero esplicitamente limitato di finestre già
+visitate, identificate dalla query autorevole e dalla pagina o cursore. Non può
+fondere tali finestre in un dataset completo nel controller della collection.
+Cataloghi semanticamente finiti e di piccola cardinalità possono mantenere la
+paginazione client soltanto quando il loro owner documenta tale limite.
+
+Dopo un cambio pagina, il controllo di paginazione attivato resta visibile e
+riceve il focus. La variazione dell'altezza, inclusa l'ultima pagina più corta,
+non può spostare il menu fuori dal viewport né lasciare il focus su un elemento
+rimosso. Il controller mantiene query, pagina e selezione compatibile; il
+componente condiviso possiede l'ancoraggio e non ogni screen separatamente.
+
+Testare: prima pagina senza caricamento integrale, navigazione avanti/indietro,
+ultima pagina incompleta, ritenzione ed espulsione della cache, modifica di
+filtri o ordinamento, refresh realtime della stessa query e parità
+SQLite/PostgreSQL.
+
 ## Capability realtime disattivata
 
 Realtime è una capability opzionale. Quando è deliberatamente disattivata
 (come può accadere nel profilo SQLite standalone), la collection continua a
-leggere e aggiornare i dati tramite il proprio caricamento autorevole e il
-refresh manuale. Non deve mostrare un errore, aprire canali, invocare endpoint
-di autenticazione realtime o trattare l'assenza di invalidazioni come un
-guasto.
+funzionare nella generazione cache `disabled`: prima di un accesso logico
+significativo carica dal backend la finestra richiesta. Non deve mostrare un
+errore, aprire canali, invocare endpoint di autenticazione realtime o trattare
+l'assenza di invalidazioni come un guasto.
 
 Il comportamento cambia soltanto nella tempestività dell'aggiornamento; non
 nel risultato della lettura, nei filtri, nell'autorizzazione o nella
 concorrenza. Testare esplicitamente sia il percorso con invalidazione ricevuta
-sia quello con capability disattivata.
+sia quello con capability disattivata e ricaricamento autorevole della finestra.
 
 ## Garanzie di interazione
 
