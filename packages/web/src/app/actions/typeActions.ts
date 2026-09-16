@@ -26,6 +26,7 @@ import {
   TypeKind,
   TypeSchemaImpactDto,
   TypeSchemaRollbackPlanDto,
+  TypeListPageParams,
 } from '@dashboard/core';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import { publishRealtimeChange } from '../../server/realtime';
@@ -97,6 +98,17 @@ export async function listTypesAction(kind: TypeKind): Promise<{
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }
+}
+
+/** Bounded administrative type catalogue; the browser never receives a full list. */
+export async function listTypesPageAction(kind: TypeKind, input: Omit<TypeListPageParams, 'page'> & { page: number }): Promise<{ success: boolean; data?: Awaited<ReturnType<typeof typeAdminService.listTypesPage>>; error?: ApiErrorResponse }> {
+  try {
+    if (!Number.isInteger(input.page) || input.page < 1 || !Number.isInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > 100) throw new Error('Paginazione non valida');
+    if (input.search && input.search.length > 200) throw new Error('Ricerca troppo lunga');
+    if (input.sort && !['name', 'typeKey', 'fields', 'version'].includes(input.sort.key)) throw new Error('Ordinamento non valido');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await typeAdminService.listTypesPage(actorUserId, kind, input) };
+  } catch (err) { return { success: false, error: mapErrorToApiErrorResponse(err) }; }
 }
 
 /** Legacy reader helper for page.tsx compatibility */

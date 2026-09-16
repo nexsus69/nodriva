@@ -14,6 +14,25 @@ export interface UserListItemDto {
   updatedAt: string;
 }
 
+/** Bounded, stable query contract for the manageable-user catalogue. */
+export interface UserListPageParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sort?: {
+    key: 'email' | 'status' | 'createdAt';
+    direction: 'ascending' | 'descending';
+  };
+}
+
+export interface UserListPageDto {
+  items: UserListItemDto[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
+
 export interface UserDetailDto {
   id: string;
   email: string;

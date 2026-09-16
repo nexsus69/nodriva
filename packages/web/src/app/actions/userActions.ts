@@ -10,6 +10,8 @@ import {
   UpdateUserUiCommand,
   ResetUserPasswordUiCommand,
   UserListItemDto,
+  UserListPageDto,
+  UserListPageParams,
   UserDetailDto,
   ApiErrorResponse,
   CreateScopedUserCommand,
@@ -20,6 +22,24 @@ import { withAdministrativeMutationLock } from '../../server/adminMutationLock';
 
 function mapErrorToApiErrorResponse(err: unknown): ApiErrorResponse {
   return mapAppErrorToApiErrorResponse(err);
+}
+
+/** Bounded user catalogue; authorization and validation are enforced server-side. */
+export async function listUsersPageAction(input: UserListPageParams): Promise<{
+  success: boolean;
+  data?: UserListPageDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    if (!Number.isInteger(input.page) || input.page < 1 || !Number.isInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > 100) throw new Error('Paginazione non valida');
+    if (input.search && input.search.length > 200) throw new Error('Ricerca troppo lunga');
+    if (input.sort && !['email', 'status', 'createdAt'].includes(input.sort.key)) throw new Error('Ordinamento non valido');
+    if (input.sort && !['ascending', 'descending'].includes(input.sort.direction)) throw new Error('Direzione ordinamento non valida');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await userAdminService.listUsersPage(actorUserId, input) };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
 }
 
 export async function listUsersAction(): Promise<{

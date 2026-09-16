@@ -39,6 +39,8 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminSurfaceHeader } from "@/adminPanel/components/AdminSurfaceHeader";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
+import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 import { ADMIN_THEME } from "@/Theme";
 import { localizeApiError, localizeApiErrorDetail } from "@/app/errors/localizeApiError";
 
@@ -62,6 +64,8 @@ function useTypesModule() {
   const [types, setTypes] = useState<readonly TypeListItemDto[]>([]);
   const [error, setError] = useState<ApiErrorResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const [sort, setSort] = useState<AdminTableSortState | null>(null);
   const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
   const [isPending, startTransition] = useTransition();
   const loadVersion = useRef(0);
@@ -75,6 +79,7 @@ function useTypesModule() {
   const kind: TypeKind = moduleState?.kind === "entity" ? "entity" : "node";
   const search =
     typeof moduleState?.search === "string" ? moduleState.search : "";
+  const pagination = useAdminRemotePagination({ total, stateKey: `model.types.${kind}` });
   const createStep: "basics" | "configuration" = moduleState?.createStep === "configuration"
     ? "configuration"
     : "basics";
@@ -108,16 +113,28 @@ function useTypesModule() {
   );
 
   /** Fetches the selected type domain and exposes semantic API errors to the screen. */
-  const load = useCallback(async () => {
+  const load = useCallback(async (requestedPage = pagination.page) => {
     const version = ++loadVersion.current;
     setLoading(true);
     setError(null);
-    const result = await AppCache.admin.listTypes(kind);
+    const acceptedSort = sort && ["name", "typeKey", "fields", "version"].includes(sort.columnKey)
+      ? { key: sort.columnKey as "name" | "typeKey" | "fields" | "version", direction: sort.direction }
+      : undefined;
+    const result = await AppCache.admin.listTypesPage(kind, {
+      page: requestedPage,
+      pageSize: pagination.pageSize,
+      search: search.trim() || undefined,
+      sort: acceptedSort,
+    });
     if (version !== loadVersion.current) return;
-    if (result.success && result.data) setTypes(result.data);
+    if (result.success && result.data) {
+      setTypes(result.data.items);
+      setTotal(result.data.total);
+      pagination.setPage(result.data.page);
+    }
     else setError(result.error ?? null);
     setLoading(false);
-  }, [kind]);
+  }, [kind, pagination, search, sort]);
   const refresh = useCallback(
     async () => refreshAdminCollection(load),
     [load],
@@ -127,7 +144,7 @@ function useTypesModule() {
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
-  useAdminRealtimeCollectionRefresh(TYPE_REALTIME_DEPENDENCIES, load);
+  useAdminRealtimeCollectionRefresh(TYPE_REALTIME_DEPENDENCIES, () => load(pagination.page));
 
   /** Opens a fresh creation surface without sharing draft state with another module. */
   const openCreate = useCallback(() => {
@@ -175,10 +192,15 @@ function useTypesModule() {
     search,
     setSearch,
     types,
+    total,
     error,
     loading,
     load,
     refresh,
+    pagination,
+    sort,
+    setSort,
+    loadPage: (page: number) => void load(page),
     form,
     setForm: formSurface.setValues,
     modalOpen: formSurface.isOpen,
@@ -453,24 +475,12 @@ export default function AdminTypesPage() {
   const { t } = useAppLocale();
   const authorization = useAdminAuthorization();
   const canCreate = authorization.permissions.has(`${controller.kind}_type.create`);
-  const filteredTypes = useMemo(() => {
-    const needle = controller.search.trim().toLowerCase();
-    if (!needle) return controller.types;
-    return controller.types.filter((type) =>
-      [
-        type.name,
-        type.typeKey,
-        type.description ?? "",
-        type.storageTable ?? "",
-      ].some((value) => value.toLowerCase().includes(needle)),
-    ).sort((left, right) => left.name.localeCompare(right.name));
-  }, [controller.search, controller.types]);
   const countLabel = useMemo(
     () =>
       t("admin.typeCount")
-        .replace("{visible}", String(filteredTypes.length))
-        .replace("{total}", String(controller.types.length)),
-    [controller.types.length, filteredTypes.length, t],
+        .replace("{visible}", String(controller.types.length))
+        .replace("{total}", String(controller.total)),
+    [controller.total, controller.types.length, t],
   );
   const definition: AdminCollectionDefinition<TypeListItemDto> = {
     title: t("admin.typesTitle"),
@@ -491,7 +501,7 @@ export default function AdminTypesPage() {
     loadingLabel: t("admin.loading"),
     error: controller.error ? new Error(controller.error.message) : null,
     loading: controller.loading,
-    rows: filteredTypes,
+    rows: controller.types,
     search: { value: controller.search, label: t("admin.searchTypes"), placeholder: t("admin.searchTypes"), onChange: controller.setSearch },
     resultLabel: controller.loading ? t("admin.loading") : countLabel,
     refreshLabel: t("admin.refreshTypes"),
@@ -500,7 +510,7 @@ export default function AdminTypesPage() {
     onOpen: (type) => router.push(`/admin/model/types/${type.kind}/${encodeURIComponent(type.typeKey)}`),
     rowLabel: (type) => type.name,
     actionMenuLabel: t("admin.actions"),
-    pagination: { stateKey: `model.types.${controller.kind}` },
+    pagination: { mode: "remote", page: controller.pagination.page, pageCount: controller.pagination.pageCount, onPageChange: controller.loadPage, sort: controller.sort, onSortChange: controller.setSort },
   };
   return (
     <>

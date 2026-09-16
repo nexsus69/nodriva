@@ -24,6 +24,7 @@ interface CanonicalOutcome {
   inverseRelationReplacementReviewed: boolean;
   lockConflictObserved: boolean;
   rowVersionConflictObserved: boolean;
+  realtimeUpdateObserved: boolean;
   breadcrumbReloaded: boolean;
   entityRestored: boolean;
   nodeDeletedViaMenu: boolean;
@@ -161,6 +162,7 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
 }
 
 async function createOperatorAccess(page: Page, baseUrl: string, names: ScenarioNames): Promise<void> {
+  console.info(`[canonical:${names.roleKey}] operator:create-role`);
   await page.goto(`${baseUrl}/admin/access/roles`);
   await page.getByRole('button', { name: /^\+?\s*Crea ruolo$/i }).click();
   await page.getByLabel('Nome *').fill(names.roleName);
@@ -182,11 +184,14 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   for (const permission of OPERATOR_PERMISSIONS) {
     await page.getByRole('switch', { name: permissionLabels[permission] }).first().click();
   }
+  console.info(`[canonical:${names.roleKey}] operator:save-permissions`);
   await page.getByRole('button', { name: 'Salva permessi' }).click();
 
+  console.info(`[canonical:${names.roleKey}] operator:open-users`);
   await page.goto(`${baseUrl}/admin/access/users`);
   await expect(page.getByRole('table').getByText(process.env.E2E_ADMIN_EMAIL!, { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /^\+?\s*Crea utente$/i }).click();
+  console.info(`[canonical:${names.roleKey}] operator:node-tree-ready`);
   await expect(
     page.locator('[data-node-tree-field="assignment.1.nodeId"]'),
   ).toHaveAttribute('aria-busy', 'false');
@@ -194,9 +199,16 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   const passwordInput = page.getByLabel('Password *');
   await passwordInput.fill(OPERATOR_PASSWORD);
   await expect(passwordInput).toHaveValue(OPERATOR_PASSWORD);
+  console.info(`[canonical:${names.roleKey}] operator:select-role`);
   await selectApplicationOption(page, /Ruolo \*/, names.roleName);
+  console.info(`[canonical:${names.roleKey}] operator:select-node`);
   await page.locator('[data-node-tree-field="assignment.1.nodeId"] [data-node-id]').filter({ hasText: 'Admin parity root' }).click();
+  console.info(`[canonical:${names.roleKey}] operator:create-user`);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea utente' }).click();
+  // The user catalogue is remote-paged: a controlled search must retain the
+  // newly created identity without deriving membership from a client-side list.
+  await page.getByRole('searchbox', { name: /Cerca utenti|Search users/i }).fill(names.operatorEmail);
+  console.info(`[canonical:${names.roleKey}] operator:search-user`);
   await expect(page.getByText(names.operatorEmail, { exact: true })).toBeVisible();
 }
 
@@ -227,6 +239,7 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
 async function openChildCreationFromMenu(page: Page, childName: string, action: 'Nuovo sotto-nodo' | 'Nuova entità'): Promise<void> {
   const trigger = page.getByRole('button', { name: `Azioni per ${childName}` });
   await trigger.click();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
   const menuItem = page.getByRole('menuitem', { name: action });
   await expect(menuItem).toBeVisible();
   await menuItem.click();
@@ -246,7 +259,9 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
     new RegExp(names.entityTypeKey),
   );
   await page.getByLabel('Nome Entità *').fill(entityName);
+  await expect(page.getByLabel('Nome Entità *')).toHaveValue(entityName);
   await selectApplicationOption(page, 'Status', 'Planned');
+  await expect(page.getByLabel('Nome Entità *')).toHaveValue(entityName);
   if (relationName) {
     const relationPicker = page.locator('[data-relation-picker="depends_on"]');
     await relationPicker.locator('#relation-search-depends_on').fill(relationName);
@@ -270,16 +285,44 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   return new URL(href, baseUrl).toString();
 }
 
-async function exerciseConcurrency(firstPage: Page, secondPage: Page, entityUrl: string): Promise<{ lock: boolean; rowVersion: boolean }> {
+async function exerciseConcurrency(
+  firstPage: Page,
+  secondPage: Page,
+  entityUrl: string,
+  expectsRealtimeUpdate: boolean,
+): Promise<{ lock: boolean; rowVersionConflict: boolean; realtimeUpdate: boolean }> {
   await Promise.all([firstPage.goto(entityUrl), secondPage.goto(entityUrl)]);
   await firstPage.getByRole('button', { name: 'Modifica', exact: true }).click();
   await expect(firstPage.getByText('Modalità modifica')).toBeVisible();
-  await secondPage.getByRole('button', { name: 'Modifica', exact: true }).click();
-  await expect(secondPage.getByText(/altra sessione|Lock già acquisito|Modifica già in corso/i).first()).toBeVisible();
+  const secondEditButton = secondPage.getByRole('button', { name: 'Modifica', exact: true });
+  const lockNotice = secondPage.getByText(/altra sessione|Lock già acquisito|Modifica già in corso/i).first();
+
+  // With realtime enabled, the observer can receive the first session's lock
+  // before attempting an edit, and intentionally hides the action. Without a
+  // prior event it still exposes the action and lets the backend deny it. Both
+  // are the same observable authorization outcome.
+  await expect.poll(
+    async () => (await secondEditButton.isVisible()) || (await lockNotice.isVisible()),
+    { timeout: 10_000 },
+  ).toBeTruthy();
+  if (await secondEditButton.isVisible()) {
+    await secondEditButton.click();
+  }
+  await expect(lockNotice).toBeVisible();
 
   await firstPage.getByLabel('Descrizione').fill('Updated by the first canonical session');
   await firstPage.getByRole('button', { name: 'Salva modifiche' }).click();
   await expect(firstPage.getByText('Entità aggiornata con successo.')).toBeVisible();
+
+  if (expectsRealtimeUpdate) {
+    await expect(secondPage.getByText('Updated by the first canonical session', { exact: true })).toBeVisible();
+    await secondPage.getByRole('button', { name: 'Modifica', exact: true }).click();
+    await expect(secondPage.getByText('Modalità modifica')).toBeVisible();
+    await secondPage.getByLabel('Descrizione').fill('Follow-up from the second canonical session');
+    await secondPage.getByRole('button', { name: 'Salva modifiche' }).click();
+    await expect(secondPage.getByText('Entità aggiornata con successo.')).toBeVisible();
+    return { lock: true, rowVersionConflict: false, realtimeUpdate: true };
+  }
 
   await secondPage.getByRole('button', { name: 'Modifica', exact: true }).click();
   await expect(secondPage.getByText('Modalità modifica')).toBeVisible();
@@ -290,7 +333,7 @@ async function exerciseConcurrency(firstPage: Page, secondPage: Page, entityUrl:
   await expect(secondPage.getByRole('button', { name: 'Esci dalla modifica' })).toBeVisible();
   await secondPage.getByRole('button', { name: 'Esci dalla modifica' }).click();
   await expect(secondPage.getByRole('button', { name: 'Modifica', exact: true })).toBeVisible();
-  return { lock: true, rowVersion: true };
+  return { lock: true, rowVersionConflict: true, realtimeUpdate: false };
 }
 
 /** Exercises the inverse relation preview before replacing an existing single value. */
@@ -535,7 +578,12 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
     const concurrency = await runCanonicalPhase(
       adapter,
       'concurrent-edit-lock-and-row-version',
-      () => exerciseConcurrency(firstOperatorPage, secondOperatorPage, firstEntityUrl),
+      () => exerciseConcurrency(
+        firstOperatorPage,
+        secondOperatorPage,
+        firstEntityUrl,
+        adapter === 'postgres' && process.env.PARITY_REALTIME_ENABLED === 'true',
+      ),
     );
 
     await runCanonicalPhase(adapter, 'restricted-entity-delete', async () => {
@@ -593,7 +641,8 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       relationPersisted: true,
       inverseRelationReplacementReviewed,
       lockConflictObserved: concurrency.lock,
-      rowVersionConflictObserved: concurrency.rowVersion,
+      rowVersionConflictObserved: concurrency.rowVersionConflict,
+      realtimeUpdateObserved: concurrency.realtimeUpdate,
       breadcrumbReloaded: true,
       entityRestored: lifecycle.restored,
       nodeDeletedViaMenu,
@@ -607,18 +656,19 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
 
 test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
   test.skip(!enabled, 'Run through pnpm e2e:canonical to provision both isolated adapters.');
-  // Two fully isolated adapters execute the complete lifecycle concurrently.
-  // Keep the timeout above the normal combined cold-start budget without
-  // weakening individual UI expectations, which retain their short defaults.
-  test.setTimeout(300_000);
+  // The adapters use independent databases, but a canonical run opens three
+  // authenticated browser contexts per adapter. Run them in sequence so a
+  // stalled lifecycle is attributable to one adapter and cannot consume the
+  // other adapter's browser/action capacity.
+  test.setTimeout(120_000);
 
   test('completes the scoped operator lifecycle with equivalent outcomes', async ({ browser }) => {
-    const [sqlite, postgres] = await Promise.all([
-      exerciseCanonicalVertical(browser, process.env.E2E_SQLITE_BASE_URL!, 'sqlite'),
-      exerciseCanonicalVertical(browser, process.env.E2E_POSTGRES_BASE_URL!, 'postgres'),
-    ]);
-    expect(postgres).toEqual(sqlite);
-    expect(sqlite).toEqual({
+    const sqlite = await exerciseCanonicalVertical(browser, process.env.E2E_SQLITE_BASE_URL!, 'sqlite');
+    const postgres = await exerciseCanonicalVertical(browser, process.env.E2E_POSTGRES_BASE_URL!, 'postgres');
+    const { rowVersionConflictObserved: sqliteRowVersionConflict, realtimeUpdateObserved: sqliteRealtimeUpdate, ...sqliteCommon } = sqlite;
+    const { rowVersionConflictObserved: postgresRowVersionConflict, realtimeUpdateObserved: postgresRealtimeUpdate, ...postgresCommon } = postgres;
+    expect(postgresCommon).toEqual(sqliteCommon);
+    expect(sqliteCommon).toEqual({
       outsideScopeDenied: true,
       childCreated: true,
       entityCreated: true,
@@ -626,12 +676,20 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       relationPersisted: true,
       inverseRelationReplacementReviewed: true,
       lockConflictObserved: true,
-      rowVersionConflictObserved: true,
       breadcrumbReloaded: true,
       entityRestored: true,
       nodeDeletedViaMenu: true,
       subtreeRecycleOperation: true,
       auditActions: ['entity.create', 'entity.delete', 'entity.restore', 'entity.update', 'node.create'],
+    });
+    expect({ sqliteRowVersionConflict, sqliteRealtimeUpdate }).toEqual({
+      sqliteRowVersionConflict: true,
+      sqliteRealtimeUpdate: false,
+    });
+    const postgresRealtimeEnabled = process.env.PARITY_REALTIME_ENABLED === 'true';
+    expect({ postgresRowVersionConflict, postgresRealtimeUpdate }).toEqual({
+      postgresRowVersionConflict: !postgresRealtimeEnabled,
+      postgresRealtimeUpdate: postgresRealtimeEnabled,
     });
   });
 });

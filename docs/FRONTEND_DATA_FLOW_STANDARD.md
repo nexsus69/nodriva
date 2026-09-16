@@ -358,3 +358,27 @@ aggiornano la sessione NextAuth e invocano il purge della cache. Il logout
 volontario rilascia inoltre i lock appartenenti alla specifica sessione. Sono
 gli unici componenti autorizzati a chiamare direttamente le action di
 autenticazione.
+
+## Cataloghi amministrativi paginati
+
+Ogni lista amministrativa usa un read port autorizzato e paginato. Non esiste
+una soglia che autorizzi una lista amministrativa a caricare l'intero catalogo
+nel browser: anche utenti, ruoli, scope, configurazioni, workflow, cestino e
+cataloghi di tipi seguono il medesimo protocollo. Il browser richiede una sola
+pagina per volta, identificata da
+pagina, dimensione, ricerca e ordinamento; non attraversa l'albero né esaurisce
+le pagine del catalogo per poi simulare la paginazione localmente. ACL, ricerca,
+ordinamento stabile e conteggio sono applicati dal backend in modo equivalente
+nei profili PostgreSQL e SQLite. Le pagine sono cacheabili per la loro query,
+ma mutazioni e invalidazioni realtime ne richiedono una nuova lettura. La cache
+mantiene un working set limitato di pagine, mai un catalogo completo.
+
+`AdminCollectionScreen` riceve esclusivamente paginazione remota per le route
+amministrative. Una resource amministrativa remota dichiara il proprio page
+coordinator e non può essere caricata dal controller destinato alle collezioni
+complete locali; questo impedisce che un nuovo catalogo ricada per errore nella
+paginazione solo visiva.
+
+Un cambio pagina esplicito dell'utente mantiene il navigatore pagine visibile
+dopo il rendering; refresh, filtri, bootstrap e invalidazioni passive non
+modificano autonomamente la posizione di scroll.

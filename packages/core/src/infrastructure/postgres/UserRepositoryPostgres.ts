@@ -1,7 +1,7 @@
 /** Implements user persistence and scoped projections for PostgreSQL deployments. */
 import type { UserRepository } from '../../application/ports/UserRepository.js';
 import { User } from '../../domain/models/User.js';
-import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
+import type { UserListItemDto, UserListPageDto, UserListPageParams, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { PgExecutor } from './PgExecutor.js';
 
@@ -132,6 +132,46 @@ export class UserRepositoryPostgres implements UserRepository {
       roles: Array.isArray(r.roles) ? r.roles : [],
       createdAt: new Date(r.createdAt).toISOString(), updatedAt: new Date(r.updatedAt).toISOString(),
     }));
+  }
+
+  /** Applies delegation, filtering and ordering in PostgreSQL before projecting one bounded page. */
+  async listUsersManageablePage(actorUserId: string, params: UserListPageParams): Promise<UserListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const search = params.search?.trim();
+    const values: unknown[] = [actorUserId];
+    const filters = ['u.deleted_at IS NULL', "((SELECT is_super_admin FROM actor) = true OR u.id IN (" + this.manageableUserIdsSql() + '))'];
+    if (search) {
+      values.push(`%${search.replace(/[\\%_]/g, '\\$&')}%`);
+      filters.push(`u.email ILIKE $${values.length} ESCAPE '\\'`);
+    }
+    const sortKey = params.sort?.key ?? 'email';
+    const sortField = sortKey === 'status' ? 'u.is_active' : sortKey === 'createdAt' ? 'u.created_at' : 'u.email';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const where = filters.join(' AND ');
+    const totalResult = await this.executor.query<{ total: number }>(`WITH actor AS (SELECT is_super_admin FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL) SELECT COUNT(*)::int AS total FROM users u WHERE ${where}`, values);
+    const total = Number(totalResult.rows[0]?.total ?? 0);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, params.page), pageCount);
+    values.push(pageSize, (page - 1) * pageSize);
+    const query = `
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active = true AND deleted_at IS NULL
+      )
+      SELECT u.id, u.email, u.is_active AS "isActive", u.is_super_admin AS "isSuperAdmin",
+             u.created_at AS "createdAt", u.updated_at AS "updatedAt",
+             COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id', r.id, 'roleKey', r.role_key, 'name', r.name))
+               FILTER (WHERE r.id IS NOT NULL), '[]') AS roles
+      FROM users u
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      LEFT JOIN node_scope_assignments sa ON sa.user_id = u.id AND sa.assignment_effect = 'allow'
+      LEFT JOIN roles r ON r.id IN (ur.role_id, sa.role_id) AND r.deleted_at IS NULL
+      WHERE ${where}
+      GROUP BY u.id
+      ORDER BY ${sortField} ${direction}, u.email ASC, u.id ASC
+      LIMIT $${values.length - 1} OFFSET $${values.length}
+    `;
+    const result = await this.executor.query<UserListRow>(query, values);
+    return { items: result.rows.map((row) => this.mapListRow(row)), total, page, pageCount };
   }
 
   async isUserManageableBy(actorUserId: string, userId: string): Promise<boolean> {
@@ -278,6 +318,10 @@ export class UserRepositoryPostgres implements UserRepository {
       row.updated_at,
       row.deleted_at
     );
+  }
+
+  private mapListRow(row: UserListRow): UserListItemDto {
+    return { id: row.id, email: row.email, isActive: Boolean(row.isActive), isSuperAdmin: Boolean(row.isSuperAdmin), roles: Array.isArray(row.roles) ? row.roles : [], createdAt: new Date(row.createdAt).toISOString(), updatedAt: new Date(row.updatedAt).toISOString() };
   }
 
   private manageableUserIdsSql(): string {

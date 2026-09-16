@@ -1,7 +1,7 @@
 "use client";
 
 /** Renders a definition-driven administrative collection with one shared lifecycle. */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert, EmptyState, Skeleton, SkeletonState } from "@/app/components/ui/feedback";
 import {
   AdminTable,
@@ -30,6 +30,8 @@ interface AdminRemotePagination {
   page: number;
   pageCount: number;
   onPageChange: (page: number) => void;
+  sort?: AdminTableSortState | null;
+  onSortChange?: (sort: AdminTableSortState) => void;
 }
 
 function isRemotePagination(
@@ -84,9 +86,11 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
     ? undefined
     : paginationDefinition;
   const [sort, setSort] = useState<AdminTableSortState | null>(null);
+  const paginationRef = useRef<HTMLDivElement>(null);
+  const userChangedPage = useRef(false);
   const sortedRows = useMemo(() => {
-    return sortAdminRows(definition.rows, definition.columns, sort);
-  }, [definition.columns, definition.rows, sort]);
+    return remotePagination ? definition.rows : sortAdminRows(definition.rows, definition.columns, sort);
+  }, [definition.columns, definition.rows, remotePagination, sort]);
   const pagination = useAdminPagination({
     total: sortedRows.length,
     pageSize: clientPagination?.pageSize,
@@ -95,6 +99,16 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
   const visibleRows = remotePagination
     ? sortedRows
     : sortedRows.slice(pagination.visibleRange.start, pagination.visibleRange.end);
+  const renderedPage = remotePagination?.page ?? pagination.page;
+  const changePage = (page: number) => {
+    userChangedPage.current = true;
+    (remotePagination?.onPageChange ?? pagination.setPage)(page);
+  };
+  useEffect(() => {
+    if (!userChangedPage.current) return;
+    userChangedPage.current = false;
+    paginationRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [renderedPage]);
   return (
     <section className="space-y-6">
       <AdminPageHeader
@@ -155,27 +169,29 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
           rowLabel={definition.rowLabel}
           actionMenuLabel={definition.actionMenuLabel}
           selectedRowId={definition.selectedRowId}
-          sort={sort}
-          onSortChange={setSort}
+          sort={remotePagination ? remotePagination.sort : sort}
+          onSortChange={remotePagination?.onSortChange ?? setSort}
         />
       )}
       {definition.loading && definition.rows.length > 0 && <p className="text-xs text-slate-400" aria-live="polite">{definition.loadingLabel}…</p>}
       {remotePagination && remotePagination.pageCount > 1 && (
+        <div ref={paginationRef} className="scroll-mt-6">
         <AdminPagination
           page={remotePagination.page}
           pageCount={remotePagination.pageCount}
-          onPageChange={remotePagination.onPageChange}
+          onPageChange={changePage}
         />
+        </div>
       )}
       {!remotePagination &&
         !definition.loading &&
         !definition.error &&
         definition.rows.length > pagination.pageSize && (
-          <AdminPagination
+          <div ref={paginationRef} className="scroll-mt-6"><AdminPagination
             page={pagination.page}
             pageCount={pagination.pageCount}
-            onPageChange={pagination.setPage}
-          />
+            onPageChange={changePage}
+          /></div>
         )}
     </section>
   );

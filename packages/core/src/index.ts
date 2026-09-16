@@ -145,6 +145,7 @@ export { TypeDefinitionAdminRepositorySqlite } from "./infrastructure/sqlite/Typ
 export { ResourceRelationshipRepositorySqlite } from "./infrastructure/sqlite/ResourceRelationshipRepositorySqlite.js";
 export { ResourceRelationshipDefinitionReaderSqlite } from "./infrastructure/sqlite/ResourceRelationshipDefinitionReaderSqlite.js";
 export { EntitySubtreeQueryPortSqlite } from "./infrastructure/sqlite/EntitySubtreeQueryPortSqlite.js";
+export { AdminContentCatalogQueryPortSqlite } from "./infrastructure/sqlite/AdminContentCatalogQueryPortSqlite.js";
 export { RealtimeScopeResolverSqlite } from "./infrastructure/sqlite/RealtimeScopeResolverSqlite.js";
 export { FieldEncryptionServiceSqlite } from "./infrastructure/sqlite/FieldEncryptionServiceSqlite.js";
 export { SystemSeedSqlite } from "./infrastructure/sqlite/SystemSeedSqlite.js";
@@ -397,6 +398,7 @@ export { IdGeneratorPort } from "./application/ports/IdGeneratorPort.js";
 export { SchemaRegistry } from "./application/ports/SchemaRegistry.js";
 export { TypeDefinitionReader } from "./application/ports/TypeDefinitionReader.js";
 export { TypeDefinitionAdminRepository } from "./application/ports/TypeDefinitionAdminRepository.js";
+export type { TypeListPage, TypeListPageParams } from "./application/ports/TypeDefinitionAdminRepository.js";
 export { StorageTableManagementPort } from "./application/ports/StorageTableManagementPort.js";
 export type {
   ResourceRelationshipRepository,
@@ -412,6 +414,15 @@ export {
   EntitySubtreeQueryParams,
   EntitySubtreePaginatedResult,
 } from "./application/ports/EntitySubtreeQueryPort.js";
+export type {
+  AdminContentCatalogPage,
+  AdminContentCatalogPageParams,
+  AdminContentCatalogQueryPort,
+  AdminContentCatalogSortDirection,
+  AdminContentCatalogSortKey,
+  AdminEntityCatalogItem,
+  AdminNodeCatalogItem,
+} from "./application/ports/AdminContentCatalogQueryPort.js";
 
 // ─── Application Services ────────────────────────────────────────────────────
 export { AuthApplicationService } from "./application/services/AuthApplicationService.js";
@@ -455,6 +466,7 @@ export { PusherEventBus } from "./infrastructure/pusher/PusherEventBus.js";
 export { RuntimeConfigurationPortPostgres } from "./infrastructure/postgres/RuntimeConfigurationPortPostgres.js";
 export { AccessControlPortPostgres } from "./infrastructure/postgres/AccessControlPortPostgres.js";
 export { EntitySubtreeQueryPortPostgres } from "./infrastructure/postgres/EntitySubtreeQueryPortPostgres.js";
+export { AdminContentCatalogQueryPortPostgres } from "./infrastructure/postgres/AdminContentCatalogQueryPortPostgres.js";
 
 export { FieldSchemaCompiler } from "./infrastructure/schema/FieldSchemaCompiler.js";
 export { CachingSchemaRegistry } from "./infrastructure/schema/CachingSchemaRegistry.js";
@@ -498,6 +510,8 @@ export {
 export {
   UserRoleDto,
   UserListItemDto,
+  UserListPageParams,
+  UserListPageDto,
   UserDetailDto,
   CreateUserUiCommand,
   UpdateUserStatusUiCommand,

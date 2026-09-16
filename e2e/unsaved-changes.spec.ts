@@ -18,20 +18,15 @@ test.describe('protezione modifiche non salvate', () => {
   test('mantiene i dati admin quando la chiusura del form viene annullata', async ({ page }) => {
     await login(page);
     await page.goto('/admin/access/users');
-    await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
-    const email = page.getByLabel('Email Utente *');
+    await page.getByRole('button', { name: /Crea utente/i }).click();
+    const email = page.getByLabel('Email *');
     await email.fill('bozza@example.test');
 
-    page.once('dialog', async (dialog) => {
-      expect(dialog.message()).toContain('modifiche non salvate');
-      await dialog.dismiss();
-    });
-    await page.getByRole('heading', { name: /Registra nuovo utente/i })
-      .locator('..')
-      .getByRole('button')
-      .click();
+    await page.getByRole('dialog').getByLabel('Annulla').click();
+    await expect(page.getByRole('alertdialog')).toBeVisible();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Continua a modificare' }).click();
 
-    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(page).toHaveURL(/\/admin\/access\/users$/);
     await expect(email).toHaveValue('bozza@example.test');
   });
 
@@ -39,8 +34,8 @@ test.describe('protezione modifiche non salvate', () => {
     await login(page);
     await page.goto('/admin');
     await page.goto('/admin/access/users');
-    await page.getByRole('button', { name: /Registra nuovo utente/i }).click();
-    await page.getByLabel('Email Utente *').fill('cronologia@example.test');
+    await page.getByRole('button', { name: /Crea utente/i }).click();
+    await page.getByLabel('Email *').fill('cronologia@example.test');
 
     page.once('dialog', async (dialog) => {
       // I browser non espongono il testo personalizzato del dialogo nativo
@@ -49,7 +44,7 @@ test.describe('protezione modifiche non salvate', () => {
     });
     await page.evaluate(() => window.history.back());
 
-    await expect(page).toHaveURL(/\/admin\/users$/);
-    await expect(page.getByLabel('Email Utente *')).toHaveValue('cronologia@example.test');
+    await expect(page).toHaveURL(/\/admin\/access\/users$/);
+    await expect(page.getByLabel('Email *')).toHaveValue('cronologia@example.test');
   });
 });

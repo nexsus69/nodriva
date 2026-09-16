@@ -36,6 +36,7 @@ describe('UserAdminApplicationService', () => {
       findByEmail: vi.fn(),
       listUsers: vi.fn().mockResolvedValue([]),
       listUsersManageableBy: vi.fn().mockResolvedValue([]),
+      listUsersManageablePage: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageCount: 1 }),
       getUserDetailManageableBy: vi.fn(),
       isUserManageableBy: vi.fn().mockResolvedValue(true),
       getUserDetail: vi.fn(),
@@ -115,6 +116,12 @@ describe('UserAdminApplicationService', () => {
 
     expect(mockUserRepository.listUsersManageableBy).toHaveBeenCalledWith(ACTOR_ID);
     expect(mockUserRepository.getUserDetailManageableBy).toHaveBeenCalledWith(ACTOR_ID, USER_ID);
+  });
+
+  it('delegates bounded user catalogue reads to the repository policy', async () => {
+    const params = { page: 2, pageSize: 20, search: 'ops', sort: { key: 'email' as const, direction: 'ascending' as const } };
+    await service.listUsersPage(ACTOR_ID, params);
+    expect(mockUserRepository.listUsersManageablePage).toHaveBeenCalledWith(ACTOR_ID, params);
   });
 
   it('rejects legacy creation even when the email already exists', async () => {

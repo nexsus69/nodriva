@@ -34,6 +34,9 @@ export interface AdminWorkspacePersistedState {
 
 /** Exposes navigation and draft transitions for the Admin Panel composition layer. */
 export interface AdminWorkspaceState extends AdminWorkspacePersistedState {
+  /** Prevents restored workspace data from racing an interactive form surface. */
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   setUserContext: (userId: string | null) => void;
   setActiveModule: (moduleKey: string) => void;
   expandModule: (moduleKey: string) => void;
@@ -61,6 +64,35 @@ export const DEFAULT_ADMIN_WORKSPACE_STATE: AdminWorkspacePersistedState = {
   moduleState: {},
 };
 
+/**
+ * Merges the asynchronous browser restoration without allowing it to replace
+ * work that was already initialized for the current authenticated user.
+ */
+export function mergeAdminWorkspaceState(
+  persistedState: unknown,
+  currentState: AdminWorkspaceState,
+): AdminWorkspaceState {
+  const persisted = persistedState as Partial<AdminWorkspacePersistedState>;
+  const currentUserId = currentState.userId;
+  const persistedUserId = persisted.userId ?? null;
+  const hasLocalWork = currentState.surface !== null || Object.keys(currentState.drafts).length > 0;
+  // Session discovery and persist hydration run independently. Once the shell
+  // has established an identity, an empty or different persisted identity is
+  // stale state, not an instruction to reset the active workspace.
+  const canRestorePersistedWorkspace = currentUserId === null || currentUserId === persistedUserId;
+
+  if (!canRestorePersistedWorkspace || hasLocalWork) return currentState;
+
+  return {
+    ...currentState,
+    ...persisted,
+    userId: currentUserId ?? persistedUserId,
+    surface: persisted.surface ?? null,
+    drafts: persisted.drafts ?? {},
+    moduleState: persisted.moduleState ?? {},
+  };
+}
+
 /** Creates the browser storage adapter while remaining safe during server rendering. */
 function adminWorkspaceStorage() {
   const memory = new Map<string, string>();
@@ -83,6 +115,8 @@ export const useAdminWorkspaceStore = create<AdminWorkspaceState>()(
   persist(
     (set) => ({
       ...DEFAULT_ADMIN_WORKSPACE_STATE,
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setUserContext: (userId) =>
         set((state) =>
           state.userId === userId
@@ -149,17 +183,16 @@ export const useAdminWorkspaceStore = create<AdminWorkspaceState>()(
         drafts: state.drafts,
         moduleState: state.moduleState,
       }),
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState as Partial<AdminWorkspacePersistedState>),
-        moduleState:
-          (persistedState as Partial<AdminWorkspacePersistedState>)
-            .moduleState ?? {},
-      }),
+      merge: mergeAdminWorkspaceState,
       migrate: (persistedState) => ({
         ...DEFAULT_ADMIN_WORKSPACE_STATE,
         ...(persistedState as Partial<AdminWorkspacePersistedState>),
       }),
+      onRehydrateStorage: () => (state) => {
+        // Persist applies its merged state after this callback. Deferring the
+        // marker prevents that merge from resetting the non-persisted flag.
+        queueMicrotask(() => state?.setHasHydrated(true));
+      },
     },
   ),
 );

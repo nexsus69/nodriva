@@ -38,6 +38,6 @@ test.describe('dynamic entity schema', () => {
     await textInputs.nth(1).fill('schema@example.test');
     await page.getByRole('button', { name: 'Crea Entità' }).click();
     await expect(page).toHaveURL(new RegExp(`/nodes/${process.env.E2E_ENTITY_PARENT_NODE_ID}$`));
-    await expect(page.getByText(entityName)).toBeVisible();
+    await expect(page.getByRole('link', { name: entityName, exact: true }).first()).toBeVisible();
   });
 });

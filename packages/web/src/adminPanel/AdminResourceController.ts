@@ -57,6 +57,9 @@ export class AdminResourceController<
   };
 
   public async loadList(): Promise<void> {
+    if (this.definition.list.mode === 'remote') {
+      throw new Error(`Remote resource '${this.definition.key}' must use its page coordinator.`);
+    }
     const requestVersion = ++this.listRequestVersion;
     // Keep visible rows stable during refreshes; `loading` is reserved for the
     // initial empty collection so screens do not flash a loading footer after

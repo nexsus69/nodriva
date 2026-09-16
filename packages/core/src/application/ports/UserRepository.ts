@@ -1,11 +1,12 @@
 import type { User } from '../../domain/models/User.js';
-import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../dto/UserAdminDtos.js';
+import type { UserListItemDto, UserListPageDto, UserListPageParams, UserDetailDto, UserRoleDto } from '../dto/UserAdminDtos.js';
 
 export interface UserRepository {
   findById(id: string): Promise<User | null>;
   findByEmail(email: string): Promise<User | null>;
   listUsers(): Promise<UserListItemDto[]>;
   listUsersManageableBy(actorUserId: string): Promise<UserListItemDto[]>;
+  listUsersManageablePage(actorUserId: string, params: UserListPageParams): Promise<UserListPageDto>;
   getUserDetailManageableBy(actorUserId: string, userId: string): Promise<UserDetailDto | null>;
   isUserManageableBy(actorUserId: string, userId: string): Promise<boolean>;
   getUserDetail(id: string): Promise<UserDetailDto | null>;

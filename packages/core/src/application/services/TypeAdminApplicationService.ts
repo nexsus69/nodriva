@@ -8,7 +8,7 @@ import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition
 import { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
 import { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
-import type { TypeDefinitionAdminRepository } from '../ports/TypeDefinitionAdminRepository.js';
+import type { TypeDefinitionAdminRepository, TypeListPageParams, TypeListPage } from '../ports/TypeDefinitionAdminRepository.js';
 import type { SchemaInvalidationPort } from '../ports/SchemaInvalidationPort.js';
 import type { StorageTableManagementPort } from '../ports/StorageTableManagementPort.js';
 import type { AuditPort } from '../ports/AuditPort.js';
@@ -74,6 +74,11 @@ export class TypeAdminApplicationService {
       null
     );
     return await this.adminRepository.listTypes(domain);
+  }
+
+  async listTypesPage(actorUserId: string, domain: TypeDomain, params: TypeListPageParams): Promise<TypeListPage> {
+    await this.accessControlPort.assertHasPermission(actorUserId, this.permission(domain, 'read'), null);
+    return this.adminRepository.listTypesPage(domain, params);
   }
 
   async getTypeDetail(actorUserId: string, domain: TypeDomain, typeKey: string): Promise<TypeDetailDto | null> {

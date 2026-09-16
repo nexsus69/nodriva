@@ -5,6 +5,15 @@ import type { ManagedTypeField } from '../../domain/models/ManagedTypeField.js';
 import type { ManagedTypeFieldConstraint } from '../../domain/models/ManagedTypeFieldConstraint.js';
 import type { ManagedEnumOption } from '../../domain/models/ManagedEnumOption.js';
 
+/** Bounded, stable read contract for the administrative type catalogue. */
+export interface TypeListPageParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sort?: { key: 'name' | 'typeKey' | 'fields' | 'version'; direction: 'ascending' | 'descending' };
+}
+export interface TypeListPage { items: TypeListItemDto[]; total: number; page: number; pageCount: number; }
+
 /**
  * Repository write/read side unificato per tipi, campi e vincoli.
  * Gestisce entrambi i domini (node/entity) tramite il parametro TypeDomain.
@@ -14,6 +23,7 @@ export interface TypeDefinitionAdminRepository {
   findTypeById(domain: TypeDomain, id: string): Promise<ManagedTypeDefinition | null>;
   findTypeByKey(domain: TypeDomain, typeKey: string): Promise<ManagedTypeDefinition | null>;
   listTypes(domain: TypeDomain): Promise<TypeListItemDto[]>;
+  listTypesPage(domain: TypeDomain, params: TypeListPageParams): Promise<TypeListPage>;
   getTypeDetail(domain: TypeDomain, typeKey: string): Promise<TypeDetailDto | null>;
   createType(domain: TypeDomain, typeDef: ManagedTypeDefinition): Promise<void>;
   updateType(domain: TypeDomain, typeDef: ManagedTypeDefinition): Promise<void>;

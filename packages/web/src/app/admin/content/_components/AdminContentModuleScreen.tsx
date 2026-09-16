@@ -9,23 +9,19 @@ import {
   AdminCollectionScreen,
   type AdminCollectionDefinition,
 } from "@/adminPanel/components/AdminCollectionScreen";
-import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
-import {
-  loadAdminEntityRows,
-  loadAdminNodeRows,
-  type AdminEntityRow,
-  type AdminNodeRow,
-} from "./contentResourceLoaders";
+import { useAdminContentCatalogue } from "./useAdminContentCatalogue";
+import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 import { adminEntityDetailHref, adminNodeDetailHref } from '../adminContentDetailRoute';
+import type { AdminEntityCatalogItem, AdminNodeCatalogItem } from "@dashboard/core";
 
 type ContentKind = "node" | "entity";
-type ContentRow = AdminNodeRow | AdminEntityRow;
+type ContentRow = AdminNodeCatalogItem | AdminEntityCatalogItem;
 
 /** Returns the Admin detail route for a scoped content record. */
 function adminDetailHref(kind: ContentKind, row: ContentRow): string {
   return kind === "node"
     ? adminNodeDetailHref(row.id)
-    : adminEntityDetailHref((row as AdminEntityRow).parentNodeId, row.id);
+    : adminEntityDetailHref((row as AdminEntityCatalogItem).parentNodeId, row.id);
 }
 
 /** Hosts a scoped resource catalogue while canonical editors retain mutation ownership. */
@@ -33,6 +29,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
   const { t } = useAppLocale();
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<AdminTableSortState | null>(null);
   const isNode = kind === "node";
   const resource = useMemo(() => defineAdminResource<ContentRow>({
     key: isNode ? "nodes" : "entities",
@@ -41,7 +38,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     description: t(isNode ? "admin.nodesDescription" : "admin.entitiesDescription"),
     permissions: { read: [isNode ? "node.read" : "entity.read"] },
     list: {
-      load: isNode ? loadAdminNodeRows : loadAdminEntityRows,
+      mode: "remote",
       realtimeDependencies: isNode ? ["children"] : ["subtree-entities"],
       columns: [
         {
@@ -60,11 +57,11 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
           key: "path",
           label: t("admin.path"),
           render: (row) => isNode
-            ? (row as AdminNodeRow).pathLabel
-            : (row as AdminEntityRow).nodePath,
+            ? (row as AdminNodeCatalogItem).pathLabel
+            : (row as AdminEntityCatalogItem).nodePath,
           sortValue: (row) => isNode
-            ? (row as AdminNodeRow).pathLabel
-            : (row as AdminEntityRow).nodePath,
+            ? (row as AdminNodeCatalogItem).pathLabel
+            : (row as AdminEntityCatalogItem).nodePath,
           className: "max-w-md truncate text-slate-500",
         },
       ],
@@ -72,25 +69,12 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
       loadingLabel: t(isNode ? "admin.loadingNodes" : "admin.loadingEntities"),
     },
   }), [isNode, t]);
-  const collection = useAdminResourceController(resource, undefined);
-  const normalizedSearch = search.trim().toLocaleLowerCase();
-  const visibleRows = useMemo(
-    () => normalizedSearch
-      ? collection.rows.filter((row) => {
-          const path = isNode
-            ? (row as AdminNodeRow).pathLabel
-            : (row as AdminEntityRow).nodePath;
-          return `${row.name} ${row.typeLabel} ${path}`
-            .toLocaleLowerCase()
-            .includes(normalizedSearch);
-        })
-      : collection.rows,
-    [collection.rows, isNode, normalizedSearch],
-  );
+  const collection = useAdminContentCatalogue(kind, search, sort);
+  const visibleRows = collection.rows;
   const countTemplate = t(isNode ? "admin.nodeCount" : "admin.entityCount");
   const countLabel = countTemplate
     .replace("{visible}", String(visibleRows.length))
-    .replace("{total}", String(collection.rows.length));
+    .replace("{total}", String(collection.total));
   const open = (row: ContentRow) => router.push(adminDetailHref(kind, row));
 
   const definition: AdminCollectionDefinition<ContentRow> = {
@@ -112,7 +96,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     },
     resultLabel: countLabel,
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void collection.refresh(),
+    onRefresh: collection.refresh,
     onOpen: open,
     rowLabel: (row) => row.name,
     actionMenuLabel: t("admin.actions"),
@@ -123,7 +107,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
       tone: "primary",
       onClick: open,
     }],
-    pagination: { stateKey: resource.moduleKey },
+    pagination: { mode: "remote", page: collection.pagination.page, pageCount: collection.pagination.pageCount, onPageChange: collection.loadPage, sort, onSortChange: setSort },
   };
 
   return <AdminCollectionScreen definition={definition} />;

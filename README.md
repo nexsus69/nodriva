@@ -77,20 +77,16 @@ pnpm check
 pnpm ops:health
 ```
 
-Authenticated browser checks require temporary test credentials:
-
-```bash
-E2E_RUN=true E2E_EMAIL='user@example.com' E2E_PASSWORD='password' \
-E2E_USER_ID='user-id' E2E_BASE_URL="$DASHBOARD_PUBLIC_URL" pnpm e2e
-```
-
-Administrative parity between SQLite and PostgreSQL is verified with an isolated
-test PostgreSQL database and a temporary SQLite file:
+`pnpm e2e` provisions its own isolated SQLite/PostgreSQL fixtures, temporary
+Next.js servers, and realtime broker, then runs the complete browser gate.
+It never targets the operational database. Focused commands remain available
+when investigating one vertical:
 
 ```bash
 pnpm e2e:admin-parity
 pnpm e2e:canonical
 pnpm e2e:parity
+pnpm e2e:full
 ```
 
 The canonical scenario configures types, enums, and relationships, creates a

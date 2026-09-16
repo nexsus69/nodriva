@@ -1,7 +1,7 @@
 "use client";
 
 /** Composes the user collection and scoped user provisioning workflow. */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { RoleListItemDto, ScopeAssignmentDto, UserListItemDto } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import {
@@ -12,7 +12,6 @@ import {
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
-import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
 import { useAdminRepeatableRows } from "@/adminPanel/useAdminRepeatableRows";
 import { canUseAdminResourceOperation, defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
@@ -21,6 +20,9 @@ import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { UserDetailScreen } from "./UserDetailScreen";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminStatusBadge } from "@/adminPanel/components/AdminStatusBadge";
+import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
+import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 /** Stores the identity fields and mandatory initial scope fields. */
 type UserCreateForm = Record<string, unknown>;
@@ -142,6 +144,68 @@ function createUserForm(
   });
 }
 
+/** Owns server-paged user reads; list membership is never derived in the browser. */
+function useUsersRemoteCoordinator() {
+  const moduleKey = "access.users";
+  const moduleState = useAdminWorkspaceStore((state) => state.moduleState[moduleKey]);
+  const setModuleState = useAdminWorkspaceStore((state) => state.setModuleState);
+  const [rows, setRows] = useState<readonly UserListItemDto[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [sort, setSortState] = useState<AdminTableSortState | null>(null);
+  const version = useRef(0);
+  const search = typeof moduleState?.search === "string" ? moduleState.search : "";
+  const pagination = useAdminRemotePagination({ total, stateKey: moduleKey });
+  const { page: currentPage, pageSize, setPage, reset } = pagination;
+  const load = useCallback(async (requestedPage = currentPage) => {
+    const request = ++version.current;
+    setLoading(true);
+    setError(null);
+    const acceptedSort = sort && ["email", "status", "createdAt"].includes(sort.columnKey)
+      ? { key: sort.columnKey as "email" | "status" | "createdAt", direction: sort.direction }
+      : undefined;
+    try {
+      const page = await AppCache.users.listUsersPage({ page: requestedPage, pageSize, search: search.trim() || undefined, sort: acceptedSort });
+      if (request !== version.current) return;
+      setRows(page.items);
+      setTotal(page.total);
+      setPage(page.page);
+    } catch (reason) {
+      if (request === version.current) setError(reason instanceof Error ? reason : new Error(String(reason)));
+    } finally {
+      if (request === version.current) setLoading(false);
+    }
+  }, [currentPage, pageSize, search, setPage, sort]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  useAdminRealtimeCollectionRefresh(["users"], () => load(currentPage));
+  const setSearch = useCallback((next: string) => {
+    reset();
+    setModuleState(moduleKey, { search: next });
+  }, [reset, setModuleState]);
+  const setSort = useCallback((next: AdminTableSortState) => {
+    reset();
+    setSortState(next);
+  }, [reset]);
+  const execute = useCallback(async (work: () => Promise<void>) => {
+    setPending(true);
+    setError(null);
+    try {
+      await work();
+      await load();
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason : new Error(String(reason)));
+      return false;
+    } finally { setPending(false); }
+  }, [load]);
+  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+}
+
 /** Provides user creation with an atomic initial role and node scope. */
 export function UsersModuleScreen() {
   const { t } = useAppLocale();
@@ -167,8 +231,8 @@ export function UsersModuleScreen() {
       delete: ["user.delete"],
     },
     list: {
+      mode: "remote",
       realtimeDependencies: ["users"],
-      load: async () => AppCache.users.listUsers(),
       columns: [
         { key: "email", label: t("admin.email"), render: (row) => row.email, sortValue: (row) => row.email },
         {
@@ -185,14 +249,13 @@ export function UsersModuleScreen() {
           key: "roles",
           label: t("admin.roles"),
           render: (row) => row.roles.map((role) => role.name).join(", ") || "—",
-          sortValue: (row) => row.roles.map((role) => role.name).join(", "),
         },
       ],
       emptyLabel: t("admin.noUsers"),
       loadingLabel: t("admin.loadingUsers"),
     },
   }), [t]);
-  const collection = useAdminResourceController(resource, undefined);
+  const collection = useUsersRemoteCoordinator();
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const definition = useMemo(
@@ -263,20 +326,13 @@ export function UsersModuleScreen() {
         formSurface.values[assignmentFieldName(rowId, "propagation")] ?? "subtree",
       ) as "self" | "subtree",
     })).filter((assignment) => assignment.nodeId && assignment.roleId);
-    const succeeded = await collection.controller.executeAction(
-      {
-        key: "create",
-        label: t("admin.createUser"),
-        execute: async () => {
+    const succeeded = await collection.execute(async () => {
           await AppCache.users.createScopedUser({
             email: String(formSurface.values.email ?? "").trim(),
             password: String(formSurface.values.password ?? ""),
             assignments,
           });
-        },
-      },
-      { id: "new" } as UserListItemDto,
-    );
+        });
     if (succeeded) {
       formSurface.complete();
       assignmentRows.reset();
@@ -304,29 +360,23 @@ export function UsersModuleScreen() {
     rowLabel: (row) => row.email,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void collection.refresh(),
-    pagination: { stateKey: resource.moduleKey },
+    onRefresh: () => void collection.load(collection.pagination.page),
+    search: { value: collection.search, label: "Cerca utenti", placeholder: "Cerca utenti", onChange: collection.setSearch },
+    pagination: { mode: "remote", page: collection.pagination.page, pageCount: collection.pagination.pageCount, onPageChange: (page) => void collection.load(page), sort: collection.sort, onSortChange: collection.setSort },
     actions: [
       {
         key: "toggle-status",
         label: t("admin.toggleStatus"),
         tone: "primary",
         onClick: (row) => {
-          void collection.controller.executeAction(
-            {
-              key: "toggle-status",
-              label: t("admin.toggleStatus"),
-              execute: async () => {
+          void collection.execute(async () => {
                 const detail = await AppCache.users.getUser(row.id);
                 await AppCache.users.updateUserStatus({
                   userId: row.id,
                   isActive: !detail.isActive,
                   expectedRowVersion: detail.rowVersion,
                 });
-              },
-            },
-            row,
-          );
+              });
         },
         hidden: () => !canUpdate,
       },

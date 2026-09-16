@@ -1,6 +1,6 @@
 /** Implements dynamic type-administration persistence against PostgreSQL metadata tables. */
 
-import type { TypeDefinitionAdminRepository } from '../../application/ports/TypeDefinitionAdminRepository.js';
+import type { TypeDefinitionAdminRepository, TypeListPage, TypeListPageParams } from '../../application/ports/TypeDefinitionAdminRepository.js';
 import type { TypeDomain, ConstraintType } from '../../application/dto/TypeFieldDefinition.js';
 import type { TypeListItemDto, TypeDetailDto, FieldDto, FieldConstraintDto, FieldDataType } from '../../application/dto/AdminContractDtos.js';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
@@ -229,6 +229,22 @@ export class TypeDefinitionAdminRepositoryPostgres implements TypeDefinitionAdmi
       fieldCount: Number(r.fieldCount),
       updatedAt: new Date(r.updatedAt).toISOString(),
     }));
+  }
+
+  async listTypesPage(domain: TypeDomain, params: TypeListPageParams): Promise<TypeListPage> {
+    const cfg = DOMAIN_TABLES[domain];
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const requestedPage = Math.max(1, params.page);
+    const search = params.search?.trim();
+    const values: unknown[] = [];
+    const where = ['t.deleted_at IS NULL'];
+    if (search) { values.push(`%${search.replace(/[%_\\]/g, '\\$&')}%`); where.push(`(t.name ILIKE $1 ESCAPE '\\' OR t.type_key ILIKE $1 ESCAPE '\\' OR COALESCE(t.description, '') ILIKE $1 ESCAPE '\\')`); }
+    const count = await this.executor.query<{ total: number }>(`SELECT count(*)::int AS total FROM ${cfg.typesTable} t WHERE ${where.join(' AND ')}`, values);
+    const total = Number(count.rows[0]?.total ?? 0); const pageCount = Math.max(1, Math.ceil(total / pageSize)); const page = Math.min(requestedPage, pageCount);
+    const key = params.sort?.key ?? 'name'; const field = key === 'typeKey' ? 't.type_key' : key === 'fields' ? 'field_count' : key === 'version' ? 't.current_schema_version' : 't.name'; const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const query = `SELECT t.id,t.type_key AS "typeKey",t.name,t.description,${domain === 'entity' ? 't.storage_table AS "storageTable"' : 'NULL AS "storageTable"'},t.current_schema_version AS "currentSchemaVersion",t.is_active AS "isActive",t.is_system AS "isSystem",t.row_version AS "rowVersion",t.updated_at AS "updatedAt",COALESCE(f.field_count,0)::int AS "fieldCount" FROM ${cfg.typesTable} t LEFT JOIN (SELECT ${cfg.fieldForeignKey},COUNT(*)::int AS field_count FROM ${cfg.fieldsTable} GROUP BY ${cfg.fieldForeignKey}) f ON f.${cfg.fieldForeignKey}=t.id WHERE ${where.join(' AND ')} ORDER BY ${field} ${direction},t.name ASC,t.id ASC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    const rows = await this.executor.query<TypeListRow>(query, [...values, pageSize, (page - 1) * pageSize]);
+    return { items: rows.rows.map((r) => ({ id:r.id,kind:domain,typeKey:r.typeKey,name:r.name,description:r.description ?? '',storageTable:r.storageTable ?? null,currentSchemaVersion:Number(r.currentSchemaVersion),isActive:Boolean(r.isActive),isSystem:Boolean(r.isSystem),rowVersion:Number(r.rowVersion),fieldCount:Number(r.fieldCount),updatedAt:new Date(r.updatedAt).toISOString() })), total, page, pageCount };
   }
 
   async getTypeDetail(domain: TypeDomain, typeKey: string): Promise<TypeDetailDto | null> {

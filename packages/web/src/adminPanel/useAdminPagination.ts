@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useAdminModuleState } from "./useAdminModuleState";
+import { ADMIN_PAGE_SIZE } from "./AdminPaginationPolicy";
 
 /** Defines the one pagination policy shared by every administrative collection. */
-export const ADMIN_PAGE_SIZE = 25;
+export { ADMIN_PAGE_SIZE } from "./AdminPaginationPolicy";
 
 /** Owns page selection, clamping, and visible-window calculation for any list. */
 export function useAdminPagination({

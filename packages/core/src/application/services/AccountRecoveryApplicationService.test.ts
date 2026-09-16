@@ -1,5 +1,6 @@
 /** Verifies atomic account recovery issuance and completion behavior. */
 import { describe, expect, it, vi } from 'vitest';
+import crypto from 'node:crypto';
 import { AccountRecoveryApplicationService } from './AccountRecoveryApplicationService.js';
 import { User } from '../../domain/models/User.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
@@ -19,11 +20,14 @@ import { ensureSqliteSchema } from '../../infrastructure/sqlite/SqliteSchema.js'
 import { TransactionPortSqlite } from '../../infrastructure/sqlite/TransactionPortSqlite.js';
 import { AccountActionTokenPortSqlite } from '../../infrastructure/sqlite/AccountActionTokenPortSqlite.js';
 import { AccountActionDeliveryOutboxSqlite } from '../../infrastructure/sqlite/AccountActionDeliveryOutboxSqlite.js';
+import { UserRepositorySqlite } from '../../infrastructure/sqlite/UserRepositorySqlite.js';
+import { SessionRepositorySqlite } from '../../infrastructure/sqlite/SessionRepositorySqlite.js';
+import { AuditPortSqlite } from '../../infrastructure/sqlite/AuditPortSqlite.js';
 
 function createService() {
   const tokens: AccountActionTokenPort = { create: vi.fn(), consume: vi.fn() };
   const users = {
-    findById: vi.fn(), findByEmail: vi.fn(), listUsers: vi.fn(), listUsersManageableBy: vi.fn(),
+    findById: vi.fn(), findByEmail: vi.fn(), listUsers: vi.fn(), listUsersManageableBy: vi.fn(), listUsersManageablePage: vi.fn(),
     getUserDetailManageableBy: vi.fn(), isUserManageableBy: vi.fn(), getUserDetail: vi.fn(),
     listAllRoles: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), assignUserRoles: vi.fn(),
   } satisfies UserRepository;
@@ -155,6 +159,29 @@ describe('AccountRecoveryApplicationService', () => {
     expect(database.get<{ count: number }>('SELECT COUNT(*) AS count FROM account_action_tokens')?.count).toBe(0);
     expect(database.get<{ count: number }>('SELECT COUNT(*) AS count FROM account_action_delivery_outbox')?.count).toBe(0);
     expect(context.drainer.drain).not.toHaveBeenCalled();
+    database.close();
+  });
+
+  it('leaves a consumed recovery token reusable when SQLite audit persistence aborts', async () => {
+    const database = new SqliteDatabase(); ensureSqliteSchema(database);
+    const user = User.create('00000000-0000-0000-0000-000000000012', 'complete-rollback@example.test', 'old-hash');
+    const users = new UserRepositorySqlite(database);
+    await users.createUser(user);
+    const token = 'sqlite-complete-rollback-token';
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    database.run("INSERT INTO account_action_tokens(token_hash,user_id,purpose,expires_at,created_by) VALUES(?,?,'password_reset',?,?)", [tokenHash, user.id, new Date(Date.now() + 60_000).toISOString(), user.id]);
+    database.exec(`CREATE TRIGGER recovery_complete_audit_fault BEFORE INSERT ON audit_logs
+      WHEN NEW.resource_id='${user.id}' AND NEW.action_key='user.password_reset_completed'
+      BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END`);
+    const service = new AccountRecoveryApplicationService(
+      new AccountActionTokenPortSqlite(database), users, new SessionRepositorySqlite(database), new AuditPortSqlite(database),
+      new TransactionPortSqlite(database), createService().access,
+    );
+    await expect(service.complete(token, 'StrongPassword!123')).rejects.toThrow('audit unavailable');
+    expect(database.get<{ consumed_at: string | null }>('SELECT consumed_at FROM account_action_tokens WHERE token_hash=?', [tokenHash])?.consumed_at).toBeNull();
+    database.exec('DROP TRIGGER recovery_complete_audit_fault');
+    await expect(service.complete(token, 'StrongPassword!123')).resolves.toBeUndefined();
+    expect(database.get<{ consumed_at: string | null }>('SELECT consumed_at FROM account_action_tokens WHERE token_hash=?', [tokenHash])?.consumed_at).not.toBeNull();
     database.close();
   });
 });

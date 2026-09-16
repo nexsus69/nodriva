@@ -270,7 +270,11 @@ export class RealtimeCacheBridge {
         });
         continue;
       }
-      if (previous.epoch !== checkpoint.epoch || previous.cursor !== checkpoint.cursor) {
+      // A checkpoint can lag an event already delivered to this browser while
+      // the producer's checkpoint projection catches up. That does not mean a
+      // missed event: retain the newest cursor we have observed. A changed
+      // epoch or a server cursor ahead of the browser is the unsafe direction.
+      if (previous.epoch !== checkpoint.epoch || checkpoint.cursor > previous.cursor) {
         continuous = false;
         this.emitDebugEvent('__pusher_connection__', 'realtime:checkpoint_gap', {
           channelName: checkpoint.channelId,
@@ -286,10 +290,8 @@ export class RealtimeCacheBridge {
           received: checkpoint.cursor,
         });
       }
-      this.lastChannelPositions.set(checkpoint.channelId, {
-        epoch: checkpoint.epoch,
-        cursor: checkpoint.cursor,
-      });
+      if (checkpoint.epoch === previous.epoch && checkpoint.cursor <= previous.cursor) continue;
+      this.lastChannelPositions.set(checkpoint.channelId, { epoch: checkpoint.epoch, cursor: checkpoint.cursor });
     }
     return continuous;
   }

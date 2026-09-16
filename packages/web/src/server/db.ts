@@ -16,6 +16,7 @@ import {
   AuditAdminApplicationService,
   AuditQueryPortPostgres,
   EntitySubtreeQueryPortPostgres,
+  AdminContentCatalogQueryPortPostgres,
   NodeRepositoryPostgres,
   FieldEncryptionService,
   NodeTypeRepositoryPostgres,
@@ -523,6 +524,7 @@ export const auditAdminService = new AuditAdminApplicationService(
 );
 
 export const entitySubtreeQueryPort = sqliteMode ? sqliteInfrastructure!.entitySubtreeQueryPort : new EntitySubtreeQueryPortPostgres(pgExecutor!, fieldEncryptionService as FieldEncryptionService);
+export const adminContentCatalogQueryPort = sqliteMode ? sqliteInfrastructure!.adminContentCatalogQueryPort : new AdminContentCatalogQueryPortPostgres(pgExecutor!);
 
 export const systemSeedService = sqliteMode
   ? sqliteInfrastructure!.systemSeedService

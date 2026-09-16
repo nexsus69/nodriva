@@ -8,6 +8,8 @@ import type {
   UpdateUserUiCommand,
   UserDetailDto,
   UserListItemDto,
+  UserListPageDto,
+  UserListPageParams,
 } from '@dashboard/core';
 import {
   assignUserRolesAction,
@@ -15,6 +17,7 @@ import {
   createScopedUserAction,
   getUserByIdAction,
   listUsersAction,
+  listUsersPageAction,
   resetUserPasswordAction,
   updateUserAction,
   updateUserStatusAction,
@@ -68,6 +71,8 @@ export class UserCacheClient {
   private listLoading = false;
   private listError: Error | null = null;
   private readonly listSubscribers = new Set<() => void>();
+  private readonly pageCache = new Map<string, UserListPageDto>();
+  private static readonly PAGE_CACHE_LIMIT = 24;
   private sessionRefresh: ((userId: string) => Promise<void>) | null = null;
 
   constructor(kernel: CacheKernel, private readonly onChange: () => void) {
@@ -134,6 +139,31 @@ export class UserCacheClient {
     }
   }
 
+  /** Returns a bounded cached page. Map reinsertion keeps the least-recently-used page at the front. */
+  public async listUsersPage(params: UserListPageParams): Promise<UserListPageDto> {
+    const key = this.pageKey(params);
+    const cached = this.pageCache.get(key);
+    if (cached) {
+      this.pageCache.delete(key);
+      this.pageCache.set(key, cached);
+      return cached;
+    }
+    const result = await listUsersPageAction(params);
+    if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile caricare gli utenti.' });
+    for (const user of result.data.items) {
+      const current = this.entities.get(user.id);
+      this.entities.inject(user.id, { ...(current ?? {}), ...user, roles: current?.roles ?? [] } as CachedUser, true, 'fetch:user-page');
+    }
+    this.pageCache.set(key, result.data);
+    if (this.pageCache.size > UserCacheClient.PAGE_CACHE_LIMIT) this.pageCache.delete(this.pageCache.keys().next().value!);
+    return result.data;
+  }
+
+  public invalidatePages(): void {
+    this.pageCache.clear();
+    this.listSubscribers.forEach((subscriber) => subscriber());
+  }
+
   public getListSnapshot(): { ids: string[]; updatedAt: number; loading: boolean; error: Error | null } {
     return { ids: [...this.listIds], updatedAt: this.listUpdatedAt, loading: this.listLoading, error: this.listError };
   }
@@ -147,14 +177,14 @@ export class UserCacheClient {
     const result = await createUserAction(command);
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile creare l’utente.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-create');
-    await this.listUsers();
+    this.invalidatePages();
     return result.data;
   }
 
   public async createScopedUser(command: Omit<CreateScopedUserCommand, 'actorUserId'>): Promise<{ id: string; email: string }> {
     const result = await createScopedUserAction(command);
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile creare l’utente con scope.' });
-    await this.listUsers();
+    this.invalidatePages();
     return result.data;
   }
 
@@ -163,7 +193,7 @@ export class UserCacheClient {
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile aggiornare l’utente.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-update');
     await this.refreshCurrentSession(result.data.id);
-    await this.listUsers();
+    this.invalidatePages();
     return result.data;
   }
 
@@ -172,7 +202,7 @@ export class UserCacheClient {
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile aggiornare lo stato.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-status');
     await this.refreshCurrentSession(result.data.id);
-    await this.listUsers();
+    this.invalidatePages();
     return result.data;
   }
 
@@ -181,6 +211,7 @@ export class UserCacheClient {
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile aggiornare i ruoli.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-roles');
     await this.refreshCurrentSession(result.data.id);
+    this.invalidatePages();
     return result.data;
   }
 
@@ -189,6 +220,7 @@ export class UserCacheClient {
     if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile reimpostare la password.' });
     this.entities.inject(result.data.id, result.data, false, 'mutation:user-password');
     await this.refreshCurrentSession(result.data.id);
+    this.invalidatePages();
     return result.data;
   }
 
@@ -197,10 +229,15 @@ export class UserCacheClient {
     this.listIds = [];
     this.listUpdatedAt = 0;
     this.listError = null;
+    this.pageCache.clear();
     this.listSubscribers.forEach((subscriber) => subscriber());
   }
 
   private async refreshCurrentSession(userId: string): Promise<void> {
     if (this.sessionRefresh) await this.sessionRefresh(userId);
+  }
+
+  private pageKey(params: UserListPageParams): string {
+    return JSON.stringify({ page: params.page, pageSize: params.pageSize, search: params.search?.trim() || '', sort: params.sort ?? null });
   }
 }

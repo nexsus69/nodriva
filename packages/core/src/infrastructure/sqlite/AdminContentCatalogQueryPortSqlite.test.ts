@@ -1,0 +1,24 @@
+/** Verifies the SQLite administrative catalogue stays page-bounded and ACL-filtered. */
+import { describe, expect, it, vi } from 'vitest';
+import { ensureSqliteSchema } from './SqliteSchema.js';
+import { SqliteDatabase } from './SqliteDatabase.js';
+import { AdminContentCatalogQueryPortSqlite } from './AdminContentCatalogQueryPortSqlite.js';
+
+describe('AdminContentCatalogQueryPortSqlite', () => {
+  it('returns one searched node page without materializing the catalogue in the caller', async () => {
+    const database = new SqliteDatabase();
+    ensureSqliteSchema(database);
+    const now = '2026-01-01T00:00:00.000Z';
+    database.run('INSERT INTO users (id,email,is_active,is_super_admin) VALUES (?,?,?,?)', ['actor', 'actor@example.test', 1, 1]);
+    database.run('INSERT INTO node_types (id,type_key,name) VALUES (?,?,?)', ['type', 'folder', 'Folder']);
+    for (let index = 0; index < 60; index += 1) database.run('INSERT INTO nodes (id,path,path_label,depth,node_type_id,name,created_at,updated_at,row_version,payload) VALUES (?,?,?,?,?,?,?,?,?,?)', [`node-${index}`, `root.${index}`, String(index), 1, 'type', `Node ${index}`, now, now, 1, '{}']);
+    const all = vi.spyOn(database, 'all');
+    const page = await new AdminContentCatalogQueryPortSqlite(database).findNodesPage({ actorUserId: 'actor', page: 2, pageSize: 25, search: 'Node', sort: { key: 'name', direction: 'ascending' } });
+    expect(page.total).toBe(60);
+    expect(page.pageCount).toBe(3);
+    expect(page.items).toHaveLength(25);
+    expect(all.mock.calls.at(-1)?.[0]).toContain('LIMIT ? OFFSET ?');
+    expect(all.mock.calls.at(-1)?.[1]).toEqual(expect.arrayContaining([25, 25]));
+    database.close();
+  });
+});

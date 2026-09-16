@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { SetStateAction } from "react";
 import {
   useAdminWorkspaceStore,
@@ -43,16 +43,23 @@ export function resolveAdminFormSurfaceState<T extends object>({
   surface,
   moduleKey,
   surfaceKey,
+  hasHydrated = true,
+  explicitlyOpened = false,
 }: {
   initialValues: T;
   draft?: AdminFormDraft;
   surface: AdminSurfaceState | null;
   moduleKey: string;
   surfaceKey: string;
+  hasHydrated?: boolean;
+  explicitlyOpened?: boolean;
 }) {
   const values = { ...initialValues, ...(draft?.values as Partial<T> | undefined) };
   const baseline = draft?.baseline ?? (initialValues as Record<string, unknown>);
-  const isOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
+  const restoredOpen = surface?.moduleKey === moduleKey && surface.key === surfaceKey;
+  // Workspace restoration must not render stale state before hydration, but a
+  // click made by the current user is always an authoritative open request.
+  const isOpen = explicitlyOpened || (hasHydrated && restoredOpen);
   return { values, isOpen, isDirty: draft !== undefined && !areValuesEqual(values, baseline) };
 }
 
@@ -78,13 +85,15 @@ export function useAdminFormSurface<T extends object>({
   const resolvedConfirmCancelLabel = confirmCancelLabel ?? t("admin.keepEditing");
   const draft = useAdminWorkspaceStore((state) => state.drafts[draftKey]);
   const surface = useAdminWorkspaceStore((state) => state.surface);
+  const hasHydrated = useAdminWorkspaceStore((state) => state.hasHydrated);
   const openSurface = useAdminWorkspaceStore((state) => state.openSurface);
   const closeSurface = useAdminWorkspaceStore((state) => state.closeSurface);
   const saveDraft = useAdminWorkspaceStore((state) => state.saveDraft);
   const removeDraft = useAdminWorkspaceStore((state) => state.removeDraft);
+  const [explicitlyOpened, setExplicitlyOpened] = useState(false);
   const resolvedState = useMemo(
-    () => resolveAdminFormSurfaceState({ initialValues, draft, surface, moduleKey, surfaceKey }),
-    [draft, initialValues, moduleKey, surface, surfaceKey],
+    () => resolveAdminFormSurfaceState({ initialValues, draft, surface, moduleKey, surfaceKey, hasHydrated, explicitlyOpened }),
+    [draft, explicitlyOpened, hasHydrated, initialValues, moduleKey, surface, surfaceKey],
   );
   const { values, isOpen, isDirty } = resolvedState;
   // A draft is dirty only when its values differ from the initial form state.
@@ -93,13 +102,15 @@ export function useAdminFormSurface<T extends object>({
 
   /** Opens the configured modal or drawer without changing its draft. */
   const open = useCallback(
-    (identity: AdminFormSurfaceIdentity = {}) =>
+    (identity: AdminFormSurfaceIdentity = {}) => {
+      setExplicitlyOpened(true);
       openSurface({
         kind: surfaceKind,
         key: surfaceKey,
         moduleKey,
         ...identity,
-      }),
+      });
+    },
     [moduleKey, openSurface, surfaceKey, surfaceKind],
   );
 
@@ -161,6 +172,7 @@ export function useAdminFormSurface<T extends object>({
       }
       removeDraft(draftKey);
     }
+    setExplicitlyOpened(false);
     closeSurface();
     return true;
   }, [
@@ -169,6 +181,7 @@ export function useAdminFormSurface<T extends object>({
     closeSurface,
     draftKey,
     isDirty,
+    hasHydrated,
     removeDraft,
     resolvedConfirmCancelLabel,
     resolvedConfirmConfirmLabel,
@@ -178,6 +191,7 @@ export function useAdminFormSurface<T extends object>({
 
   /** Completes a successful mutation and always removes its draft. */
   const complete = useCallback(() => {
+    setExplicitlyOpened(false);
     removeDraft(draftKey);
     closeSurface();
   }, [closeSurface, draftKey, removeDraft]);

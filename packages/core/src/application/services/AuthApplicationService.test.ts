@@ -27,7 +27,7 @@ describe('AuthApplicationService', () => {
       findById: vi.fn(),
       findByEmail: vi.fn(),
       listUsers: vi.fn(),
-      listUsersManageableBy: vi.fn(),
+      listUsersManageableBy: vi.fn(), listUsersManageablePage: vi.fn(),
       getUserDetailManageableBy: vi.fn(),
       isUserManageableBy: vi.fn(),
       getUserDetail: vi.fn(),

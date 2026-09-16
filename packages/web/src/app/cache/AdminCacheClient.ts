@@ -7,6 +7,7 @@ import * as typeActions from '../actions/typeActions';
 import * as recycleActions from '../actions/recycleActions';
 import * as entityActions from '../actions/entityActions';
 import * as workflowActions from '../actions/workflowActions';
+import * as adminContentActions from '../actions/adminContentActions';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
@@ -26,6 +27,9 @@ function isFailedActionResult(value: unknown): boolean {
  */
 export class AdminCacheClient {
   private readonly reads = new Map<string, Promise<unknown>>();
+  /** Keeps only a small working set of administrative result pages per browser session. */
+  private readonly pagedReads = new Map<string, Promise<unknown>>();
+  private static readonly MAX_PAGED_READS = 5;
 
   public constructor(
     private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined,
@@ -56,6 +60,28 @@ export class AdminCacheClient {
     return request;
   }
 
+  private readPage<T>(key: string, action: () => Promise<T>): Promise<T> {
+    const cached = this.pagedReads.get(key);
+    if (cached) {
+      return this.verifyCacheHit().then((continuous) => {
+        if (continuous && this.pagedReads.get(key) === cached) {
+          this.pagedReads.delete(key);
+          this.pagedReads.set(key, cached);
+          return cached as Promise<T>;
+        }
+        if (this.pagedReads.get(key) === cached) this.pagedReads.delete(key);
+        return this.readPage(key, action);
+      });
+    }
+    const request = action().catch((error) => {
+      if (this.pagedReads.get(key) === request) this.pagedReads.delete(key);
+      throw error;
+    });
+    this.pagedReads.set(key, request);
+    while (this.pagedReads.size > AdminCacheClient.MAX_PAGED_READS) this.pagedReads.delete(this.pagedReads.keys().next().value!);
+    return request;
+  }
+
   private write<T extends ActionResult>(keys: string[], action: () => Promise<T>): Promise<T> {
     return action().then((result) => {
       if (result.success) this.invalidate(keys);
@@ -73,6 +99,7 @@ export class AdminCacheClient {
   public invalidate(keys: string[] = []): void {
     if (keys.length === 0) {
       this.reads.clear();
+      this.pagedReads.clear();
       return;
     }
     for (const key of this.reads.keys()) {
@@ -80,16 +107,21 @@ export class AdminCacheClient {
         this.reads.delete(key);
       }
     }
+    for (const key of this.pagedReads.keys()) {
+      if (keys.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) this.pagedReads.delete(key);
+    }
   }
 
   public listTypes = (kind: Parameters<typeof typeActions.listTypesAction>[0]) =>
     this.read(`types:${kind}`, () => typeActions.listTypesAction(kind));
+  public listTypesPage = (...args: Parameters<typeof typeActions.listTypesPageAction>) =>
+    this.readPage(`types-page:${args[0]}:${JSON.stringify(args[1])}`, () => typeActions.listTypesPageAction(...args));
   public getTypeDefinition = (domain: Parameters<typeof typeActions.getTypeDefinitionAction>[0], typeKey: string) =>
     this.read(`type-definition:${domain}:${typeKey}`, () => typeActions.getTypeDefinitionAction(domain, typeKey));
   public getTypeDetail = (kind: Parameters<typeof typeActions.getTypeDetailAction>[0], typeKey: string) =>
     this.read(`type-detail:${kind}:${typeKey}`, () => typeActions.getTypeDetailAction(kind, typeKey));
   public createType = (cmd: Parameters<typeof typeActions.createTypeAction>[0]) =>
-    this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
+    this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'types-page', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
   public updateType = (...args: Parameters<typeof typeActions.updateTypeAction>) =>
     this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.updateTypeAction(...args));
   public disableType = (...args: Parameters<typeof typeActions.disableTypeAction>) =>
@@ -174,7 +206,7 @@ export class AdminCacheClient {
     this.write(['scope-assignments'], () => securityActions.updateScopeAssignmentAction(cmd));
 
   public listAuditLogs = (filters: Parameters<typeof auditActions.listAuditLogsAction>[0]) =>
-    this.read(`audit:${JSON.stringify(filters)}`, () => auditActions.listAuditLogsAction(filters));
+    this.readPage(`audit:${JSON.stringify(filters)}`, () => auditActions.listAuditLogsAction(filters));
   public listAuditFilterCatalog = () => this.read('audit-filter-catalog', auditActions.listAuditFilterCatalogAction);
   public getAuditLogById = (id: string) => this.read(`audit-detail:${id}`, () => auditActions.getAuditLogByIdAction(id));
   public listTypeSchemaHistory = (kind: 'node' | 'entity', typeId: string) =>
@@ -190,6 +222,10 @@ export class AdminCacheClient {
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));
   public listSubtreeEntities = (input: Parameters<typeof entityActions.listSubtreeEntitiesAction>[0]) =>
     this.read(`subtree-entities:${JSON.stringify(input)}`, () => entityActions.listSubtreeEntitiesAction(input));
+  public listAdminNodesPage = (input: Parameters<typeof adminContentActions.listAdminNodesPageAction>[0]) =>
+    this.readPage(`admin-nodes-page:${JSON.stringify(input)}`, () => adminContentActions.listAdminNodesPageAction(input));
+  public listAdminEntitiesPage = (input: Parameters<typeof adminContentActions.listAdminEntitiesPageAction>[0]) =>
+    this.readPage(`admin-entities-page:${JSON.stringify(input)}`, () => adminContentActions.listAdminEntitiesPageAction(input));
   public listNodeTypes = () => this.read('node-types', nodeActions.listNodeTypesAction);
 
   public checkDatabaseSeeded = () => this.read('seed-status', seedActions.checkDatabaseSeededAction);

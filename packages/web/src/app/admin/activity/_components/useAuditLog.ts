@@ -10,7 +10,7 @@ import type {
 } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminModuleState } from "@/adminPanel/useAdminModuleState";
-import { useAdminPagination } from "@/adminPanel/useAdminPagination";
+import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import { refreshAdminCollection } from "@/adminPanel/refreshAdminCollection";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
 import { toAuditFilterQuery, type AuditFilterForm } from "./auditFilterModel";
@@ -37,7 +37,7 @@ export function useAuditLog(t: Translate) {
     moduleDefaults,
   );
   const filters = moduleState.filters;
-  const pagination = useAdminPagination({ total, stateKey: "governance.audit" });
+  const pagination = useAdminRemotePagination({ total, stateKey: "governance.audit" });
 
   const load = useCallback(async (
     next: AuditFilterForm = filters,

@@ -1,5 +1,4 @@
 /** Exercises recovery failure/retry with real databases and retained browser input. */
-import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { expect, test } from '@playwright/test';
 import pg from 'pg';
@@ -22,21 +21,21 @@ for (const profile of ['sqlite', 'postgres'] as const) {
         if (parameters.length) sqlite.prepare(sql.replace(/\$\d+/g, '?')).run(...parameters);
         else sqlite.exec(sql);
       };
-      const userId = randomUUID();
-      const token = randomUUID();
-      const hash = createHash('sha256').update(token).digest('hex');
+      const token = profile === 'sqlite' ? process.env.E2E_RECOVERY_SQLITE_TOKEN : process.env.E2E_RECOVERY_POSTGRES_TOKEN;
+      const userId = profile === 'sqlite' ? process.env.E2E_RECOVERY_SQLITE_USER_ID : process.env.E2E_RECOVERY_POSTGRES_USER_ID;
+      if (!token || !userId) throw new Error('Recovery fixture is missing.');
       const baseUrl = profile === 'sqlite' ? process.env.E2E_SQLITE_BASE_URL : process.env.E2E_POSTGRES_BASE_URL;
       const dropFault = async () => {
         await query('DROP TRIGGER IF EXISTS recovery_e2e_audit_fault' + (pool ? ' ON audit_logs' : ''));
         if (pool) await query('DROP FUNCTION IF EXISTS recovery_e2e_audit_fault()');
       };
       try {
-        await query('INSERT INTO users(id,email,password_hash) VALUES($1,$2,$3)', [userId, `${userId}@recovery-e2e.test`, 'old-hash']);
-        await query("INSERT INTO account_action_tokens(user_id,purpose,token_hash,expires_at,created_by) VALUES($1,'password_reset',$2,$3,$4)", [userId, hash, new Date(Date.now() + 600_000).toISOString(), '00000000-0000-0000-0000-000000000001']);
         await page.goto(`${baseUrl}/account/complete?token=invalid-token`);
         await page.getByPlaceholder('Nuova password', { exact: true }).fill(password);
         await page.getByPlaceholder('Ripeti la password').fill(password);
-        await page.getByRole('button', { name: 'Imposta password' }).click();
+        const submitButton = page.getByRole('button', { name: 'Imposta password' });
+        await expect(submitButton).toBeEnabled();
+        await submitButton.click();
         await expect(page.getByRole('status')).toHaveText('Il link non è valido, è scaduto o è già stato utilizzato.');
         await page.goto(`${baseUrl}/account/complete?token=${token}`);
         await page.getByPlaceholder('Nuova password', { exact: true }).fill(password);
@@ -52,19 +51,18 @@ for (const profile of ['sqlite', 'postgres'] as const) {
             WHEN NEW.resource_id='${userId}' AND NEW.action_key='user.password_reset_completed'
             BEGIN SELECT RAISE(ABORT, 'recovery e2e audit unavailable'); END`);
         }
-        await page.getByRole('button', { name: 'Imposta password' }).click();
+        await expect(submitButton).toBeEnabled();
+        await submitButton.click();
         await expect(page.getByRole('status')).toHaveText('Si è verificato un errore interno. Riprova più tardi.');
         await expect(page.getByPlaceholder('Nuova password', { exact: true })).toHaveValue(password);
         await expect(page.getByPlaceholder('Ripeti la password')).toHaveValue(password);
         await dropFault();
-        await page.getByRole('button', { name: 'Imposta password' }).click();
+        await expect(submitButton).toBeEnabled();
+        await submitButton.click();
         await expect(page.getByRole('status')).toHaveText('Password impostata e sessioni precedenti revocate.');
         await expect(page.getByRole('link', { name: 'Vai al login' })).toBeVisible();
       } finally {
         await dropFault();
-        await query('DELETE FROM audit_logs WHERE resource_id=$1', [userId]);
-        await query('DELETE FROM account_action_tokens WHERE user_id=$1', [userId]);
-        await query('DELETE FROM users WHERE id=$1', [userId]);
         sqlite?.close();
         await pool?.end();
       }

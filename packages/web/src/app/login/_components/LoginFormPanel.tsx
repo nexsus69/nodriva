@@ -10,7 +10,7 @@ import { useLogin } from '../_hooks/useLogin';
 export function LoginFormPanel() {
   const controller = useLogin();
   return <section className="flex min-h-[680px] flex-col justify-center bg-white px-6 py-10 sm:px-12 lg:px-12 xl:px-16"><div className="mx-auto w-full max-w-md">
-    <div><p className="text-sm font-medium text-indigo-500">Bentornato</p><h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Accedi al tuo spazio</h2><p className="mt-3 text-sm leading-6 text-slate-500">Inserisci le tue credenziali per continuare.</p></div>
+    <div><p className="text-sm font-medium text-indigo-500">Benvenuto</p><h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">Accedi al tuo spazio</h2><p className="mt-3 text-sm leading-6 text-slate-500">Inserisci le tue credenziali per continuare.</p></div>
     <Suspense fallback={null}><SessionWarning /></Suspense>
     <form className="mt-8 space-y-5" action={controller.submit}>
       <LoginField label="Email"><input name="email" type="email" autoComplete="email" required placeholder="nome@azienda.it" className="h-13 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" /></LoginField>

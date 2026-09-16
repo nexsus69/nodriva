@@ -79,7 +79,7 @@ describe('SecurityAdminApplicationService', () => {
     };
 
     mockUserRepository = {
-      findById: vi.fn(), findByEmail: vi.fn(), listUsers: vi.fn(), listUsersManageableBy: vi.fn(),
+      findById: vi.fn(), findByEmail: vi.fn(), listUsers: vi.fn(), listUsersManageableBy: vi.fn(), listUsersManageablePage: vi.fn(),
       getUserDetailManageableBy: vi.fn(), isUserManageableBy: vi.fn().mockResolvedValue(true),
       getUserDetail: vi.fn(), listAllRoles: vi.fn(), createUser: vi.fn(), updateUser: vi.fn(), assignUserRoles: vi.fn(),
     };

@@ -1,5 +1,5 @@
 import type { UserRepository } from '../../application/ports/UserRepository.js';
-import type { UserListItemDto, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
+import type { UserListItemDto, UserListPageDto, UserListPageParams, UserDetailDto, UserRoleDto } from '../../application/dto/UserAdminDtos.js';
 import { User } from '../../domain/models/User.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
@@ -25,6 +25,49 @@ export class UserRepositorySqlite implements UserRepository {
       if (await this.isUserManageableBy(actorUserId, user.id)) manageable.push(user);
     }
     return manageable;
+  }
+
+  /**
+   * Bounded SQLite implementation of the same delegation policy as PostgreSQL.
+   * Candidates are read in small ordered batches; no complete user catalogue is
+   * materialized before filtering its delegated scopes.
+   */
+  async listUsersManageablePage(actorUserId: string, params: UserListPageParams): Promise<UserListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const actor = this.database.get<{ is_super_admin: number }>('SELECT is_super_admin FROM users WHERE id=? AND is_active=1 AND deleted_at IS NULL', [actorUserId]);
+    const { where, values, order } = this.pageQuery(params, actor?.is_super_admin === 1);
+    if (actor?.is_super_admin === 1) {
+      const total = Number(this.database.get<{ total: number }>(`SELECT COUNT(*) AS total FROM users u WHERE ${where}`, values)?.total ?? 0);
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
+      const page = Math.min(Math.max(1, params.page), pageCount);
+      const rows = this.database.all<UserRow>(`SELECT u.* FROM users u WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]);
+      return { items: await this.listRows(rows), total, page, pageCount };
+    }
+    if (!actor) return { items: [], total: 0, page: 1, pageCount: 1 };
+    const candidates = async function* (repository: UserRepositorySqlite): AsyncGenerator<UserRow> {
+      const batchSize = 100;
+      for (let offset = 0; ; offset += batchSize) {
+        const rows = repository.database.all<UserRow>(`SELECT u.* FROM users u WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...values, batchSize, offset]);
+        if (rows.length === 0) return;
+        for (const row of rows) yield row;
+        if (rows.length < batchSize) return;
+      }
+    };
+    let total = 0;
+    let page = Math.max(1, params.page);
+    const start = (page - 1) * pageSize;
+    const rows: UserRow[] = [];
+    for await (const candidate of candidates(this)) {
+      if (!await this.isUserManageableBy(actorUserId, candidate.id)) continue;
+      if (total >= start && rows.length < pageSize) rows.push(candidate);
+      total += 1;
+    }
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    page = Math.min(page, pageCount);
+    // A concurrent deletion can make the requested page empty: rerun against
+    // its normalized page rather than returning a misleading blank result.
+    if (rows.length === 0 && total > 0 && page !== params.page) return this.listUsersManageablePage(actorUserId, { ...params, page });
+    return { items: await this.listRows(rows), total, page, pageCount };
   }
 
   /** Returns a detail only when every target allow-scope is delegable by the actor. */
@@ -75,7 +118,23 @@ export class UserRepositorySqlite implements UserRepository {
       [userId, userId],
     );
   }
-  private async list(): Promise<UserListItemDto[]> { const rows = this.database.all<UserRow>('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY email'); const result: UserListItemDto[] = []; for (const row of rows) result.push({ id: row.id, email: row.email, isActive: row.is_active === 1, isSuperAdmin: row.is_super_admin === 1, roles: await this.rolesFor(row.id), createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() }); return result; }
+  private async list(): Promise<UserListItemDto[]> { return this.listRows(this.database.all<UserRow>('SELECT * FROM users WHERE deleted_at IS NULL ORDER BY email')); }
+  private async listRows(rows: readonly UserRow[]): Promise<UserListItemDto[]> { const result: UserListItemDto[] = []; for (const row of rows) result.push({ id: row.id, email: row.email, isActive: row.is_active === 1, isSuperAdmin: row.is_super_admin === 1, roles: await this.rolesFor(row.id), createdAt: new Date(row.created_at).toISOString(), updatedAt: new Date(row.updated_at).toISOString() }); return result; }
+
+  private pageQuery(params: UserListPageParams, superAdmin: boolean): { where: string; values: unknown[]; order: string } {
+    const values: unknown[] = [];
+    const where = ['u.deleted_at IS NULL'];
+    if (!superAdmin) {
+      where.push('u.is_super_admin=0', "EXISTS (SELECT 1 FROM node_scope_assignments target WHERE target.user_id=u.id AND target.assignment_effect='allow')", "NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.deleted_at IS NULL AND r.role_key NOT IN ('default_reader','scoped_reader'))");
+    }
+    if (params.search?.trim()) {
+      where.push("u.email LIKE ? ESCAPE '\\'");
+      values.push(`%${params.search.trim().replace(/[\\%_]/g, '\\$&')}%`);
+    }
+    const field = params.sort?.key === 'status' ? 'u.is_active' : params.sort?.key === 'createdAt' ? 'u.created_at' : 'u.email';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    return { where: where.join(' AND '), values, order: `${field} ${direction}, u.email ASC, u.id ASC` };
+  }
 
   /** Verifies that the actor can delegate scope.assign over a target assignment. */
   private actorCanDelegateScope(actorUserId: string, nodeId: string, propagation: 'self' | 'subtree'): boolean {

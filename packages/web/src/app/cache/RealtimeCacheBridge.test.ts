@@ -124,4 +124,14 @@ describe('RealtimeCacheBridge debug events', () => {
 
     expect(gaps).toEqual([{ stream: 'channel', key: 'channel-data', expected: 4, received: 6 }]);
   });
+
+  it('accepts a checkpoint that temporarily lags an event already delivered to the browser', () => {
+    const bridge = new RealtimeCacheBridge(vi.fn());
+
+    expect(bridge.reconcileChannelCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 4 }])).toBe(true);
+    expect(bridge.reconcileChannelCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 3 }])).toBe(true);
+    // The older checkpoint must not rewind continuity, so a later head at 5
+    // still correctly represents one unseen event.
+    expect(bridge.reconcileChannelCheckpoints([{ channelId: 'channel-data', epoch: 'epoch-1', cursor: 5 }])).toBe(false);
+  });
 });

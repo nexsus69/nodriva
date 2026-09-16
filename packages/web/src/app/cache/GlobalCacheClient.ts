@@ -615,7 +615,7 @@ export class GlobalCacheClient {
         entityTypeId,
         affectedResourceIds: event.affectedResourceIds,
       });
-      this.invalidateAdminFromRealtime(['subtree-entities']);
+      this.invalidateAdminFromRealtime(['subtree-entities', 'admin-entities-page']);
     } else {
       const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
       if (event.changeType === 'deleted') {
@@ -631,7 +631,7 @@ export class GlobalCacheClient {
         changeType: event.changeType,
         affectedResourceIds: ids,
       });
-      this.invalidateAdminFromRealtime(['children', 'subtree-entities']);
+      this.invalidateAdminFromRealtime(['children', 'subtree-entities', 'admin-nodes-page', 'admin-entities-page']);
     }
   }
 
@@ -732,6 +732,7 @@ export class GlobalCacheClient {
             const entityTypeKey = newEntity.entityTypeId;
             this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false, 'mutation:createEntity');
             this.applyResourceCacheChange({ resourceType: 'entity', resourceId: newEntity.id, changeType: 'created', entityTypeId: entityTypeKey });
+            this.invalidateAdminFromRealtime(['admin-entities-page']);
           }
         },
       ) as unknown as ClientEntity;
@@ -756,6 +757,7 @@ export class GlobalCacheClient {
             const entityTypeKey = updatedEntity.entityTypeId;
             this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false, 'mutation:updateEntity');
             this.applyResourceCacheChange({ resourceType: 'entity', resourceId: updatedEntity.id, changeType: 'updated', entityTypeId: entityTypeKey });
+            this.invalidateAdminFromRealtime(['admin-entities-page']);
           }
         },
       ) as unknown as ClientEntity;
@@ -790,6 +792,7 @@ export class GlobalCacheClient {
             changeType: 'deleted',
             entityTypeId: entityTypeKey ?? deleted.entityTypeId,
           });
+          this.invalidateAdminFromRealtime(['admin-entities-page']);
         },
       );
     } catch (err: unknown) {
@@ -815,6 +818,7 @@ export class GlobalCacheClient {
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
           this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'created' });
+          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
         },
       );
     } catch (err: unknown) {
@@ -838,6 +842,7 @@ export class GlobalCacheClient {
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
           this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'updated' });
+          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
         },
       );
     } catch (err: unknown) {
@@ -867,6 +872,7 @@ export class GlobalCacheClient {
           const clientNode = moved as ClientNode;
           this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
           this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'moved' });
+          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
         },
       );
     } catch (err: unknown) {
@@ -889,6 +895,7 @@ export class GlobalCacheClient {
         () => {
           if (this.getCacheEpoch() !== requestEpoch) return;
           this.applyResourceCacheChange({ resourceType: 'node', resourceId: nodeId, changeType: 'deleted' });
+          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
         },
       );
     } catch (err: unknown) {

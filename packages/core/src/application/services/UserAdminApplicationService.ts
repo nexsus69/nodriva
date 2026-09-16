@@ -5,7 +5,7 @@ import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { IdGeneratorPort } from '../ports/IdGeneratorPort.js';
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import { User } from '../../domain/models/User.js';
-import type { UserListItemDto, UserDetailDto } from '../dto/UserAdminDtos.js';
+import type { UserListItemDto, UserListPageDto, UserListPageParams, UserDetailDto } from '../dto/UserAdminDtos.js';
 import type {
   CreateUserCommand,
   UpdateUserStatusCommand,
@@ -43,6 +43,11 @@ export class UserAdminApplicationService {
   async listUsers(actorUserId: string): Promise<UserListItemDto[]> {
     return await this.userRepository.listUsersManageableBy(actorUserId);
   }
+
+  async listUsersPage(actorUserId: string, params: UserListPageParams): Promise<UserListPageDto> {
+    return await this.userRepository.listUsersManageablePage(actorUserId, params);
+  }
+
 
   async getUserById(actorUserId: string, id: string): Promise<UserDetailDto | null> {
     return await this.userRepository.getUserDetailManageableBy(actorUserId, id);

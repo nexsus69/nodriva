@@ -20,8 +20,7 @@ export interface AdminResourceAction<TRow, TContext = unknown>
 }
 
 /** Defines the read side of an administrative resource. */
-export interface AdminResourceListDefinition<TRow extends { id: string }> {
-  load: () => Promise<readonly TRow[]>;
+interface AdminResourceListDefinitionBase<TRow extends { id: string }> {
   /** Cache dependencies whose realtime invalidation requires a fresh list read. */
   realtimeDependencies?: readonly string[];
   columns: readonly AdminTableColumn<TRow>[];
@@ -29,6 +28,22 @@ export interface AdminResourceListDefinition<TRow extends { id: string }> {
   loadingLabel: string;
   toSearchText?: (row: TRow) => string;
 }
+
+export interface AdminLocalResourceListDefinition<TRow extends { id: string }>
+  extends AdminResourceListDefinitionBase<TRow> {
+  mode?: "client";
+  load: () => Promise<readonly TRow[]>;
+}
+
+/** A server-paged resource owns reads through its dedicated page coordinator. */
+export interface AdminRemoteResourceListDefinition<TRow extends { id: string }>
+  extends AdminResourceListDefinitionBase<TRow> {
+  mode: "remote";
+}
+
+export type AdminResourceListDefinition<TRow extends { id: string }> =
+  | AdminLocalResourceListDefinition<TRow>
+  | AdminRemoteResourceListDefinition<TRow>;
 
 /** Defines detail loading and optional form-backed mutations for a resource. */
 export interface AdminResourceDetailDefinition<
@@ -73,6 +88,20 @@ export function defineAdminResource<
   TForm extends Record<string, unknown> = Record<string, unknown>,
   TContext = unknown,
   TId = string,
+>(
+  definition: AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId> & { list: AdminRemoteResourceListDefinition<TRow> },
+): AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId> & { list: AdminRemoteResourceListDefinition<TRow> };
+export function defineAdminResource<
+  TRow extends { id: string },
+  TDetail = TRow,
+  TForm extends Record<string, unknown> = Record<string, unknown>,
+  TContext = unknown,
+  TId = string,
+>(
+  definition: AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId> & { list: AdminLocalResourceListDefinition<TRow> },
+): AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId> & { list: AdminLocalResourceListDefinition<TRow> };
+export function defineAdminResource<
+  TRow extends { id: string }, TDetail = TRow, TForm extends Record<string, unknown> = Record<string, unknown>, TContext = unknown, TId = string,
 >(
   definition: AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId>,
 ): AdminResourceDefinition<TRow, TDetail, TForm, TContext, TId> {

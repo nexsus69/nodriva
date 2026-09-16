@@ -30,6 +30,7 @@ import { TypeDefinitionAdminRepositorySqlite } from './TypeDefinitionAdminReposi
 import { SystemConfigRepositorySqlite } from './SystemConfigRepositorySqlite.js';
 import { SecurityRepositorySqlite } from './SecurityRepositorySqlite.js';
 import { EntitySubtreeQueryPortSqlite } from './EntitySubtreeQueryPortSqlite.js';
+import { AdminContentCatalogQueryPortSqlite } from './AdminContentCatalogQueryPortSqlite.js';
 import { RealtimeScopeResolverSqlite } from './RealtimeScopeResolverSqlite.js';
 import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { AttachmentRateLimitPortSqlite } from './AttachmentRateLimitPortSqlite.js';
@@ -71,6 +72,7 @@ export class SqliteInfrastructure {
   readonly systemConfigRepository: SystemConfigRepositorySqlite;
   readonly securityRepository: SecurityRepositorySqlite;
   entitySubtreeQueryPort: EntitySubtreeQueryPortSqlite;
+  readonly adminContentCatalogQueryPort: AdminContentCatalogQueryPortSqlite;
   readonly realtimeScopeResolver: RealtimeScopeResolverSqlite;
   readonly systemSeedService: SystemSeedSqlite;
   readonly attachmentRateLimitPort: AttachmentRateLimitPortSqlite;
@@ -116,6 +118,7 @@ export class SqliteInfrastructure {
     this.systemConfigRepository = new SystemConfigRepositorySqlite(this.database);
     this.securityRepository = new SecurityRepositorySqlite(this.database);
     this.entitySubtreeQueryPort = new EntitySubtreeQueryPortSqlite(this.database, this.accessControlPort);
+    this.adminContentCatalogQueryPort = new AdminContentCatalogQueryPortSqlite(this.database);
     this.realtimeScopeResolver = new RealtimeScopeResolverSqlite(this.nodeRepository);
     this.systemSeedService = new SystemSeedSqlite(this.database, process.env.SEED_ADMIN_PASSWORD, process.env.SEED_ADMIN_EMAIL);
     // SQLite has no migration runner: catalogue additions are idempotent and
