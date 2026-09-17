@@ -64,8 +64,9 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
     const cache = new GlobalCacheClient();
     const invalidations: Array<readonly string[]> = [];
     cache.subscribeAdminRealtimeInvalidations((keys) => invalidations.push(keys));
+    cache.retainRealtimeChannels(['admin-data'], []);
 
-    (cache as unknown as { applyRealtimeEvent: (event: unknown) => void }).applyRealtimeEvent({
+    MockPusher.instance.channels.get('admin-data')?.emit('data:changed', {
       eventId: "event-1",
       occurredAt: "2026-08-29T00:00:00.000Z",
       resourceType: "audit",
@@ -104,8 +105,9 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
     const untouched = vi.fn();
     cache.subscribeAttachmentCollectionInvalidation({ resourceType: 'entity', resourceId: 'entity-1' }, changed);
     cache.subscribeAttachmentCollectionInvalidation({ resourceType: 'entity', resourceId: 'entity-2' }, untouched);
+    cache.retainRealtimeChannels(['admin-data'], []);
 
-    (cache as unknown as { applyRealtimeEvent: (event: unknown) => void }).applyRealtimeEvent({
+    MockPusher.instance.channels.get('admin-data')?.emit('data:changed', {
       eventId: 'attachment-1',
       occurredAt: '2026-09-09T00:00:00.000Z',
       resourceType: 'entity',

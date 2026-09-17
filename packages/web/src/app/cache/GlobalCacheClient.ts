@@ -3,6 +3,21 @@ import { ClientNode, ClientEntity } from '../types/models';
 import { createNodeAction, updateNodeAction, moveNodeAction, deleteNodeAction } from '../actions/nodeActions';
 import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
+import { LockStateStore, type CachedLockState } from './LockStateStore';
+import {
+  RealtimeReadModelCoordinator,
+  type RealtimeReadModelState,
+} from './RealtimeReadModelCoordinator';
+import { RealtimeEventApplier } from './RealtimeEventApplier';
+import {
+  RealtimeAccessSynchronizer,
+  type RealtimeAccessLoadResult,
+} from './RealtimeAccessSynchronizer';
+import {
+  AttachmentCollectionStore,
+  type AttachmentCollectionTarget,
+  type AttachmentResourceTarget,
+} from './AttachmentCollectionStore';
 import { GlobalViewStore, VIEW_DEPENDENCIES, type CacheRecordReference } from './ViewStore';
 import { ViewKeyBuilder } from './SemanticViewKey';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
@@ -27,31 +42,11 @@ import {
   ResourceCacheInvalidationCoordinator,
   type ResourceCacheChange,
 } from './ResourceCacheInvalidationCoordinator';
-import {
-  INITIAL_ATTACHMENT_COLLECTION,
-  type AttachmentCollectionState,
-} from '../attachments/attachmentCollectionModel';
+import type { AttachmentCollectionState } from '../attachments/attachmentCollectionModel';
+export type { CachedLockState } from './LockStateStore';
+export type { AttachmentCollectionTarget, AttachmentResourceTarget } from './AttachmentCollectionStore';
 
-export interface CachedLockState {
-  locked: boolean;
-  byUserId?: string;
-  bySessionId?: string;
-  expiresAt?: string;
-}
-
-export type RealtimeReadModelState = 'initializing' | 'live' | 'unreliable' | 'disabled';
-
-export interface AttachmentResourceTarget {
-  resourceType: Extract<ResourceKind, 'node' | 'entity'>;
-  resourceId: string;
-}
-
-export interface AttachmentCollectionTarget extends AttachmentResourceTarget {
-  fieldKey: string;
-  kind: 'file' | 'image';
-}
-
-const EMPTY_LOCK_STATE: CachedLockState = { locked: false };
+export type { RealtimeReadModelState } from './RealtimeReadModelCoordinator';
 
 export interface CreateNodeInput {
   parentNodeId: string | null;
@@ -110,43 +105,22 @@ export function hasStaleOptimisticEdit(editingRowVersion: number | null, current
 export class GlobalCacheClient {
   private cacheRevision = 0;
   private cacheSubscribers = new Set<() => void>();
-  private readonly lockStates = new Map<string, CachedLockState>();
-  private readonly lockSubscribers = new Map<string, Set<(state: CachedLockState) => void>>();
-  private readonly hydratedLockKeys = new Set<string>();
-  private readonly pendingLockHydrations = new Map<string, Promise<void>>();
   private realtimeDebugEvents: RealtimeDebugEvent[] = [];
   public readonly mutations = new ResourceMutationCoordinator();
   private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
-  private realtimeConnectionState: RealtimeConnectionState = 'initialized';
-  private realtimeCapabilityEnabled = true;
-  private realtimeReadModelState: RealtimeReadModelState = 'initializing';
-  private realtimeChannelKey: string | null = null;
-  private readonly realtimeStateSubscribers = new Set<() => void>();
-  private realtimeChannelRelease: (() => void) | null = null;
-  private retainedRealtimeChannelKey = '';
-  private pendingRealtimeAccessSync: Promise<boolean> | null = null;
   private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
-  private readonly attachmentCollectionSubscribers = new Map<string, Set<() => void>>();
-  private readonly attachmentCollectionInvalidationSubscribers = new Map<string, Set<() => void>>();
-  private readonly attachmentCollections = new Map<string, AttachmentCollectionState>();
   private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
-    (event) => this.applyRealtimeEvent(event),
-    (eventName, event) => this.applyLockEvent(eventName, event),
+    (event) => this.realtimeEventApplier.applyDataChanged(event),
+    (eventName, event) => this.realtimeEventApplier.applyLock(eventName, event),
     (event) => this.recordRealtimeDebugEvent(event),
     (state: RealtimeConnectionState) => {
-      this.realtimeConnectionState = state;
-      if (state !== 'connected' && this.realtimeCapabilityEnabled && this.realtimeReadModelState === 'live') {
-        this.markRealtimeUnreliable(`connection:${state}`);
-      }
-      this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+      this.realtimeReadModel.observeConnection(state);
       if (state === 'connected') {
         reconcileMetadataBestEffort(() => this.reconcileMetadata(), 'realtime connection');
       }
     },
-    (gap) => {
-      this.markRealtimeUnreliable(`gap:${gap.stream}:${gap.key}`);
-    },
+    () => this.realtimeReadModel.markContinuityUnknown(),
   );
 
   private recordRealtimeDebugEvent(event: RealtimeDebugEvent): void {
@@ -158,6 +132,30 @@ export class GlobalCacheClient {
     this.cacheRevision += 1;
     this.cacheSubscribers.forEach((subscriber) => subscriber());
   };
+
+  private readonly lockStore = new LockStateStore({
+    load: (resourceType, resourceId) => getLockStateAction(resourceType, resourceId),
+    onChanged: this.notifyCacheSubscribers,
+  });
+
+  private readonly attachmentCollectionStore = new AttachmentCollectionStore();
+
+  private readonly realtimeReadModel = new RealtimeReadModelCoordinator({
+    invalidateReadModel: () => this.invalidateReadModel(),
+    setReadModelTrusted: (trusted) => this.kernel.setReadModelTrusted(trusted),
+  });
+
+  private readonly realtimeAccessSynchronizer = new RealtimeAccessSynchronizer({
+    load: () => this.loadRealtimeAccess(),
+    onUnauthorized: () => this.purgeAll(),
+    onContinuityUnknown: () => this.markRealtimeContinuityUnknown(),
+    setRealtimeEnabled: (enabled) => this.setRealtimeEnabled(enabled),
+    observeChannels: (channels) => this.observeRealtimeChannels(channels),
+    observeCheckpoints: (checkpoints) => this.observeRealtimeCheckpoints(checkpoints),
+    retainChannels: (dataChannels, lockChannels) => this.retainRealtimeChannels(dataChannels, lockChannels),
+    setVirtualRootNodeIds: (nodeIds) => this.setVirtualRootNodeIds(nodeIds),
+    isReadModelLive: () => this.realtimeReadModel.getReadModelState() === 'live',
+  });
 
   public getRevision = (): number => this.cacheRevision;
 
@@ -213,20 +211,17 @@ export class GlobalCacheClient {
   public retainRealtimeChannels = (dataChannels: string[], lockChannels: string[]): (() => void) =>
     this.realtimeBridge.retainPolicyChannels(dataChannels, lockChannels);
 
-  public getRealtimeConnectionState = (): RealtimeConnectionState => this.realtimeConnectionState;
+  public getRealtimeConnectionState = (): RealtimeConnectionState => this.realtimeReadModel.getConnectionState();
 
-  public getRealtimeCapabilityEnabled = (): boolean => this.realtimeCapabilityEnabled;
+  public getRealtimeCapabilityEnabled = (): boolean => this.realtimeReadModel.isCapabilityEnabled();
 
-  public getRealtimeReadModelState = (): RealtimeReadModelState => this.realtimeReadModelState;
+  public getRealtimeReadModelState = (): RealtimeReadModelState => this.realtimeReadModel.getReadModelState();
 
   public setRealtimeOriginSession = (sessionId: string | null | undefined): void => {
     this.mutations.setOriginSessionId(sessionId);
   };
 
-  public subscribeRealtimeState = (subscriber: () => void): (() => void) => {
-    this.realtimeStateSubscribers.add(subscriber);
-    return () => this.realtimeStateSubscribers.delete(subscriber);
-  };
+  public subscribeRealtimeState = (subscriber: () => void): (() => void) => this.realtimeReadModel.subscribe(subscriber);
 
   /** Lets active admin collections reload only after an authorized realtime invalidation. */
   public subscribeAdminRealtimeInvalidations = (
@@ -240,61 +235,25 @@ export class GlobalCacheClient {
   public subscribeAttachmentCollection = (
     target: AttachmentCollectionTarget,
     subscriber: () => void,
-  ): (() => void) => {
-    const key = this.attachmentCollectionKey(target);
-    const subscribers = this.attachmentCollectionSubscribers.get(key) ?? new Set();
-    subscribers.add(subscriber);
-    this.attachmentCollectionSubscribers.set(key, subscribers);
-    return () => {
-      const current = this.attachmentCollectionSubscribers.get(key);
-      if (!current) return;
-      current.delete(subscriber);
-      if (current.size === 0) this.attachmentCollectionSubscribers.delete(key);
-    };
-  };
+  ): (() => void) => this.attachmentCollectionStore.subscribeCollection(target, subscriber);
 
-  public getAttachmentCollection = (target: AttachmentCollectionTarget): AttachmentCollectionState =>
-    this.attachmentCollections.get(this.attachmentCollectionKey(target)) ?? INITIAL_ATTACHMENT_COLLECTION;
+  public getAttachmentCollection = (target: AttachmentCollectionTarget) =>
+    this.attachmentCollectionStore.getCollection(target);
 
   public setAttachmentCollection = (
     target: AttachmentCollectionTarget,
     state: AttachmentCollectionState,
-  ): void => {
-    const key = this.attachmentCollectionKey(target);
-    this.attachmentCollections.set(key, state);
-    this.attachmentCollectionSubscribers.get(key)?.forEach((subscriber) => subscriber());
-  };
+  ): void => this.attachmentCollectionStore.setCollection(target, state);
 
   /** Signals that an authoritative reread is required after a local or realtime mutation. */
   public subscribeAttachmentCollectionInvalidation = (
     target: AttachmentResourceTarget,
     subscriber: () => void,
-  ): (() => void) => {
-    const key = this.attachmentResourceKey(target);
-    const subscribers = this.attachmentCollectionInvalidationSubscribers.get(key) ?? new Set();
-    subscribers.add(subscriber);
-    this.attachmentCollectionInvalidationSubscribers.set(key, subscribers);
-    return () => {
-      const current = this.attachmentCollectionInvalidationSubscribers.get(key);
-      if (!current) return;
-      current.delete(subscriber);
-      if (current.size === 0) this.attachmentCollectionInvalidationSubscribers.delete(key);
-    };
-  };
+  ): (() => void) => this.attachmentCollectionStore.subscribeInvalidation(target, subscriber);
 
   public notifyAttachmentCollectionChanged = (target: AttachmentResourceTarget): void => {
-    this.attachmentCollectionInvalidationSubscribers
-      .get(this.attachmentResourceKey(target))
-      ?.forEach((subscriber) => subscriber());
+    this.attachmentCollectionStore.notifyResourceChanged(target);
   };
-
-  private attachmentCollectionKey(target: AttachmentCollectionTarget): string {
-    return `${this.attachmentResourceKey(target)}:${target.fieldKey}:${target.kind}`;
-  }
-
-  private attachmentResourceKey(target: AttachmentResourceTarget): string {
-    return `${target.resourceType}:${target.resourceId}`;
-  }
 
   private invalidateAdminFromRealtime(keys: readonly string[]): void {
     this.admin.invalidate([...keys]);
@@ -303,61 +262,30 @@ export class GlobalCacheClient {
 
   /** Verifies the server stream heads before a cached logical read is reused. */
   public ensureReadModelContinuityForCacheHit = (): Promise<boolean> => {
-    if (this.realtimeReadModelState !== 'live') return Promise.resolve(false);
+    if (this.realtimeReadModel.getReadModelState() !== 'live') return Promise.resolve(false);
     return this.synchronizeRealtimeAccess();
   };
 
   /** Synchronizes the authenticated channel policy and stream checkpoints once for all callers. */
-  public synchronizeRealtimeAccess = (): Promise<boolean> => {
-    if (this.pendingRealtimeAccessSync) return this.pendingRealtimeAccessSync;
-    const request = fetch('/api/sync/access', { method: 'GET', cache: 'no-store' })
-      .then(async (response) => {
-        if (response.status === 401 || (response.redirected && new URL(response.url).pathname === '/login')) {
-          this.purgeAll();
-          return false;
-        }
-        if (!response.ok) { this.markRealtimeContinuityUnknown(); return false; }
-        const result = await response.json() as { dataChannels: string[]; lockChannels: string[]; virtualRootNodeIds: string[]; realtimeEnabled: boolean; realtimeCheckpoints: RealtimeChannelCheckpoint[] };
-        this.setRealtimeEnabled(result.realtimeEnabled);
-        this.observeRealtimeChannels(result.dataChannels);
-        this.observeRealtimeCheckpoints(result.realtimeCheckpoints);
-        const channelKey = JSON.stringify([[...result.dataChannels].sort(), [...result.lockChannels].sort()]);
-        if (!result.realtimeEnabled) {
-          this.realtimeChannelRelease?.();
-          this.realtimeChannelRelease = null;
-          this.retainedRealtimeChannelKey = '';
-        } else if (channelKey !== this.retainedRealtimeChannelKey) {
-          this.realtimeChannelRelease?.();
-          this.realtimeChannelRelease = this.retainRealtimeChannels(result.dataChannels, result.lockChannels);
-          this.retainedRealtimeChannelKey = channelKey;
-        }
-        this.setVirtualRootNodeIds(result.virtualRootNodeIds);
-        return this.realtimeReadModelState === 'live';
-      })
-      .catch(() => { this.markRealtimeContinuityUnknown(); return false; })
-      .finally(() => { if (this.pendingRealtimeAccessSync === request) this.pendingRealtimeAccessSync = null; });
-    this.pendingRealtimeAccessSync = request;
-    return request;
-  };
+  public synchronizeRealtimeAccess = (): Promise<boolean> => this.realtimeAccessSynchronizer.synchronize();
+
+  private async loadRealtimeAccess(): Promise<RealtimeAccessLoadResult> {
+    const response = await fetch('/api/sync/access', { method: 'GET', cache: 'no-store' });
+    if (response.status === 401 || (response.redirected && new URL(response.url).pathname === '/login')) {
+      return { kind: 'unauthorized' };
+    }
+    if (!response.ok) throw new Error(`Realtime access synchronization failed: ${response.status}`);
+    return { kind: 'authorized', snapshot: await response.json() as {
+      dataChannels: string[];
+      lockChannels: string[];
+      virtualRootNodeIds: string[];
+      realtimeEnabled: boolean;
+      realtimeCheckpoints: RealtimeChannelCheckpoint[];
+    } };
+  }
 
   public setRealtimeEnabled = (enabled: boolean): void => {
-    if (this.realtimeCapabilityEnabled === enabled) return;
-    this.realtimeCapabilityEnabled = enabled;
-    if (!enabled) {
-      this.realtimeConnectionState = 'unavailable';
-      if (this.realtimeReadModelState === 'initializing') {
-        // The authenticated bootstrap owns no prior trusted generation. Keep
-        // in-flight authoritative loads alive while requiring fresh reads.
-        this.realtimeReadModelState = 'disabled';
-        this.kernel.setReadModelTrusted(false);
-        this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
-        return;
-      }
-      this.markRealtimeUnreliable('capability-disabled', 'disabled');
-      return;
-    }
-    this.realtimeReadModelState = 'initializing';
-    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+    this.realtimeReadModel.setCapabilityEnabled(enabled);
   };
 
   /**
@@ -366,44 +294,20 @@ export class GlobalCacheClient {
    * changed channel set is a global cache boundary rather than a local refresh.
    */
   public observeRealtimeChannels = (dataChannels: readonly string[]): void => {
-    const nextKey = JSON.stringify([...dataChannels].sort());
-    if (this.realtimeChannelKey !== null && this.realtimeChannelKey !== nextKey) {
-      this.markRealtimeUnreliable('authorized-channel-set-changed');
-    }
-    this.realtimeChannelKey = nextKey;
+    this.realtimeReadModel.observeAuthorizedChannels(dataChannels);
   };
 
   /** Confirms continuity only when server and browser agree on every channel head. */
   public observeRealtimeCheckpoints = (checkpoints: readonly RealtimeChannelCheckpoint[]): void => {
-    if (!this.realtimeCapabilityEnabled) return;
+    if (!this.realtimeReadModel.isCapabilityEnabled()) return;
     const continuous = this.realtimeBridge.reconcileChannelCheckpoints(checkpoints);
-    if (!continuous) {
-      this.markRealtimeUnreliable('channel-checkpoint-mismatch');
-      return;
-    }
-    // A newly authenticated session already starts from an empty cache. A
-    // previous gap has already purged every old projection before this point.
-    // Avoid resetting in-flight bootstrap reads after their authenticated load
-    // has begun; that would turn a safe baseline into a visible load failure.
-    this.realtimeReadModelState = 'live';
-    this.kernel.setReadModelTrusted(true);
-    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
+    this.realtimeReadModel.observeContinuity(continuous);
   };
 
   /** A failed authenticated continuity probe means cached authorization and data are no longer trusted. */
   public markRealtimeContinuityUnknown = (): void => {
-    if (this.realtimeCapabilityEnabled) this.markRealtimeUnreliable('continuity-probe-failed');
+    this.realtimeReadModel.markContinuityUnknown();
   };
-
-  private markRealtimeUnreliable(
-    _reason: string,
-    nextState: Extract<RealtimeReadModelState, 'unreliable' | 'disabled'> = 'unreliable',
-  ): void {
-    if (this.realtimeReadModelState === nextState) return;
-    this.invalidateReadModel();
-    this.realtimeReadModelState = nextState;
-    this.realtimeStateSubscribers.forEach((subscriber) => subscriber());
-  }
 
   /** Invalidates all data-derived projections but preserves UI subscriptions and unsaved form drafts. */
   private invalidateReadModel(): void {
@@ -416,12 +320,9 @@ export class GlobalCacheClient {
     this.admin.invalidate();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
-    this.lockStates.clear();
-    this.hydratedLockKeys.clear();
-    this.pendingLockHydrations.clear();
-    this.attachmentCollections.clear();
+    this.lockStore.clearReadModel();
+    this.attachmentCollectionStore.clearReadModel();
     this.virtualRootNodeIds.clear();
-    this.attachmentCollectionSubscribers.forEach((subscribers) => subscribers.forEach((subscriber) => subscriber()));
     this.notifyCacheSubscribers();
   }
 
@@ -446,36 +347,11 @@ export class GlobalCacheClient {
   };
 
   public getLockState(resourceType: ResourceKind, resourceId: string): CachedLockState {
-    const state = this.lockStates.get(this.lockKey(resourceType, resourceId));
-    if (state?.locked && state.expiresAt && Date.parse(state.expiresAt) <= Date.now()) {
-      return EMPTY_LOCK_STATE;
-    }
-    return state ?? EMPTY_LOCK_STATE;
+    return this.lockStore.get(resourceType, resourceId);
   }
 
   public hydrateLockState = (resourceType: ResourceKind, resourceId: string): Promise<void> => {
-    const key = this.lockKey(resourceType, resourceId);
-    if (this.hydratedLockKeys.has(key)) return Promise.resolve();
-
-    const pending = this.pendingLockHydrations.get(key);
-    if (pending) return pending;
-
-    const request = getLockStateAction(resourceType, resourceId)
-      .then((state) => {
-        const current = this.getLockState(resourceType, resourceId);
-        // A realtime event or a local acquisition wins over an older snapshot.
-        if (!current.locked || state.locked) {
-          this.setLockState(resourceType, resourceId, state);
-        }
-        this.hydratedLockKeys.add(key);
-      })
-      .catch(() => {
-        // A failed read must not break rendering; realtime can still hydrate it later.
-      })
-      .finally(() => this.pendingLockHydrations.delete(key));
-
-    this.pendingLockHydrations.set(key, request);
-    return request;
+    return this.lockStore.hydrate(resourceType, resourceId);
   };
 
   public subscribeLock(
@@ -483,16 +359,7 @@ export class GlobalCacheClient {
     resourceId: string,
     subscriber: (state: CachedLockState) => void
   ): () => void {
-    const key = this.lockKey(resourceType, resourceId);
-    const subscribers = this.lockSubscribers.get(key) ?? new Set();
-    subscribers.add(subscriber);
-    this.lockSubscribers.set(key, subscribers);
-    return () => {
-      const current = this.lockSubscribers.get(key);
-      if (!current) return;
-      current.delete(subscriber);
-      if (current.size === 0) this.lockSubscribers.delete(key);
-    };
+    return this.lockStore.subscribe(resourceType, resourceId, subscriber);
   }
 
   public setLockState(
@@ -500,139 +367,7 @@ export class GlobalCacheClient {
     resourceId: string,
     state: CachedLockState
   ): void {
-    const key = this.lockKey(resourceType, resourceId);
-    const normalized = state.locked ? state : EMPTY_LOCK_STATE;
-    this.lockStates.set(key, normalized);
-    // Every caller of setLockState has an authoritative snapshot: a list query,
-    // a lock mutation, or a realtime event. Marking it hydrated prevents each
-    // LockIndicator rendered for a paginated list from issuing a redundant
-    // one-resource server action on mount.
-    this.hydratedLockKeys.add(key);
-    this.lockSubscribers.get(key)?.forEach((subscriber) => subscriber(normalized));
-    this.notifyCacheSubscribers();
-  }
-
-  private lockKey(resourceType: ResourceKind, resourceId: string): string {
-    return `${resourceType}:${resourceId}`;
-  }
-
-  private applyLockEvent(
-    eventName: 'lock:acquired' | 'lock:released' | 'lock:force-released',
-    event: LockChannelEvent
-  ): void {
-    if (eventName === 'lock:acquired') {
-      this.setLockState(event.resourceType, event.resourceId, {
-        locked: true,
-        byUserId: event.userId,
-        bySessionId: event.sessionId,
-        expiresAt: event.expiresAt,
-      });
-    } else if (eventName === 'lock:force-released') {
-      this.setLockState(event.resourceType, event.resourceId, { locked: false });
-    } else {
-      const current = this.getLockState(event.resourceType, event.resourceId);
-      // Ignore a delayed release belonging to an older session after another
-      // session has already acquired the same resource.
-      if (!event.sessionId || current.bySessionId === event.sessionId) {
-        this.setLockState(event.resourceType, event.resourceId, { locked: false });
-      }
-    }
-  }
-
-  private applyRealtimeEvent(event: RealtimeDataChangedEvent): void {
-    if (this.mutations.isLocalEvent(event)) return;
-    if (event.metadataKind) {
-      this.invalidateMetadata(event.metadataKind, undefined, true);
-      return;
-    }
-    if (event.subresourceKind === 'attachment') {
-      if (event.resourceType !== 'node' && event.resourceType !== 'entity') return;
-      this.notifyAttachmentCollectionChanged({
-        resourceType: event.resourceType,
-        resourceId: event.resourceId,
-      });
-      if (event.resourceType === 'node') this.nodes.invalidate(event.resourceId);
-      else if (event.entityTypeId) {
-        GlobalViewStore.invalidateReference({
-          namespace: `entity:${event.entityTypeId}`,
-          id: event.resourceId,
-        });
-      }
-      this.notifyCacheSubscribers();
-      return;
-    }
-    if (event.resourceType !== 'node' && event.resourceType !== 'entity') {
-      switch (event.resourceType) {
-        case 'user':
-          this.users.purge();
-          this.invalidateAdminFromRealtime(['users']);
-          break;
-        case 'role':
-          this.invalidateAdminFromRealtime(['roles', 'role']);
-          break;
-        case 'scope':
-          this.invalidateAdminFromRealtime(['scope-assignments']);
-          break;
-        case 'audit':
-          this.invalidateAdminFromRealtime(['audit', 'deleted-nodes', 'deleted-entities']);
-          break;
-        case 'system':
-          this.invalidateAdminFromRealtime([
-            'capabilities',
-            'settings',
-            'workflow-definitions',
-            'workflow-event-types',
-            'workflow-action-types',
-          ]);
-          break;
-        case 'placement_policy':
-          this.invalidateAdminFromRealtime(['placement-policies', 'placement-policy']);
-          break;
-        case 'node_type':
-          this.invalidateMetadata('node', undefined, true);
-          break;
-        case 'entity_type':
-          this.invalidateMetadata('entity', undefined, true);
-          break;
-      }
-      this.notifyCacheSubscribers();
-      return;
-    }
-    if (event.resourceType === 'entity') {
-      const entityTypeId = event.entityTypeId;
-      if (entityTypeId && event.changeType !== 'deleted' && event.data) {
-        this.getEntityCache(entityTypeId).inject(
-          event.resourceId,
-          event.data as ClientEntity,
-          false,
-          'realtime:data-changed'
-        );
-      }
-      this.applyResourceCacheChange({
-        resourceType: 'entity',
-        resourceId: event.resourceId,
-        changeType: event.changeType,
-        entityTypeId,
-        affectedResourceIds: event.affectedResourceIds,
-      });
-      this.invalidateAdminFromRealtime(['subtree-entities', 'admin-entities-page']);
-    } else {
-      const ids = event.affectedResourceIds?.length ? event.affectedResourceIds : [event.resourceId];
-      if (event.changeType === 'deleted') {
-      } else if (event.data) {
-        this.nodes.inject(event.resourceId, event.data as ClientNode, false, 'realtime:data-changed');
-      }
-      for (const id of ids) {
-        if (id !== event.resourceId) this.nodes.invalidate(id);
-      }
-      this.applyResourceCacheChange({
-        resourceType: 'node',
-        resourceId: event.resourceId,
-        changeType: event.changeType,
-        affectedResourceIds: ids,
-      });
-      this.invalidateAdminFromRealtime(['children', 'subtree-entities', 'admin-nodes-page', 'admin-entities-page']);
-    }
+    this.lockStore.set(resourceType, resourceId, state);
   }
 
   private readonly kernel = new CacheKernel({
@@ -665,6 +400,28 @@ export class GlobalCacheClient {
   private applyResourceCacheChange(change: ResourceCacheChange): void {
     this.resourceCacheInvalidation.apply(change);
   }
+
+  private readonly realtimeEventApplier = new RealtimeEventApplier({
+    isLocalEvent: (event) => this.mutations.isLocalEvent(event),
+    invalidateMetadata: (kind) => this.invalidateMetadata(kind, undefined, true),
+    notifyAttachmentResourceChanged: (target) => this.notifyAttachmentCollectionChanged(target),
+    invalidateNode: (resourceId) => this.nodes.invalidate(resourceId),
+    invalidateEntityReference: (entityTypeId, resourceId) => GlobalViewStore.invalidateReference({
+      namespace: `entity:${entityTypeId}`, id: resourceId,
+    }),
+    notifyCacheChanged: this.notifyCacheSubscribers,
+    purgeUsers: () => this.users.purge(),
+    invalidateAdmin: (keys) => this.invalidateAdminFromRealtime(keys),
+    injectEntity: (entityTypeId, resourceId, data) => this.getEntityCache(entityTypeId).inject(
+      resourceId, data as ClientEntity, false, 'realtime:data-changed',
+    ),
+    injectNode: (resourceId, data) => this.nodes.inject(
+      resourceId, data as ClientNode, false, 'realtime:data-changed',
+    ),
+    applyResourceChange: (change) => this.applyResourceCacheChange(change),
+    getLock: (resourceType, resourceId) => this.getLockState(resourceType, resourceId),
+    setLock: (resourceType, resourceId, state) => this.setLockState(resourceType, resourceId, state),
+  });
 
   /**
    * Invalidates every client-side projection affected by a type mutation.
@@ -911,10 +668,8 @@ export class GlobalCacheClient {
    * (o dati confidenziali) leakino all'utente successivo nella stessa sessione browser.
    */
   public purgeAll(): void {
-    this.realtimeChannelRelease?.();
-    this.realtimeChannelRelease = null;
-    this.retainedRealtimeChannelKey = '';
-    this.realtimeChannelKey = null;
+    this.realtimeAccessSynchronizer.purgeSession();
+    this.realtimeReadModel.clearSession();
     this.kernel.purge();
     this.nodes?.purge();
     this.lists.purge();
@@ -927,12 +682,9 @@ export class GlobalCacheClient {
     }
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
-    this.lockStates.clear();
-    this.lockSubscribers.clear();
-    this.hydratedLockKeys.clear();
-    this.pendingLockHydrations.clear();
+    this.lockStore.purge();
     this.virtualRootNodeIds.clear();
-    this.attachmentCollections.clear();
+    this.attachmentCollectionStore.purgeSession();
   }
 
   /**
