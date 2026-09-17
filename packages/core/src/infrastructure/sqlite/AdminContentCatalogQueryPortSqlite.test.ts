@@ -21,4 +21,12 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
     expect(all.mock.calls.at(-1)?.[1]).toEqual(expect.arrayContaining([25, 25]));
     database.close();
   });
+
+  it('reads one entity summary with the same actor-bound ACL predicate', async () => {
+    const get = vi.fn().mockReturnValue({ id: 'entity-1' });
+    const database = { get } as unknown as SqliteDatabase;
+    await expect(new AdminContentCatalogQueryPortSqlite(database).findEntitySummary('actor', 'entity-1'))
+      .resolves.toEqual({ id: 'entity-1' });
+    expect(get).toHaveBeenCalledWith(expect.stringContaining('e.id=?'), ['entity-1', 'actor', 'entity.read', 'entity.read']);
+  });
 });

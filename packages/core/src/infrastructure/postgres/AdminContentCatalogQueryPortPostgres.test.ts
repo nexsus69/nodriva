@@ -26,4 +26,12 @@ describe('AdminContentCatalogQueryPortPostgres', () => {
     expect(executor.query.mock.calls[0]?.[0]).toContain("ILIKE $2 ESCAPE '\\'");
     expect(executor.query.mock.calls[0]?.[1]).toEqual(['actor', '%50\\%\\_done%']);
   });
+
+  it('reads one entity summary through the same ACL predicate used by the page query', async () => {
+    const executor = { query: vi.fn().mockResolvedValue({ rows: [{ id: 'entity-1' }] }) };
+    await expect(new AdminContentCatalogQueryPortPostgres(executor as unknown as PgExecutor).findEntitySummary('actor', 'entity-1'))
+      .resolves.toEqual({ id: 'entity-1' });
+    expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('e.id=$2'), ['actor', 'entity-1']);
+    expect(executor.query.mock.calls[0]?.[0]).toContain("p.permission_key = 'entity.read'");
+  });
 });

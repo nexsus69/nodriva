@@ -41,6 +41,7 @@ import type {
 } from './RealtimeCacheBridge';
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
+import { AdminEntityPageCoordinator } from './AdminEntityPageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -222,6 +223,7 @@ export class GlobalCacheClient {
 
   private invalidateAdminFromRealtime(keys: readonly string[]): void {
     this.admin.invalidate([...keys]);
+    if (keys.some((key) => key === 'admin-entities-page')) this.adminEntities.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
 
@@ -283,6 +285,7 @@ export class GlobalCacheClient {
     this.lists.purge();
     this.users.purge();
     this.admin.invalidate();
+    this.adminEntities.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -346,6 +349,14 @@ export class GlobalCacheClient {
     () => this.ensureReadModelContinuityForCacheHit(),
     this.cacheReadTrace,
   );
+  /** Normalized entity summaries plus bounded page windows for the administrative catalogue. */
+  public readonly adminEntities = new AdminEntityPageCoordinator(
+    this.kernel,
+    (input) => this.admin.fetchAdminEntitiesPage(input),
+    (entityId) => this.admin.fetchAdminEntitySummary(entityId),
+    () => this.ensureReadModelContinuityForCacheHit(),
+    this.cacheReadTrace,
+  );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -374,6 +385,14 @@ export class GlobalCacheClient {
     notifyCacheChanged: this.notifyCacheSubscribers,
     purgeUsers: () => this.users.purge(),
     invalidateAdmin: (keys) => this.invalidateAdminFromRealtime(keys),
+    reconcileAdminEntity: (entityId, changeType) => {
+      void this.adminEntities.reconcileRealtimeEntity(entityId, changeType)
+        .catch(() => {
+          // A failed authoritative reread cannot certify the retained query window.
+          this.adminEntities.invalidateFamily();
+        })
+        .finally(() => this.adminRealtimeInvalidationBus.publish(['admin-entities-page']));
+    },
     injectEntity: (entityTypeId, resourceId, data) => this.getEntityCache(entityTypeId).inject(
       resourceId, data as ClientEntity, false, 'realtime:data-changed',
     ),
@@ -391,6 +410,12 @@ export class GlobalCacheClient {
     getEntityCache: (entityTypeId) => this.getEntityCache(entityTypeId),
     applyResourceCacheChange: (change) => this.applyResourceCacheChange(change),
     invalidateAdmin: (keys) => this.invalidateAdminFromRealtime(keys),
+    reconcileAdminEntityUpdate: (entity) => {
+      // Retain compatibility for legacy raw readers while normalized windows use the precise policy.
+      this.admin.invalidate(['admin-entities-page']);
+      this.adminEntities.reconcileLocalEntity(entity);
+      this.adminRealtimeInvalidationBus.publish(['admin-entities-page']);
+    },
     handleError: (error) => this.handleFetchError(error),
   });
 

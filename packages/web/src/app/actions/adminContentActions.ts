@@ -34,3 +34,12 @@ export async function listAdminEntitiesPageAction(input: AdminContentCatalogueRe
     return adminContentCatalogQueryPort.findEntitiesPage({ ...validate(input), actorUserId: await AuthResolver.resolveActorUserId() });
   });
 }
+
+/** Returns only the ACL-filtered summary required to reconcile an entity realtime notice. */
+export async function getAdminEntitySummaryAction(entityId: string) {
+  return withSafeActionErrors(async () => {
+    if (!entityId.trim()) throw new Error('Entità non valida');
+    const { adminContentCatalogQueryPort } = await import('../../server/db');
+    return adminContentCatalogQueryPort.findEntitySummary(await AuthResolver.resolveActorUserId(), entityId);
+  });
+}

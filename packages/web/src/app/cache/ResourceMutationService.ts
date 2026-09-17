@@ -52,6 +52,7 @@ export interface ResourceMutationServicePorts {
   getEntityCache(entityTypeId: string): KernelEntityCacheClient;
   applyResourceCacheChange(change: ResourceCacheChange): void;
   invalidateAdmin(keys: readonly string[]): void;
+  reconcileAdminEntityUpdate(entity: ClientEntity): void;
   handleError(error: unknown): void;
 }
 
@@ -108,7 +109,7 @@ export class ResourceMutationService {
           const entity = updated as ClientEntity;
           this.ports.getEntityCache(entity.entityTypeId).inject(entity.id, entity, false, 'mutation:updateEntity');
           this.ports.applyResourceCacheChange({ resourceType: 'entity', resourceId: entity.id, changeType: 'updated', entityTypeId: entity.entityTypeId });
-          this.ports.invalidateAdmin(['admin-entities-page']);
+          this.ports.reconcileAdminEntityUpdate(entity);
         },
       ) as ClientEntity;
     } catch (error) {

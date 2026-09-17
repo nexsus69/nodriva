@@ -373,6 +373,31 @@ nei profili PostgreSQL e SQLite. Le pagine sono cacheabili per la loro query,
 ma mutazioni e invalidazioni realtime ne richiedono una nuova lettura. La cache
 mantiene un working set limitato di pagine, mai un catalogo completo.
 
+Le finestre amministrative contengono riferimenti ordinati a record-summary
+canonicali del catalogo autorizzato, non copie delle righe. Il record-summary
+può avere un namespace amministrativo distinto dal record operativo quando il
+contratto della tabella contiene proiezioni contestuali, per esempio `nodePath`
+e `typeLabel`; resta comunque unico per risorsa e non viene duplicato fra
+pagine. Un indice risorsa→finestra permette di aggiornare o invalidare solo le
+finestre che contengono la risorsa quando membership e ordinamento restano
+invariati. Create, delete, ACL, ricerca, ordinamento e segnali realtime senza
+dettaglio di impatto invalidano invece l'intera famiglia di query.
+
+Ogni finestra conserva un descrittore tipizzato della propria query: filtri,
+ricerca, ordinamento e spareggi, separati da pagina e dimensione. La policy
+d'impatto confronta il summary precedente e quello corrente contro ciascun
+descrittore trattenuto; non possiede un elenco globale di campi "sensibili".
+Se membership o tupla d'ordinamento cambiano, invalida solo le pagine della
+stessa famiglia semantica di query. Un campo estraneo a quel descrittore
+aggiorna invece il solo record canonico.
+
+Un evento realtime è una notifica di cambiamento, non un payload da cui la
+cache deduce visibilità o membership. Per una risorsa già trattenuta, il client
+recupera prima il record-summary autorizzato per id e confronta le due
+proiezioni: una modifica che non può cambiare ricerca, ordinamento o membership
+aggiorna il solo record canonico; ogni altro esito, incluso record non più
+leggibile o recupero fallito, invalida la famiglia in modo conservativo.
+
 `AdminCollectionScreen` riceve esclusivamente paginazione remota per le route
 amministrative. Una resource amministrativa remota dichiara il proprio page
 coordinator e non può essere caricata dal controller destinato alle collezioni

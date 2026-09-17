@@ -28,7 +28,7 @@ export function useAdminContentCatalogue(kind: Kind, search: string, sort: Admin
       const input = { page: requestedPage, pageSize: pagination.pageSize, search: search.trim() || undefined, sort: acceptedSort };
       const result = kind === 'node'
         ? await AppCache.admin.listAdminNodesPage(input)
-        : await AppCache.admin.listAdminEntitiesPage(input);
+        : await AppCache.adminEntities.read(input);
       if (version !== requestVersion.current) return;
       setRows(result.items as readonly Row[]);
       setTotal(result.total);
@@ -50,6 +50,13 @@ export function useAdminContentCatalogue(kind: Kind, search: string, sort: Admin
     // Search and server sort define a new query identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, search, sort]);
-  useAdminRealtimeCollectionRefresh(kind === 'node' ? ['children'] : ['subtree-entities'], () => load(pagination.page));
-  return { rows, total, loading, error, pagination, loadPage: (page: number) => void load(page), refresh: () => void load(pagination.page) };
+  useAdminRealtimeCollectionRefresh(kind === 'node' ? ['children'] : ['admin-entities-page'], () => load(pagination.page));
+  return {
+    rows, total, loading, error, pagination,
+    loadPage: (page: number) => void load(page),
+    refresh: () => {
+      if (kind === 'entity') AppCache.adminEntities.invalidateFamily();
+      void load(pagination.page);
+    },
+  };
 }

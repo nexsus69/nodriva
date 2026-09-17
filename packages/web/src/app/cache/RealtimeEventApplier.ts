@@ -13,6 +13,7 @@ export interface RealtimeEventApplierPorts {
   notifyCacheChanged(): void;
   purgeUsers(): void;
   invalidateAdmin(keys: readonly string[]): void;
+  reconcileAdminEntity(entityId: string, changeType: RealtimeDataChangedEvent['changeType']): void;
   injectEntity(entityTypeId: string, resourceId: string, data: unknown): void;
   injectNode(resourceId: string, data: unknown): void;
   applyResourceChange(change: ResourceCacheChange): void;
@@ -122,7 +123,7 @@ export class RealtimeEventApplier {
       resourceType: 'entity', resourceId: event.resourceId, changeType: event.changeType,
       entityTypeId, affectedResourceIds: event.affectedResourceIds,
     });
-    this.ports.invalidateAdmin(['subtree-entities', 'admin-entities-page']);
+    this.ports.reconcileAdminEntity(event.resourceId, event.changeType);
   }
 
   private applyNodeChanged(event: RealtimeDataChangedEvent): void {

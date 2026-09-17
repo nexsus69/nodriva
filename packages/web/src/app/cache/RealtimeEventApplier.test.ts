@@ -1,3 +1,4 @@
+/** Verifies realtime notices are routed to their owning cache-effect boundary. */
 import { describe, expect, it, vi } from 'vitest';
 import { RealtimeEventApplier, type RealtimeEventApplierPorts } from './RealtimeEventApplier';
 
@@ -6,7 +7,7 @@ function createPorts(): RealtimeEventApplierPorts {
     isLocalEvent: vi.fn(() => false),
     invalidateMetadata: vi.fn(), notifyAttachmentResourceChanged: vi.fn(), invalidateNode: vi.fn(),
     invalidateEntityReference: vi.fn(), notifyCacheChanged: vi.fn(), purgeUsers: vi.fn(),
-    invalidateAdmin: vi.fn(), injectEntity: vi.fn(), injectNode: vi.fn(), applyResourceChange: vi.fn(),
+    invalidateAdmin: vi.fn(), reconcileAdminEntity: vi.fn(), injectEntity: vi.fn(), injectNode: vi.fn(), applyResourceChange: vi.fn(),
     getLock: vi.fn(() => ({ locked: false })), setLock: vi.fn(),
   };
 }
@@ -38,6 +39,18 @@ describe('RealtimeEventApplier', () => {
 
     expect(ports.applyResourceChange).not.toHaveBeenCalled();
     expect(ports.notifyCacheChanged).not.toHaveBeenCalled();
+  });
+
+  it('treats an entity event as a reconciliation notice, not a page-cache invalidation policy', () => {
+    const ports = createPorts();
+    const applier = new RealtimeEventApplier(ports);
+    applier.applyDataChanged({
+      eventId: 'event-1', occurredAt: '2026-09-17T00:00:00.000Z', resourceType: 'entity', resourceId: 'entity-1',
+      entityTypeId: 'task', changeType: 'updated', actorUserId: 'user-1',
+    });
+
+    expect(ports.reconcileAdminEntity).toHaveBeenCalledWith('entity-1', 'updated');
+    expect(ports.invalidateAdmin).not.toHaveBeenCalledWith(['subtree-entities', 'admin-entities-page']);
   });
 
   it('does not let a delayed lock release erase a newer session lock', () => {
