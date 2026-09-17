@@ -31,11 +31,17 @@ export function useAdminRemotePagination({
   }), [pageCount, updatePersisted]);
   const reset = useCallback(() => setPage(1), [setPage]);
 
-  return {
-    page,
-    pageCount,
-    pageSize,
-    setPage,
-    reset,
-  };
+  // Consumers use this projection as a dependency of remote loaders. Keep its
+  // identity stable while none of its observable pagination values changes,
+  // otherwise an unrelated render would schedule a second list request.
+  return useMemo(
+    () => ({
+      page,
+      pageCount,
+      pageSize,
+      setPage,
+      reset,
+    }),
+    [page, pageCount, pageSize, reset, setPage],
+  );
 }

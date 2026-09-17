@@ -32,9 +32,8 @@ import { GlobalViewStore, VIEW_DEPENDENCIES, type CacheRecordReference } from '.
 import { ViewKeyBuilder } from './SemanticViewKey';
 import { GlobalPolicyRegistry } from './PolicyRegistry';
 import { RealtimeCacheBridge } from './RealtimeCacheBridge';
-import type { RealtimeDataChangedEvent, ResourceKind } from '@dashboard/core';
+import type { ResourceKind } from '@dashboard/core';
 import type {
-  LockChannelEvent,
   RealtimeDebugEvent,
   RealtimeChannelCheckpoint,
   RealtimeConnectionState,

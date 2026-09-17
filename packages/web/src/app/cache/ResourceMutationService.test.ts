@@ -1,3 +1,4 @@
+/** Verifies mutation workflows commit only authoritative cache effects for their initiating generation. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../actions/nodeActions', () => ({

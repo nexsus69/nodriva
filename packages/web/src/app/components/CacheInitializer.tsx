@@ -10,7 +10,6 @@ import { runtimeTiming } from '../../config/runtimeTiming';
 import { activityDebugStore } from '../activity/ActivityDebugStore';
 import { useHumanActivity } from '../activity/ActivityProvider';
 import { reconcileMetadataBestEffort } from '../cache/metadataReconciliation';
-import type { RealtimeChannelCheckpoint } from '../cache/RealtimeCacheBridge';
 
 /** Distinguishes an auth refetch from a confirmed identity boundary. */
 export function shouldPurgeCacheForSession(

@@ -181,7 +181,6 @@ export function useAdminFormSurface<T extends object>({
     closeSurface,
     draftKey,
     isDirty,
-    hasHydrated,
     removeDraft,
     resolvedConfirmCancelLabel,
     resolvedConfirmConfirmLabel,

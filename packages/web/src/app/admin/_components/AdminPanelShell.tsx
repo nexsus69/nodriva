@@ -88,22 +88,22 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
     ),
     [pathname, permissions],
   );
+  const workspaceUserId =
+    session?.user &&
+    "id" in session.user &&
+    typeof session.user.id === "string"
+      ? session.user.id
+      : (session?.user?.email ?? null);
   useEffect(() => {
     if (sessionStatus === "loading") return;
     if (sessionStatus === "unauthenticated") {
       setUserContext(null);
       return;
     }
-    const userId =
-      session?.user &&
-      "id" in session.user &&
-      typeof session.user.id === "string"
-        ? session.user.id
-        : (session?.user?.email ?? null);
     // A transient incomplete session payload must not impersonate a logout and
     // discard a draft. The store is reset only for a confirmed user boundary.
-    if (userId) setUserContext(userId);
-  }, [session?.user?.email, session?.user && "id" in session.user ? session.user.id : undefined, sessionStatus, setUserContext]);
+    if (workspaceUserId) setUserContext(workspaceUserId);
+  }, [sessionStatus, setUserContext, workspaceUserId]);
   const loadAccess = useCallback(() => {
     let cancelled = false;
     void checkAdminAccessAction()
