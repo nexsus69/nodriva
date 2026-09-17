@@ -13,6 +13,10 @@ import {
   RealtimeAccessSynchronizer,
   type RealtimeAccessLoadResult,
 } from './RealtimeAccessSynchronizer';
+import { VirtualRootStore } from './VirtualRootStore';
+import { AdminRealtimeInvalidationBus } from './AdminRealtimeInvalidationBus';
+import { CacheRevisionStore } from './CacheRevisionStore';
+import { RealtimeDebugStore } from './RealtimeDebugStore';
 import {
   AttachmentCollectionStore,
   type AttachmentCollectionTarget,
@@ -103,13 +107,7 @@ export function hasStaleOptimisticEdit(editingRowVersion: number | null, current
 }
 
 export class GlobalCacheClient {
-  private cacheRevision = 0;
-  private cacheSubscribers = new Set<() => void>();
-  private realtimeDebugEvents: RealtimeDebugEvent[] = [];
   public readonly mutations = new ResourceMutationCoordinator();
-  private readonly realtimeDebugSubscribers = new Set<(events: RealtimeDebugEvent[]) => void>();
-  private readonly adminRealtimeInvalidationSubscribers = new Set<(keys: readonly string[]) => void>();
-  private virtualRootNodeIds = new Set<string>();
   private readonly realtimeBridge = new RealtimeCacheBridge(
     (event) => this.realtimeEventApplier.applyDataChanged(event),
     (eventName, event) => this.realtimeEventApplier.applyLock(eventName, event),
@@ -124,21 +122,23 @@ export class GlobalCacheClient {
   );
 
   private recordRealtimeDebugEvent(event: RealtimeDebugEvent): void {
-    this.realtimeDebugEvents = [...this.realtimeDebugEvents, event].slice(-200);
-    this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
+    this.realtimeDebugStore.append(event);
   }
 
   private notifyCacheSubscribers = () => {
-    this.cacheRevision += 1;
-    this.cacheSubscribers.forEach((subscriber) => subscriber());
+    this.cacheRevisionStore.notifyChanged();
   };
 
+  private readonly cacheRevisionStore = new CacheRevisionStore();
+  private readonly realtimeDebugStore = new RealtimeDebugStore();
   private readonly lockStore = new LockStateStore({
     load: (resourceType, resourceId) => getLockStateAction(resourceType, resourceId),
     onChanged: this.notifyCacheSubscribers,
   });
 
   private readonly attachmentCollectionStore = new AttachmentCollectionStore();
+  private readonly virtualRootStore = new VirtualRootStore();
+  private readonly adminRealtimeInvalidationBus = new AdminRealtimeInvalidationBus();
 
   private readonly realtimeReadModel = new RealtimeReadModelCoordinator({
     invalidateReadModel: () => this.invalidateReadModel(),
@@ -157,7 +157,7 @@ export class GlobalCacheClient {
     isReadModelLive: () => this.realtimeReadModel.getReadModelState() === 'live',
   });
 
-  public getRevision = (): number => this.cacheRevision;
+  public getRevision = (): number => this.cacheRevisionStore.getRevision();
 
   public getCacheEpoch = (): number => this.kernel.getEpoch();
 
@@ -203,10 +203,7 @@ export class GlobalCacheClient {
     return false;
   }
 
-  public subscribe = (subscriber: () => void): (() => void) => {
-    this.cacheSubscribers.add(subscriber);
-    return () => this.cacheSubscribers.delete(subscriber);
-  };
+  public subscribe = (subscriber: () => void): (() => void) => this.cacheRevisionStore.subscribe(subscriber);
 
   public retainRealtimeChannels = (dataChannels: string[], lockChannels: string[]): (() => void) =>
     this.realtimeBridge.retainPolicyChannels(dataChannels, lockChannels);
@@ -226,10 +223,7 @@ export class GlobalCacheClient {
   /** Lets active admin collections reload only after an authorized realtime invalidation. */
   public subscribeAdminRealtimeInvalidations = (
     subscriber: (keys: readonly string[]) => void,
-  ): (() => void) => {
-    this.adminRealtimeInvalidationSubscribers.add(subscriber);
-    return () => this.adminRealtimeInvalidationSubscribers.delete(subscriber);
-  };
+  ): (() => void) => this.adminRealtimeInvalidationBus.subscribe(subscriber);
 
   /** Subscribes a UI surface to the shared attachment snapshot for one resource. */
   public subscribeAttachmentCollection = (
@@ -257,7 +251,7 @@ export class GlobalCacheClient {
 
   private invalidateAdminFromRealtime(keys: readonly string[]): void {
     this.admin.invalidate([...keys]);
-    this.adminRealtimeInvalidationSubscribers.forEach((subscriber) => subscriber(keys));
+    this.adminRealtimeInvalidationBus.publish(keys);
   }
 
   /** Verifies the server stream heads before a cached logical read is reused. */
@@ -322,28 +316,24 @@ export class GlobalCacheClient {
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
     this.attachmentCollectionStore.clearReadModel();
-    this.virtualRootNodeIds.clear();
+    this.virtualRootStore.clear();
     this.notifyCacheSubscribers();
   }
 
   public setVirtualRootNodeIds = (nodeIds: string[]): void => {
-    this.virtualRootNodeIds = new Set(nodeIds);
+    this.virtualRootStore.replace(nodeIds);
     this.notifyCacheSubscribers();
   };
 
-  public isVirtualRootNode = (nodeId: string): boolean => this.virtualRootNodeIds.has(nodeId);
+  public isVirtualRootNode = (nodeId: string): boolean => this.virtualRootStore.has(nodeId);
 
-  public getRealtimeDebugEvents = (): RealtimeDebugEvent[] => this.realtimeDebugEvents;
+  public getRealtimeDebugEvents = (): RealtimeDebugEvent[] => this.realtimeDebugStore.getEvents();
 
-  public subscribeRealtimeDebug = (subscriber: (events: RealtimeDebugEvent[]) => void): (() => void) => {
-    this.realtimeDebugSubscribers.add(subscriber);
-    subscriber(this.realtimeDebugEvents);
-    return () => this.realtimeDebugSubscribers.delete(subscriber);
-  };
+  public subscribeRealtimeDebug = (subscriber: (events: RealtimeDebugEvent[]) => void): (() => void) =>
+    this.realtimeDebugStore.subscribe(subscriber);
 
   public clearRealtimeDebugEvents = (): void => {
-    this.realtimeDebugEvents = [];
-    this.realtimeDebugSubscribers.forEach((subscriber) => subscriber(this.realtimeDebugEvents));
+    this.realtimeDebugStore.clear();
   };
 
   public getLockState(resourceType: ResourceKind, resourceId: string): CachedLockState {
@@ -683,7 +673,7 @@ export class GlobalCacheClient {
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.purge();
-    this.virtualRootNodeIds.clear();
+    this.virtualRootStore.clear();
     this.attachmentCollectionStore.purgeSession();
   }
 
