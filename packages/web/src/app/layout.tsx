@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { CacheInitializer } from "./components/CacheInitializer";
 import { RealtimeDebugOverlayHost } from "./components/realtime/RealtimeDebugOverlayHost";
+import { CacheReadTraceOverlayHost } from "./components/cache/CacheReadTraceOverlayHost";
 
 export const metadata: Metadata = {
   title: "Nodriva - Dynamic data platform",
@@ -36,6 +37,7 @@ export default async function RootLayout({
               <CacheInitializer />
               <ActivityDebugOverlayHost />
               <RealtimeDebugOverlayHost />
+              <CacheReadTraceOverlayHost />
               <SessionCacheSynchronizer />
               <SessionModalWatcher />
               <WorkspaceShell>{children}</WorkspaceShell>

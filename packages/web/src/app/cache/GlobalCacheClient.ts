@@ -15,6 +15,7 @@ import { VirtualRootStore } from './VirtualRootStore';
 import { AdminRealtimeInvalidationBus } from './AdminRealtimeInvalidationBus';
 import { CacheRevisionStore } from './CacheRevisionStore';
 import { RealtimeDebugStore } from './RealtimeDebugStore';
+import { CacheReadTraceStore } from './CacheReadTraceStore';
 import {
   ResourceMutationService,
   type CreateEntityInput,
@@ -100,6 +101,7 @@ export class GlobalCacheClient {
 
   private readonly cacheRevisionStore = new CacheRevisionStore();
   private readonly realtimeDebugStore = new RealtimeDebugStore();
+  public readonly cacheReadTrace = new CacheReadTraceStore();
   private readonly lockStore = new LockStateStore({
     load: (resourceType, resourceId) => getLockStateAction(resourceType, resourceId),
     onChanged: this.notifyCacheSubscribers,
@@ -342,6 +344,7 @@ export class GlobalCacheClient {
   public readonly admin = new AdminCacheClient(
     (kind, typeKey) => this.invalidateMetadata(kind, typeKey),
     () => this.ensureReadModelContinuityForCacheHit(),
+    this.cacheReadTrace,
   );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),

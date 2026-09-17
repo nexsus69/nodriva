@@ -28,6 +28,7 @@ vi.mock('../actions/entityActions', () => ({}));
 vi.mock('../actions/adminContentActions', () => ({ listAdminNodesPageAction: mocks.listAdminNodesPageAction }));
 
 import { AdminCacheClient } from './AdminCacheClient';
+import { CacheReadTraceStore } from './CacheReadTraceStore';
 
 describe('AdminCacheClient failed reads', () => {
   beforeEach(() => Object.values(mocks).forEach((mock) => mock.mockReset()));
@@ -96,6 +97,18 @@ describe('AdminCacheClient failed reads', () => {
     for (let page = 1; page <= 6; page += 1) await client.listAdminNodesPage({ page, pageSize: 25 });
     await client.listAdminNodesPage({ page: 1, pageSize: 25 });
     expect(mocks.listAdminNodesPageAction).toHaveBeenCalledTimes(7);
+  });
+
+  it('traces whether an administrative page came from the backend or the cache', async () => {
+    mocks.listAdminNodesPageAction.mockResolvedValue({ items: [], total: 1, page: 1, pageCount: 1 });
+    const trace = new CacheReadTraceStore();
+    const client = new AdminCacheClient(undefined, undefined, trace);
+    await client.listAdminNodesPage({ page: 1, pageSize: 25 });
+    await client.listAdminNodesPage({ page: 1, pageSize: 25 });
+    expect(trace.getEvents()).toEqual([
+      expect.objectContaining({ source: 'backend', reason: 'cache-miss' }),
+      expect.objectContaining({ source: 'cache', reason: 'continuity-confirmed' }),
+    ]);
   });
 
   it('keeps audit result pages in the same bounded working set', async () => {

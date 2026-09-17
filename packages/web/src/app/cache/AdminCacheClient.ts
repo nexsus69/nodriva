@@ -8,6 +8,7 @@ import * as recycleActions from '../actions/recycleActions';
 import * as entityActions from '../actions/entityActions';
 import * as workflowActions from '../actions/workflowActions';
 import * as adminContentActions from '../actions/adminContentActions';
+import type { CacheReadTraceStore } from './CacheReadTraceStore';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
@@ -34,6 +35,7 @@ export class AdminCacheClient {
   public constructor(
     private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined,
     private readonly verifyCacheHit: () => Promise<boolean> = () => Promise.resolve(true),
+    private readonly trace?: CacheReadTraceStore,
   ) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -67,12 +69,14 @@ export class AdminCacheClient {
         if (continuous && this.pagedReads.get(key) === cached) {
           this.pagedReads.delete(key);
           this.pagedReads.set(key, cached);
+          this.trace?.record({ kind: 'read', key, source: 'cache', reason: 'continuity-confirmed' });
           return cached as Promise<T>;
         }
         if (this.pagedReads.get(key) === cached) this.pagedReads.delete(key);
         return this.readPage(key, action);
       });
     }
+    this.trace?.record({ kind: 'read', key, source: 'backend', reason: cached ? 'continuity-unknown' : 'cache-miss' });
     const request = action().catch((error) => {
       if (this.pagedReads.get(key) === request) this.pagedReads.delete(key);
       throw error;
@@ -97,6 +101,7 @@ export class AdminCacheClient {
   }
 
   public invalidate(keys: string[] = []): void {
+    this.trace?.record({ kind: 'invalidation', key: keys.join(',') || '*', reason: keys.length === 0 ? 'all-pages' : 'matching-prefixes' });
     if (keys.length === 0) {
       this.reads.clear();
       this.pagedReads.clear();
