@@ -1,7 +1,5 @@
 /** Coordinates browser-side canonical caches, view invalidation and mutations. */
 import { ClientNode, ClientEntity } from '../types/models';
-import { createNodeAction, updateNodeAction, moveNodeAction, deleteNodeAction } from '../actions/nodeActions';
-import { createEntityAction, updateEntityAction, deleteEntityAction } from '../actions/entityActions';
 import { getLockStateAction } from '../actions/lockActions';
 import { LockStateStore, type CachedLockState } from './LockStateStore';
 import {
@@ -17,6 +15,14 @@ import { VirtualRootStore } from './VirtualRootStore';
 import { AdminRealtimeInvalidationBus } from './AdminRealtimeInvalidationBus';
 import { CacheRevisionStore } from './CacheRevisionStore';
 import { RealtimeDebugStore } from './RealtimeDebugStore';
+import {
+  ResourceMutationService,
+  type CreateEntityInput,
+  type CreateNodeInput,
+  type MoveNodeInput,
+  type UpdateEntityInput,
+  type UpdateNodeInput,
+} from './ResourceMutationService';
 import {
   AttachmentCollectionStore,
   type AttachmentCollectionTarget,
@@ -51,49 +57,13 @@ export type { CachedLockState } from './LockStateStore';
 export type { AttachmentCollectionTarget, AttachmentResourceTarget } from './AttachmentCollectionStore';
 
 export type { RealtimeReadModelState } from './RealtimeReadModelCoordinator';
-
-export interface CreateNodeInput {
-  parentNodeId: string | null;
-  nodeTypeKey: string;
-  name: string;
-  description?: string;
-  payload?: Record<string, unknown>;
-}
-
-export interface UpdateNodeInput {
-  nodeId: string;
-  name?: string;
-  description?: string;
-  expectedRowVersion: number;
-  payloadDelta?: Record<string, unknown>;
-}
-
-export interface MoveNodeInput {
-  nodeId: string;
-  newParentNodeId: string | null;
-  expectedNodeRowVersion: number;
-}
-
-export interface CreateEntityInput {
-  parentNodeId: string;
-  entityTypeKey?: string;
-  entityTypeId?: string;
-  name: string;
-  description?: string;
-  payload?: Record<string, unknown>;
-}
-
-export interface UpdateEntityInput {
-  entityId: string;
-  name?: string;
-  description?: string;
-  expectedRowVersion: number;
-  payloadDelta?: Record<string, unknown>;
-}
-
-function actionError(error: { code: string; message: string; details?: unknown }): Error {
-  return Object.assign(new Error(error.message), error);
-}
+export type {
+  CreateEntityInput,
+  CreateNodeInput,
+  MoveNodeInput,
+  UpdateEntityInput,
+  UpdateNodeInput,
+} from './ResourceMutationService';
 
 export function isRowVersionMismatch(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ROW_VERSION_MISMATCH';
@@ -413,6 +383,15 @@ export class GlobalCacheClient {
     setLock: (resourceType, resourceId, state) => this.setLockState(resourceType, resourceId, state),
   });
 
+  private readonly resourceMutations = new ResourceMutationService(this.mutations, {
+    getCacheEpoch: () => this.getCacheEpoch(),
+    nodes: this.nodes,
+    getEntityCache: (entityTypeId) => this.getEntityCache(entityTypeId),
+    applyResourceCacheChange: (change) => this.applyResourceCacheChange(change),
+    invalidateAdmin: (keys) => this.invalidateAdminFromRealtime(keys),
+    handleError: (error) => this.handleFetchError(error),
+  });
+
   /**
    * Invalidates every client-side projection affected by a type mutation.
    * Metadata views are persistent, so invalidating only AdminCacheClient would
@@ -462,194 +441,29 @@ export class GlobalCacheClient {
     return this.entityCaches.get(entityTypeKey)!;
   }
 
-  // --- Mutation Orchestrators ---
+  public createEntity = (input: CreateEntityInput): Promise<ClientEntity> => this.resourceMutations.createEntity(input);
 
-  public async createEntity(input: CreateEntityInput): Promise<ClientEntity> {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `entity:create:${input.parentNodeId}`,
-        async (mutationId) => {
-          const result = await createEntityAction({ ...input, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data;
-        },
-        (newEntity) => {
-          if (this.getCacheEpoch() === requestEpoch) {
-            const entityTypeKey = newEntity.entityTypeId;
-            this.getEntityCache(entityTypeKey).inject(newEntity.id, newEntity as unknown as ClientEntity, false, 'mutation:createEntity');
-            this.applyResourceCacheChange({ resourceType: 'entity', resourceId: newEntity.id, changeType: 'created', entityTypeId: entityTypeKey });
-            this.invalidateAdminFromRealtime(['admin-entities-page']);
-          }
-        },
-      ) as unknown as ClientEntity;
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
-
-  public async updateEntity(input: UpdateEntityInput): Promise<ClientEntity> {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `entity:${input.entityId}`,
-        async (mutationId) => {
-          const result = await updateEntityAction({ ...input, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data;
-        },
-        (updatedEntity) => {
-          if (this.getCacheEpoch() === requestEpoch) {
-            const entityTypeKey = updatedEntity.entityTypeId;
-            this.getEntityCache(entityTypeKey).inject(updatedEntity.id, updatedEntity as unknown as ClientEntity, false, 'mutation:updateEntity');
-            this.applyResourceCacheChange({ resourceType: 'entity', resourceId: updatedEntity.id, changeType: 'updated', entityTypeId: entityTypeKey });
-            this.invalidateAdminFromRealtime(['admin-entities-page']);
-          }
-        },
-      ) as unknown as ClientEntity;
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
+  public updateEntity = (input: UpdateEntityInput): Promise<ClientEntity> => this.resourceMutations.updateEntity(input);
 
   /** Reloads the authoritative entity after an optimistic-concurrency conflict. */
-  public async refreshEntity(entityId: string, entityTypeKey: string): Promise<ClientEntity | null> {
-    const cache = this.getEntityCache(entityTypeKey);
-    cache.invalidate(entityId);
-    return cache.fetchIfMissing(entityId, true);
-  }
+  public refreshEntity = (entityId: string, entityTypeId: string): Promise<ClientEntity | null> =>
+    this.resourceMutations.refreshEntity(entityId, entityTypeId);
 
-  public async deleteEntity(entityId: string, entityTypeKey?: string, expectedRowVersion?: number): Promise<{ parentNodeId: string; entityTypeId: string }> {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `entity:${entityId}`,
-        async (mutationId) => {
-          const result = await deleteEntityAction({ entityId, expectedRowVersion, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data;
-        },
-        (deleted) => {
-          if (this.getCacheEpoch() !== requestEpoch) return;
-          this.applyResourceCacheChange({
-            resourceType: 'entity',
-            resourceId: entityId,
-            changeType: 'deleted',
-            entityTypeId: entityTypeKey ?? deleted.entityTypeId,
-          });
-          this.invalidateAdminFromRealtime(['admin-entities-page']);
-        },
-      );
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
+  public deleteEntity = (entityId: string, entityTypeId?: string, expectedRowVersion?: number) =>
+    this.resourceMutations.deleteEntity(entityId, entityTypeId, expectedRowVersion);
 
-  // --- NODE MUTATIONS ---
+  public createNode = (input: CreateNodeInput): Promise<ClientNode> => this.resourceMutations.createNode(input);
 
-  public async createNode(input: CreateNodeInput) {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `node:create:${input.parentNodeId ?? 'root'}`,
-        async (mutationId) => {
-          const result = await createNodeAction({ ...input, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data as ClientNode;
-        },
-        (created) => {
-          const clientNode = created as ClientNode;
-          if (this.getCacheEpoch() !== requestEpoch) return;
-          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:createNode');
-          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'created' });
-          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
-        },
-      );
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
-
-  public async updateNode(input: UpdateNodeInput) {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `node:${input.nodeId}`,
-        async (mutationId) => {
-          const result = await updateNodeAction({ ...input, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data;
-        },
-        (updated) => {
-          const clientNode: ClientNode = updated as unknown as ClientNode;
-          if (this.getCacheEpoch() !== requestEpoch) return;
-          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:updateNode');
-          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'updated' });
-          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
-        },
-      );
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
+  public updateNode = (input: UpdateNodeInput): Promise<ClientNode> => this.resourceMutations.updateNode(input);
 
   /** Reloads the authoritative node after an optimistic-concurrency conflict. */
-  public async refreshNode(nodeId: string): Promise<ClientNode | null> {
-    this.nodes.invalidate(nodeId);
-    return this.nodes.fetchIfMissing(nodeId, true);
-  }
+  public refreshNode = (nodeId: string): Promise<ClientNode | null> => this.resourceMutations.refreshNode(nodeId);
 
-  public async moveNode(input: MoveNodeInput) {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `node:${input.nodeId}`,
-        async (mutationId) => {
-          const result = await moveNodeAction({ ...input, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data as ClientNode | null;
-        },
-        (moved) => {
-          if (!moved || this.getCacheEpoch() !== requestEpoch) return;
-          const clientNode = moved as ClientNode;
-          this.nodes.inject(clientNode.id, clientNode, false, 'mutation:moveNode');
-          this.applyResourceCacheChange({ resourceType: 'node', resourceId: clientNode.id, changeType: 'moved' });
-          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
-        },
-      );
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
+  public moveNode = (input: MoveNodeInput): Promise<ClientNode | null> => this.resourceMutations.moveNode(input);
 
   /** Removes a deleted node from local records and invalidates every affected hierarchy projection. */
-  public async deleteNode(nodeId: string, expectedRowVersion?: number): Promise<{ parentNodeId: string | null }> {
-    const requestEpoch = this.getCacheEpoch();
-    try {
-      return await this.mutations.run(
-        `node:${nodeId}`,
-        async (mutationId) => {
-          const result = await deleteNodeAction({ nodeId, expectedRowVersion, mutationId });
-          if (!result.success) throw actionError(result.error);
-          return result.data;
-        },
-        () => {
-          if (this.getCacheEpoch() !== requestEpoch) return;
-          this.applyResourceCacheChange({ resourceType: 'node', resourceId: nodeId, changeType: 'deleted' });
-          this.invalidateAdminFromRealtime(['admin-nodes-page', 'admin-entities-page']);
-        },
-      );
-    } catch (err: unknown) {
-      this.handleFetchError(err);
-      throw err;
-    }
-  }
+  public deleteNode = (nodeId: string, expectedRowVersion?: number): Promise<{ parentNodeId: string | null }> =>
+    this.resourceMutations.deleteNode(nodeId, expectedRowVersion);
 
   /**
    * Spazza via l'intera cache locale (entità e metadati).
