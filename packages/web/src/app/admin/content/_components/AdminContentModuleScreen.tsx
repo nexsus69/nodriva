@@ -39,7 +39,7 @@ export function AdminContentModuleScreen({ kind }: { kind: ContentKind }) {
     permissions: { read: [isNode ? "node.read" : "entity.read"] },
     list: {
       mode: "remote",
-      realtimeDependencies: isNode ? ["children"] : ["subtree-entities"],
+      realtimeDependencies: isNode ? ["children"] : ["admin-entities-page"],
       columns: [
         {
           key: "name",

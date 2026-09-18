@@ -3,8 +3,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { CacheInitializer } from "./components/CacheInitializer";
-import { RealtimeDebugOverlayHost } from "./components/realtime/RealtimeDebugOverlayHost";
-import { CacheReadTraceOverlayHost } from "./components/cache/CacheReadTraceOverlayHost";
 
 export const metadata: Metadata = {
   title: "Nodriva - Dynamic data platform",
@@ -17,7 +15,6 @@ import { SessionProviderWrapper } from "./components/auth/SessionProviderWrapper
 import { SessionCacheSynchronizer } from "./components/auth/SessionCacheSynchronizer";
 import { WorkspaceShell } from "./components/layout/WorkspaceShell";
 import { ActivityProvider } from "./activity/ActivityProvider";
-import { ActivityDebugOverlayHost } from "./activity/ActivityDebugOverlayHost";
 import { NavigationBlockerProvider } from "./navigation/NavigationBlocker";
 import { ConfirmDialogHost } from "./components/ui/feedback/ConfirmDialog";
 
@@ -35,9 +32,6 @@ export default async function RootLayout({
           <ActivityProvider initialExpires={session?.expires}>
             <NavigationBlockerProvider>
               <CacheInitializer />
-              <ActivityDebugOverlayHost />
-              <RealtimeDebugOverlayHost />
-              <CacheReadTraceOverlayHost />
               <SessionCacheSynchronizer />
               <SessionModalWatcher />
               <WorkspaceShell>{children}</WorkspaceShell>
