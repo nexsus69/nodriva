@@ -56,7 +56,7 @@ const EMPTY_TYPE_FORM: TypeForm = {
   description: "",
   storageTable: "",
 };
-const TYPE_REALTIME_DEPENDENCIES = ["types", "type-detail", "type-definition"] as const;
+const TYPE_REALTIME_DEPENDENCIES = ["admin-types-page", "types", "type-detail", "type-definition"] as const;
 
 /** Loads and mutates model types through the shared administrative cache client. */
 function useTypesModule() {
@@ -120,20 +120,22 @@ function useTypesModule() {
     const acceptedSort = sort && ["name", "typeKey", "fields", "version"].includes(sort.columnKey)
       ? { key: sort.columnKey as "name" | "typeKey" | "fields" | "version", direction: sort.direction }
       : undefined;
-    const result = await AppCache.admin.listTypesPage(kind, {
-      page: requestedPage,
-      pageSize: pagination.pageSize,
-      search: search.trim() || undefined,
-      sort: acceptedSort,
-    });
-    if (version !== loadVersion.current) return;
-    if (result.success && result.data) {
-      setTypes(result.data.items);
-      setTotal(result.data.total);
-      pagination.setPage(result.data.page);
+    try {
+      const result = await AppCache.adminTypes.read(kind, {
+        page: requestedPage,
+        pageSize: pagination.pageSize,
+        search: search.trim() || undefined,
+        sort: acceptedSort,
+      });
+      if (version !== loadVersion.current) return;
+      setTypes(result.items);
+      setTotal(result.total);
+      pagination.setPage(result.page);
+    } catch (cause) {
+      if (version === loadVersion.current) setError(cause as ApiErrorResponse);
+    } finally {
+      if (version === loadVersion.current) setLoading(false);
     }
-    else setError(result.error ?? null);
-    setLoading(false);
   }, [kind, pagination, search, sort]);
   const refresh = useCallback(
     async () => refreshAdminCollection(load),

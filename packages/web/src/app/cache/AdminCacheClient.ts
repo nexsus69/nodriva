@@ -12,7 +12,7 @@ import type { CacheReadTraceStore } from './CacheReadTraceStore';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
-type MetadataInvalidator = (kind: MetadataKind, typeKey?: string) => void;
+type MetadataInvalidator = (kind: MetadataKind, typeKey?: string) => void | Promise<void>;
 
 function isFailedActionResult(value: unknown): boolean {
   return Boolean(
@@ -94,8 +94,8 @@ export class AdminCacheClient {
   }
 
   private writeMetadata<T extends ActionResult>(kind: MetadataKind, typeKey: string | undefined, keys: string[], action: () => Promise<T>): Promise<T> {
-    return this.write(keys, action).then((result) => {
-      if (result.success) this.onMetadataInvalidated(kind, typeKey);
+    return this.write(keys, action).then(async (result) => {
+      if (result.success) await this.onMetadataInvalidated(kind, typeKey);
       return result;
     });
   }
@@ -119,14 +119,18 @@ export class AdminCacheClient {
 
   public listTypes = (kind: Parameters<typeof typeActions.listTypesAction>[0]) =>
     this.read(`types:${kind}`, () => typeActions.listTypesAction(kind));
-  public listTypesPage = (...args: Parameters<typeof typeActions.listTypesPageAction>) =>
-    this.readPage(`types-page:${args[0]}:${JSON.stringify(args[1])}`, () => typeActions.listTypesPageAction(...args));
+  /** Performs one authoritative type-page request; normalized window policy lives in its coordinator. */
+  public fetchTypesPage = (...args: Parameters<typeof typeActions.listTypesPageAction>) =>
+    typeActions.listTypesPageAction(...args);
+  /** Performs the authoritative summary reread requested by type reconciliation. */
+  public fetchTypeListItem = (...args: Parameters<typeof typeActions.getTypeListItemAction>) =>
+    typeActions.getTypeListItemAction(...args);
   public getTypeDefinition = (domain: Parameters<typeof typeActions.getTypeDefinitionAction>[0], typeKey: string) =>
     this.read(`type-definition:${domain}:${typeKey}`, () => typeActions.getTypeDefinitionAction(domain, typeKey));
   public getTypeDetail = (kind: Parameters<typeof typeActions.getTypeDetailAction>[0], typeKey: string) =>
     this.read(`type-detail:${kind}:${typeKey}`, () => typeActions.getTypeDetailAction(kind, typeKey));
   public createType = (cmd: Parameters<typeof typeActions.createTypeAction>[0]) =>
-    this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'types-page', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
+    this.writeMetadata(cmd.kind, cmd.typeKey, ['types', 'type-detail', 'type-definition'], () => typeActions.createTypeAction(cmd));
   public updateType = (...args: Parameters<typeof typeActions.updateTypeAction>) =>
     this.writeMetadata(args[0], args[1], ['types', 'type-detail', 'type-definition', 'type-schema-history', 'type-schema-impact'], () => typeActions.updateTypeAction(...args));
   public disableType = (...args: Parameters<typeof typeActions.disableTypeAction>) =>

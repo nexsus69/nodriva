@@ -6,7 +6,7 @@ import type { CachedLockState } from './LockStateStore';
 
 export interface RealtimeEventApplierPorts {
   isLocalEvent(event: RealtimeDataChangedEvent): boolean;
-  invalidateMetadata(kind: 'node' | 'entity'): void;
+  invalidateMetadata(kind: 'node' | 'entity', typeKey?: string): void;
   notifyAttachmentResourceChanged(target: { resourceType: 'node' | 'entity'; resourceId: string }): void;
   invalidateNode(resourceId: string): void;
   invalidateEntityReference(entityTypeId: string, resourceId: string): void;
@@ -56,7 +56,7 @@ export class RealtimeEventApplier {
   public applyDataChanged(event: RealtimeDataChangedEvent): void {
     if (this.ports.isLocalEvent(event)) return;
     if (event.metadataKind) {
-      this.ports.invalidateMetadata(event.metadataKind);
+      this.ports.invalidateMetadata(event.metadataKind, event.resourceId);
       return;
     }
     if (event.subresourceKind === 'attachment') {

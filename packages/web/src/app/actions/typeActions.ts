@@ -111,6 +111,33 @@ export async function listTypesPageAction(kind: TypeKind, input: Omit<TypeListPa
   } catch (err) { return { success: false, error: mapErrorToApiErrorResponse(err) }; }
 }
 
+/** Reads one authorized catalogue summary for bounded client-page reconciliation. */
+export async function getTypeListItemAction(kind: TypeKind, typeKey: string): Promise<{ success: boolean; data?: TypeListItemDto | null; error?: ApiErrorResponse }> {
+  try {
+    if (!['node', 'entity'].includes(kind) || !typeKey.trim() || typeKey.length > 100) throw new Error('Tipo non valido');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    const detail = await typeAdminService.getTypeDetail(actorUserId, kind, typeKey);
+    if (!detail) return { success: true, data: null };
+    return {
+      success: true,
+      data: {
+        id: detail.id,
+        kind: detail.kind,
+        typeKey: detail.typeKey,
+        name: detail.name,
+        description: detail.description,
+        storageTable: detail.storageTable,
+        currentSchemaVersion: detail.currentSchemaVersion,
+        isActive: detail.isActive,
+        isSystem: detail.isSystem,
+        rowVersion: detail.rowVersion,
+        fieldCount: detail.fields.length,
+        updatedAt: detail.updatedAt,
+      },
+    };
+  } catch (err) { return { success: false, error: mapErrorToApiErrorResponse(err) }; }
+}
+
 /** Legacy reader helper for page.tsx compatibility */
 export async function getTypeDefinitionAction(domain: TypeKind, typeKey: string) {
   const actorUserId = await AuthResolver.resolveActorUserId();

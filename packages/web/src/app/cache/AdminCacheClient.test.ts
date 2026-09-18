@@ -26,7 +26,6 @@ vi.mock('../actions/recycleActions', () => ({
 vi.mock('../actions/entityActions', () => ({}));
 
 import { AdminCacheClient } from './AdminCacheClient';
-import { CacheReadTraceStore } from './CacheReadTraceStore';
 
 describe('AdminCacheClient failed reads', () => {
   beforeEach(() => Object.values(mocks).forEach((mock) => mock.mockReset()));
@@ -89,26 +88,6 @@ describe('AdminCacheClient failed reads', () => {
     expect(mocks.listDeletedEntitiesAction).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps a bounded LRU working set for generic server-paged catalogues', async () => {
-    mocks.listTypesPageAction.mockImplementation(async (_kind: string, { page }: { page: number }) => ({ success: true, data: { items: [], total: 6, page, pageCount: 6 } }));
-    const client = new AdminCacheClient();
-    for (let page = 1; page <= 6; page += 1) await client.listTypesPage('node', { page, pageSize: 25 });
-    await client.listTypesPage('node', { page: 1, pageSize: 25 });
-    expect(mocks.listTypesPageAction).toHaveBeenCalledTimes(7);
-  });
-
-  it('traces whether an administrative page came from the backend or the cache', async () => {
-    mocks.listTypesPageAction.mockResolvedValue({ success: true, data: { items: [], total: 1, page: 1, pageCount: 1 } });
-    const trace = new CacheReadTraceStore();
-    const client = new AdminCacheClient(undefined, undefined, trace);
-    await client.listTypesPage('node', { page: 1, pageSize: 25 });
-    await client.listTypesPage('node', { page: 1, pageSize: 25 });
-    expect(trace.getEvents()).toEqual([
-      expect.objectContaining({ source: 'backend', reason: 'cache-miss' }),
-      expect.objectContaining({ source: 'cache', reason: 'continuity-confirmed' }),
-    ]);
-  });
-
   it('keeps audit result pages in the same bounded working set', async () => {
     mocks.listAuditLogsAction.mockImplementation(async ({ page }: { page: number }) => ({ success: true, data: { items: [], total: 6, page, pageCount: 6 } }));
     const client = new AdminCacheClient();
@@ -117,13 +96,4 @@ describe('AdminCacheClient failed reads', () => {
     expect(mocks.listAuditLogsAction).toHaveBeenCalledTimes(7);
   });
 
-  it('keeps type pages isolated instead of materializing a complete type catalogue', async () => {
-    mocks.listTypesPageAction.mockImplementation(async (_kind: string, { page }: { page: number }) => ({ success: true, data: { items: [{ id: `type-${page}` }], total: 51, page, pageCount: 3 } }));
-    const client = new AdminCacheClient();
-    const first = await client.listTypesPage('node', { page: 1, pageSize: 25 });
-    const second = await client.listTypesPage('node', { page: 2, pageSize: 25 });
-    expect(first).toMatchObject({ data: { items: [{ id: 'type-1' }] } });
-    expect(second).toMatchObject({ data: { items: [{ id: 'type-2' }] } });
-    expect(mocks.listTypesPageAction).toHaveBeenCalledTimes(2);
-  });
 });

@@ -43,6 +43,7 @@ import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
 import { AdminEntityPageCoordinator } from './AdminEntityPageCoordinator';
 import { AdminNodePageCoordinator } from './AdminNodePageCoordinator';
+import { AdminTypePageCoordinator } from './AdminTypePageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -289,6 +290,7 @@ export class GlobalCacheClient {
     this.admin.invalidate();
     this.adminNodes.purge();
     this.adminEntities.purge();
+    this.adminTypes.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -368,6 +370,22 @@ export class GlobalCacheClient {
     () => this.ensureReadModelContinuityForCacheHit(),
     this.cacheReadTrace,
   );
+  /** Normalized type summaries plus bounded windows for node and entity catalogues. */
+  public readonly adminTypes = new AdminTypePageCoordinator(
+    this.kernel,
+    async (kind, input) => {
+      const result = await this.admin.fetchTypesPage(kind, input);
+      if (!result.success || !result.data) throw result.error ?? new Error('Caricamento tipi non riuscito');
+      return result.data;
+    },
+    async (kind, typeKey) => {
+      const result = await this.admin.fetchTypeListItem(kind, typeKey);
+      if (!result.success) throw result.error ?? new Error('Rilettura tipo non riuscita');
+      return result.data ?? null;
+    },
+    () => this.ensureReadModelContinuityForCacheHit(),
+    this.cacheReadTrace,
+  );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -387,7 +405,7 @@ export class GlobalCacheClient {
 
   private readonly realtimeEventApplier = new RealtimeEventApplier({
     isLocalEvent: (event) => this.mutations.isLocalEvent(event),
-    invalidateMetadata: (kind) => this.invalidateMetadata(kind, undefined, true),
+    invalidateMetadata: (kind, typeKey) => this.invalidateMetadata(kind, typeKey, true),
     notifyAttachmentResourceChanged: (target) => this.notifyAttachmentCollectionChanged(target),
     invalidateNode: (resourceId) => this.nodes.invalidate(resourceId),
     invalidateEntityReference: (entityTypeId, resourceId) => GlobalViewStore.invalidateReference({
@@ -444,7 +462,7 @@ export class GlobalCacheClient {
    * Metadata views are persistent, so invalidating only AdminCacheClient would
    * leave forms reading the previous type list indefinitely.
    */
-  public invalidateMetadata(kind: 'node' | 'entity', typeKey?: string, fromRealtime = false): void {
+  public async invalidateMetadata(kind: 'node' | 'entity', typeKey?: string, fromRealtime = false): Promise<void> {
     this.metadata.invalidate(kind);
     const viewKey = ViewKeyBuilder.build({ viewType: 'METADATA_LIST', metadataType: kind });
     GlobalViewStore.invalidateDependency(
@@ -457,6 +475,11 @@ export class GlobalCacheClient {
       'types',
       ...(typeKey ? [`type-detail:${kind}:${typeKey}`, `type-definition:${kind}:${typeKey}`] : ['type-detail', 'type-definition']),
     ];
+    if (typeKey) {
+      try { await this.adminTypes.reconcile(kind, typeKey); }
+      catch { this.adminTypes.invalidateFamily(kind); }
+    } else this.adminTypes.invalidateFamily(kind);
+    this.adminRealtimeInvalidationBus.publish(['admin-types-page']);
     if (fromRealtime) this.invalidateAdminFromRealtime(adminKeys);
     else this.admin.invalidate(adminKeys);
     this.notifyCacheSubscribers();
