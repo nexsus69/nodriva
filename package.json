@@ -19,6 +19,7 @@
     "e2e:realtime": "PARITY_REALTIME_ENABLED=true PARITY_E2E_SPECS='e2e/realtime-vertical.spec.ts' ./scripts/admin-parity-e2e.sh",
     "e2e:canonical": "PARITY_E2E_SPECS='e2e/canonical-vertical-parity.spec.ts' ./scripts/admin-parity-e2e.sh",
     "e2e:admin-entity-pages": "PARITY_ENTITY_PAGE_SEED=true PARITY_E2E_SPECS='e2e/admin-entity-pagination.spec.ts' ./scripts/admin-parity-e2e.sh",
+    "e2e:admin-node-pages": "PARITY_ENTITY_PAGE_SEED=true PARITY_E2E_SPECS='e2e/admin-node-pagination.spec.ts' ./scripts/admin-parity-e2e.sh",
     "e2e:parity": "PARITY_E2E_SPECS='e2e/admin-adapter-parity.spec.ts e2e/canonical-vertical-parity.spec.ts e2e/account-recovery-parity.spec.ts' ./scripts/admin-parity-e2e.sh",
     "ops:health": "./scripts/stack-healthcheck.sh",
     "test:compose": "./scripts/docker-compose-profile-contract.sh",

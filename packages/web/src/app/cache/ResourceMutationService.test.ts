@@ -22,6 +22,7 @@ function createPorts(epoch = 1): ResourceMutationServicePorts & { setEpoch(next:
     applyResourceCacheChange: vi.fn(),
     invalidateAdmin: vi.fn(),
     reconcileAdminEntityUpdate: vi.fn(),
+    reconcileAdminNodeUpdate: vi.fn(),
     handleError: vi.fn(),
   };
 }
@@ -75,6 +76,20 @@ describe('ResourceMutationService', () => {
 
     expect(ports.reconcileAdminEntityUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'entity-1', rowVersion: 2 }));
     expect(ports.invalidateAdmin).not.toHaveBeenCalledWith(['admin-entities-page']);
+  });
+
+  it('passes an authoritative node update to the node query-impact coordinator', async () => {
+    vi.mocked(nodeActions.updateNodeAction).mockResolvedValue({
+      success: true, data: { id: 'node-1', name: 'Project', description: 'new', rowVersion: 2 },
+    } as never);
+    const ports = createPorts();
+    const service = new ResourceMutationService(new ResourceMutationCoordinator(), ports);
+
+    await service.updateNode({ nodeId: 'node-1', description: 'new', expectedRowVersion: 1 });
+
+    expect(ports.reconcileAdminNodeUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'node-1', rowVersion: 2 }));
+    expect(ports.invalidateAdmin).toHaveBeenCalledWith(['admin-entities-page']);
+    expect(ports.invalidateAdmin).not.toHaveBeenCalledWith(['admin-nodes-page', 'admin-entities-page']);
   });
 
   it('routes a rejected server mutation through the configured error policy before rethrowing it', async () => {

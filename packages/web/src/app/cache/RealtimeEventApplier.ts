@@ -14,6 +14,7 @@ export interface RealtimeEventApplierPorts {
   purgeUsers(): void;
   invalidateAdmin(keys: readonly string[]): void;
   reconcileAdminEntity(entityId: string, changeType: RealtimeDataChangedEvent['changeType']): void;
+  reconcileAdminNode(nodeId: string, changeType: RealtimeDataChangedEvent['changeType']): void;
   injectEntity(entityTypeId: string, resourceId: string, data: unknown): void;
   injectNode(resourceId: string, data: unknown): void;
   applyResourceChange(change: ResourceCacheChange): void;
@@ -135,6 +136,7 @@ export class RealtimeEventApplier {
     this.ports.applyResourceChange({
       resourceType: 'node', resourceId: event.resourceId, changeType: event.changeType, affectedResourceIds: ids,
     });
-    this.ports.invalidateAdmin(['children', 'subtree-entities', 'admin-nodes-page', 'admin-entities-page']);
+    this.ports.invalidateAdmin(['children', 'subtree-entities', 'admin-entities-page']);
+    this.ports.reconcileAdminNode(event.resourceId, event.changeType);
   }
 }

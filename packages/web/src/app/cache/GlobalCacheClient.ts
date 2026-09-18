@@ -42,6 +42,7 @@ import type {
 import { UserCacheClient } from './UserCacheClient';
 import { AdminCacheClient } from './AdminCacheClient';
 import { AdminEntityPageCoordinator } from './AdminEntityPageCoordinator';
+import { AdminNodePageCoordinator } from './AdminNodePageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -223,6 +224,7 @@ export class GlobalCacheClient {
 
   private invalidateAdminFromRealtime(keys: readonly string[]): void {
     this.admin.invalidate([...keys]);
+    if (keys.some((key) => key === 'admin-nodes-page')) this.adminNodes.invalidateFamily();
     if (keys.some((key) => key === 'admin-entities-page')) this.adminEntities.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
@@ -285,6 +287,7 @@ export class GlobalCacheClient {
     this.lists.purge();
     this.users.purge();
     this.admin.invalidate();
+    this.adminNodes.purge();
     this.adminEntities.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
@@ -357,6 +360,14 @@ export class GlobalCacheClient {
     () => this.ensureReadModelContinuityForCacheHit(),
     this.cacheReadTrace,
   );
+  /** Normalized node summaries plus bounded page windows for the administrative catalogue. */
+  public readonly adminNodes = new AdminNodePageCoordinator(
+    this.kernel,
+    (input) => this.admin.fetchAdminNodesPage(input),
+    (nodeId) => this.admin.fetchAdminNodeSummary(nodeId),
+    () => this.ensureReadModelContinuityForCacheHit(),
+    this.cacheReadTrace,
+  );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -393,6 +404,11 @@ export class GlobalCacheClient {
         })
         .finally(() => this.adminRealtimeInvalidationBus.publish(['admin-entities-page']));
     },
+    reconcileAdminNode: (nodeId, changeType) => {
+      void this.adminNodes.reconcileRealtimeNode(nodeId, changeType)
+        .catch(() => this.adminNodes.invalidateFamily())
+        .finally(() => this.adminRealtimeInvalidationBus.publish(['admin-nodes-page']));
+    },
     injectEntity: (entityTypeId, resourceId, data) => this.getEntityCache(entityTypeId).inject(
       resourceId, data as ClientEntity, false, 'realtime:data-changed',
     ),
@@ -415,6 +431,10 @@ export class GlobalCacheClient {
       this.admin.invalidate(['admin-entities-page']);
       this.adminEntities.reconcileLocalEntity(entity);
       this.adminRealtimeInvalidationBus.publish(['admin-entities-page']);
+    },
+    reconcileAdminNodeUpdate: (node) => {
+      this.adminNodes.reconcileLocalNode(node);
+      this.adminRealtimeInvalidationBus.publish(['admin-nodes-page']);
     },
     handleError: (error) => this.handleFetchError(error),
   });
@@ -506,6 +526,8 @@ export class GlobalCacheClient {
     this.lists.purge();
     this.users.purge();
     this.admin.invalidate();
+    this.adminNodes.purge();
+    this.adminEntities.purge();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

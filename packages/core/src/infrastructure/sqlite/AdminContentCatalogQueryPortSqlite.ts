@@ -28,6 +28,16 @@ export class AdminContentCatalogQueryPortSqlite implements AdminContentCatalogQu
       this.order(params, 'n.path', 'e.name', 'et.name', 'e.id'));
   }
 
+  async findNodeSummary(actorUserId: string, nodeId: string): Promise<AdminNodeCatalogItem | null> {
+    const acl = AccessControlPortSqlite.getReadAccessControlSql('n', actorUserId, 'node.read');
+    return this.database.get<AdminNodeCatalogItem>(`
+      SELECT n.id,n.parent_id AS parentId,n.node_type_id AS nodeTypeId,n.name,n.description,
+             n.path,n.path_label AS pathLabel,n.row_version AS rowVersion,nt.name AS typeLabel
+      FROM nodes n JOIN node_types nt ON nt.id=n.node_type_id
+      WHERE n.id=? AND n.deleted_at IS NULL AND ${acl.sql}
+    `, [nodeId, ...acl.values]) ?? null;
+  }
+
   async findEntitySummary(actorUserId: string, entityId: string): Promise<AdminEntityCatalogItem | null> {
     const acl = AccessControlPortSqlite.getReadAccessControlSql('n', actorUserId, 'entity.read');
     return this.database.get<AdminEntityCatalogItem>(`

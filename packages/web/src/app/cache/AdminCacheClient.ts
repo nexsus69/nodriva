@@ -227,8 +227,11 @@ export class AdminCacheClient {
     this.read(`children:${parentId ?? 'root'}`, () => nodeActions.listChildrenAction(parentId));
   public listSubtreeEntities = (input: Parameters<typeof entityActions.listSubtreeEntitiesAction>[0]) =>
     this.read(`subtree-entities:${JSON.stringify(input)}`, () => entityActions.listSubtreeEntitiesAction(input));
-  public listAdminNodesPage = (input: Parameters<typeof adminContentActions.listAdminNodesPageAction>[0]) =>
-    this.readPage(`admin-nodes-page:${JSON.stringify(input)}`, () => adminContentActions.listAdminNodesPageAction(input));
+  /** Performs one authoritative node-page request; normalized window policy lives in its coordinator. */
+  public fetchAdminNodesPage = (input: Parameters<typeof adminContentActions.listAdminNodesPageAction>[0]) =>
+    adminContentActions.listAdminNodesPageAction(input);
+  /** Performs the ACL-authoritative summary reread requested by node realtime reconciliation. */
+  public fetchAdminNodeSummary = (nodeId: string) => adminContentActions.getAdminNodeSummaryAction(nodeId);
   /** Performs one authoritative entity-page request; normalized window policy lives in its coordinator. */
   public fetchAdminEntitiesPage = (input: Parameters<typeof adminContentActions.listAdminEntitiesPageAction>[0]) =>
     adminContentActions.listAdminEntitiesPageAction(input);

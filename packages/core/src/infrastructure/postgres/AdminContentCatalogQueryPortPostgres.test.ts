@@ -34,4 +34,12 @@ describe('AdminContentCatalogQueryPortPostgres', () => {
     expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('e.id=$2'), ['actor', 'entity-1']);
     expect(executor.query.mock.calls[0]?.[0]).toContain("p.permission_key = 'entity.read'");
   });
+
+  it('reads one node summary through the same ACL predicate used by the page query', async () => {
+    const executor = { query: vi.fn().mockResolvedValue({ rows: [{ id: 'node-1' }] }) };
+    await expect(new AdminContentCatalogQueryPortPostgres(executor as unknown as PgExecutor).findNodeSummary('actor', 'node-1'))
+      .resolves.toEqual({ id: 'node-1' });
+    expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('n.id=$2'), ['actor', 'node-1']);
+    expect(executor.query.mock.calls[0]?.[0]).toContain("p.permission_key = 'node.read'");
+  });
 });

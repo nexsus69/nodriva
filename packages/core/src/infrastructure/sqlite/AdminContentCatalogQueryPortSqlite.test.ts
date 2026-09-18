@@ -29,4 +29,12 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
       .resolves.toEqual({ id: 'entity-1' });
     expect(get).toHaveBeenCalledWith(expect.stringContaining('e.id=?'), ['entity-1', 'actor', 'entity.read', 'entity.read']);
   });
+
+  it('reads one node summary with the same actor-bound ACL predicate', async () => {
+    const get = vi.fn().mockReturnValue({ id: 'node-1' });
+    const database = { get } as unknown as SqliteDatabase;
+    await expect(new AdminContentCatalogQueryPortSqlite(database).findNodeSummary('actor', 'node-1'))
+      .resolves.toEqual({ id: 'node-1' });
+    expect(get).toHaveBeenCalledWith(expect.stringContaining('n.id=?'), ['node-1', 'actor', 'node.read', 'node.read']);
+  });
 });

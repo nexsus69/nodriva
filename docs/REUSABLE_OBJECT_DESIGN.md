@@ -120,3 +120,10 @@ post-commit boundaries. They require no new persistence port and must never
 load unrestricted records directly from an adapter. Lists are projections of
 the actor's readable roots and subtrees, so a local administrator sees only the
 same operational perimeter available in the workspace.
+
+Administrative catalogues retain bounded query windows over normalized summary
+records. Each catalogue owns its query-impact policy: a local or realtime
+notice may patch a retained record only when its authorized summary preserves
+the relevant search membership and ordering tuple; otherwise only the affected
+query family is invalidated. The cache never derives authorization or replaces
+the backend read after continuity is uncertain.

@@ -47,6 +47,17 @@ export class AdminContentCatalogQueryPortPostgres implements AdminContentCatalog
     `, values, ordering(params, 'n.path', 'e.name', 'et.name', 'e.id'));
   }
 
+  async findNodeSummary(actorUserId: string, nodeId: string): Promise<AdminNodeCatalogItem | null> {
+    const result = await this.executor.query<AdminNodeCatalogItem>(`
+      SELECT n.id, n.parent_id AS "parentId", n.node_type_id AS "nodeTypeId", n.name, n.description,
+             n.path::text AS path, n.path_label AS "pathLabel", n.row_version AS "rowVersion", nt.name AS "typeLabel"
+      FROM nodes n JOIN node_types nt ON nt.id=n.node_type_id
+      WHERE n.id=$2 AND n.deleted_at IS NULL
+        AND ${AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.read')}
+    `, [actorUserId, nodeId]);
+    return result.rows[0] ?? null;
+  }
+
   async findEntitySummary(actorUserId: string, entityId: string): Promise<AdminEntityCatalogItem | null> {
     const result = await this.executor.query<AdminEntityCatalogItem>(`
       SELECT e.id, e.parent_node_id AS "parentNodeId", e.entity_type_id AS "entityTypeId", e.name, e.description,

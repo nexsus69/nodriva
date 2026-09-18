@@ -35,14 +35,15 @@ const recoveryExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString()
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
 const pageSeedEnabled = process.env.PARITY_ENTITY_PAGE_SEED === 'true';
 const pageSeed = Array.from({ length: 26 }, (_, index) => ({ id: `81000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged entity ${String(index + 1).padStart(2, '0')}` }));
+const pageNodeSeed = Array.from({ length: 26 }, (_, index) => ({ id: `82000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged node ${String(index + 1).padStart(2, '0')}`, pathLabel: `paged_node_${String(index + 1).padStart(2, '0')}` }));
 
-function parityNode(id = nodeId, path = 'admin_parity_root', name = 'Admin parity root') {
+function parityNode(id = nodeId, path = 'admin_parity_root', name = 'Admin parity root', parentId = null, depth = 0, pathLabel = path) {
   return new Node(
     id,
-    null,
+    parentId,
     path,
-    path,
-    0,
+    pathLabel,
+    depth,
     nodeTypeId,
     name,
     'Fixture condivisa dai test browser dei due adapter',
@@ -75,6 +76,7 @@ async function seedSqlite() {
     );
     await infrastructure.nodeRepository.create(parityNode());
     await infrastructure.nodeRepository.create(parityNode(outsideNodeId, 'outside_parity_root', 'Outside parity root'));
+    if (pageSeedEnabled) for (const node of pageNodeSeed) await infrastructure.nodeRepository.create(parityNode(node.id, `admin_parity_root.${node.pathLabel}`, node.name, nodeId, 1, node.pathLabel));
     infrastructure.database.run(
       'INSERT INTO entity_types(id,type_key,name,description,storage_table) VALUES(?,?,?,?,?)',
       [entityTypeId, 'integration-customer', 'Integration Customer', 'Fixture schema dinamico E2E', entityStorageTable],
@@ -121,8 +123,10 @@ async function seedPostgres() {
        VALUES($1,'admin_parity_root','Admin parity root','Fixture E2E')`,
       [nodeTypeId],
     );
-    await new NodeRepositoryPostgres(executor).create(parityNode());
-    await new NodeRepositoryPostgres(executor).create(parityNode(outsideNodeId, 'outside_parity_root', 'Outside parity root'));
+    const nodeRepository = new NodeRepositoryPostgres(executor);
+    await nodeRepository.create(parityNode());
+    await nodeRepository.create(parityNode(outsideNodeId, 'outside_parity_root', 'Outside parity root'));
+    if (pageSeedEnabled) for (const node of pageNodeSeed) await nodeRepository.create(parityNode(node.id, `admin_parity_root.${node.pathLabel}`, node.name, nodeId, 1, node.pathLabel));
     await executor.query(
       `INSERT INTO entity_types(id,type_key,name,description,storage_table)
        VALUES($1,'integration-customer','Integration Customer','Fixture schema dinamico E2E',$2)`,

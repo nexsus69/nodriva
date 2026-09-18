@@ -44,6 +44,8 @@ export interface AdminEntityCatalogItem {
 export interface AdminContentCatalogQueryPort {
   findNodesPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<AdminNodeCatalogItem>>;
   findEntitiesPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<AdminEntityCatalogItem>>;
+  /** Reads the authorized administrative projection used to reconcile one realtime node notice. */
+  findNodeSummary(actorUserId: string, nodeId: string): Promise<AdminNodeCatalogItem | null>;
   /** Reads the authorized administrative projection used to reconcile one realtime entity notice. */
   findEntitySummary(actorUserId: string, entityId: string): Promise<AdminEntityCatalogItem | null>;
 }

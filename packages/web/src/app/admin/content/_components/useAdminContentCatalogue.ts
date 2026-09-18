@@ -27,7 +27,7 @@ export function useAdminContentCatalogue(kind: Kind, search: string, sort: Admin
         : undefined;
       const input = { page: requestedPage, pageSize: pagination.pageSize, search: search.trim() || undefined, sort: acceptedSort };
       const result = kind === 'node'
-        ? await AppCache.admin.listAdminNodesPage(input)
+        ? await AppCache.adminNodes.read(input)
         : await AppCache.adminEntities.read(input);
       if (version !== requestVersion.current) return;
       setRows(result.items as readonly Row[]);

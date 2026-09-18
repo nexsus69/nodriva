@@ -35,6 +35,15 @@ export async function listAdminEntitiesPageAction(input: AdminContentCatalogueRe
   });
 }
 
+/** Returns only the ACL-filtered summary required to reconcile a node realtime notice. */
+export async function getAdminNodeSummaryAction(nodeId: string) {
+  return withSafeActionErrors(async () => {
+    if (!nodeId.trim()) throw new Error('Nodo non valido');
+    const { adminContentCatalogQueryPort } = await import('../../server/db');
+    return adminContentCatalogQueryPort.findNodeSummary(await AuthResolver.resolveActorUserId(), nodeId);
+  });
+}
+
 /** Returns only the ACL-filtered summary required to reconcile an entity realtime notice. */
 export async function getAdminEntitySummaryAction(entityId: string) {
   return withSafeActionErrors(async () => {

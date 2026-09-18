@@ -53,6 +53,7 @@ export interface ResourceMutationServicePorts {
   applyResourceCacheChange(change: ResourceCacheChange): void;
   invalidateAdmin(keys: readonly string[]): void;
   reconcileAdminEntityUpdate(entity: ClientEntity): void;
+  reconcileAdminNodeUpdate(node: ClientNode): void;
   handleError(error: unknown): void;
 }
 
@@ -183,7 +184,8 @@ export class ResourceMutationService {
           if (this.ports.getCacheEpoch() !== requestEpoch) return;
           this.ports.nodes.inject(updated.id, updated, false, 'mutation:updateNode');
           this.ports.applyResourceCacheChange({ resourceType: 'node', resourceId: updated.id, changeType: 'updated' });
-          this.ports.invalidateAdmin(['admin-nodes-page', 'admin-entities-page']);
+          this.ports.invalidateAdmin(['admin-entities-page']);
+          this.ports.reconcileAdminNodeUpdate(updated);
         },
       );
     } catch (error) {
