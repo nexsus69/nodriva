@@ -44,6 +44,7 @@ import { AdminCacheClient } from './AdminCacheClient';
 import { AdminEntityPageCoordinator } from './AdminEntityPageCoordinator';
 import { AdminNodePageCoordinator } from './AdminNodePageCoordinator';
 import { AdminTypePageCoordinator } from './AdminTypePageCoordinator';
+import { AdminAuditPageCoordinator } from './AdminAuditPageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -227,6 +228,7 @@ export class GlobalCacheClient {
     this.admin.invalidate([...keys]);
     if (keys.some((key) => key === 'admin-nodes-page')) this.adminNodes.invalidateFamily();
     if (keys.some((key) => key === 'admin-entities-page')) this.adminEntities.invalidateFamily();
+    if (keys.some((key) => key === 'audit')) this.adminAudits.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
 
@@ -291,6 +293,7 @@ export class GlobalCacheClient {
     this.adminNodes.purge();
     this.adminEntities.purge();
     this.adminTypes.purge();
+    this.adminAudits.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -352,7 +355,6 @@ export class GlobalCacheClient {
   public readonly admin = new AdminCacheClient(
     (kind, typeKey) => this.invalidateMetadata(kind, typeKey),
     () => this.ensureReadModelContinuityForCacheHit(),
-    this.cacheReadTrace,
   );
   /** Normalized entity summaries plus bounded page windows for the administrative catalogue. */
   public readonly adminEntities = new AdminEntityPageCoordinator(
@@ -382,6 +384,17 @@ export class GlobalCacheClient {
       const result = await this.admin.fetchTypeListItem(kind, typeKey);
       if (!result.success) throw result.error ?? new Error('Rilettura tipo non riuscita');
       return result.data ?? null;
+    },
+    () => this.ensureReadModelContinuityForCacheHit(),
+    this.cacheReadTrace,
+  );
+  /** Immutable audit summaries plus bounded windows; realtime has only a family invalidation signal. */
+  public readonly adminAudits = new AdminAuditPageCoordinator(
+    this.kernel,
+    async (filters) => {
+      const result = await this.admin.fetchAuditLogsPage(filters);
+      if (!result.success || !result.data) throw result.error ?? new Error('Caricamento audit non riuscito');
+      return result.data;
     },
     () => this.ensureReadModelContinuityForCacheHit(),
     this.cacheReadTrace,
@@ -551,6 +564,8 @@ export class GlobalCacheClient {
     this.admin.invalidate();
     this.adminNodes.purge();
     this.adminEntities.purge();
+    this.adminTypes.purge();
+    this.adminAudits.purge();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

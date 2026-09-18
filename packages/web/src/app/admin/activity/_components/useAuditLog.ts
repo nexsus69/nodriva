@@ -47,12 +47,11 @@ export function useAuditLog(t: Translate) {
     setLoading(true);
     try {
       const query = toAuditFilterQuery(next, requestedPage, pagination.pageSize);
-      const result = await AppCache.admin.listAuditLogs(query);
-      if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loadingAudit"));
+      const result = await AppCache.adminAudits.read(query);
       if (version !== requestVersion.current) return;
-      setRows(result.data.items);
-      setTotal(result.data.total);
-      pagination.setPage(result.data.page);
+      setRows(result.items);
+      setTotal(result.total);
+      pagination.setPage(result.page);
       setError(null);
     } catch (cause) {
       if (version !== requestVersion.current) return;
@@ -60,7 +59,7 @@ export function useAuditLog(t: Translate) {
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
-  }, [filters, pagination, t]);
+  }, [filters, pagination]);
 
   useEffect(() => {
     void AppCache.users.listUsers().then(setUsers).catch(() => undefined);

@@ -6,14 +6,13 @@ const mocks = vi.hoisted(() => ({
   listDeletedNodesAction: vi.fn(),
   listDeletedEntitiesAction: vi.fn(),
   restoreDeletedNodeAction: vi.fn(),
-  listAuditLogsAction: vi.fn(),
   listTypesPageAction: vi.fn(),
 }));
 
 vi.mock('../actions/securityActions', () => ({
   listScopeAssignmentsAction: mocks.listScopeAssignmentsAction,
 }));
-vi.mock('../actions/auditActions', () => ({ listAuditLogsAction: mocks.listAuditLogsAction }));
+vi.mock('../actions/auditActions', () => ({}));
 vi.mock('../actions/nodeActions', () => ({}));
 vi.mock('../actions/seedAction', () => ({}));
 vi.mock('../actions/systemActions', () => ({}));
@@ -86,14 +85,6 @@ describe('AdminCacheClient failed reads', () => {
 
     expect(mocks.listDeletedNodesAction).toHaveBeenCalledTimes(2);
     expect(mocks.listDeletedEntitiesAction).toHaveBeenCalledTimes(2);
-  });
-
-  it('keeps audit result pages in the same bounded working set', async () => {
-    mocks.listAuditLogsAction.mockImplementation(async ({ page }: { page: number }) => ({ success: true, data: { items: [], total: 6, page, pageCount: 6 } }));
-    const client = new AdminCacheClient();
-    for (let page = 1; page <= 6; page += 1) await client.listAuditLogs({ page, pageSize: 25 });
-    await client.listAuditLogs({ page: 1, pageSize: 25 });
-    expect(mocks.listAuditLogsAction).toHaveBeenCalledTimes(7);
   });
 
 });

@@ -63,6 +63,7 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
   it("emits semantic recycle and audit dependencies for an authorized audit event", () => {
     const cache = new GlobalCacheClient();
     const invalidations: Array<readonly string[]> = [];
+    const invalidateAudits = vi.spyOn(cache.adminAudits, 'invalidateFamily');
     cache.subscribeAdminRealtimeInvalidations((keys) => invalidations.push(keys));
     cache.retainRealtimeChannels(['admin-data'], []);
 
@@ -76,12 +77,14 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
     });
 
     expect(invalidations).toEqual([["audit", "deleted-nodes", "deleted-entities"]]);
+    expect(invalidateAudits).toHaveBeenCalledOnce();
   });
 
-  it("bridges an authorized metadata event to subscribed type collections", () => {
+  it("bridges an authorized metadata event to subscribed type collections", async () => {
     const cache = new GlobalCacheClient();
     const invalidations: Array<readonly string[]> = [];
     vi.spyOn(cache.metadata, "invalidate").mockImplementation(() => undefined);
+    vi.spyOn(cache.admin, 'fetchTypeListItem').mockResolvedValue({ success: true, data: null });
     cache.subscribeAdminRealtimeInvalidations((keys) => invalidations.push(keys));
     cache.retainRealtimeChannels(["admin-data"], []);
 
@@ -96,7 +99,12 @@ describe("GlobalCacheClient administrative realtime invalidation", () => {
       metadataSequence: 1,
     });
 
-    expect(invalidations).toEqual([["types", "type-detail", "type-definition"]]);
+    await vi.waitFor(() => {
+      expect(invalidations).toEqual([
+        ['admin-types-page'],
+        ['types', 'type-detail:node:project', 'type-definition:node:project'],
+      ]);
+    });
   });
 
   it('notifies only the affected attachment collection after a realtime attachment change', () => {

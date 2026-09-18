@@ -8,7 +8,6 @@ import * as recycleActions from '../actions/recycleActions';
 import * as entityActions from '../actions/entityActions';
 import * as workflowActions from '../actions/workflowActions';
 import * as adminContentActions from '../actions/adminContentActions';
-import type { CacheReadTraceStore } from './CacheReadTraceStore';
 
 type ActionResult = { success: boolean; data?: unknown; error?: unknown };
 type MetadataKind = 'node' | 'entity';
@@ -28,14 +27,9 @@ function isFailedActionResult(value: unknown): boolean {
  */
 export class AdminCacheClient {
   private readonly reads = new Map<string, Promise<unknown>>();
-  /** Keeps only a small working set of administrative result pages per browser session. */
-  private readonly pagedReads = new Map<string, Promise<unknown>>();
-  private static readonly MAX_PAGED_READS = 5;
-
   public constructor(
     private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined,
     private readonly verifyCacheHit: () => Promise<boolean> = () => Promise.resolve(true),
-    private readonly trace?: CacheReadTraceStore,
   ) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -62,30 +56,6 @@ export class AdminCacheClient {
     return request;
   }
 
-  private readPage<T>(key: string, action: () => Promise<T>): Promise<T> {
-    const cached = this.pagedReads.get(key);
-    if (cached) {
-      return this.verifyCacheHit().then((continuous) => {
-        if (continuous && this.pagedReads.get(key) === cached) {
-          this.pagedReads.delete(key);
-          this.pagedReads.set(key, cached);
-          this.trace?.record({ kind: 'read', key, source: 'cache', reason: 'continuity-confirmed' });
-          return cached as Promise<T>;
-        }
-        if (this.pagedReads.get(key) === cached) this.pagedReads.delete(key);
-        return this.readPage(key, action);
-      });
-    }
-    this.trace?.record({ kind: 'read', key, source: 'backend', reason: cached ? 'continuity-unknown' : 'cache-miss' });
-    const request = action().catch((error) => {
-      if (this.pagedReads.get(key) === request) this.pagedReads.delete(key);
-      throw error;
-    });
-    this.pagedReads.set(key, request);
-    while (this.pagedReads.size > AdminCacheClient.MAX_PAGED_READS) this.pagedReads.delete(this.pagedReads.keys().next().value!);
-    return request;
-  }
-
   private write<T extends ActionResult>(keys: string[], action: () => Promise<T>): Promise<T> {
     return action().then((result) => {
       if (result.success) this.invalidate(keys);
@@ -101,19 +71,14 @@ export class AdminCacheClient {
   }
 
   public invalidate(keys: string[] = []): void {
-    this.trace?.record({ kind: 'invalidation', key: keys.join(',') || '*', reason: keys.length === 0 ? 'all-pages' : 'matching-prefixes' });
     if (keys.length === 0) {
       this.reads.clear();
-      this.pagedReads.clear();
       return;
     }
     for (const key of this.reads.keys()) {
       if (keys.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) {
         this.reads.delete(key);
       }
-    }
-    for (const key of this.pagedReads.keys()) {
-      if (keys.some((prefix) => key === prefix || key.startsWith(`${prefix}:`))) this.pagedReads.delete(key);
     }
   }
 
@@ -214,8 +179,8 @@ export class AdminCacheClient {
   public updateScopeAssignment = (cmd: Parameters<typeof securityActions.updateScopeAssignmentAction>[0]) =>
     this.write(['scope-assignments'], () => securityActions.updateScopeAssignmentAction(cmd));
 
-  public listAuditLogs = (filters: Parameters<typeof auditActions.listAuditLogsAction>[0]) =>
-    this.readPage(`audit:${JSON.stringify(filters)}`, () => auditActions.listAuditLogsAction(filters));
+  /** Performs one authoritative audit-page request; bounded window policy lives in its coordinator. */
+  public fetchAuditLogsPage = (...args: Parameters<typeof auditActions.listAuditLogsAction>) => auditActions.listAuditLogsAction(...args);
   public listAuditFilterCatalog = () => this.read('audit-filter-catalog', auditActions.listAuditFilterCatalogAction);
   public getAuditLogById = (id: string) => this.read(`audit-detail:${id}`, () => auditActions.getAuditLogByIdAction(id));
   public listTypeSchemaHistory = (kind: 'node' | 'entity', typeId: string) =>

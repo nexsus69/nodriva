@@ -63,7 +63,7 @@ export function useAdminOverview(): AdminOverviewSnapshot {
       canReadSystem ? AppCache.admin.listWorkflowDefinitions() : undefined,
       canReadNodeTypes ? AppCache.admin.listTypes("node") : undefined,
       canReadEntityTypes ? AppCache.admin.listTypes("entity") : undefined,
-      canReadAudit ? AppCache.admin.listAuditLogs({ page: 1, pageSize: 5 }) : undefined,
+      canReadAudit ? AppCache.adminAudits.read({ page: 1, pageSize: 5 }) : undefined,
     ]).then(([capabilities, workflows, nodeTypes, entityTypes, auditRecords]) => {
       if (cancelled) return;
       setSnapshot({
@@ -72,9 +72,7 @@ export function useAdminOverview(): AdminOverviewSnapshot {
         nodeTypes: nodeTypes ? toRead(nodeTypes) : hiddenRead(),
         entityTypes: entityTypes ? toRead(entityTypes) : hiddenRead(),
         auditRecords: auditRecords
-          ? auditRecords.success && auditRecords.data
-            ? { state: "ready", data: auditRecords.data.items, error: null }
-            : { state: "unavailable", data: [], error: auditRecords.error?.message ?? "" }
+          ? { state: "ready", data: auditRecords.items, error: null }
           : hiddenRead(),
       });
     }).catch(() => {
