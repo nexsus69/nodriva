@@ -1,3 +1,4 @@
+/** Owns canonical user records and user mutations while delegating page retention to UserPageCoordinator. */
 import type {
   ApiErrorResponse,
   AssignUserRolesUiCommand,
@@ -23,6 +24,7 @@ import {
   updateUserStatusAction,
 } from '../actions/userActions';
 import type { CacheKernel } from './CacheKernel';
+import { UserPageCoordinator } from './UserPageCoordinator';
 
 type CachedUser = UserDetailDto;
 
@@ -71,8 +73,7 @@ export class UserCacheClient {
   private listLoading = false;
   private listError: Error | null = null;
   private readonly listSubscribers = new Set<() => void>();
-  private readonly pageCache = new Map<string, UserListPageDto>();
-  private static readonly PAGE_CACHE_LIMIT = 24;
+  private readonly pages: UserPageCoordinator;
   private sessionRefresh: ((userId: string) => Promise<void>) | null = null;
 
   constructor(kernel: CacheKernel, private readonly onChange: () => void) {
@@ -84,6 +85,11 @@ export class UserCacheClient {
         }
         return result.data;
       };
+    this.pages = new UserPageCoordinator(async (params) => {
+      const result = await listUsersPageAction(params);
+      if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile caricare gli utenti.' });
+      return result.data;
+    }, (page) => this.retainPage(page));
   }
 
   private readonly fetchUser: (id: string) => Promise<CachedUser>;
@@ -141,26 +147,18 @@ export class UserCacheClient {
 
   /** Returns a bounded cached page. Map reinsertion keeps the least-recently-used page at the front. */
   public async listUsersPage(params: UserListPageParams): Promise<UserListPageDto> {
-    const key = this.pageKey(params);
-    const cached = this.pageCache.get(key);
-    if (cached) {
-      this.pageCache.delete(key);
-      this.pageCache.set(key, cached);
-      return cached;
-    }
-    const result = await listUsersPageAction(params);
-    if (!result.success || !result.data) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile caricare gli utenti.' });
-    for (const user of result.data.items) {
+    return this.pages.read(params);
+  }
+
+  private retainPage(page: UserListPageDto): void {
+    for (const user of page.items) {
       const current = this.entities.get(user.id);
       this.entities.inject(user.id, { ...(current ?? {}), ...user, roles: current?.roles ?? [] } as CachedUser, true, 'fetch:user-page');
     }
-    this.pageCache.set(key, result.data);
-    if (this.pageCache.size > UserCacheClient.PAGE_CACHE_LIMIT) this.pageCache.delete(this.pageCache.keys().next().value!);
-    return result.data;
   }
 
   public invalidatePages(): void {
-    this.pageCache.clear();
+    this.pages.invalidate();
     this.listSubscribers.forEach((subscriber) => subscriber());
   }
 
@@ -229,7 +227,7 @@ export class UserCacheClient {
     this.listIds = [];
     this.listUpdatedAt = 0;
     this.listError = null;
-    this.pageCache.clear();
+    this.pages.invalidate();
     this.listSubscribers.forEach((subscriber) => subscriber());
   }
 
@@ -237,7 +235,4 @@ export class UserCacheClient {
     if (this.sessionRefresh) await this.sessionRefresh(userId);
   }
 
-  private pageKey(params: UserListPageParams): string {
-    return JSON.stringify({ page: params.page, pageSize: params.pageSize, search: params.search?.trim() || '', sort: params.sort ?? null });
-  }
 }
