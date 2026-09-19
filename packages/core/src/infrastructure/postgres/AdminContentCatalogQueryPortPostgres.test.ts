@@ -42,4 +42,13 @@ describe('AdminContentCatalogQueryPortPostgres', () => {
     expect(executor.query).toHaveBeenCalledWith(expect.stringContaining('n.id=$2'), ['actor', 'node-1']);
     expect(executor.query.mock.calls[0]?.[0]).toContain("p.permission_key = 'node.read'");
   });
+
+  it('pages one causal recycle-bin sequence with stable chronological ordering', async () => {
+    const executor = { query: vi.fn().mockResolvedValueOnce({ rows: [{ total: 51 }] }).mockResolvedValueOnce({ rows: [{ id: 'entity-26', kind: 'entity', name: 'Task', detail: 'Task type', deletedAt: new Date('2026-01-02T00:00:00Z'), rowVersion: 2, affectedNodeCount: 0, affectedEntityCount: 1 }] }) };
+    const page = await new AdminContentCatalogQueryPortPostgres(executor as unknown as PgExecutor).findRecycleBinPage({ actorUserId: 'actor', page: 2, pageSize: 25 });
+    expect(page).toMatchObject({ total: 51, page: 2, pageCount: 3, items: [{ id: 'entity-26', kind: 'entity', affectedEntityCount: 1 }] });
+    expect(executor.query.mock.calls[1]?.[0]).toContain('UNION ALL');
+    expect(executor.query.mock.calls[1]?.[0]).toContain('ORDER BY "deletedAt" DESC, id DESC');
+    expect(executor.query.mock.calls[1]?.[1]).toEqual(['actor', 25, 25]);
+  });
 });

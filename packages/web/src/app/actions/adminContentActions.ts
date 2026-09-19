@@ -35,6 +35,14 @@ export async function listAdminEntitiesPageAction(input: AdminContentCatalogueRe
   });
 }
 
+/** Reads one ACL-authoritative, causally grouped recycle-bin page. */
+export async function listRecycleBinPageAction(input: Pick<AdminContentCatalogueRequest, 'page' | 'pageSize'>) {
+  return withSafeActionErrors(async () => {
+    const { adminContentCatalogQueryPort } = await import('../../server/db');
+    return adminContentCatalogQueryPort.findRecycleBinPage({ ...validate(input), actorUserId: await AuthResolver.resolveActorUserId() });
+  });
+}
+
 /** Returns only the ACL-filtered summary required to reconcile a node realtime notice. */
 export async function getAdminNodeSummaryAction(nodeId: string) {
   return withSafeActionErrors(async () => {

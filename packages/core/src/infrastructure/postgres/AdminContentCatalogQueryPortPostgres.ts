@@ -5,6 +5,7 @@ import type {
   AdminContentCatalogQueryPort,
   AdminEntityCatalogItem,
   AdminNodeCatalogItem,
+  RecycleBinOperationItem,
 } from '../../application/ports/AdminContentCatalogQueryPort.js';
 import { AccessControlPortPostgres } from './AccessControlPortPostgres.js';
 import type { PgExecutor } from './PgExecutor.js';
@@ -100,5 +101,24 @@ export class AdminContentCatalogQueryPortPostgres implements AdminContentCatalog
       [...values, pageSize, (page - 1) * pageSize],
     );
     return { items: rows.rows as T[], total, page, pageCount };
+  }
+  async findRecycleBinPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<RecycleBinOperationItem>> {
+    const nodeAcl = AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'node.restore');
+    const entityAcl = AccessControlPortPostgres.getReadAccessControlSql('$1', 'n', 'entity.restore');
+    const source = `
+      SELECT n.id, 'node_subtree'::text AS kind, n.name, n.path::text AS detail, n.deleted_at AS "deletedAt", n.row_version AS "rowVersion",
+        (SELECT count(*)::int FROM nodes x WHERE x.deleted_at IS NOT NULL AND x.deletion_batch_id=n.deletion_batch_id) AS "affectedNodeCount",
+        (SELECT count(*)::int FROM entities x WHERE x.deleted_at IS NOT NULL AND x.deletion_batch_id=n.deletion_batch_id) AS "affectedEntityCount"
+      FROM nodes n WHERE n.deleted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM nodes p WHERE p.id=n.parent_id AND p.deleted_at IS NOT NULL AND p.deletion_batch_id=n.deletion_batch_id) AND ${nodeAcl}
+      UNION ALL
+      SELECT e.id, 'entity'::text, e.name, et.name, e.deleted_at, e.row_version, 0, 1
+      FROM entities e JOIN nodes n ON n.id=e.parent_node_id JOIN entity_types et ON et.id=e.entity_type_id
+      WHERE e.deleted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM nodes r WHERE r.deleted_at IS NOT NULL AND r.deletion_batch_id=e.deletion_batch_id) AND ${entityAcl}`;
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const requestedPage = Math.max(1, params.page);
+    const total = Number((await this.executor.query<{ total: number }>(`SELECT count(*)::int AS total FROM (${source}) operations`, [params.actorUserId])).rows[0]?.total ?? 0);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize)); const page = Math.min(requestedPage, pageCount);
+    const items = (await this.executor.query<RecycleBinOperationItem>(`SELECT * FROM (${source}) operations ORDER BY "deletedAt" DESC, id DESC LIMIT $2 OFFSET $3`, [params.actorUserId, pageSize, (page - 1) * pageSize])).rows.map((item) => ({ ...item, deletedAt: new Date(item.deletedAt).toISOString() }));
+    return { items, total, page, pageCount };
   }
 }

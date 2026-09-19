@@ -41,7 +41,20 @@ export interface AdminEntityCatalogItem {
   typeLabel: string;
 }
 
+/** One independently actionable deletion intention, never a batch consequence. */
+export interface RecycleBinOperationItem {
+  id: string;
+  kind: 'node_subtree' | 'entity';
+  name: string;
+  detail: string;
+  deletedAt: string;
+  rowVersion: number;
+  affectedNodeCount: number;
+  affectedEntityCount: number;
+}
+
 export interface AdminContentCatalogQueryPort {
+  findRecycleBinPage(params: Pick<AdminContentCatalogPageParams, 'actorUserId' | 'page' | 'pageSize'>): Promise<AdminContentCatalogPage<RecycleBinOperationItem>>;
   findNodesPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<AdminNodeCatalogItem>>;
   findEntitiesPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<AdminEntityCatalogItem>>;
   /** Reads the authorized administrative projection used to reconcile one realtime node notice. */

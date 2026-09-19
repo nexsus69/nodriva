@@ -171,6 +171,7 @@ PARITY_POSTGRES_ADMIN_URL="${postgres_admin_url}" \
 PARITY_ADMIN_EMAIL="${admin_email}" \
 PARITY_ADMIN_PASSWORD="${admin_password}" \
 PARITY_ENTITY_PAGE_SEED="${PARITY_ENTITY_PAGE_SEED:-false}" \
+PARITY_RECYCLE_PAGE_SEED="${PARITY_RECYCLE_PAGE_SEED:-false}" \
 node scripts/admin-parity-fixtures.mjs
 
 common_secret="admin-parity-nextauth-secret-2026-at-least-32-characters"
@@ -245,4 +246,5 @@ E2E_POSTGRES_DATABASE_URL="${postgres_admin_url}" \
 E2E_ADMIN_EMAIL="${admin_email}" \
 E2E_ADMIN_PASSWORD="${admin_password}" \
 E2E_ENTITY_PAGE_SEED="${PARITY_ENTITY_PAGE_SEED:-false}" \
+E2E_RECYCLE_PAGE_SEED="${PARITY_RECYCLE_PAGE_SEED:-false}" \
 bash -c 'read -r -a specs <<< "${PARITY_E2E_SPECS:-e2e/admin-adapter-parity.spec.ts}"; exec pnpm exec playwright test --workers=1 "${specs[@]}"'

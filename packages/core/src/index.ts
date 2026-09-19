@@ -420,6 +420,7 @@ export type {
   AdminContentCatalogQueryPort,
   AdminContentCatalogSortDirection,
   AdminContentCatalogSortKey,
+  RecycleBinOperationItem,
   AdminEntityCatalogItem,
   AdminNodeCatalogItem,
 } from "./application/ports/AdminContentCatalogQueryPort.js";

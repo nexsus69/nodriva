@@ -45,6 +45,7 @@ import { AdminEntityPageCoordinator } from './AdminEntityPageCoordinator';
 import { AdminNodePageCoordinator } from './AdminNodePageCoordinator';
 import { AdminTypePageCoordinator } from './AdminTypePageCoordinator';
 import { AdminAuditPageCoordinator } from './AdminAuditPageCoordinator';
+import { AdminRecycleBinPageCoordinator } from './AdminRecycleBinPageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -229,6 +230,7 @@ export class GlobalCacheClient {
     if (keys.some((key) => key === 'admin-nodes-page')) this.adminNodes.invalidateFamily();
     if (keys.some((key) => key === 'admin-entities-page')) this.adminEntities.invalidateFamily();
     if (keys.some((key) => key === 'audit')) this.adminAudits.invalidateFamily();
+    if (keys.some((key) => key === 'deleted-nodes' || key === 'deleted-entities')) this.adminRecycleBin.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
 
@@ -294,6 +296,7 @@ export class GlobalCacheClient {
     this.adminEntities.purge();
     this.adminTypes.purge();
     this.adminAudits.purge();
+    this.adminRecycleBin.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -399,6 +402,9 @@ export class GlobalCacheClient {
     () => this.ensureReadModelContinuityForCacheHit(),
     this.cacheReadTrace,
   );
+  public readonly adminRecycleBin = new AdminRecycleBinPageCoordinator(this.kernel, async (input) => {
+    return this.admin.fetchRecycleBinPage(input);
+  }, () => this.ensureReadModelContinuityForCacheHit());
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -566,6 +572,7 @@ export class GlobalCacheClient {
     this.adminEntities.purge();
     this.adminTypes.purge();
     this.adminAudits.purge();
+    this.adminRecycleBin.purge();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

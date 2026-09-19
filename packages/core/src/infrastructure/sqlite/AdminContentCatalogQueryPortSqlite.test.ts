@@ -37,4 +37,13 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
       .resolves.toEqual({ id: 'node-1' });
     expect(get).toHaveBeenCalledWith(expect.stringContaining('n.id=?'), ['node-1', 'actor', 'node.read', 'node.read']);
   });
+
+  it('applies ACL, count, stable order and limit to one causal recycle-bin page', async () => {
+    const get = vi.fn().mockReturnValue({ total: 51 });
+    const all = vi.fn().mockReturnValue([{ id: 'entity-26', kind: 'entity', name: 'Task', detail: 'Task type', deletedAt: '2026-01-02T00:00:00.000Z', rowVersion: 2, affectedNodeCount: 0, affectedEntityCount: 1 }]);
+    const database = { get, all } as unknown as SqliteDatabase;
+    const page = await new AdminContentCatalogQueryPortSqlite(database).findRecycleBinPage({ actorUserId: 'actor', page: 2, pageSize: 25 });
+    expect(page).toMatchObject({ total: 51, page: 2, pageCount: 3, items: [{ id: 'entity-26', kind: 'entity' }] });
+    expect(all).toHaveBeenCalledWith(expect.stringContaining('ORDER BY deletedAt DESC,id DESC LIMIT ? OFFSET ?'), ['actor', 'node.restore', 'node.restore', 'actor', 'entity.restore', 'entity.restore', 25, 25]);
+  });
 });

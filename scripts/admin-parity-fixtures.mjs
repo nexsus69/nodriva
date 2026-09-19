@@ -34,6 +34,7 @@ const tokenHash = (token) => crypto.createHash('sha256').update(token).digest('h
 const recoveryExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
 const pageSeedEnabled = process.env.PARITY_ENTITY_PAGE_SEED === 'true';
+const recyclePageSeedEnabled = process.env.PARITY_RECYCLE_PAGE_SEED === 'true';
 const pageSeed = Array.from({ length: 26 }, (_, index) => ({ id: `81000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged entity ${String(index + 1).padStart(2, '0')}` }));
 const pageNodeSeed = Array.from({ length: 26 }, (_, index) => ({ id: `82000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged node ${String(index + 1).padStart(2, '0')}`, pathLabel: `paged_node_${String(index + 1).padStart(2, '0')}` }));
 
@@ -98,6 +99,7 @@ async function seedSqlite() {
     infrastructure.database.run("INSERT INTO account_action_tokens(token_hash,user_id,purpose,expires_at,created_by) VALUES(?,?,?,?,?)", [tokenHash(sqliteRecoveryToken), sqliteRecoveryUserId, 'password_reset', recoveryExpiry(), adminId]);
     infrastructure.database.run('DELETE FROM audit_logs');
     if (pageSeedEnabled) for (const entity of pageSeed) infrastructure.database.run('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,created_by,updated_by,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?)', [entity.id, entityTypeId, nodeId, entity.name, 'Paged cache fixture', 1, createdAt.toISOString(), createdAt.toISOString(), adminId, adminId, '{}']);
+    if (recyclePageSeedEnabled) for (const entity of pageSeed) infrastructure.database.run('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', [`91000000-0000-0000-0000-${entity.id.slice(-12)}`, entityTypeId, nodeId, `Deleted ${entity.name}`, 'Recycle fixture', 2, createdAt.toISOString(), createdAt.toISOString(), new Date(Date.UTC(2026, 0, 2, 0, 0, 0) - Number(entity.id.slice(-2)) * 1000).toISOString(), adminId, adminId, '{}']);
   } finally {
     infrastructure.close();
   }
@@ -150,6 +152,7 @@ async function seedPostgres() {
     await executor.query("INSERT INTO account_action_tokens(token_hash,user_id,purpose,expires_at,created_by) VALUES($1,$2,'password_reset',$3,$4)", [tokenHash(postgresRecoveryToken), postgresRecoveryUserId, recoveryExpiry(), adminId]);
     await executor.query('DELETE FROM audit_logs');
     if (pageSeedEnabled) for (const entity of pageSeed) await executor.query('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,created_by,updated_by) VALUES($1,$2,$3,$4,$5,1,$6,$6,$7,$7)', [entity.id, entityTypeId, nodeId, entity.name, 'Paged cache fixture', createdAt, adminId]);
+    if (recyclePageSeedEnabled) for (const entity of pageSeed) await executor.query('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by) VALUES($1,$2,$3,$4,$5,2,$6,$6,$7,$8,$8)', [`91000000-0000-0000-0000-${entity.id.slice(-12)}`, entityTypeId, nodeId, `Deleted ${entity.name}`, 'Recycle fixture', createdAt, new Date(Date.UTC(2026, 0, 2, 0, 0, 0) - Number(entity.id.slice(-2)) * 1000), adminId]);
   } finally {
     await pool.end();
   }

@@ -5,6 +5,7 @@ import type {
   AdminContentCatalogQueryPort,
   AdminEntityCatalogItem,
   AdminNodeCatalogItem,
+  RecycleBinOperationItem,
 } from '../../application/ports/AdminContentCatalogQueryPort.js';
 import { AccessControlPortSqlite } from './AccessControlPortSqlite.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
@@ -72,5 +73,13 @@ export class AdminContentCatalogQueryPortSqlite implements AdminContentCatalogQu
     const page = Math.min(requestedPage, pageCount);
     const items = this.database.all<T>(`${select} ${from} ORDER BY ${order} LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]);
     return { items, total, page, pageCount };
+  }
+  async findRecycleBinPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<RecycleBinOperationItem>> {
+    const nodeAcl = AccessControlPortSqlite.getReadAccessControlSql('n', params.actorUserId, 'node.restore');
+    const entityAcl = AccessControlPortSqlite.getReadAccessControlSql('n', params.actorUserId, 'entity.restore');
+    const source = `SELECT n.id,'node_subtree' AS kind,n.name,n.path AS detail,n.deleted_at AS deletedAt,n.row_version AS rowVersion,(SELECT count(*) FROM nodes x WHERE x.deleted_at IS NOT NULL AND x.deletion_batch_id=n.deletion_batch_id) AS affectedNodeCount,(SELECT count(*) FROM entities x WHERE x.deleted_at IS NOT NULL AND x.deletion_batch_id=n.deletion_batch_id) AS affectedEntityCount FROM nodes n WHERE n.deleted_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM nodes p WHERE p.id=n.parent_id AND p.deleted_at IS NOT NULL AND p.deletion_batch_id=n.deletion_batch_id) AND ${nodeAcl.sql} UNION ALL SELECT e.id,'entity',e.name,et.name,e.deleted_at,e.row_version,0,1 FROM entities e JOIN nodes n ON n.id=e.parent_node_id JOIN entity_types et ON et.id=e.entity_type_id WHERE e.deleted_at IS NOT NULL AND NOT EXISTS(SELECT 1 FROM nodes r WHERE r.deleted_at IS NOT NULL AND r.deletion_batch_id=e.deletion_batch_id) AND ${entityAcl.sql}`;
+    const values = [...nodeAcl.values, ...entityAcl.values]; const pageSize = Math.min(100, Math.max(1, params.pageSize)); const requestedPage = Math.max(1, params.page);
+    const total = Number(this.database.get<{ total: number }>(`SELECT count(*) AS total FROM (${source}) operations`, values)?.total ?? 0); const pageCount = Math.max(1, Math.ceil(total / pageSize)); const page = Math.min(requestedPage, pageCount);
+    return { items: this.database.all<RecycleBinOperationItem>(`SELECT * FROM (${source}) operations ORDER BY deletedAt DESC,id DESC LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]), total, page, pageCount };
   }
 }

@@ -204,6 +204,9 @@ export class AdminCacheClient {
   /** Performs one authoritative entity-page request; normalized window policy lives in its coordinator. */
   public fetchAdminEntitiesPage = (input: Parameters<typeof adminContentActions.listAdminEntitiesPageAction>[0]) =>
     adminContentActions.listAdminEntitiesPageAction(input);
+  /** Performs one authoritative recycle-bin operation page request. */
+  public fetchRecycleBinPage = (input: Parameters<typeof adminContentActions.listRecycleBinPageAction>[0]) =>
+    adminContentActions.listRecycleBinPageAction(input);
   /** Performs the ACL-authoritative summary reread requested by entity realtime reconciliation. */
   public fetchAdminEntitySummary = (entityId: string) => adminContentActions.getAdminEntitySummaryAction(entityId);
   public listNodeTypes = () => this.read('node-types', nodeActions.listNodeTypesAction);

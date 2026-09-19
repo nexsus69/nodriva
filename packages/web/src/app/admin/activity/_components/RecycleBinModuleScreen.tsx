@@ -1,15 +1,17 @@
 "use client";
 
 /** Presents recoverable user operations rather than the individual records they affected. */
-import { useMemo } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
-import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
+import type { AdminTableColumn } from "@/adminPanel/components/AdminTable";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
-import { toRecycleOperations, type RecycleOperation } from "./recycleOperationModel";
+import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
+import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { refreshAdminCollection } from "@/adminPanel/refreshAdminCollection";
+import type { RecycleBinOperationItem as RecycleOperation } from "@dashboard/core";
 
 async function unwrap<T>(result: Promise<{ success: boolean; data?: T; error?: { message: string } }>): Promise<T> {
   const resolved = await result;
@@ -29,31 +31,33 @@ function operationImpact(operation: RecycleOperation, t: (key: string) => string
 export function RecycleBinModuleScreen() {
   const { t } = useAppLocale();
   const authorization = useAdminAuthorization();
-  const resource = useMemo(() => defineAdminResource<RecycleOperation>({
-    key: "recycle-bin",
-    moduleKey: "governance.recycle-bin",
-    label: t("admin.recycleBin"),
-    description: t("admin.recycleBinDescription"),
-    list: {
-      realtimeDependencies: ["deleted-nodes", "deleted-entities"],
-      load: async () => {
-        const [nodes, entities] = await Promise.all([
-          unwrap(AppCache.admin.listDeletedNodes()),
-          unwrap(AppCache.admin.listDeletedEntities()),
-        ]);
-        return toRecycleOperations(nodes, entities);
-      },
-      columns: [
+  const [rows, setRows] = useState<readonly RecycleOperation[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const requestVersion = useRef(0);
+  const pagination = useAdminRemotePagination({ total, stateKey: "governance.recycle-bin" });
+  const load = useCallback(async (requestedPage = pagination.page) => {
+    const version = ++requestVersion.current; setLoading(true);
+    try {
+      const result = await AppCache.adminRecycleBin.read({ page: requestedPage, pageSize: pagination.pageSize });
+      if (version !== requestVersion.current) return;
+      setRows(result.items); setTotal(result.total); pagination.setPage(result.page); setError(null);
+    } catch (cause) { if (version === requestVersion.current) setError(cause instanceof Error ? cause : new Error(String(cause))); }
+    finally { if (version === requestVersion.current) setLoading(false); }
+  }, [pagination]);
+  useEffect(() => {
+    void Promise.resolve().then(() => load());
+    // Initial loading intentionally runs once; page and realtime are explicit transitions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useAdminRealtimeCollectionRefresh(["deleted-nodes", "deleted-entities"], () => load(pagination.page));
+  const columns: readonly AdminTableColumn<RecycleOperation>[] = [
         { key: "kind", label: t("admin.resourceKind"), render: (row) => row.kind === "node_subtree" ? t("admin.recycleSubtree") : t("admin.entity") },
         { key: "name", label: t("admin.name"), render: (row) => row.name },
         { key: "impact", label: t("admin.recycleImpact"), render: (row) => operationImpact(row, t) },
         { key: "deletedAt", label: t("admin.recycleDeletedAt"), render: (row) => row.deletedAt },
-      ],
-      emptyLabel: t("admin.recycleBinEmpty"),
-      loadingLabel: t("admin.loading"),
-    },
-  }), [t]);
-  const controller = useAdminResourceController(resource, undefined);
+  ];
 
   const execute = async (operation: RecycleOperation, action: "restore" | "purge") => {
     const confirmed = await requestConfirmation({
@@ -65,10 +69,7 @@ export function RecycleBinModuleScreen() {
     });
     if (!confirmed) return;
 
-    await controller.controller.executeAction({
-      key: action,
-      label: action,
-      execute: async () => {
+    try {
         if (action === "restore" && operation.kind === "node_subtree") {
           await unwrap(AppCache.admin.restoreDeletedNode({ nodeId: operation.id, expectedRowVersion: operation.rowVersion }));
         } else if (action === "restore") {
@@ -78,24 +79,24 @@ export function RecycleBinModuleScreen() {
         } else {
           await unwrap(AppCache.admin.purgeDeletedEntity({ entityId: operation.id, confirmation: "ELIMINA DEFINITIVAMENTE" }));
         }
-      },
-    }, operation);
+      await load(pagination.page);
+    } catch (cause) { setError(cause instanceof Error ? cause : new Error(String(cause))); }
   };
 
   const definition: AdminCollectionDefinition<RecycleOperation> = {
-    title: resource.label,
-    description: resource.description,
+    title: t("admin.recycleBin"),
+    description: t("admin.recycleBinDescription"),
     icon: "recycle",
-    columns: resource.list.columns,
-    rows: controller.rows,
-    loading: controller.loading,
-    error: controller.error,
-    loadingLabel: resource.list.loadingLabel,
-    emptyLabel: resource.list.emptyLabel,
-    pagination: { stateKey: resource.moduleKey },
+    columns,
+    rows,
+    loading,
+    error,
+    loadingLabel: t("admin.loading"),
+    emptyLabel: t("admin.recycleBinEmpty"),
+    pagination: { mode: "remote", page: pagination.page, pageCount: pagination.pageCount, onPageChange: (page) => void load(page) },
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void controller.refresh(),
+    onRefresh: () => void refreshAdminCollection(() => load(pagination.page)),
     rowLabel: (row) => row.name,
     actions: [
       {
