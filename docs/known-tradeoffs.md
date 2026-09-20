@@ -2,6 +2,27 @@
 
 Questo documento traccia i trade-off architetturali noti, accettati durante lo sviluppo, che potrebbero richiedere ottimizzazioni future.
 
+## Ottimizzazione rinviata: invalidazione per faccia della risorsa estendibile
+
+Entità, nodi e analoghe risorse estendibili sono rappresentati da una parte
+comune e da facce specialistiche, per esempio payload dinamico, relazioni e
+allegati. L'attuale `rowVersion` dell'aggregato resta intenzionalmente unico e
+autorevole per lock, scritture condizionali e conflitti: una modifica a
+qualunque faccia deve impedire il salvataggio di una copia precedente.
+
+La cache può quindi marcare stale una proiezione più ampia del necessario
+quando, per esempio, cambia soltanto un campo dinamico mentre una lista usa
+solo nome e metadati comuni. È un costo di efficienza accettato, non un difetto
+di correttezza né un prerequisito della verticale corrente.
+
+Quando il carico osservato lo giustificherà, introdurre un piccolo contratto
+applicativo `ResourceChangeDescriptor`: la mutazione transazionale continuerà
+ad aggiornare il solo `rowVersion`, ma dichiarerà le facce cambiate. Una policy
+di cache pura potrà allora invalidare soltanto proiezioni dipendenti da tali
+facce. Il primo pilot dovrà essere sulle entità (comune/dinamica), con test di
+concorrenza invariata, cache hit della lista comune e refresh del dettaglio;
+solo dopo potrà estendersi a relazioni e allegati.
+
 ## Coordinatori frontend complessi
 
 Il refactoring generale ha reso `page.tsx` e `layout.tsx` semplici boundary di
