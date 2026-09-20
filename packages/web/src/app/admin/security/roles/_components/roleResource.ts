@@ -180,7 +180,7 @@ async function unwrap<T>(
 
 export function createRoleResource(
   t: AdminTranslator,
-): ReturnType<typeof defineAdminResource<RoleListItemDto, RoleDetailDto, RoleForm, undefined, string>> {
+) {
   const form = createRoleForm(t);
   const columns: readonly AdminTableColumn<RoleListItemDto>[] = [
     { key: "name", label: t("admin.name"), render: (row) => row.name, sortValue: (row) => row.name },
@@ -203,8 +203,8 @@ export function createRoleResource(
       update: ["role.update"],
     },
     list: {
+      mode: "remote",
       realtimeDependencies: ["roles", "role"],
-      load: async () => unwrap(AppCache.admin.listRoles()),
       columns,
       emptyLabel: t("admin.noRoles"),
       loadingLabel: t("admin.loadingRoles"),

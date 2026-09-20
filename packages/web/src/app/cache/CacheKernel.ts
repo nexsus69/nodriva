@@ -276,7 +276,12 @@ export class CacheKernel {
       knownDependencies.map((token) => [token, this.tokenGenerations.get(token) ?? 0])
     );
     const load = loader().then((result) => {
-      if (this.epoch !== startingEpoch) throw new CacheEpochChangedError();
+      if (this.epoch !== startingEpoch) {
+        // An epoch is a cache-generation boundary, not a user-visible failure.
+        // Release this obsolete promise before entering the current generation.
+        this.queryLoads.delete(key);
+        return this.readQuery(key, loader, options);
+      }
       const dependencies = [...new Set(result.dependencies ?? knownDependencies)];
       const changedDuringLoad = dependencies.some((token) => (
         (this.tokenGenerations.get(token) ?? 0) !== (startingGenerations.get(token) ?? 0)

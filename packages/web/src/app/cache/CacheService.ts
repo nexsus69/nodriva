@@ -573,7 +573,7 @@ export class FetchCoordinator {
     });
   }
 
-  static async executeFetch(intent: ViewIntent, viewKey: string) {
+  static async executeFetch(intent: ViewIntent, viewKey: string): Promise<void> {
     const existingView = GlobalViewStore.get(viewKey);
     const requestEpoch = AppCache.getCacheEpoch();
     const assertCurrentEpoch = () => {
@@ -664,7 +664,11 @@ export class FetchCoordinator {
         throw new Error(`ViewType ${intent.params.viewType} not supported yet.`);
       }
     } catch (error: unknown) {
-      if (error instanceof CacheEpochChangedError) throw error;
+      if (error instanceof CacheEpochChangedError) {
+        // A realtime/cache generation transition invalidates only this response.
+        // The same semantic intent must be reread, rather than rendered as an error.
+        return this.executeFetch(intent, viewKey);
+      }
       this.recordError(viewKey, error);
       throw error;
     }

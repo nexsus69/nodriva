@@ -1,7 +1,7 @@
 "use client";
 
 /** Composes scope assignments and their definition-driven creation workflow. */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { RoleListItemDto, ScopeAssignmentDto, UserListItemDto } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
@@ -13,14 +13,86 @@ import {
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
-import { useAdminResourceController } from "@/adminPanel/useAdminResourceController";
 import { canUseAdminResourceOperation, defineAdminResource } from "@/adminPanel/AdminResourceDefinition";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { loadVisibleScopeNodes, type ScopeNodeOption } from "@/app/admin/security/scopeNodeOptions";
 import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
+import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
+import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
+import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 type ScopeForm = { userId: string; nodeId: string; roleId: string; assignmentEffect: string; propagation: string };
 const EMPTY_SCOPE: ScopeForm = { userId: "", nodeId: "", roleId: "", assignmentEffect: "allow", propagation: "subtree" };
+
+/** Owns only remote scope query state; membership and ordering remain backend-authoritative. */
+function useScopesRemoteCoordinator() {
+  const moduleKey = "access.scopes";
+  const moduleState = useAdminWorkspaceStore((state) => state.moduleState[moduleKey]);
+  const setModuleState = useAdminWorkspaceStore((state) => state.setModuleState);
+  const [rows, setRows] = useState<readonly ScopeAssignmentDto[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [sort, setSortState] = useState<AdminTableSortState | null>(null);
+  const version = useRef(0);
+  const search = typeof moduleState?.search === "string" ? moduleState.search : "";
+  const pagination = useAdminRemotePagination({ total, stateKey: moduleKey });
+  const { page: currentPage, pageSize, setPage, reset } = pagination;
+  const load = useCallback(async (requestedPage = currentPage) => {
+    const request = ++version.current;
+    setLoading(true);
+    setError(null);
+    const acceptedSort = sort && ["user", "node", "role", "assignedAt"].includes(sort.columnKey)
+      ? { key: sort.columnKey as "user" | "node" | "role" | "assignedAt", direction: sort.direction }
+      : undefined;
+    try {
+      const response = await AppCache.adminScopes.read({
+        page: requestedPage,
+        pageSize,
+        search: search.trim() || undefined,
+        sort: acceptedSort,
+      });
+      if (request !== version.current) return;
+      setRows(response.items);
+      setTotal(response.total);
+      setPage(response.page);
+    } catch (reason) {
+      if (request === version.current) setError(reason instanceof Error ? reason : new Error(String(reason)));
+    } finally {
+      if (request === version.current) setLoading(false);
+    }
+  }, [currentPage, pageSize, search, setPage, sort]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+  useAdminRealtimeCollectionRefresh(["scope-assignments"], () => load(currentPage));
+  const setSearch = useCallback((next: string) => {
+    reset();
+    setModuleState(moduleKey, { search: next });
+  }, [reset, setModuleState]);
+  const setSort = useCallback((next: AdminTableSortState) => {
+    reset();
+    setSortState(next);
+  }, [reset]);
+  const execute = useCallback(async (work: () => Promise<void>) => {
+    setPending(true);
+    setError(null);
+    try {
+      await work();
+      await load();
+      return true;
+    } catch (reason) {
+      setError(reason instanceof Error ? reason : new Error(String(reason)));
+      return false;
+    } finally {
+      setPending(false);
+    }
+  }, [load]);
+  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+}
 
 /** Builds the shared scope assignment form from currently authorized choices. */
 function createScopeForm(
@@ -91,12 +163,8 @@ export function ScopesModuleScreen() {
       delete: ["scope.delete"],
     },
     list: {
+      mode: "remote",
       realtimeDependencies: ["scope-assignments"],
-      load: async () => {
-        const result = await AppCache.admin.listScopeAssignments();
-        if (!result.success || !result.data) throw new Error(result.error?.message ?? t("admin.loadingScopes"));
-        return result.data;
-      },
       columns: [
         { key: "user", label: t("admin.user"), render: (row) => row.userEmail, sortValue: (row) => row.userEmail },
         { key: "node", label: t("admin.node"), render: (row) => row.nodeName, sortValue: (row) => row.nodeName },
@@ -107,7 +175,7 @@ export function ScopesModuleScreen() {
       loadingLabel: t("admin.loadingScopes"),
     },
   }), [t]);
-  const collection = useAdminResourceController(resource, undefined);
+  const collection = useScopesRemoteCoordinator();
   const definition = useMemo(
     () => createScopeForm(t, users, roles, nodes, nodesLoading),
     [nodes, nodesLoading, roles, t, users],
@@ -153,19 +221,12 @@ export function ScopesModuleScreen() {
       assignmentEffect: formSurface.values.assignmentEffect as "allow" | "deny",
       propagation: formSurface.values.propagation as "self" | "subtree",
     };
-    const succeeded = await collection.controller.executeAction(
-      {
-        key: editing ? "update" : "create",
-        label: editing ? "update" : "create",
-        execute: async () => {
-          const result = editing
-            ? await AppCache.admin.updateScopeAssignment({ assignmentId: editing.id, roleId: values.roleId, assignmentEffect: values.assignmentEffect, propagation: values.propagation })
-            : await AppCache.admin.createScopeAssignment(values);
-          if (!result.success) throw new Error(result.error?.message ?? t("admin.loadingScopes"));
-        },
-      },
-      editing ?? ({ id: "new" } as ScopeAssignmentDto),
-    );
+    const succeeded = await collection.execute(async () => {
+      const result = editing
+        ? await AppCache.admin.updateScopeAssignment({ assignmentId: editing.id, roleId: values.roleId, assignmentEffect: values.assignmentEffect, propagation: values.propagation })
+        : await AppCache.admin.createScopeAssignment(values);
+      if (!result.success) throw new Error(result.error?.message ?? t("admin.loadingScopes"));
+    });
     if (succeeded) formSurface.complete();
   };
   const openCreate = () => {
@@ -186,17 +247,10 @@ export function ScopesModuleScreen() {
       tone: "danger",
     });
     if (!confirmed) return;
-    await collection.controller.executeAction(
-      {
-        key: "delete",
-        label: t("admin.delete"),
-        execute: async () => {
-          const result = await AppCache.admin.deleteScopeAssignment({ assignmentId: row.id });
-          if (!result.success) throw new Error(result.error?.message ?? t("admin.deleteScopeTitle"));
-        },
-      },
-      row,
-    );
+    await collection.execute(async () => {
+      const result = await AppCache.admin.deleteScopeAssignment({ assignmentId: row.id });
+      if (!result.success) throw new Error(result.error?.message ?? t("admin.deleteScopeTitle"));
+    });
   };
   const collectionDefinition: AdminCollectionDefinition<ScopeAssignmentDto> = {
     title: resource.label,
@@ -214,8 +268,16 @@ export function ScopesModuleScreen() {
     rowLabel: (row) => `${row.userEmail} · ${row.nodeName}`,
     actionMenuLabel: t("admin.actions"),
     refreshLabel: t("admin.refresh"),
-    onRefresh: () => void collection.refresh(),
-    pagination: { stateKey: resource.moduleKey },
+    onRefresh: () => void collection.load(collection.pagination.page),
+    search: { value: collection.search, label: "Cerca assegnazioni", placeholder: "Cerca assegnazioni", onChange: collection.setSearch },
+    pagination: {
+      mode: "remote",
+      page: collection.pagination.page,
+      pageCount: collection.pagination.pageCount,
+      onPageChange: (page) => void collection.load(page),
+      sort: collection.sort,
+      onSortChange: collection.setSort,
+    },
     actions: [
       { key: "edit", label: t("admin.edit"), tone: "primary", onClick: openEdit, hidden: () => !canUpdate },
       { key: "delete", label: t("admin.delete"), tone: "danger", onClick: (row) => void remove(row), hidden: () => !canDelete },

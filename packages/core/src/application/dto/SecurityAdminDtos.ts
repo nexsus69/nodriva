@@ -17,6 +17,21 @@ export interface RoleListItemDto {
   updatedAt: string;
 }
 
+/** Bounded query contract for the role catalogue. */
+export interface RoleListPageParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sort?: { key: 'name' | 'roleKey' | 'permissions'; direction: 'ascending' | 'descending' };
+}
+
+export interface RoleListPageDto {
+  items: RoleListItemDto[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
 export interface RoleDetailDto {
   id: string;
   roleKey: string;
@@ -40,6 +55,24 @@ export interface ScopeAssignmentDto {
   assignmentEffect: 'allow' | 'deny';
   propagation: 'self' | 'subtree';
   assignedAt: string;
+}
+
+/** Bounded, stable query contract for the manageable scope-assignment catalogue. */
+export interface ScopeAssignmentListPageParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sort?: {
+    key: 'user' | 'node' | 'role' | 'assignedAt';
+    direction: 'ascending' | 'descending';
+  };
+}
+
+export interface ScopeAssignmentListPageDto {
+  items: ScopeAssignmentDto[];
+  total: number;
+  page: number;
+  pageCount: number;
 }
 
 /** A grant removed because its recorded delegator no longer covers it. */

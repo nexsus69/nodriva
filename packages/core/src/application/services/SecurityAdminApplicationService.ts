@@ -9,9 +9,13 @@ import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import { Role } from '../../domain/models/Role.js';
 import type {
   RoleListItemDto,
+  RoleListPageDto,
+  RoleListPageParams,
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  ScopeAssignmentListPageDto,
+  ScopeAssignmentListPageParams,
 } from '../dto/SecurityAdminDtos.js';
 import type {
   CreateRoleCommand,
@@ -46,6 +50,12 @@ export class SecurityAdminApplicationService {
     await this.accessControlPort.assertHasPermission(actorUserId, 'role.read', null);
     await this.accessControlPort.assertIsSuperAdmin(actorUserId);
     return await this.securityRepository.listRoles();
+  }
+
+  async listRolesPage(actorUserId: string, params: RoleListPageParams): Promise<RoleListPageDto> {
+    await this.accessControlPort.assertHasPermission(actorUserId, 'role.read', null);
+    await this.accessControlPort.assertIsSuperAdmin(actorUserId);
+    return await this.securityRepository.listRolesPage(params);
   }
 
   async getRoleByKey(actorUserId: string, roleKey: string): Promise<RoleDetailDto | null> {
@@ -200,6 +210,13 @@ export class SecurityAdminApplicationService {
 
   async listScopeAssignments(actorUserId: string): Promise<ScopeAssignmentDto[]> {
     return await this.securityRepository.listScopeAssignmentsManageableBy(actorUserId);
+  }
+
+  async listScopeAssignmentsPage(
+    actorUserId: string,
+    params: ScopeAssignmentListPageParams,
+  ): Promise<ScopeAssignmentListPageDto> {
+    return await this.securityRepository.listScopeAssignmentsManageablePage(actorUserId, params);
   }
 
   async createScopeAssignment(cmd: CreateScopeAssignmentCommand): Promise<void> {

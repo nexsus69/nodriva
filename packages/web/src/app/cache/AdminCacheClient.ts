@@ -30,6 +30,8 @@ export class AdminCacheClient {
   public constructor(
     private readonly onMetadataInvalidated: MetadataInvalidator = () => undefined,
     private readonly verifyCacheHit: () => Promise<boolean> = () => Promise.resolve(true),
+    private readonly onScopeAssignmentsInvalidated: () => void = () => undefined,
+    private readonly onRolesInvalidated: () => void = () => undefined,
   ) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -58,7 +60,11 @@ export class AdminCacheClient {
 
   private write<T extends ActionResult>(keys: string[], action: () => Promise<T>): Promise<T> {
     return action().then((result) => {
-      if (result.success) this.invalidate(keys);
+      if (result.success) {
+        this.invalidate(keys);
+        if (keys.includes('scope-assignments')) this.onScopeAssignmentsInvalidated();
+        if (keys.includes('roles')) this.onRolesInvalidated();
+      }
       return result;
     });
   }
@@ -161,6 +167,7 @@ export class AdminCacheClient {
     this.write(['workflow-definitions'], () => workflowActions.publishWorkflowDefinitionAction(definition));
 
   public listRoles = () => this.read('roles', securityActions.listRolesAction);
+  public fetchRolesPage = (...args: Parameters<typeof securityActions.listRolesPageAction>) => securityActions.listRolesPageAction(...args);
   public getRoleByKey = (key: string) => this.read(`role:${key}`, () => securityActions.getRoleByKeyAction(key));
   public createRole = (cmd: Parameters<typeof securityActions.createRoleAction>[0]) =>
     this.write(['roles', 'role'], () => securityActions.createRoleAction(cmd));
@@ -172,6 +179,9 @@ export class AdminCacheClient {
     this.write(['roles', 'role'], () => securityActions.updateRoleAction(cmd));
   public listPermissions = () => this.read('permissions', securityActions.listPermissionsAction);
   public listScopeAssignments = () => this.read('scope-assignments', securityActions.listScopeAssignmentsAction);
+  /** Performs one authoritative scope page request; normalized retention lives in its coordinator. */
+  public fetchScopeAssignmentsPage = (...args: Parameters<typeof securityActions.listScopeAssignmentsPageAction>) =>
+    securityActions.listScopeAssignmentsPageAction(...args);
   public createScopeAssignment = (cmd: Parameters<typeof securityActions.createScopeAssignmentAction>[0]) =>
     this.write(['scope-assignments'], () => securityActions.createScopeAssignmentAction(cmd));
   public deleteScopeAssignment = (cmd: Parameters<typeof securityActions.deleteScopeAssignmentAction>[0]) =>

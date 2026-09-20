@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   listScopeAssignmentsAction: vi.fn(),
+  createScopeAssignmentAction: vi.fn(),
   listDeletedNodesAction: vi.fn(),
   listDeletedEntitiesAction: vi.fn(),
   restoreDeletedNodeAction: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../actions/securityActions', () => ({
   listScopeAssignmentsAction: mocks.listScopeAssignmentsAction,
+  createScopeAssignmentAction: mocks.createScopeAssignmentAction,
 }));
 vi.mock('../actions/auditActions', () => ({}));
 vi.mock('../actions/nodeActions', () => ({}));
@@ -67,6 +69,16 @@ describe('AdminCacheClient failed reads', () => {
     await client.listScopeAssignments();
 
     expect(mocks.listScopeAssignmentsAction).toHaveBeenCalledTimes(2);
+  });
+
+  it('notifies the dedicated scope-window owner after a successful scope mutation', async () => {
+    const invalidated = vi.fn();
+    mocks.createScopeAssignmentAction.mockResolvedValue({ success: true });
+    const client = new AdminCacheClient(undefined, undefined, invalidated);
+
+    await client.createScopeAssignment({ userId: 'user', nodeId: 'node', roleId: 'role', assignmentEffect: 'allow', propagation: 'self' });
+
+    expect(invalidated).toHaveBeenCalledOnce();
   });
 
   it('invalidates both recycle projections after restoring a node subtree', async () => {

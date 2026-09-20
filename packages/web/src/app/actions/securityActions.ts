@@ -16,6 +16,10 @@ import {
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  RoleListPageDto,
+  RoleListPageParams,
+  ScopeAssignmentListPageDto,
+  ScopeAssignmentListPageParams,
   ApiErrorResponse,
 } from '@dashboard/core';
 import { publishAdministrativeChange } from '../../server/adminRealtime';
@@ -38,6 +42,21 @@ export async function listRolesAction(): Promise<{
   } catch (err) {
     return { success: false, error: mapAppErrorToApiErrorResponse(err) };
   }
+}
+
+export async function listRolesPageAction(input: RoleListPageParams): Promise<{
+  success: boolean;
+  data?: RoleListPageDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    if (!Number.isInteger(input.page) || input.page < 1 || !Number.isInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > 100) throw new Error('Paginazione non valida');
+    if (input.search && input.search.length > 200) throw new Error('Ricerca troppo lunga');
+    if (input.sort && !['name', 'roleKey', 'permissions'].includes(input.sort.key)) throw new Error('Ordinamento non valido');
+    if (input.sort && !['ascending', 'descending'].includes(input.sort.direction)) throw new Error('Direzione ordinamento non valida');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await securityAdminService.listRolesPage(actorUserId, input) };
+  } catch (err) { return { success: false, error: mapErrorToApiErrorResponse(err) }; }
 }
 
 export async function getRoleByKeyAction(roleKey: string): Promise<{
@@ -173,6 +192,24 @@ export async function listScopeAssignmentsAction(): Promise<{
     const actorUserId = await AuthResolver.resolveActorUserId();
     const data = await securityAdminService.listScopeAssignments(actorUserId);
     return { success: true, data };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Bounded scope-assignment catalogue; its visibility is enforced by the application service. */
+export async function listScopeAssignmentsPageAction(input: ScopeAssignmentListPageParams): Promise<{
+  success: boolean;
+  data?: ScopeAssignmentListPageDto;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    if (!Number.isInteger(input.page) || input.page < 1 || !Number.isInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > 100) throw new Error('Paginazione non valida');
+    if (input.search && input.search.length > 200) throw new Error('Ricerca troppo lunga');
+    if (input.sort && !['user', 'node', 'role', 'assignedAt'].includes(input.sort.key)) throw new Error('Ordinamento non valido');
+    if (input.sort && !['ascending', 'descending'].includes(input.sort.direction)) throw new Error('Direzione ordinamento non valida');
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    return { success: true, data: await securityAdminService.listScopeAssignmentsPage(actorUserId, input) };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

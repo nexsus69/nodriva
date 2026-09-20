@@ -524,8 +524,12 @@ export {
 export {
   PermissionDto,
   RoleListItemDto,
+  RoleListPageDto,
+  RoleListPageParams,
   RoleDetailDto,
   ScopeAssignmentDto,
+  ScopeAssignmentListPageDto,
+  ScopeAssignmentListPageParams,
   RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
   CreateRoleUiCommand,

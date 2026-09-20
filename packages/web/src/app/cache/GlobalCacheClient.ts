@@ -46,6 +46,8 @@ import { AdminNodePageCoordinator } from './AdminNodePageCoordinator';
 import { AdminTypePageCoordinator } from './AdminTypePageCoordinator';
 import { AdminAuditPageCoordinator } from './AdminAuditPageCoordinator';
 import { AdminRecycleBinPageCoordinator } from './AdminRecycleBinPageCoordinator';
+import { AdminScopePageCoordinator } from './AdminScopePageCoordinator';
+import { AdminRolePageCoordinator } from './AdminRolePageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -231,6 +233,8 @@ export class GlobalCacheClient {
     if (keys.some((key) => key === 'admin-entities-page')) this.adminEntities.invalidateFamily();
     if (keys.some((key) => key === 'audit')) this.adminAudits.invalidateFamily();
     if (keys.some((key) => key === 'deleted-nodes' || key === 'deleted-entities')) this.adminRecycleBin.invalidateFamily();
+    if (keys.some((key) => key === 'scope-assignments')) this.adminScopes.invalidateFamily();
+    if (keys.some((key) => key === 'roles' || key === 'role')) this.adminRoles.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
 
@@ -297,6 +301,8 @@ export class GlobalCacheClient {
     this.adminTypes.purge();
     this.adminAudits.purge();
     this.adminRecycleBin.purge();
+    this.adminScopes.purge();
+    this.adminRoles.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -358,6 +364,8 @@ export class GlobalCacheClient {
   public readonly admin = new AdminCacheClient(
     (kind, typeKey) => this.invalidateMetadata(kind, typeKey),
     () => this.ensureReadModelContinuityForCacheHit(),
+    () => this.adminScopes.invalidateFamily(),
+    () => this.adminRoles.invalidateFamily(),
   );
   /** Normalized entity summaries plus bounded page windows for the administrative catalogue. */
   public readonly adminEntities = new AdminEntityPageCoordinator(
@@ -405,6 +413,25 @@ export class GlobalCacheClient {
   public readonly adminRecycleBin = new AdminRecycleBinPageCoordinator(this.kernel, async (input) => {
     return this.admin.fetchRecycleBinPage(input);
   }, () => this.ensureReadModelContinuityForCacheHit());
+  /** Authorized scope summaries plus bounded query windows for the administration catalogue. */
+  public readonly adminScopes = new AdminScopePageCoordinator(
+    this.kernel,
+    async (input) => {
+      const result = await this.admin.fetchScopeAssignmentsPage(input);
+      if (!result.success || !result.data) throw result.error ?? new Error('Caricamento assegnazioni scope non riuscito');
+      return result.data;
+    },
+    () => this.ensureReadModelContinuityForCacheHit(),
+  );
+  public readonly adminRoles = new AdminRolePageCoordinator(
+    this.kernel,
+    async (input) => {
+      const result = await this.admin.fetchRolesPage(input);
+      if (!result.success || !result.data) throw result.error ?? new Error('Caricamento ruoli non riuscito');
+      return result.data;
+    },
+    () => this.ensureReadModelContinuityForCacheHit(),
+  );
   private readonly resourceCacheInvalidation = new ResourceCacheInvalidationCoordinator({
     removeNode: (resourceId) => this.nodes.remove(resourceId),
     removeEntity: (entityTypeId, resourceId) => this.getEntityCache(entityTypeId).remove(resourceId),
@@ -573,6 +600,8 @@ export class GlobalCacheClient {
     this.adminTypes.purge();
     this.adminAudits.purge();
     this.adminRecycleBin.purge();
+    this.adminScopes.purge();
+    this.adminRoles.purge();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

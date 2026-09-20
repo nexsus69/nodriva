@@ -1,9 +1,13 @@
 import type { Role } from '../../domain/models/Role.js';
 import type {
   RoleListItemDto,
+  RoleListPageDto,
+  RoleListPageParams,
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  ScopeAssignmentListPageDto,
+  ScopeAssignmentListPageParams,
   RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
 } from '../dto/SecurityAdminDtos.js';
@@ -11,6 +15,7 @@ import type { RealtimeChannelPolicy } from '../realtime/RealtimeChannelPolicy.js
 
 export interface SecurityRepository {
   listRoles(): Promise<RoleListItemDto[]>;
+  listRolesPage(params: RoleListPageParams): Promise<RoleListPageDto>;
   getRoleByKey(roleKey: string): Promise<RoleDetailDto | null>;
   findRoleById(id: string): Promise<Role | null>;
   findRoleByKey(roleKey: string): Promise<Role | null>;
@@ -22,6 +27,7 @@ export interface SecurityRepository {
   listAllPermissions(): Promise<PermissionDto[]>;
   listScopeAssignments(): Promise<ScopeAssignmentDto[]>;
   listScopeAssignmentsManageableBy(actorUserId: string): Promise<ScopeAssignmentDto[]>;
+  listScopeAssignmentsManageablePage(actorUserId: string, params: ScopeAssignmentListPageParams): Promise<ScopeAssignmentListPageDto>;
   getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null>;
   getScopeAssignmentManageableBy(actorUserId: string, id: string): Promise<ScopeAssignmentDto | null>;
   /** Removes delegated grants that no longer have full permission coverage. */

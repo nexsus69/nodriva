@@ -41,6 +41,12 @@ costruire una lista locale e applicare poi la paginazione visiva.
 La cache può trattenere un numero esplicitamente limitato di finestre già
 visitate, identificate dalla query autorevole e dalla pagina o cursore. Non può
 fondere tali finestre in un dataset completo nel controller della collection.
+La meccanica comune (`PagedWindowCoordinator`) possiede soltanto LRU, indice
+risorsa→finestra, deduplicazione delle richieste e scarto delle risposte di una
+generazione precedente. Ogni catalogo conserva invece nel proprio coordinator
+la normalizzazione della query, il read-port autorizzato, la proiezione nel
+cache kernel e la propria policy di impatto realtime: la primitiva non decide
+mai autorizzazione, filtri o contenuto della cache.
 Cataloghi semanticamente finiti e di piccola cardinalità possono mantenere la
 paginazione client soltanto quando il loro owner documenta tale limite.
 

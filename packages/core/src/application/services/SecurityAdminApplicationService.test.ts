@@ -31,6 +31,7 @@ describe('SecurityAdminApplicationService', () => {
   beforeEach(() => {
     mockSecurityRepository = {
       listRoles: vi.fn().mockResolvedValue([]),
+      listRolesPage: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageCount: 1 }),
       getRoleByKey: vi.fn(),
       findRoleById: vi.fn().mockResolvedValue(Role.create(ROLE_ID, 'delegable_role', 'Delegable role')),
       findRoleByKey: vi.fn(),
@@ -41,6 +42,7 @@ describe('SecurityAdminApplicationService', () => {
       listAllPermissions: vi.fn().mockResolvedValue([]),
       listScopeAssignments: vi.fn().mockResolvedValue([]),
       listScopeAssignmentsManageableBy: vi.fn().mockResolvedValue([]),
+      listScopeAssignmentsManageablePage: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, pageCount: 1 }),
       getScopeAssignmentById: vi.fn(),
       getScopeAssignmentManageableBy: vi.fn(),
       revokeDelegatedScopeAssignmentsOutsideCoverage: vi.fn().mockResolvedValue([]),

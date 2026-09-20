@@ -30,7 +30,6 @@ import { getNodeBreadcrumbAction, getNodeByIdAction, moveNodeAction } from '../a
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { CacheGarbageCollector } from '../app/cache/CacheGarbageCollector';
 import { AppCache } from '../app/cache/GlobalCacheClient';
-import { CacheEpochChangedError } from '../app/cache/CacheKernel';
 
 describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
   const viewKey = 'SUBTREE_LIST|baseNodeId:test-node-1';
@@ -118,22 +117,24 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(SatisfiabilityEvaluator.evaluate(breadcrumbKey, true)).toBe('satisfied');
   });
 
-  it('does not ingest a semantic view response from a previous cache session', async () => {
+  it('discards and rereads a semantic view response from a previous cache session', async () => {
     let resolveRequest: ((nodes: never[]) => void) | undefined;
-    vi.mocked(getNodeBreadcrumbAction).mockReturnValue(new Promise((resolve) => {
-      resolveRequest = resolve;
-    }));
+    vi.mocked(getNodeBreadcrumbAction)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveRequest = resolve; }) as never)
+      .mockResolvedValue([] as never);
     const pending = ViewResolver.resolve({
       type: 'resolve',
       params: { viewType: 'BREADCRUMB', baseNodeId: 'private-node' },
       requireComplete: true,
     });
 
+    await vi.waitFor(() => expect(resolveRequest).toBeTypeOf('function'));
     AppCache.purgeAll();
     resolveRequest!([]);
 
-    await expect(pending).rejects.toBeInstanceOf(CacheEpochChangedError);
-    expect(GlobalViewStore.get('BREADCRUMB|baseNodeId:private-node')).toBeNull();
+    await expect(pending).resolves.toBeDefined();
+    expect(getNodeBreadcrumbAction).toHaveBeenCalledTimes(2);
+    expect(GlobalViewStore.get('BREADCRUMB|baseNodeId:private-node')?.status).toBe('success');
     expect(AppCache.nodes.get('private-node')).toBeNull();
   });
 

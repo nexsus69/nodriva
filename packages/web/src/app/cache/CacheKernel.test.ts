@@ -1,6 +1,6 @@
 /** Verifies normalized cache records, query invalidation, epochs, and shared freshness policy. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CacheEpochChangedError, CacheKernel } from './CacheKernel';
+import { CacheKernel } from './CacheKernel';
 
 interface TestRecord {
   id: string;
@@ -226,16 +226,20 @@ describe('CacheKernel', () => {
     expect(querySubscriber).toHaveBeenLastCalledWith(null);
   });
 
-  it('rejects a query response that completes after a session purge', async () => {
+  it('retries a query response that completes after a session purge in the current epoch', async () => {
     let resolveRequest: ((value: { ids: string[] }) => void) | undefined;
-    const pending = kernel.readQuery('private-list', () => new Promise((resolve) => {
-      resolveRequest = resolve;
-    }));
+    const loader = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveRequest = resolve;
+      }))
+      .mockResolvedValueOnce({ ids: ['current-record'] });
+    const pending = kernel.readQuery('private-list', loader);
 
     kernel.purge();
     resolveRequest!({ ids: ['private-record'] });
 
-    await expect(pending).rejects.toBeInstanceOf(CacheEpochChangedError);
-    expect(kernel.getQuery('private-list')).toBeNull();
+    await expect(pending).resolves.toMatchObject({ ids: ['current-record'] });
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(kernel.getQuery('private-list')).toMatchObject({ ids: ['current-record'] });
   });
 });

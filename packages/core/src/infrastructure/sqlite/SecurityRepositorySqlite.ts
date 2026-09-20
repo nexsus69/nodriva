@@ -1,7 +1,7 @@
 /** Implements SQLite security administration with shared scope-coverage semantics. */
 import { Role } from '../../domain/models/Role.js';
 import type { SecurityRepository } from '../../application/ports/SecurityRepository.js';
-import type { PermissionDto, RealtimeScopeAssignmentDto, RevokedDelegatedScopeAssignmentDto, RoleDetailDto, RoleListItemDto, ScopeAssignmentDto } from '../../application/dto/SecurityAdminDtos.js';
+import type { PermissionDto, RealtimeScopeAssignmentDto, RevokedDelegatedScopeAssignmentDto, RoleDetailDto, RoleListItemDto, RoleListPageDto, RoleListPageParams, ScopeAssignmentDto, ScopeAssignmentListPageDto, ScopeAssignmentListPageParams } from '../../application/dto/SecurityAdminDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
 import { createRealtimeChannelPolicy, type RealtimeChannelPolicy, type RealtimeChannelRule, type RealtimePermissionKey } from '../../application/realtime/RealtimeChannelPolicy.js';
@@ -29,6 +29,24 @@ export class SecurityRepositorySqlite implements SecurityRepository {
     return this.database.all<RoleListRow>(`SELECT r.*,COUNT(rp.permission_id) AS permissionCount FROM roles r LEFT JOIN role_permissions rp ON rp.role_id=r.id WHERE r.deleted_at IS NULL GROUP BY r.id ORDER BY r.name`).map((row) => ({
       id: row.id, roleKey: row.role_key, name: row.name, description: row.description ?? '', isSystem: Boolean(row.is_system), permissionCount: Number(row.permissionCount), updatedAt: new Date(row.updated_at).toISOString(),
     }));
+  }
+  async listRolesPage(params: RoleListPageParams): Promise<RoleListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const values: unknown[] = [];
+    const where = ['r.deleted_at IS NULL'];
+    if (params.search?.trim()) {
+      const search = `%${params.search.trim().replace(/[\\%_]/g, '\\$&')}%`;
+      where.push("(r.name LIKE ? ESCAPE '\\' OR r.role_key LIKE ? ESCAPE '\\')");
+      values.push(search, search);
+    }
+    const field = params.sort?.key === 'roleKey' ? 'r.role_key' : params.sort?.key === 'permissions' ? 'permissionCount' : 'r.name';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const filter = where.join(' AND ');
+    const total = Number(this.database.get<{ total: number }>(`SELECT COUNT(*) AS total FROM roles r WHERE ${filter}`, values)?.total ?? 0);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, params.page), pageCount);
+    const rows = this.database.all<RoleListRow>(`SELECT r.*,COUNT(rp.permission_id) AS permissionCount FROM roles r LEFT JOIN role_permissions rp ON rp.role_id=r.id WHERE ${filter} GROUP BY r.id ORDER BY ${field} ${direction},r.name ASC,r.id ASC LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]);
+    return { items: rows.map((row) => ({ id: row.id, roleKey: row.role_key, name: row.name, description: row.description ?? '', isSystem: Boolean(row.is_system), permissionCount: Number(row.permissionCount), updatedAt: new Date(row.updated_at).toISOString() })), total, page, pageCount };
   }
 
   async getRoleByKey(key: string): Promise<RoleDetailDto | null> {
@@ -59,6 +77,43 @@ export class SecurityRepositorySqlite implements SecurityRepository {
     const manageableUserIds = await this.manageableUserIds(actor);
     if (manageableUserIds.length === 0) return [];
     return this.scopeQuery(` AND sa.user_id IN (${manageableUserIds.map(() => '?').join(',')})`, manageableUserIds);
+  }
+
+  /** Scans authorized SQLite candidates in small SQL windows instead of materializing the scope catalogue. */
+  async listScopeAssignmentsManageablePage(actor: string, params: ScopeAssignmentListPageParams): Promise<ScopeAssignmentListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const actorRow = this.database.get<ActorRow>('SELECT is_super_admin FROM users WHERE id=? AND is_active=1 AND deleted_at IS NULL', [actor]);
+    if (!actorRow) return { items: [], total: 0, page: 1, pageCount: 1 };
+    const { where, values, order } = this.scopePageQuery(params);
+    if (actorRow.is_super_admin) {
+      const total = Number(this.database.get<{ total: number }>(`SELECT COUNT(*) AS total FROM node_scope_assignments sa JOIN users u ON u.id=sa.user_id JOIN nodes n ON n.id=sa.node_id JOIN roles r ON r.id=sa.role_id WHERE ${where}`, values)?.total ?? 0);
+      const pageCount = Math.max(1, Math.ceil(total / pageSize));
+      const page = Math.min(Math.max(1, params.page), pageCount);
+      const rows = this.database.all<ScopeAssignmentRow>(`${this.scopeSelectSql()} WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...values, pageSize, (page - 1) * pageSize]);
+      return { items: rows.map((row) => this.mapScopeAssignment(row)), total, page, pageCount };
+    }
+
+    const batchSize = 100;
+    const requestedPage = Math.max(1, params.page);
+    const start = (requestedPage - 1) * pageSize;
+    const items: ScopeAssignmentDto[] = [];
+    let total = 0;
+    for (let offset = 0; ; offset += batchSize) {
+      const rows = this.database.all<ScopeAssignmentRow>(`${this.scopeSelectSql()} WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`, [...values, batchSize, offset]);
+      if (rows.length === 0) break;
+      for (const row of rows) {
+        if (!await this.isUserManageableBy(actor, row.userId)) continue;
+        if (total >= start && items.length < pageSize) items.push(this.mapScopeAssignment(row));
+        total += 1;
+      }
+      if (rows.length < batchSize) break;
+    }
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, pageCount);
+    if (items.length === 0 && total > 0 && page !== requestedPage) {
+      return this.listScopeAssignmentsManageablePage(actor, { ...params, page });
+    }
+    return { items, total, page, pageCount };
   }
   async getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null> { return (await this.scopeQuery(' AND sa.id=?', [id]))[0] ?? null; }
   async getScopeAssignmentManageableBy(actor: string, id: string): Promise<ScopeAssignmentDto | null> { return (await this.listScopeAssignmentsManageableBy(actor)).find((assignment) => assignment.id === id) ?? null; }
@@ -102,7 +157,21 @@ export class SecurityRepositorySqlite implements SecurityRepository {
   }
 
   private role(row: RoleRow | undefined): Role | null { return row ? new Role(row.id, row.role_key, row.name, row.description ?? '', Boolean(row.is_system), Number(row.row_version), new Date(row.created_at), new Date(row.updated_at), row.deleted_at ? new Date(row.deleted_at) : null) : null; }
-  private async scopeQuery(extra: string, parameters: readonly unknown[] = []): Promise<ScopeAssignmentDto[]> { return this.database.all<ScopeAssignmentRow>(`SELECT sa.id,sa.user_id AS userId,u.email AS userEmail,sa.node_id AS nodeId,COALESCE(n.name,'Root Node') AS nodeName,sa.role_id AS roleId,r.name AS roleName,sa.assignment_effect AS assignmentEffect,sa.propagation,COALESCE(m.assigned_at,sa.rowid) AS assignedAt FROM node_scope_assignments sa JOIN users u ON u.id=sa.user_id LEFT JOIN nodes n ON n.id=sa.node_id LEFT JOIN roles r ON r.id=sa.role_id LEFT JOIN scope_assignment_metadata m ON m.assignment_id=sa.id WHERE 1=1${extra} ORDER BY assignedAt DESC`, parameters).map((row) => ({ ...row, assignedAt: new Date(row.assignedAt).toISOString() })); }
+  private async scopeQuery(extra: string, parameters: readonly unknown[] = []): Promise<ScopeAssignmentDto[]> { return this.database.all<ScopeAssignmentRow>(`${this.scopeSelectSql()} WHERE 1=1${extra} ORDER BY assignedAt DESC`, parameters).map((row) => this.mapScopeAssignment(row)); }
+  private scopeSelectSql(): string { return `SELECT sa.id,sa.user_id AS userId,u.email AS userEmail,sa.node_id AS nodeId,COALESCE(n.name,'Root Node') AS nodeName,sa.role_id AS roleId,r.name AS roleName,sa.assignment_effect AS assignmentEffect,sa.propagation,COALESCE(m.assigned_at,sa.rowid) AS assignedAt FROM node_scope_assignments sa JOIN users u ON u.id=sa.user_id LEFT JOIN nodes n ON n.id=sa.node_id LEFT JOIN roles r ON r.id=sa.role_id LEFT JOIN scope_assignment_metadata m ON m.assignment_id=sa.id`; }
+  private mapScopeAssignment(row: ScopeAssignmentRow): ScopeAssignmentDto { return { ...row, assignedAt: new Date(row.assignedAt).toISOString() }; }
+  private scopePageQuery(params: ScopeAssignmentListPageParams): { where: string; values: unknown[]; order: string } {
+    const values: unknown[] = [];
+    const where = ['u.deleted_at IS NULL', 'n.deleted_at IS NULL', 'r.deleted_at IS NULL'];
+    if (params.search?.trim()) {
+      const search = `%${params.search.trim().replace(/[\\%_]/g, '\\$&')}%`;
+      where.push("(u.email LIKE ? ESCAPE '\\' OR COALESCE(n.name,'Root Node') LIKE ? ESCAPE '\\' OR r.name LIKE ? ESCAPE '\\')");
+      values.push(search, search, search);
+    }
+    const field = params.sort?.key === 'node' ? "COALESCE(n.name,'Root Node')" : params.sort?.key === 'role' ? 'r.name' : params.sort?.key === 'assignedAt' ? 'assignedAt' : 'u.email';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    return { where: where.join(' AND '), values, order: `${field} ${direction}, assignedAt DESC, sa.id ASC` };
+  }
   private async policies(userId?: string): Promise<RealtimeChannelPolicy[]> {
     const users = this.database.all<RealtimePolicyUserRow>(`SELECT id,is_super_admin AS isSuperAdmin FROM users WHERE is_active=1 AND deleted_at IS NULL${userId ? ' AND id=?' : ''}`, userId ? [userId] : []);
     const policies = new Map<string, RealtimeChannelPolicy>();
@@ -124,7 +193,14 @@ export class SecurityRepositorySqlite implements SecurityRepository {
     if (row?.conflictingAssignment) issues.assignment = ['An allow/deny assignment already exists for this user, node, role and propagation.'];
     if (Object.keys(issues).length) throw new SecurityAdminValidationError('Invalid or contradictory scope assignment.', issues);
   }
-  private async manageableUserIds(actor: string): Promise<string[]> { const candidates = this.database.all<{ id: string }>(`SELECT DISTINCT u.id FROM users u JOIN node_scope_assignments sa ON sa.user_id=u.id WHERE u.deleted_at IS NULL AND u.is_super_admin=0 AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.role_key NOT IN ('default_reader','scoped_reader'))`); const manageable: string[] = []; for (const candidate of candidates) { const assignments = this.database.all<AssignmentCoverageRow>(`SELECT sa.id,sa.user_id,sa.node_id,sa.role_id,sa.propagation,COALESCE(m.assigned_by,'') AS assigned_by FROM node_scope_assignments sa LEFT JOIN scope_assignment_metadata m ON m.assignment_id=sa.id WHERE sa.user_id=? AND sa.assignment_effect='allow'`, [candidate.id]); if (assignments.length && assignments.every((assignment) => this.actorCanAssign(actor, assignment.node_id, assignment.propagation))) manageable.push(candidate.id); } return manageable; }
+  private async manageableUserIds(actor: string): Promise<string[]> { const candidates = this.database.all<{ id: string }>(`SELECT DISTINCT u.id FROM users u JOIN node_scope_assignments sa ON sa.user_id=u.id WHERE u.deleted_at IS NULL AND u.is_super_admin=0 AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.role_key NOT IN ('default_reader','scoped_reader'))`); const manageable: string[] = []; for (const candidate of candidates) if (await this.isUserManageableBy(actor, candidate.id)) manageable.push(candidate.id); return manageable; }
+  /** Single-candidate form of the same delegation policy used by the paged scanner. */
+  private async isUserManageableBy(actor: string, userId: string): Promise<boolean> {
+    const candidate = this.database.get<{ id: string }>(`SELECT u.id FROM users u WHERE u.id=? AND u.deleted_at IS NULL AND u.is_super_admin=0 AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id AND r.role_key NOT IN ('default_reader','scoped_reader'))`, [userId]);
+    if (!candidate) return false;
+    const assignments = this.database.all<AssignmentCoverageRow>(`SELECT sa.id,sa.user_id,sa.node_id,sa.role_id,sa.propagation,COALESCE(m.assigned_by,'') AS assigned_by FROM node_scope_assignments sa LEFT JOIN scope_assignment_metadata m ON m.assignment_id=sa.id WHERE sa.user_id=? AND sa.assignment_effect='allow'`, [userId]);
+    return assignments.length > 0 && assignments.every((assignment) => this.actorCanAssign(actor, assignment.node_id, assignment.propagation));
+  }
   private actorCanAssign(actor: string, nodeId: string, propagation: 'self' | 'subtree'): boolean { return hasSqlitePermissionCoverage(this.database, actor, 'scope.assign', nodeId, propagation); }
   private delegatorCovers(assignment: AssignmentCoverageRow): boolean { const delegator = this.database.get<ActorRow>(`SELECT is_super_admin FROM users WHERE id=? AND is_active=1 AND deleted_at IS NULL`, [assignment.assigned_by]); if (!delegator) return false; if (delegator.is_super_admin) return true; const permissions = this.database.all<{ permission_key: string }>('SELECT p.permission_key FROM role_permissions rp JOIN permissions p ON p.id=rp.permission_id WHERE rp.role_id=?', [assignment.role_id]); return permissions.every((permission) => this.actorHasPermissionCoverage(assignment.assigned_by!, assignment.node_id, assignment.propagation, permission.permission_key)); }
   private actorHasPermissionCoverage(actor: string, nodeId: string, propagation: 'self' | 'subtree', permissionKey: string): boolean { return hasSqlitePermissionCoverage(this.database, actor, permissionKey, nodeId, propagation); }

@@ -1,3 +1,4 @@
+/** Exercises SQLite security and type-administration behavior against its real local schema. */
 import { describe, expect, it } from 'vitest';
 import { ManagedTypeDefinition } from '../../domain/models/ManagedTypeDefinition.js';
 import { SecurityAdminValidationError } from '../../domain/errors/SecurityAdminErrors.js';
@@ -52,6 +53,35 @@ describe('SQLite security and type-admin contract', () => {
     database.run('DELETE FROM node_scope_assignments WHERE id=?', ['delegator-grant']);
     await expect(repository.revokeDelegatedScopeAssignmentsOutsideCoverage()).resolves.toEqual([expect.objectContaining({ id: 'delegated', userId: 'target', assignedBy: 'delegator' })]);
     expect(database.get('SELECT 1 FROM node_scope_assignments WHERE id=?', ['delegated'])).toBeUndefined();
+    database.close();
+  });
+
+  it('pages, searches and orders scope assignments in SQLite without returning the full catalogue', async () => {
+    const database = setup();
+    database.run('INSERT INTO users(id,email,is_active,is_super_admin) VALUES(?,?,?,?)', ['admin', 'admin@example.test', 1, 1]);
+    database.run('INSERT INTO users(id,email,is_active,is_super_admin) VALUES(?,?,?,?)', ['first', 'anna@example.test', 1, 0]);
+    database.run('INSERT INTO users(id,email,is_active,is_super_admin) VALUES(?,?,?,?)', ['second', 'bruno@example.test', 1, 0]);
+    database.run('INSERT INTO roles(id,role_key,name) VALUES(?,?,?)', ['reader', 'scoped_reader', 'Reader']);
+    database.run('INSERT INTO node_scope_assignments(id,user_id,role_id,node_id,assignment_effect,propagation) VALUES(?,?,?,?,?,?)', ['scope-first', 'first', 'reader', 'root', 'allow', 'subtree']);
+    database.run('INSERT INTO node_scope_assignments(id,user_id,role_id,node_id,assignment_effect,propagation) VALUES(?,?,?,?,?,?)', ['scope-second', 'second', 'reader', 'root', 'allow', 'subtree']);
+    const repository = new SecurityRepositorySqlite(database);
+
+    await expect(repository.listScopeAssignmentsManageablePage('admin', {
+      page: 1, pageSize: 1, search: 'bruno', sort: { key: 'user', direction: 'ascending' },
+    })).resolves.toMatchObject({ total: 1, page: 1, pageCount: 1, items: [expect.objectContaining({ id: 'scope-second' })] });
+    await expect(repository.listScopeAssignmentsManageablePage('admin', {
+      page: 2, pageSize: 1, sort: { key: 'user', direction: 'ascending' },
+    })).resolves.toMatchObject({ total: 2, page: 2, pageCount: 2, items: [expect.objectContaining({ id: 'scope-second' })] });
+    database.close();
+  });
+
+  it('pages and searches the SQLite role catalogue in SQL', async () => {
+    const database = setup();
+    database.run('INSERT INTO roles(id,role_key,name) VALUES(?,?,?)', ['reader', 'scoped_reader', 'Reader']);
+    database.run('INSERT INTO roles(id,role_key,name) VALUES(?,?,?)', ['operator', 'operator', 'Operator']);
+    const repository = new SecurityRepositorySqlite(database);
+    await expect(repository.listRolesPage({ page: 1, pageSize: 1, search: 'operator', sort: { key: 'name', direction: 'ascending' } })).resolves.toMatchObject({ total: 1, pageCount: 1, items: [expect.objectContaining({ roleKey: 'operator' })] });
+    await expect(repository.listRolesPage({ page: 2, pageSize: 1, sort: { key: 'name', direction: 'ascending' } })).resolves.toMatchObject({ total: 2, page: 2, items: [expect.objectContaining({ roleKey: 'scoped_reader' })] });
     database.close();
   });
 });

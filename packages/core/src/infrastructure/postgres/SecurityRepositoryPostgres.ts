@@ -1,10 +1,15 @@
+/** Implements PostgreSQL-backed security administration and delegated scope queries. */
 import type { SecurityRepository } from '../../application/ports/SecurityRepository.js';
 import { Role } from '../../domain/models/Role.js';
 import type {
   RoleListItemDto,
+  RoleListPageDto,
+  RoleListPageParams,
   RoleDetailDto,
   PermissionDto,
   ScopeAssignmentDto,
+  ScopeAssignmentListPageDto,
+  ScopeAssignmentListPageParams,
   RevokedDelegatedScopeAssignmentDto,
   RealtimeScopeAssignmentDto,
 } from '../../application/dto/SecurityAdminDtos.js';
@@ -87,15 +92,33 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       ORDER BY r.name ASC
     `;
     const res = await this.executor.query<RoleListRow>(query);
-    return res.rows.map((r) => ({
-      id: r.id,
-      roleKey: r.roleKey,
-      name: r.name,
-      description: r.description ?? '',
-      isSystem: Boolean(r.isSystem),
-      permissionCount: Number(r.permissionCount || 0),
-      updatedAt: new Date(r.updatedAt).toISOString(),
-    }));
+    return res.rows.map((row) => this.mapRoleListRow(row));
+  }
+
+  async listRolesPage(params: RoleListPageParams): Promise<RoleListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const values: unknown[] = [];
+    const filters = ['r.deleted_at IS NULL'];
+    if (params.search?.trim()) {
+      values.push(`%${params.search.trim().replace(/[\\%_]/g, '\\$&')}%`);
+      filters.push(`(r.name ILIKE $1 ESCAPE '\\' OR r.role_key ILIKE $1 ESCAPE '\\')`);
+    }
+    const where = filters.join(' AND ');
+    const field = params.sort?.key === 'roleKey' ? 'r.role_key' : params.sort?.key === 'permissions' ? '"permissionCount"' : 'r.name';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const total = Number((await this.executor.query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM roles r WHERE ${where}`, values)).rows[0]?.total ?? 0);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, params.page), pageCount);
+    values.push(pageSize, (page - 1) * pageSize);
+    const result = await this.executor.query<RoleListRow>(`
+      SELECT r.id, r.role_key AS "roleKey", r.name, r.description, r.is_system AS "isSystem", r.updated_at AS "updatedAt", COUNT(rp.permission_id)::int AS "permissionCount"
+      FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.id
+      WHERE ${where}
+      GROUP BY r.id
+      ORDER BY ${field} ${direction}, r.name ASC, r.id ASC
+      LIMIT $${values.length - 1} OFFSET $${values.length}
+    `, values);
+    return { items: result.rows.map((row) => this.mapRoleListRow(row)), total, page, pageCount };
   }
 
   async getRoleByKey(roleKey: string): Promise<RoleDetailDto | null> {
@@ -290,6 +313,67 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       ORDER BY sa.assigned_at DESC
     `, [actorUserId]);
     return res.rows.map((r) => this.mapScopeAssignment(r));
+  }
+
+  /** Applies delegation, search and ordering in PostgreSQL before projecting one bounded page. */
+  async listScopeAssignmentsManageablePage(
+    actorUserId: string,
+    params: ScopeAssignmentListPageParams,
+  ): Promise<ScopeAssignmentListPageDto> {
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const values: unknown[] = [actorUserId];
+    const filters = [
+      'u.deleted_at IS NULL',
+      'n.deleted_at IS NULL',
+      'r.deleted_at IS NULL',
+      `((SELECT is_super_admin FROM actor) = true OR u.id IN (${this.manageableUserIdsSql()}))`,
+    ];
+    const search = params.search?.trim();
+    if (search) {
+      values.push(`%${search.replace(/[\\%_]/g, '\\$&')}%`);
+      const parameter = `$${values.length}`;
+      filters.push(`(u.email ILIKE ${parameter} ESCAPE '\\' OR COALESCE(n.name, 'Root Node') ILIKE ${parameter} ESCAPE '\\' OR r.name ILIKE ${parameter} ESCAPE '\\')`);
+    }
+    const where = filters.join(' AND ');
+    const sortField = params.sort?.key === 'node'
+      ? "COALESCE(n.name, 'Root Node')"
+      : params.sort?.key === 'role'
+        ? 'r.name'
+        : params.sort?.key === 'assignedAt'
+          ? 'sa.assigned_at'
+          : 'u.email';
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const totalResult = await this.executor.query<{ total: number }>(`
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
+      )
+      SELECT COUNT(*)::int AS total
+      FROM node_scope_assignments sa
+      JOIN users u ON u.id = sa.user_id
+      JOIN nodes n ON n.id = sa.node_id
+      JOIN roles r ON r.id = sa.role_id
+      WHERE ${where}
+    `, values);
+    const total = Number(totalResult.rows[0]?.total ?? 0);
+    const pageCount = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Math.max(1, params.page), pageCount);
+    values.push(pageSize, (page - 1) * pageSize);
+    const result = await this.executor.query<ScopeAssignmentRow>(`
+      WITH actor AS (
+        SELECT is_super_admin FROM users WHERE id = $1 AND is_active AND deleted_at IS NULL
+      )
+      SELECT sa.id, sa.user_id AS "userId", u.email AS "userEmail", sa.node_id AS "nodeId",
+             COALESCE(n.name, 'Root Node') AS "nodeName", sa.role_id AS "roleId", r.name AS "roleName",
+             sa.assignment_effect AS "assignmentEffect", sa.propagation, sa.assigned_at AS "assignedAt"
+      FROM node_scope_assignments sa
+      JOIN users u ON u.id = sa.user_id
+      JOIN nodes n ON n.id = sa.node_id
+      JOIN roles r ON r.id = sa.role_id
+      WHERE ${where}
+      ORDER BY ${sortField} ${direction}, sa.assigned_at DESC, sa.id ASC
+      LIMIT $${values.length - 1} OFFSET $${values.length}
+    `, values);
+    return { items: result.rows.map((row) => this.mapScopeAssignment(row)), total, page, pageCount };
   }
 
   async getScopeAssignmentById(id: string): Promise<ScopeAssignmentDto | null> {
@@ -655,6 +739,18 @@ export class SecurityRepositoryPostgres implements SecurityRepository {
       nodeName: row.nodeName, roleId: row.roleId, roleName: row.roleName,
       assignmentEffect: row.assignmentEffect, propagation: row.propagation,
       assignedAt: new Date(row.assignedAt).toISOString(),
+    };
+  }
+
+  private mapRoleListRow(row: RoleListRow): RoleListItemDto {
+    return {
+      id: row.id,
+      roleKey: row.roleKey,
+      name: row.name,
+      description: row.description ?? '',
+      isSystem: Boolean(row.isSystem),
+      permissionCount: Number(row.permissionCount || 0),
+      updatedAt: new Date(row.updatedAt).toISOString(),
     };
   }
 

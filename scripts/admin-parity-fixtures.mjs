@@ -35,8 +35,10 @@ const recoveryExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString()
 const createdAt = new Date('2026-01-01T00:00:00.000Z');
 const pageSeedEnabled = process.env.PARITY_ENTITY_PAGE_SEED === 'true';
 const recyclePageSeedEnabled = process.env.PARITY_RECYCLE_PAGE_SEED === 'true';
+const rolePageSeedEnabled = process.env.PARITY_ROLE_PAGE_SEED === 'true';
 const pageSeed = Array.from({ length: 26 }, (_, index) => ({ id: `81000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged entity ${String(index + 1).padStart(2, '0')}` }));
 const pageNodeSeed = Array.from({ length: 26 }, (_, index) => ({ id: `82000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, name: `Paged node ${String(index + 1).padStart(2, '0')}`, pathLabel: `paged_node_${String(index + 1).padStart(2, '0')}` }));
+const pageRoleSeed = Array.from({ length: 26 }, (_, index) => ({ id: `83000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`, key: `paged_role_${String(index + 1).padStart(2, '0')}`, name: `00 Paged role ${String(index + 1).padStart(2, '0')}` }));
 
 function parityNode(id = nodeId, path = 'admin_parity_root', name = 'Admin parity root', parentId = null, depth = 0, pathLabel = path) {
   return new Node(
@@ -100,6 +102,7 @@ async function seedSqlite() {
     infrastructure.database.run('DELETE FROM audit_logs');
     if (pageSeedEnabled) for (const entity of pageSeed) infrastructure.database.run('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,created_by,updated_by,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?)', [entity.id, entityTypeId, nodeId, entity.name, 'Paged cache fixture', 1, createdAt.toISOString(), createdAt.toISOString(), adminId, adminId, '{}']);
     if (recyclePageSeedEnabled) for (const entity of pageSeed) infrastructure.database.run('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by,payload) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', [`91000000-0000-0000-0000-${entity.id.slice(-12)}`, entityTypeId, nodeId, `Deleted ${entity.name}`, 'Recycle fixture', 2, createdAt.toISOString(), createdAt.toISOString(), new Date(Date.UTC(2026, 0, 2, 0, 0, 0) - Number(entity.id.slice(-2)) * 1000).toISOString(), adminId, adminId, '{}']);
+    if (rolePageSeedEnabled) for (const role of pageRoleSeed) infrastructure.database.run('INSERT INTO roles(id,role_key,name,description,is_system,row_version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)', [role.id, role.key, role.name, 'Paged cache fixture', 0, 1, createdAt.toISOString(), createdAt.toISOString()]);
   } finally {
     infrastructure.close();
   }
@@ -153,6 +156,7 @@ async function seedPostgres() {
     await executor.query('DELETE FROM audit_logs');
     if (pageSeedEnabled) for (const entity of pageSeed) await executor.query('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,created_by,updated_by) VALUES($1,$2,$3,$4,$5,1,$6,$6,$7,$7)', [entity.id, entityTypeId, nodeId, entity.name, 'Paged cache fixture', createdAt, adminId]);
     if (recyclePageSeedEnabled) for (const entity of pageSeed) await executor.query('INSERT INTO entities(id,entity_type_id,parent_node_id,name,description,row_version,created_at,updated_at,deleted_at,created_by,updated_by) VALUES($1,$2,$3,$4,$5,2,$6,$6,$7,$8,$8)', [`91000000-0000-0000-0000-${entity.id.slice(-12)}`, entityTypeId, nodeId, `Deleted ${entity.name}`, 'Recycle fixture', createdAt, new Date(Date.UTC(2026, 0, 2, 0, 0, 0) - Number(entity.id.slice(-2)) * 1000), adminId]);
+    if (rolePageSeedEnabled) for (const role of pageRoleSeed) await executor.query('INSERT INTO roles(id,role_key,name,description,is_system,row_version,created_at,updated_at) VALUES($1,$2,$3,$4,false,1,$5,$5)', [role.id, role.key, role.name, 'Paged cache fixture', createdAt]);
   } finally {
     await pool.end();
   }
