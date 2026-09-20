@@ -2,6 +2,8 @@
 import type {
   EventTypeDefinition,
   WorkflowDefinition,
+  WorkflowDefinitionListPageDto,
+  WorkflowDefinitionListPageParams,
   WorkflowEvent,
   WorkflowExecutionPlan,
   WorkflowExecutionStep,
@@ -22,7 +24,9 @@ export interface WorkflowRepository {
   listEventTypes(): Promise<EventTypeDefinition[]>;
   saveDefinition(definition: WorkflowDefinition): Promise<boolean>;
   findDefinition(workflowId: string, version: number): Promise<WorkflowDefinition | null>;
+  findLatestDefinitionVersion(workflowId: string): Promise<number>;
   listDefinitions(): Promise<WorkflowDefinition[]>;
+  listDefinitionsPage(params: WorkflowDefinitionListPageParams): Promise<WorkflowDefinitionListPageDto>;
   listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]>;
   recordEvent(event: WorkflowEvent): Promise<boolean>;
   recordPlan(plan: WorkflowExecutionPlan): Promise<boolean>;

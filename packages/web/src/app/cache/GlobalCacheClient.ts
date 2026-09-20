@@ -48,6 +48,7 @@ import { AdminAuditPageCoordinator } from './AdminAuditPageCoordinator';
 import { AdminRecycleBinPageCoordinator } from './AdminRecycleBinPageCoordinator';
 import { AdminScopePageCoordinator } from './AdminScopePageCoordinator';
 import { AdminRolePageCoordinator } from './AdminRolePageCoordinator';
+import { AdminWorkflowPageCoordinator } from './AdminWorkflowPageCoordinator';
 import { CacheKernel, type RecordSatisfaction } from './CacheKernel';
 import { MetadataCacheClient } from './MetadataCacheClient';
 import { KernelNodeCacheClient } from './KernelNodeCacheClient';
@@ -235,6 +236,7 @@ export class GlobalCacheClient {
     if (keys.some((key) => key === 'deleted-nodes' || key === 'deleted-entities')) this.adminRecycleBin.invalidateFamily();
     if (keys.some((key) => key === 'scope-assignments')) this.adminScopes.invalidateFamily();
     if (keys.some((key) => key === 'roles' || key === 'role')) this.adminRoles.invalidateFamily();
+    if (keys.some((key) => key === 'workflow-definitions')) this.adminWorkflows.invalidateFamily();
     this.adminRealtimeInvalidationBus.publish(keys);
   }
 
@@ -303,6 +305,7 @@ export class GlobalCacheClient {
     this.adminRecycleBin.purge();
     this.adminScopes.purge();
     this.adminRoles.purge();
+    this.adminWorkflows.purge();
     GlobalViewStore.purge();
     GlobalPolicyRegistry.purge();
     this.lockStore.clearReadModel();
@@ -366,6 +369,7 @@ export class GlobalCacheClient {
     () => this.ensureReadModelContinuityForCacheHit(),
     () => this.adminScopes.invalidateFamily(),
     () => this.adminRoles.invalidateFamily(),
+    () => this.adminWorkflows.invalidateFamily(),
   );
   /** Normalized entity summaries plus bounded page windows for the administrative catalogue. */
   public readonly adminEntities = new AdminEntityPageCoordinator(
@@ -428,6 +432,16 @@ export class GlobalCacheClient {
     async (input) => {
       const result = await this.admin.fetchRolesPage(input);
       if (!result.success || !result.data) throw result.error ?? new Error('Caricamento ruoli non riuscito');
+      return result.data;
+    },
+    () => this.ensureReadModelContinuityForCacheHit(),
+  );
+  /** Authorized workflow summaries plus bounded query windows for administration. */
+  public readonly adminWorkflows = new AdminWorkflowPageCoordinator(
+    this.kernel,
+    async (input) => {
+      const result = await this.admin.fetchWorkflowDefinitionsPage(input);
+      if (!result.success || !result.data) throw new Error(result.error?.message ?? 'Unable to load workflows.');
       return result.data;
     },
     () => this.ensureReadModelContinuityForCacheHit(),
@@ -602,6 +616,7 @@ export class GlobalCacheClient {
     this.adminRecycleBin.purge();
     this.adminScopes.purge();
     this.adminRoles.purge();
+    this.adminWorkflows.purge();
     
     if (this.entityCaches) {
       this.entityCaches.forEach(cache => cache.purge());

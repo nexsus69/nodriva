@@ -52,6 +52,21 @@ export interface WorkflowDefinition {
   isActive: boolean;
 }
 
+/** Bounded, authorized query contract for the administrative workflow catalogue. */
+export interface WorkflowDefinitionListPageParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+  sort?: { key: 'workflowId' | 'name' | 'version' | 'status'; direction: 'ascending' | 'descending' };
+}
+
+export interface WorkflowDefinitionListPageDto {
+  items: WorkflowDefinition[];
+  total: number;
+  page: number;
+  pageCount: number;
+}
+
 export interface WorkflowExecutionPlan {
   workflowId: string;
   workflowVersion: number;

@@ -9,7 +9,7 @@ import { WorkflowAdminApplicationService } from './WorkflowAdminApplicationServi
 function service() {
   const repository: WorkflowRepository = {
     registerEventType: vi.fn(), findEventType: vi.fn().mockResolvedValue({ eventType: 'record.created', subjectKinds: ['node'], payloadVersion: 1, isActive: true }),
-    listEventTypes: vi.fn(), saveDefinition: vi.fn().mockResolvedValue(true), findDefinition: vi.fn(), listDefinitions: vi.fn(), listActiveDefinitions: vi.fn(),
+    listEventTypes: vi.fn(), saveDefinition: vi.fn().mockResolvedValue(true), findDefinition: vi.fn(), findLatestDefinitionVersion: vi.fn().mockResolvedValue(0), listDefinitions: vi.fn(), listDefinitionsPage: vi.fn(), listActiveDefinitions: vi.fn(),
     recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
   };
   const audit: AuditPort = { record: vi.fn() };
@@ -26,6 +26,21 @@ describe('WorkflowAdminApplicationService', () => {
     const context = service();
     await expect(context.app.listActionTypes('admin-1')).resolves.toEqual(['audit.record']);
     expect(context.access.assertHasPermission).toHaveBeenCalledWith('admin-1', 'system.config.read', null);
+  });
+
+  it('delegates one bounded workflow window after the read authorization check', async () => {
+    const context = service();
+    vi.mocked(context.repository.listDefinitionsPage).mockResolvedValue({ items: [], total: 0, page: 1, pageCount: 1 });
+    await context.app.listDefinitionsPage('admin-1', { page: 1, pageSize: 25, search: 'audit' });
+    expect(context.access.assertHasPermission).toHaveBeenCalledWith('admin-1', 'system.config.read', null);
+    expect(context.repository.listDefinitionsPage).toHaveBeenCalledWith({ page: 1, pageSize: 25, search: 'audit' });
+  });
+
+  it('derives a next immutable version without loading the workflow catalogue', async () => {
+    const context = service();
+    vi.mocked(context.repository.findLatestDefinitionVersion).mockResolvedValue(4);
+    await expect(context.app.nextDefinitionVersion('admin-1', 'record_history')).resolves.toBe(5);
+    expect(context.repository.listDefinitions).not.toHaveBeenCalled();
   });
 
   it('publishes a new immutable definition only with configuration permission and an audit trace', async () => {

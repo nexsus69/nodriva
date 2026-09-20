@@ -26,6 +26,8 @@ function createProcessor(overrides: Partial<WorkflowRepository> = {}) {
     saveDefinition: vi.fn(),
     findDefinition: vi.fn(),
     listDefinitions: vi.fn(),
+    listDefinitionsPage: vi.fn(),
+    findLatestDefinitionVersion: vi.fn(),
     listEventTypes: vi.fn(),
     listActiveDefinitions: vi.fn().mockResolvedValue([{
       workflowId: 'notify-scope-revocation', version: 1, isActive: true,

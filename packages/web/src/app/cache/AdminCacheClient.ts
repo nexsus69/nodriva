@@ -32,6 +32,7 @@ export class AdminCacheClient {
     private readonly verifyCacheHit: () => Promise<boolean> = () => Promise.resolve(true),
     private readonly onScopeAssignmentsInvalidated: () => void = () => undefined,
     private readonly onRolesInvalidated: () => void = () => undefined,
+    private readonly onWorkflowsInvalidated: () => void = () => undefined,
   ) {}
 
   private read<T>(key: string, action: () => Promise<T>): Promise<T> {
@@ -64,6 +65,7 @@ export class AdminCacheClient {
         this.invalidate(keys);
         if (keys.includes('scope-assignments')) this.onScopeAssignmentsInvalidated();
         if (keys.includes('roles')) this.onRolesInvalidated();
+        if (keys.includes('workflow-definitions')) this.onWorkflowsInvalidated();
       }
       return result;
     });
@@ -163,8 +165,10 @@ export class AdminCacheClient {
   public listWorkflowEventTypes = () => this.read('workflow-event-types', workflowActions.listWorkflowEventTypesAction);
   public listWorkflowActionTypes = () => this.read('workflow-action-types', workflowActions.listWorkflowActionTypesAction);
   public listWorkflowDefinitions = () => this.read('workflow-definitions', workflowActions.listWorkflowDefinitionsAction);
+  public fetchWorkflowDefinitionsPage = (...args: Parameters<typeof workflowActions.listWorkflowDefinitionsPageAction>) => workflowActions.listWorkflowDefinitionsPageAction(...args);
+  public nextWorkflowDefinitionVersion = (workflowId: string) => this.read(`workflow-next-version:${workflowId}`, () => workflowActions.nextWorkflowDefinitionVersionAction(workflowId));
   public publishWorkflowDefinition = (definition: Parameters<typeof workflowActions.publishWorkflowDefinitionAction>[0]) =>
-    this.write(['workflow-definitions'], () => workflowActions.publishWorkflowDefinitionAction(definition));
+    this.write(['workflow-definitions', 'workflow-next-version'], () => workflowActions.publishWorkflowDefinitionAction(definition));
 
   public listRoles = () => this.read('roles', securityActions.listRolesAction);
   public fetchRolesPage = (...args: Parameters<typeof securityActions.listRolesPageAction>) => securityActions.listRolesPageAction(...args);

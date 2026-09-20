@@ -45,4 +45,14 @@ describe('WorkflowRepositoryPostgres', () => {
     });
     expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("COUNT(*) FILTER (WHERE status='pending')"));
   });
+
+  it('bounds workflow catalogue search and ordering in PostgreSQL', async () => {
+    const executor = { query: vi.fn()
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ total: '26' }] })
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ definition_payload: { workflowId: 'audit', name: 'Audit', version: 2, isActive: true, triggerEventTypes: [], conditions: [], steps: [] }, is_active: true }] }),
+    } as unknown as PgExecutor;
+    const page = await new WorkflowRepositoryPostgres(executor).listDefinitionsPage({ page: 2, pageSize: 25, search: 'audit', sort: { key: 'version', direction: 'descending' } });
+    expect(page).toMatchObject({ total: 26, page: 2, pageCount: 2, items: [{ workflowId: 'audit', version: 2 }] });
+    expect(executor.query).toHaveBeenNthCalledWith(2, expect.stringContaining('LIMIT $3 OFFSET $4'), ['audit', '%audit%', 25, 25]);
+  });
 });

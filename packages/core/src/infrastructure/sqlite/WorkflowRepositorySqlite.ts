@@ -3,6 +3,8 @@ import type { WorkflowOperationalStats, WorkflowRepository } from '../../applica
 import type {
   EventTypeDefinition,
   WorkflowDefinition,
+  WorkflowDefinitionListPageDto,
+  WorkflowDefinitionListPageParams,
   WorkflowEvent,
   WorkflowExecutionPlan,
   WorkflowExecutionStep,
@@ -103,10 +105,37 @@ export class WorkflowRepositorySqlite implements WorkflowRepository {
     return row ? this.mapDefinition(row) : null;
   }
 
+  async findLatestDefinitionVersion(workflowId: string): Promise<number> {
+    return Number(this.database.get<{ version: number | null }>('SELECT MAX(version) AS version FROM workflow_definitions WHERE workflow_id=?', [workflowId])?.version ?? 0);
+  }
+
   async listDefinitions(): Promise<WorkflowDefinition[]> {
     return this.database.all<WorkflowDefinitionRow>(
       'SELECT definition_payload, is_active FROM workflow_definitions ORDER BY workflow_id ASC, version DESC',
     ).map((row) => this.mapDefinition(row));
+  }
+
+  async listDefinitionsPage(params: WorkflowDefinitionListPageParams): Promise<WorkflowDefinitionListPageDto> {
+    const page = Math.max(1, params.page);
+    const pageSize = Math.min(100, Math.max(1, params.pageSize));
+    const search = params.search?.trim() ?? '';
+    const pattern = `%${search}%`;
+    const where = `WHERE (? = '' OR workflow_id LIKE ? COLLATE NOCASE OR COALESCE(json_extract(definition_payload, '$.name'), '') LIKE ? COLLATE NOCASE OR COALESCE(json_extract(definition_payload, '$.description'), '') LIKE ? COLLATE NOCASE)`;
+    const count = this.database.get<{ total: number }>(`SELECT COUNT(*) AS total FROM workflow_definitions ${where}`, [search, pattern, pattern, pattern]);
+    const orderBy = {
+      workflowId: 'workflow_id',
+      name: "COALESCE(json_extract(definition_payload, '$.name'), workflow_id)",
+      version: 'version',
+      status: 'is_active',
+    }[params.sort?.key ?? 'workflowId'];
+    const direction = params.sort?.direction === 'descending' ? 'DESC' : 'ASC';
+    const rows = this.database.all<WorkflowDefinitionRow>(
+      `SELECT definition_payload, is_active FROM workflow_definitions ${where}
+       ORDER BY ${orderBy} ${direction}, workflow_id ASC, version DESC LIMIT ? OFFSET ?`,
+      [search, pattern, pattern, pattern, pageSize, (page - 1) * pageSize],
+    );
+    const total = count?.total ?? 0;
+    return { items: rows.map((row) => this.mapDefinition(row)), total, page, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
   }
 
   async listActiveDefinitions(eventType: string): Promise<WorkflowDefinition[]> {

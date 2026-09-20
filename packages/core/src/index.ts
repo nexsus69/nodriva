@@ -14,7 +14,7 @@ export { AuditRecordWorkflowActionHandler } from "./application/services/AuditRe
 export { WorkflowDefinitionService } from "./application/services/WorkflowDefinitionService.js";
 export { WorkflowAdminApplicationService } from "./application/services/WorkflowAdminApplicationService.js";
 export type { WorkflowActionHandler, WorkflowActionRegistry } from "./application/ports/WorkflowActionHandler.js";
-export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowEvent, WorkflowExecutionPlan, WorkflowExecutionStep, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
+export type { EventSubject, EventTypeDefinition, WorkflowCondition, WorkflowDefinition, WorkflowDefinitionListPageDto, WorkflowDefinitionListPageParams, WorkflowEvent, WorkflowExecutionPlan, WorkflowExecutionStep, WorkflowStepDefinition } from "./domain/events/WorkflowEvent.js";
 export type { WorkflowOperationalStats, WorkflowRepository } from "./application/ports/WorkflowRepository.js";
 export { Node } from "./domain/models/Node.js";
 export { Entity } from "./domain/models/Entity.js";

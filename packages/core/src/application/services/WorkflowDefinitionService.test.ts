@@ -7,7 +7,7 @@ function createService(existing = true) {
   const repository: WorkflowRepository = {
     registerEventType: vi.fn(),
     findEventType: vi.fn().mockResolvedValue(existing ? { eventType: 'custom.invoice.approved', subjectKinds: ['invoice'], payloadVersion: 1, isActive: true } : null),
-    saveDefinition: vi.fn().mockResolvedValue(true), findDefinition: vi.fn(), listDefinitions: vi.fn().mockResolvedValue([]), listEventTypes: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
+    saveDefinition: vi.fn().mockResolvedValue(true), findDefinition: vi.fn(), findLatestDefinitionVersion: vi.fn(), listDefinitions: vi.fn().mockResolvedValue([]), listDefinitionsPage: vi.fn(), listEventTypes: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(), claimPendingSteps: vi.fn(), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
     listActiveDefinitions: vi.fn(),
   };
   return { service: new WorkflowDefinitionService(repository), repository };

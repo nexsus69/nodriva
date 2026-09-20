@@ -16,7 +16,7 @@ const step = {
 
 function createWorker(handler: { execute: ReturnType<typeof vi.fn> } | null) {
   const repository: WorkflowRepository = {
-    registerEventType: vi.fn(), findEventType: vi.fn(), listEventTypes: vi.fn(), saveDefinition: vi.fn(), findDefinition: vi.fn(), listDefinitions: vi.fn(), listActiveDefinitions: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(),
+    registerEventType: vi.fn(), findEventType: vi.fn(), listEventTypes: vi.fn(), saveDefinition: vi.fn(), findDefinition: vi.fn(), findLatestDefinitionVersion: vi.fn(), listDefinitions: vi.fn(), listDefinitionsPage: vi.fn(), listActiveDefinitions: vi.fn(), recordEvent: vi.fn(), recordPlan: vi.fn(),
     claimPendingSteps: vi.fn().mockResolvedValue([step]), markStepCompleted: vi.fn(), markStepFailed: vi.fn(), getOperationalStats: vi.fn(),
   };
   const registry: WorkflowActionRegistry = {

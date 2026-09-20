@@ -1,5 +1,5 @@
 /** Secures immutable generic workflow configuration and records its governance history. */
-import type { EventTypeDefinition, WorkflowDefinition } from '../../domain/events/WorkflowEvent.js';
+import type { EventTypeDefinition, WorkflowDefinition, WorkflowDefinitionListPageDto, WorkflowDefinitionListPageParams } from '../../domain/events/WorkflowEvent.js';
 import type { AccessControlPort } from '../ports/AccessControlPort.js';
 import type { AuditPort } from '../ports/AuditPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
@@ -29,6 +29,16 @@ export class WorkflowAdminApplicationService {
   async listDefinitions(actorUserId: string): Promise<WorkflowDefinition[]> {
     await this.accessControlPort.assertHasPermission(actorUserId, 'system.config.read', null);
     return this.repository.listDefinitions();
+  }
+
+  async listDefinitionsPage(actorUserId: string, params: WorkflowDefinitionListPageParams): Promise<WorkflowDefinitionListPageDto> {
+    await this.accessControlPort.assertHasPermission(actorUserId, 'system.config.read', null);
+    return this.repository.listDefinitionsPage(params);
+  }
+
+  async nextDefinitionVersion(actorUserId: string, workflowId: string): Promise<number> {
+    await this.accessControlPort.assertHasPermission(actorUserId, 'system.config.read', null);
+    return (await this.repository.findLatestDefinitionVersion(workflowId)) + 1;
   }
 
   /** Lists only action contracts that this deployment can execute safely. */
