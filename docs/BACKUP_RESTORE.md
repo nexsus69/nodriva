@@ -79,8 +79,11 @@ Il file `.sha256` affiancato è obbligatorio anche per `verify`: un checksum
 mancante, malformato o non corrispondente interrompe la procedura prima del
 restore. La verifica controlla inoltre la presenza e l'interrogabilità delle
 tabelle principali e verifica che i conteggi siano interrogabili nella copia
-ripristinata per utenti, nodi, entità, tipi, audit, allegati, cifratura campi e
-outbox realtime. Non confronta il database sorgente che può essere cambiato.
+ripristinata per utenti, nodi, entità, tipi, audit, allegati, cifratura campi,
+outbox realtime e relazioni. Per ciascun tipo attivo verifica anche la rispettiva
+tabella dinamica e ne conta le righe. L'esito riporta solo conteggi aggregati,
+utili per la revisione operativa senza esporre contenuti o identificativi. Non
+confronta il database sorgente che può essere cambiato.
 
 ## Restore operativo
 

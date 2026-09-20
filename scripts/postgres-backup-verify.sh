@@ -121,23 +121,42 @@ verify_backup() {
     docker exec -i "$CONTAINER_NAME" pg_restore --exit-on-error --no-owner --no-acl -U "$POSTGRES_USER_NAME" -d "$verify_database" < "$backup_path"
   fi
 
-  local required_tables=(users nodes entities node_types entity_types audit_logs runtime_capabilities realtime_event_outbox resource_attachments resource_field_ciphertexts)
+  local required_tables=(users nodes entities node_types entity_types audit_logs runtime_capabilities realtime_event_outbox resource_attachments resource_field_ciphertexts resource_relationships)
   local table_name
   for table_name in "${required_tables[@]}"; do
     [[ "$(database_scalar "$verify_database" "SELECT to_regclass('public.$table_name') IS NOT NULL;")" == "t" ]] || fail "restored database is missing table: $table_name"
   done
 
-  [[ "$(database_scalar "$verify_database" "SELECT COUNT(*) FROM users;")" =~ ^[0-9]+$ ]] || fail "users table cannot be queried after restore"
-  [[ "$(database_scalar "$verify_database" "SELECT COUNT(*) FROM audit_logs;")" =~ ^[0-9]+$ ]] || fail "audit_logs table cannot be queried after restore"
+  local users_count nodes_count entities_count audit_count attachment_count relationship_count
+  users_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM users;")"
+  nodes_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM nodes;")"
+  entities_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM entities;")"
+  audit_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM audit_logs;")"
+  attachment_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM resource_attachments;")"
+  relationship_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM resource_relationships;")"
+  for restored_count in "$users_count" "$nodes_count" "$entities_count" "$audit_count" "$attachment_count" "$relationship_count"; do
+    [[ "$restored_count" =~ ^[0-9]+$ ]] || fail "restored core table cannot be counted"
+  done
   [[ "$(database_scalar "$verify_database" "SELECT COUNT(*) FROM pg_class WHERE relkind IN ('r','p','v','m');")" -gt 0 ]] || fail "restored catalog contains no relations"
 
-  local data_table restored_count
+  local data_table restored_count dynamic_table_count=0 dynamic_row_count=0
   for data_table in users nodes entities node_types entity_types audit_logs resource_attachments resource_field_ciphertexts realtime_event_outbox; do
     restored_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM $data_table;")"
     [[ "$restored_count" =~ ^[0-9]+$ ]] || fail "restored table cannot be counted: $data_table"
   done
 
-  printf 'Restore verification passed in disposable database: %s\n' "$verify_database"
+  while IFS= read -r data_table; do
+    validate_identifier "$data_table"
+    [[ "$(database_scalar "$verify_database" "SELECT to_regclass('public.$data_table') IS NOT NULL;")" == "t" ]] \
+      || fail "restored dynamic storage table is missing: $data_table"
+    restored_count="$(database_scalar "$verify_database" "SELECT COUNT(*) FROM \"$data_table\";")"
+    [[ "$restored_count" =~ ^[0-9]+$ ]] || fail "restored dynamic storage table cannot be counted: $data_table"
+    dynamic_table_count=$((dynamic_table_count + 1))
+    dynamic_row_count=$((dynamic_row_count + restored_count))
+  done < <(database_exec -tA -d "$verify_database" -c "SELECT storage_table FROM entity_types WHERE deleted_at IS NULL AND storage_table IS NOT NULL ORDER BY storage_table;")
+
+  printf 'Restore verification passed in disposable database: %s (users=%s nodes=%s entities=%s audit=%s attachments=%s relationships=%s dynamic-tables=%s dynamic-rows=%s)\n' \
+    "$verify_database" "$users_count" "$nodes_count" "$entities_count" "$audit_count" "$attachment_count" "$relationship_count" "$dynamic_table_count" "$dynamic_row_count"
   database_exec -d postgres -c "DROP DATABASE IF EXISTS \"$verify_database\" WITH (FORCE);" >/dev/null
   cleanup_required=0
   trap - EXIT
