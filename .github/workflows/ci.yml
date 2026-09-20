@@ -58,6 +58,7 @@ jobs:
             test-results
             playwright-report
           if-no-files-found: ignore
+          retention-days: 14
 
   postgres-integration:
     name: PostgreSQL integration and adapter parity
@@ -222,3 +223,4 @@ jobs:
             test-results
             playwright-report
           if-no-files-found: ignore
+          retention-days: 14
