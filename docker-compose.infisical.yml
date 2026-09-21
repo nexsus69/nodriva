@@ -1,5 +1,8 @@
 name: nodriva-infisical
 
+# Optional reference integration. Nodriva does not require Infisical; operators
+# may use another secret-management mechanism supported by their environment.
+
 services:
   infisical-db:
     image: postgres:17

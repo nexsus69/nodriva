@@ -1,5 +1,10 @@
 # Backup e restore verificato
 
+Le procedure incluse sono implementazioni di riferimento/test. Backup,
+scheduling, destinazione, retention e continuita' operativa sono responsabilita'
+dell'operatore; possono essere sostituiti da strumenti esterni che preservino
+gli stessi requisiti di recovery e verifica.
+
 ## SQLite standalone
 
 Il profilo SQLite usa `node scripts/sqlite-backup-verify.mjs backup-verify`.
@@ -13,14 +18,15 @@ Il wrapper applica lock esclusivo, retention e `last-status.json`, e rispetta
 la policy runtime `backup.scheduledEnabled`. Lo scheduler concreto resta una
 decisione del deployment (systemd, cron o provider gestito).
 
-La procedura ufficiale usa `pg_dump` in formato custom, checksum SHA-256 e un
+La procedura PostgreSQL fornita usa `pg_dump` in formato custom, checksum SHA-256 e un
 restore di verifica in un database temporaneo. Il database operativo non è mai
 una destinazione del comando `verify`.
 
 ## Prerequisiti
 
-- container PostgreSQL operativo (`dashboard-db-pg17` per la configurazione
-  locale);
+- istanza PostgreSQL raggiungibile; lo script fornito usa un container
+  (`dashboard-db-pg17` nel riferimento locale), mentre un provider esterno puo'
+  richiedere strumenti equivalenti scelti dall'operatore;
 - `docker`, `pg_restore` e `sha256sum` disponibili sull’host;
 - spazio sufficiente per almeno due copie del database durante la verifica;
 - directory di backup protetta e inclusa nella strategia di cifratura e replica

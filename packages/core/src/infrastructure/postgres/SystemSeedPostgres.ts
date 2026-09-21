@@ -1,10 +1,10 @@
+/** Bootstraps the shared PostgreSQL system catalogue and explicit administrator identity. */
 import crypto from 'node:crypto';
 import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import type { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
 import type { TransactionPort } from '../../application/ports/TransactionPort.js';
 import {
   BOOTSTRAP_ADMIN_ID,
-  DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
   DEFAULT_READER_PERMISSIONS,
   RUNTIME_CAPABILITIES,
   SCOPED_READER_PERMISSIONS,
@@ -19,7 +19,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
     private readonly executor: PgExecutor,
     private readonly transactionPort: TransactionPort,
     private readonly seedAdminPassword?: string,
-    private readonly seedAdminEmail = DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
+    private readonly seedAdminEmail?: string,
   ) {}
 
   async checkSeeded(): Promise<boolean> {
@@ -38,6 +38,7 @@ export class SystemSeedPostgres implements SystemSeedPort {
 
   async seedDatabase(): Promise<void> {
     if (!this.seedAdminPassword) throw new Error('SEED_ADMIN_PASSWORD must be configured before bootstrapping the database.');
+    if (!this.seedAdminEmail) throw new Error('SEED_ADMIN_EMAIL must be configured before bootstrapping the database.');
     await this.transactionPort.runInTransaction(() => this.bootstrap());
   }
 

@@ -9,8 +9,8 @@ Prometheus o un proxy siano sempre presenti.
 | Profilo | Requisiti minimi | Uso previsto |
 | --- | --- | --- |
 | Standalone | Node.js e un adapter di persistenza locale | macchina senza servizi amministrabili |
-| Distribuito | Node.js più servizi locali o remoti configurabili | produzione con servizi separati |
-| Compose di riferimento | PostgreSQL, migrazioni/bootstrap, Web e proxy; profili espliciti per le integrazioni | sviluppo e staging replicabile |
+| Distribuito | Node.js, persistenza e servizi locali o remoti scelti dall'operatore | deployment con servizi separati |
+| Compose di riferimento/test | PostgreSQL, migrazioni/bootstrap, Web e proxy; overlay espliciti per le integrazioni | sviluppo, dimostrazione e test replicabile |
 
 Il profilo standalone usa l'adapter SQLite integrato. Non è sufficiente
 disabilitare realtime o antivirus: il composition root seleziona comunque un
@@ -51,6 +51,12 @@ Attualmente:
   sessioni, rate limiting, token account, configurazione runtime e metadata
   degli schemi dinamici; il composition root Web collega il profilo selezionato
   agli stessi servizi applicativi.
+
+Il runtime PostgreSQL accetta una `DATABASE_URL` verso un'istanza esterna. Il
+Compose fornito include invece un PostgreSQL locale e non offre un overlay per
+rimuoverlo; migrazioni, bootstrap e ruolo ristretto di un database esterno sono
+responsabilita' dell'operatore. Analogamente, l'immagine Web fornita ha un
+entrypoint PostgreSQL: il profilo SQLite standalone usa l'avvio Node.js.
 
 La selezione avviene con `DATABASE_ADAPTER=sqlite` e
 `SQLITE_DATABASE_PATH=...`; senza il primo valore il profilo PostgreSQL resta

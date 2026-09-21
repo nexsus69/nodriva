@@ -4,11 +4,14 @@
 
 1. Source code, executable migrations and automated tests define observed
    runtime behavior.
-2. `ARCHITECTURE.md` and documents in `docs/` define the normative intended
-   architecture and operating model.
+2. `ARCHITECTURE.md` and documents in `docs/` explicitly marked as normative
+   define the intended architecture and operating model.
 3. `Specifiche/` preserves historical requirements, design alternatives and
    product direction. It is not an executable API, schema or deployment
    contract.
+
+Planning notes, AI prompts, handoffs, dated audits and completed trackers are
+private working material and are not part of the public documentation set.
 
 When source and normative documentation diverge, treat it as a defect: update
 the implementation or the normative document in the same change. When a

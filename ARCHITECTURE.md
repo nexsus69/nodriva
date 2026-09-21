@@ -13,6 +13,13 @@ This document freezes the architectural layer map, dependency rules, and placeme
 
 Nodriva is intended to be a modular monolith with clear internal boundaries, dynamic type definitions, dedicated relational tables, runtime schema reconstruction, and a configurable frontend/read-model layer rather than a fixed UI layout.[cite:26][cite:10][cite:11]
 
+Nodriva is a downloadable, operator-configured platform rather than a hosted
+SaaS. Persistence is mandatory; PostgreSQL (including an external instance) and
+SQLite standalone are supported profiles. Compose is a reference/test profile,
+not an application dependency. Optional integrations and the division between
+application guarantees and operator responsibilities are normative in
+[`docs/DEPLOYMENT_MODEL.md`](docs/DEPLOYMENT_MODEL.md).
+
 ## Core principle
 
 Dependencies must always point inward: presentation depends on application contracts, application depends on domain and ports, and infrastructure implements ports without becoming the source of business rules.[cite:100][cite:30]

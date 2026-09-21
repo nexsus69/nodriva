@@ -22,7 +22,9 @@ safe update is available.
 ## Deployment operators
 
 Operators are responsible for protecting deployment-specific secrets and
-backups. Never commit `.env`, `.env.*`, private keys, database dumps, or backup
-archives. The supported secret-reference and recovery procedures are described
+backups and for selecting, hardening and monitoring external services. The
+project does not operate the deployment and provides no SLA. Never commit
+populated `.env`, `.env.*`, private keys, database dumps, or backup archives.
+The reference secret and recovery procedures are described
 in [Secret management](docs/SECRET_MANAGEMENT.md) and
 [Backup and restore](docs/BACKUP_RESTORE.md).

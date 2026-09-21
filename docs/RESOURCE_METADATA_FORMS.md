@@ -72,13 +72,11 @@ attivare il setting runtime `attachments.antivirusEnabled` e collegare
 un’implementazione di `AttachmentScannerPort`; senza scanner configurato
 l’upload viene rifiutato. `ATTACHMENTS_REQUIRE_SCAN=true` resta disponibile
 come override di deployment fail-closed.
-Nel Compose completo attuale ClamAV è incluso nello stack e il Web lo raggiunge
-tramite il DNS interno del servizio. La separazione in un profilo Docker
-opzionale non è ancora implementata. In un deployment distribuito il provider
-antivirus dovrà invece essere configurabile con host, porta, schema, timeout,
-credenziali/riferimenti ai secret e comportamento fail-closed; il server Web
-potrà quindi usare un ClamAV remoto o un altro adapter senza dipendere da
-Docker locale.
+Nel profilo Compose di riferimento/test ClamAV e' fornito dall'overlay
+opzionale `docker-compose.antivirus.yml`; il Web non dipende dal container
+quando l'overlay e la capability non sono abilitati. Un deployment distribuito
+puo' configurare un ClamAV remoto tramite host, porta e timeout. Altri adapter
+antivirus non sono attualmente implementati.
 Il rate limit degli upload usa `AttachmentRateLimitPort`: PostgreSQL conserva
 gli eventi in `attachment_upload_events`, mentre SQLite usa il proprio store
 locale. Più repliche Web che condividono PostgreSQL condividono quindi anche la

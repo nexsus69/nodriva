@@ -2,7 +2,6 @@
 import crypto from 'node:crypto';
 
 export const BOOTSTRAP_ADMIN_ID = '00000000-0000-0000-0000-000000000001';
-export const DEFAULT_BOOTSTRAP_ADMIN_EMAIL = 'admin@localhost';
 
 export const SYSTEM_ROLES = [
   { id: '00000000-0000-0000-0000-000000000002', key: 'admin', name: 'admin', description: 'Administrator Role' },

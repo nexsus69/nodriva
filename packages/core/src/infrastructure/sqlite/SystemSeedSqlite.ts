@@ -3,7 +3,6 @@ import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
 import type { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
 import {
   BOOTSTRAP_ADMIN_ID,
-  DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
   DEFAULT_READER_PERMISSIONS,
   RUNTIME_CAPABILITIES,
   SCOPED_READER_PERMISSIONS,
@@ -17,7 +16,7 @@ export class SystemSeedSqlite implements SystemSeedPort {
   constructor(
     private readonly database: SqliteDatabase,
     private readonly seedAdminPassword?: string,
-    private readonly seedAdminEmail = DEFAULT_BOOTSTRAP_ADMIN_EMAIL,
+    private readonly seedAdminEmail?: string,
   ) {}
 
   async checkSeeded(): Promise<boolean> {
@@ -31,6 +30,7 @@ export class SystemSeedSqlite implements SystemSeedPort {
 
   async seedDatabase(): Promise<void> {
     if (!this.seedAdminPassword) throw new Error('SEED_ADMIN_PASSWORD must be configured before bootstrapping the database.');
+    if (!this.seedAdminEmail) throw new Error('SEED_ADMIN_EMAIL must be configured before bootstrapping the database.');
     this.database.transaction(() => this.bootstrap());
   }
 

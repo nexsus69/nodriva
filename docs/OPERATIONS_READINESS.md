@@ -1,5 +1,9 @@
 # Operational readiness
 
+Questo runbook verifica il profilo Compose di riferimento/test. Non certifica
+un deployment generico e non sostituisce healthcheck, backup, alert o procedure
+del provider scelto dall'operatore.
+
 ## Healthcheck
 
 La verifica non modifica dati e controlla endpoint applicativo, stato dei
@@ -100,6 +104,7 @@ backup verificato supera la RPO concordata.
 - sessioni browser di test chiuse e nessun lock residuo nel database;
 - procedura di rollback documentata e backup corrente disponibile.
 
-Il compose completo è pensato per sviluppo e staging replicabile. Per
-produzione è necessario sostituire i valori di sviluppo con segreti gestiti,
-abilitare HTTPS e definire retention, replica e monitoraggio esterni.
+Il profilo Compose completo è pensato per sviluppo, dimostrazione e test
+replicabile e non e' una soluzione production-ready universale. Un deployment
+operativo deve essere progettato e validato dall'operatore, inclusi secret,
+HTTPS, disponibilita', retention, replica, monitoraggio e recovery.

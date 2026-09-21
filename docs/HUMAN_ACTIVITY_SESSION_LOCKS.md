@@ -14,7 +14,8 @@ hardcoded per sessione, heartbeat, lock o polling.
 Prima della produzione, la durata deve diventare una configurazione backend
 autorevole e modificabile a runtime, distribuita al client senza rebuild. Il
 lavoro ancora aperto è tracciato nella sezione **Runtime session policy** di
-[`BACKEND_ALIGNMENT_TODO.md`](./BACKEND_ALIGNMENT_TODO.md).
+Le verifiche applicabili sono riepilogate nella checklist di accettazione e
+nelle procedure di sviluppo del repository.
 
 Con il valore predefinito attuale di 1800 secondi:
 

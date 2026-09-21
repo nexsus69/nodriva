@@ -20,6 +20,8 @@ coverage/
 test-results/
 playwright-report/
 docs-italiano/
+# Private planning notes, AI prompts and historical internal audits.
+notes-local/
 adminOld/
 
 # OS/editor files

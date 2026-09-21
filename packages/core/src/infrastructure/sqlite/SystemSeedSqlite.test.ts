@@ -1,3 +1,4 @@
+/** Verifies idempotent SQLite bootstrap and its required administrator identity. */
 import { describe, expect, it } from 'vitest';
 import { RUNTIME_CAPABILITIES, SYSTEM_PERMISSIONS, SYSTEM_ROLES, SYSTEM_SETTINGS } from '../SystemBootstrapCatalog.js';
 import { SqliteDatabase } from './SqliteDatabase.js';
@@ -6,6 +7,16 @@ import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { RuntimeConfigurationPortSqlite } from './RuntimeConfigurationPortSqlite.js';
 
 describe('SystemSeedSqlite', () => {
+  it('requires an explicit administrator email', async () => {
+    const database = new SqliteDatabase();
+    ensureSqliteSchema(database);
+
+    await expect(new SystemSeedSqlite(database, 'Seed-password-2026!').seedDatabase())
+      .rejects.toThrow('SEED_ADMIN_EMAIL must be configured');
+    expect(database.get('SELECT 1 FROM users LIMIT 1')).toBeUndefined();
+    database.close();
+  });
+
   it('creates the shared administrative bootstrap and is idempotent', async () => {
     const database = new SqliteDatabase();
     ensureSqliteSchema(database);

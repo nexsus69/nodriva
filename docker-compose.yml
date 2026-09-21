@@ -1,3 +1,6 @@
+# Legacy/minimal infrastructure example. It does not start the Nodriva Web
+# application; use docker-compose.full.yml for the Compose reference/test
+# profile or configure the Node.js runtime directly.
 services:
   postgres:
     image: postgres:17

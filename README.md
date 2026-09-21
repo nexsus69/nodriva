@@ -26,6 +26,12 @@ Nodriva is not a ready-made CRM, ERP, or ITSM product. It is a generic
 infrastructure for modelling data and relationships while leaving use cases to
 the application domain.
 
+Nodriva is downloaded and operated in infrastructure chosen by its user; it is
+not a hosted SaaS or a managed deployment. Persistence is mandatory. PostgreSQL
+may be an existing external instance, while SQLite supports a local standalone
+profile. Broker, antivirus, secret manager, backup scheduler, proxy, metrics and
+separate workers are optional integrations selected by the operator.
+
 ## Architecture
 
 The monorepo contains:
@@ -48,6 +54,13 @@ additive, and idempotent: it initializes missing accounts, roles, permissions,
 capabilities, and settings without deleting application data.
 
 ## Quick start
+
+The commands below start the repository's PostgreSQL reference/test profile.
+They are not the only installation method and do not constitute a universal
+production-ready deployment. For Node.js with SQLite or an external PostgreSQL,
+start the Web application with the selected environment configuration and run
+the applicable bootstrap/migrations independently. See the
+[deployment model](docs/DEPLOYMENT_MODEL.md).
 
 Create a protected `.env.docker` file with the required values and start the
 base PostgreSQL reference profile:
@@ -102,6 +115,7 @@ against SQLite and PostgreSQL.
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)
+- [Product and deployment model](docs/DEPLOYMENT_MODEL.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security policy](SECURITY.md)
 - [Nodriva acceptance checklist](docs/NODRIVA_ACCEPTANCE_CHECKLIST.md)
@@ -114,8 +128,6 @@ against SQLite and PostgreSQL.
 - [Security operations](docs/SECURITY_OPERATIONS.md)
 - [Documentation governance](docs/DOCUMENTATION_GOVERNANCE.md)
 - [Service and deployment configuration](docs/SERVICE_CONFIGURATION_ARCHITECTURE.md)
-- [Documentation migration](docs/DOCUMENTATION_MIGRATION.md)
-- [Source documentation inventory](docs/SOURCE_DOCUMENTATION_INVENTORY.md)
 
 ## License
 

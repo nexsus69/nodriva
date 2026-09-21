@@ -1,11 +1,18 @@
 # Stack Docker di riferimento
 
-`docker-compose.full.yml` è un riferimento PostgreSQL per sviluppo e staging,
+`docker-compose.full.yml` è un profilo di riferimento/test PostgreSQL per sviluppo e staging,
 non un requisito dell'applicazione. Il file base avvia persistenza,
 migrazioni/bootstrap, Web e proxy; le integrazioni distribuite sono overlay
 Compose espliciti. La stessa configurazione runtime può puntare a servizi
 remoti o gestiti dal provider. Il modello generale è descritto in
 [`SERVICE_CONFIGURATION_ARCHITECTURE.md`](./SERVICE_CONFIGURATION_ARCHITECTURE.md).
+
+Questo profilo include deliberatamente PostgreSQL e Caddy locali: non e'
+l'esempio per collegare un PostgreSQL esterno e non deve essere usato come
+prova che un deployment sia production-ready. Un PostgreSQL esterno e'
+supportato dal runtime applicativo tramite `DATABASE_URL`, con migrazioni e
+bootstrap gestiti dall'operatore fuori da questo file Compose. Lo standalone
+SQLite si avvia con Node.js e non tramite l'immagine Web di questo profilo.
 
 - `web`: Next.js production;
 - `postgres`: PostgreSQL 17;
@@ -100,7 +107,7 @@ Profilo base, senza servizi opzionali:
 docker compose --env-file .env.docker -f docker-compose.full.yml up -d --build
 ```
 
-Stack completo di riferimento:
+Profilo di riferimento/test con tutte le integrazioni di esempio:
 
 ```bash
 docker compose --env-file .env.docker \

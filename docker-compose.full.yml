@@ -1,5 +1,9 @@
 name: nodriva
 
+# PostgreSQL reference/test profile. This file intentionally includes local
+# PostgreSQL and Caddy; it is not the only supported way to run Nodriva and is
+# not a universal production-ready deployment.
+
 services:
   postgres:
     image: postgres:17
@@ -47,7 +51,7 @@ services:
       POSTGRES_DB: dashboard
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-marco123@test.com}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?SEED_ADMIN_EMAIL must be set}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
     restart: "no"
 
@@ -80,7 +84,7 @@ services:
       NEXTAUTH_URL: ${DASHBOARD_PUBLIC_URL:?DASHBOARD_PUBLIC_URL must be set}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET must be set}
       NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS: ${NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS:-1800}
-      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-marco123@test.com}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?SEED_ADMIN_EMAIL must be set}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD must be set}
       # Application integration settings are intentionally independent from the
       # Compose topology below.  A deployment may use remote providers, or no

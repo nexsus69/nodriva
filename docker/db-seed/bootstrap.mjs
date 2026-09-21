@@ -12,10 +12,10 @@ const {
 const host = process.env.POSTGRES_HOST;
 const password = process.env.POSTGRES_PASSWORD;
 const seedPassword = process.env.SEED_ADMIN_PASSWORD;
-const seedEmail = process.env.SEED_ADMIN_EMAIL ?? 'marco123@test.com';
+const seedEmail = process.env.SEED_ADMIN_EMAIL;
 
-if (!host || !password || !seedPassword) {
-  throw new Error('POSTGRES_HOST, POSTGRES_PASSWORD and SEED_ADMIN_PASSWORD are required');
+if (!host || !password || !seedEmail || !seedPassword) {
+  throw new Error('POSTGRES_HOST, POSTGRES_PASSWORD, SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required');
 }
 
 const pool = new Pool({

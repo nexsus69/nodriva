@@ -1,5 +1,10 @@
 # Esercizio automatico dei backup
 
+Questi script e unit file sono strumenti operativi opzionali forniti dal
+repository. Nodriva non gestisce il backup per conto dell'operatore: un
+deployment puo' usare procedure equivalenti del proprio database provider,
+purche' includa restore verificato e gli artefatti coordinati richiesti.
+
 Il backup verificato può essere eseguito automaticamente con
 `scripts/postgres-backup-maintenance.sh`. Il wrapper:
 
@@ -14,7 +19,7 @@ La verifica avviene sul database temporaneo ripristinato e non usa conteggi del
 database live: resta quindi valida sia durante scritture concorrenti sia per un
 archivio storico.
 
-Nel Compose completo lo stesso wrapper gira nel servizio `backup`, collegato
+Nel profilo di riferimento/test Compose lo stesso wrapper gira nel servizio `backup`, collegato
 direttamente a PostgreSQL sulla rete Docker; non richiede accesso al socket
 Docker dell’host.
 

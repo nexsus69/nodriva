@@ -1,7 +1,9 @@
-# Secret management con Infisical
+# Secret management: esempio Infisical
 
-La release strutturata usa Infisical self-hosted come archivio centralizzato
-dei secret. L'istanza è separata dallo stack Dashboard; binding, endpoint
+Infisical self-hosted e' un'integrazione opzionale di riferimento per un
+deployment che scelga di usarla, non un requisito di Nodriva. L'operatore puo'
+usare un secret manager equivalente o fornire secret protetti con i meccanismi
+del proprio orchestratore. L'istanza di esempio è separata dallo stack Dashboard; binding, endpoint
 pubblico e porte sono dichiarati con le variabili `INFISICAL_*` del deployment.
 
 ## Bootstrap
@@ -34,7 +36,7 @@ pubblico e porte sono dichiarati con le variabili `INFISICAL_*` del deployment.
 5. Conservare il token della machine identity fuori dal repository. Il token
    è il solo bootstrap secret del deploy e deve essere ruotabile.
 
-Il database Infisical e la sua encryption key fanno parte del disaster
+Se questo profilo viene adottato, il database Infisical e la sua encryption key fanno parte del disaster
 recovery: devono avere backup coordinato e non possono essere eliminati senza
 una copia verificata. Redis contiene cache/job e può essere ricreato.
 
@@ -68,17 +70,19 @@ Una volta configurati i secret nel progetto, generare il file dotenv di runtime
 fuori dal repository:
 
 ```bash
+NODRIVA_ENV_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/nodriva/dashboard-production.env"
 ./scripts/infisical-export-env.sh \
-  /home/marco/.config/nodriva/dashboard-production.env \
+  "$NODRIVA_ENV_FILE" \
   .env.docker
 ```
 
-Il file predefinito è
-`/home/marco/.config/nodriva/dashboard-production.env`. Per usarlo
-con il profilo Compose di base:
+Se il primo argomento viene omesso, lo script usa
+`$HOME/.config/nodriva/dashboard-production.env`. È possibile scegliere
+qualunque percorso esterno al repository protetto con permessi appropriati.
+Per usare il file appena generato con il profilo Compose di base:
 
 ```bash
-docker compose --env-file /home/marco/.config/nodriva/dashboard-production.env \
+docker compose --env-file "$NODRIVA_ENV_FILE" \
   -f docker-compose.full.yml up -d --build
 ```
 

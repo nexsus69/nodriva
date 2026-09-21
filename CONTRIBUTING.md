@@ -3,6 +3,10 @@
 Thank you for contributing. Nodriva is a generic platform: changes must not
 silently turn it into a product for one business domain.
 
+Docker Compose is a reference/test profile, not an application requirement.
+Contributions must preserve standalone SQLite and operator-managed PostgreSQL,
+and must not make optional integrations implicit dependencies.
+
 ## Before opening a pull request
 
 1. Read [the architecture](ARCHITECTURE.md) and the applicable documents in
