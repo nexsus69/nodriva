@@ -63,5 +63,6 @@ fi
 jq -r '.secrets[] | "\(.secretKey)=\(.secretValue | @json)"' <<<"$secrets_json" >>"$tmp_path"
 chmod 600 "$tmp_path"
 mv -f "$tmp_path" "$target_path"
+rm -f "$secret_keys_path"
 trap - EXIT
 printf 'Export completato: %s secret in %s (permessi 600).\n' "$secret_count" "$target_path"

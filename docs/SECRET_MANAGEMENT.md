@@ -38,6 +38,25 @@ Il database Infisical e la sua encryption key fanno parte del disaster
 recovery: devono avere backup coordinato e non possono essere eliminati senza
 una copia verificata. Redis contiene cache/job e può essere ricreato.
 
+## Backup verificato di Infisical
+
+L'overlay opzionale `docker-compose.infisical-backup.yml` esegue un dump custom
+di PostgreSQL, checksum e restore in un database `infisical_restore_test_*`.
+La destinazione è il mount configurabile `INFISICAL_BACKUP_HOST_PATH`: può
+puntare a un filesystem locale cifrato, NAS o mount replicato off-host, senza
+legare Nodriva a un provider di storage. Avviarlo insieme allo stack Infisical:
+
+```bash
+INFISICAL_BACKUP_HOST_PATH=/secure/backups/infisical \
+docker compose --env-file .env.infisical \
+  -f docker-compose.infisical.yml -f docker-compose.infisical-backup.yml up -d
+```
+
+`INFISICAL_ENCRYPTION_KEY` non viene mai inserita nel dump: conservarne una
+copia recovery cifrata e separata dal mount dei backup. Il restore operativo
+richiede entrambi gli artefatti. Il comando manuale equivalente è
+`pnpm infisical:backup:verify` con le variabili `INFISICAL_*` del deployment.
+
 Il Dashboard non interroga Infisical durante le richieste utente: il deploy
 recupera i secret e li consegna ai container tramite file protetti/Docker
 secrets. In questo modo un'indisponibilità temporanea di Infisical non interrompe

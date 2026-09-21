@@ -1,0 +1,21 @@
+services:
+  infisical-backup:
+    image: postgres:17
+    depends_on:
+      infisical-db: { condition: service_healthy }
+    environment:
+      INFISICAL_BACKUP_DIRECT: "true"
+      PGHOST: infisical-db
+      PGPORT: ${INFISICAL_DATABASE_PORT:?INFISICAL_DATABASE_PORT must be set}
+      PGUSER: infisical
+      PGPASSWORD: ${INFISICAL_DB_PASSWORD:?INFISICAL_DB_PASSWORD must be set}
+      INFISICAL_DATABASE: infisical
+      INFISICAL_POSTGRES_USER: infisical
+      INFISICAL_BACKUP_ROOT: /backups/infisical
+      INFISICAL_BACKUP_RETENTION_DAYS: ${INFISICAL_BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - ${INFISICAL_BACKUP_HOST_PATH:?INFISICAL_BACKUP_HOST_PATH must be an encrypted filesystem or remote mount}:/backups
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["while true; do /scripts/infisical-backup-maintenance.sh; sleep 86400; done"]
+    restart: unless-stopped
