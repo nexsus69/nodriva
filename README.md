@@ -102,6 +102,8 @@ against SQLite and PostgreSQL.
 ## Documentation
 
 - [Architecture](ARCHITECTURE.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 - [Nodriva acceptance checklist](docs/NODRIVA_ACCEPTANCE_CHECKLIST.md)
 - [Full Docker stack](docs/DOCKER_COMPOSE_FULL.md)
 - [Administrative locks](docs/ADMIN_LOCKS.md)
