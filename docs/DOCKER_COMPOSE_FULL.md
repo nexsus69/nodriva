@@ -122,11 +122,47 @@ docker compose --env-file .env.docker \
 `-f docker-compose.antivirus.yml`. Attivare un overlay senza la sua configurazione è
 un errore di deployment, non un fallback implicito verso un container locale.
 
+### Selezione coerente degli overlay
+
+La scelta degli overlay e' una proprieta' del deployment: non e' necessario
+avviare tutte le integrazioni. Dopo averla scelta, usare **la stessa lista di
+file** per tutti i comandi Compose che osservano o modificano quello stack
+(`ps`, `logs`, `config`, `build` e `up`). Un comando che omette un overlay
+attivo puo' segnalare i suoi servizi come `orphan`; il messaggio non implica
+che il servizio sia inutilizzato e non autorizza a rimuoverlo.
+
+Per esempio, un deployment che seleziona tutte le integrazioni locali puo'
+definire nella propria shell un array riutilizzabile:
+
+```bash
+NODRIVA_COMPOSE_FILES=(
+  -f docker-compose.full.yml
+  -f docker-compose.realtime.yml
+  -f docker-compose.antivirus.yml
+  -f docker-compose.monitoring.yml
+  -f docker-compose.backup.yml
+)
+
+docker compose --env-file .env.docker "${NODRIVA_COMPOSE_FILES[@]}" ps
+docker compose --env-file .env.docker "${NODRIVA_COMPOSE_FILES[@]}" logs --tail=100 web
+```
+
+Per un deploy che modifica soltanto il Web, mantenere quella stessa selezione
+ma ricostruire e ricreare solo il servizio interessato:
+
+```bash
+docker compose --env-file .env.docker "${NODRIVA_COMPOSE_FILES[@]}" build web
+docker compose --env-file .env.docker "${NODRIVA_COMPOSE_FILES[@]}" up -d --no-deps web
+```
+
+Non usare `--remove-orphans` se non e' stata prima verificata e approvata la
+rimozione dei servizi esclusi dalla nuova selezione.
+
 Il migrator termina con successo e il Web viene avviato solo dopo la sua
 conclusione. Verificare:
 
 ```bash
-docker compose --env-file .env.docker -f docker-compose.full.yml ps
+docker compose --env-file .env.docker "${NODRIVA_COMPOSE_FILES[@]}" ps
 curl https://dashboard.example.com/login
 ```
 
