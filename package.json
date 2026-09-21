@@ -11,6 +11,7 @@
     "lint": "pnpm --filter @dashboard/core lint && pnpm --filter @dashboard/web lint",
     "db:backup:verify": "./scripts/postgres-backup-verify.sh backup-verify",
     "infisical:backup:verify": "./scripts/infisical-backup-verify.sh backup-verify",
+    "attachments:backup:verify": "./scripts/attachment-volume-backup-verify.sh backup-verify",
     "db:backup:maintenance": "./scripts/postgres-backup-maintenance.sh",
     "db:backup:sqlite:verify": "node scripts/sqlite-backup-verify.mjs backup-verify",
     "encryption:rotate": "node --experimental-strip-types scripts/encryption-rotation-job.ts",

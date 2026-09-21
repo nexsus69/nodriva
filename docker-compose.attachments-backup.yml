@@ -1,0 +1,13 @@
+services:
+  attachments-backup:
+    image: postgres:17
+    environment:
+      ATTACHMENTS_BACKUP_SOURCE_ROOT: /attachments-source
+      ATTACHMENTS_BACKUP_ROOT: /backups/attachments
+    volumes:
+      - nodriva_attachments:/attachments-source:ro
+      - ${ATTACHMENTS_BACKUP_HOST_PATH:?ATTACHMENTS_BACKUP_HOST_PATH must be an encrypted filesystem or remote mount}:/backups
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while true; do /scripts/attachment-volume-backup-verify.sh backup-verify; sleep 86400; done"]
+    restart: unless-stopped

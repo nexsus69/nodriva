@@ -1,9 +1,11 @@
 #!/bin/sh
 set -eu
 
-: "${REALTIME_DRAIN_URL:?REALTIME_DRAIN_URL must be set}"
-: "${WORKFLOW_DRAIN_URL:?WORKFLOW_DRAIN_URL must be set}"
 : "${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}"
+if [ -z "${REALTIME_DRAIN_URL:-}" ] && [ -z "${WORKFLOW_DRAIN_URL:-}" ] && [ -z "${ATTACHMENT_CLEANUP_DRAIN_URL:-}" ]; then
+  echo "at least one drain URL must be set" >&2
+  exit 64
+fi
 
 interval="${REALTIME_WORKER_INTERVAL_SECONDS:-5}"
 case "$interval" in
@@ -26,8 +28,9 @@ drain() {
 }
 
 while :; do
-  drain 'realtime-worker' "$REALTIME_DRAIN_URL"
-  drain 'workflow-worker' "$WORKFLOW_DRAIN_URL"
+  if [ -n "${REALTIME_DRAIN_URL:-}" ]; then drain 'realtime-worker' "$REALTIME_DRAIN_URL"; fi
+  if [ -n "${WORKFLOW_DRAIN_URL:-}" ]; then drain 'workflow-worker' "$WORKFLOW_DRAIN_URL"; fi
+  if [ -n "${ATTACHMENT_CLEANUP_DRAIN_URL:-}" ]; then drain 'attachment-cleanup-worker' "$ATTACHMENT_CLEANUP_DRAIN_URL"; fi
   if [ -n "${ACCOUNT_ACTION_DRAIN_URL:-}" ]; then
     drain 'account-action-worker' "$ACCOUNT_ACTION_DRAIN_URL"
   fi

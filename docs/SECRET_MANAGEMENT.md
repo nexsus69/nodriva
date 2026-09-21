@@ -88,6 +88,11 @@ al comando Compose gli overlay `-f docker-compose.realtime.yml`,
 `-f docker-compose.backup.yml` secondo i servizi scelti.
 I secret Pusher e del worker non sono richiesti se `realtime` non è abilitato.
 
+Quando realtime è disabilitato ma gli allegati sono usati, aggiungere
+`docker-compose.attachment-cleanup.yml`: il worker usa il medesimo secret
+interno e drena la coda durevole dei payload non referenziati. Questo rende il
+cleanup eventuale indipendente dalla consegna realtime.
+
 Il secondo argomento contiene la configurazione operativa non segreta (bind
 address, porte e intervalli). I secret eventualmente presenti nello stesso
 file vengono sostituiti dai valori Infisical. L'export usa un token temporaneo

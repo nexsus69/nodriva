@@ -48,6 +48,13 @@ backup e replica dell'infrastruttura, coordinati con il dump database. La
 procedura applicativa non introduce deliberatamente un secondo formato di
 archivio per gli allegati.
 
+L'overlay opzionale `docker-compose.attachments-backup.yml` offre il backup
+configurabile del volume filesystem: `ATTACHMENTS_BACKUP_HOST_PATH` identifica
+un mount scelto dal deployment. Il job crea un archivio, checksum e restore in
+una directory temporanea, confrontando struttura e hash dei payload senza
+esporne contenuto. Va eseguito nello stesso ciclo del dump PostgreSQL; il
+restore completo richiede entrambi gli artefatti e le chiavi corrispondenti.
+
 ## Creazione e verifica
 
 ```bash

@@ -1,0 +1,9 @@
+services:
+  attachment-cleanup-worker:
+    build: { context: ./docker/realtime-worker }
+    depends_on: { web: { condition: service_healthy } }
+    environment:
+      ATTACHMENT_CLEANUP_DRAIN_URL: ${DASHBOARD_WEB_INTERNAL_SCHEME:?}://${DASHBOARD_WEB_INTERNAL_HOST:?}:${DASHBOARD_WEB_PORT:?}/api/internal/attachments/drain
+      REALTIME_WORKER_SECRET: ${REALTIME_WORKER_SECRET:?REALTIME_WORKER_SECRET must be set}
+      REALTIME_WORKER_INTERVAL_SECONDS: ${ATTACHMENT_CLEANUP_INTERVAL_SECONDS:-60}
+    restart: unless-stopped
