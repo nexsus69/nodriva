@@ -136,6 +136,26 @@ describe('ResourceRelationshipMutationService', () => {
     }));
     expect(revisionPort.recordEntityRevision).toHaveBeenCalledTimes(2);
     expect(auditPort.record).toHaveBeenCalledTimes(2);
+    expect(auditPort.record).toHaveBeenNthCalledWith(
+      1,
+      actorUserId,
+      'relationship.link',
+      'entity',
+      firstSourceId,
+      '66666666-6666-4666-8666-666666666666',
+      expect.objectContaining({ name: `Task ${firstSourceId}`, payload: { documents: [] } }),
+      expect.objectContaining({ name: `Task ${firstSourceId}`, payload: { documents: [targetResourceId] } }),
+    );
+    expect(auditPort.record).toHaveBeenNthCalledWith(
+      2,
+      actorUserId,
+      'relationship.link',
+      'entity',
+      secondSourceId,
+      '66666666-6666-4666-8666-666666666666',
+      expect.objectContaining({ name: `Task ${secondSourceId}`, payload: { documents: [] } }),
+      expect.objectContaining({ name: `Task ${secondSourceId}`, payload: { documents: [targetResourceId] } }),
+    );
   });
 
   it('rejects a multi-source link when the target side is unique before any update', async () => {

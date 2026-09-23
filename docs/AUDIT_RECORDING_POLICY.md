@@ -13,6 +13,20 @@ obbligatorie. Solo le azioni dichiarate configurabili possono essere escluse.
 Un errore nella lettura della configurazione conserva l'evento secondo il
 default sicuro, quindi non elimina evidenze in modo silenzioso.
 
+## Mutation batch delle relazioni
+
+Una conferma nel pannello delle relazioni puo' modificare piu' record sorgente
+dello stesso tipo. E' una sola mutation atomica: lock, `rowVersion`, scritture
+e audit entrano nella medesima transazione. Per mantenere la tracciabilita'
+del singolo record, viene pero' registrato un evento `relationship.link` o
+`relationship.unlink` per ogni risorsa effettivamente cambiata, con il suo
+snapshot prima/dopo.
+
+Di conseguenza piu' righe con stesso attore e stesso timestamp, anche fino al
+millisecondo, possono rappresentare una sola conferma batch e non azioni
+indipendenti. L'ordinamento totale `timestamp, id` resta la fonte autorevole
+per distinguere le evidenze senza instabilita' di pagina.
+
 ## Attività ordinaria dei lock
 
 L'impostazione runtime **Registra attività ordinaria dei lock**

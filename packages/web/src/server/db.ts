@@ -7,6 +7,7 @@ import {
   EntityApplicationService,
   TypeAdminApplicationService,
   UserAdminApplicationService,
+  CurrentAccountApplicationService,
   ScopedUserProvisioningService,
   UserRepositoryPostgres,
   SecurityAdminApplicationService,
@@ -489,6 +490,13 @@ export const userAdminService = new UserAdminApplicationService(
   sessionRepository,
   securityRepository,
   mfaTotpPort,
+);
+
+export const currentAccountService = new CurrentAccountApplicationService(
+  userRepository,
+  sessionRepository,
+  auditPort,
+  transactionPort,
 );
 
 export const scopedUserProvisioningService = new ScopedUserProvisioningService(

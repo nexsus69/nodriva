@@ -578,6 +578,7 @@ export {
 
 export { UserRepository } from "./application/ports/UserRepository.js";
 export { UserAdminApplicationService } from "./application/services/UserAdminApplicationService.js";
+export { CurrentAccountApplicationService } from "./application/services/CurrentAccountApplicationService.js";
 export { UserRepositoryPostgres } from "./infrastructure/postgres/UserRepositoryPostgres.js";
 
 export { SecurityRepository } from "./application/ports/SecurityRepository.js";
