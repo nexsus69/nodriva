@@ -11,6 +11,7 @@ import {
   ResourceFormRenderer,
   type DynamicField,
 } from '../../../../../components/ui/forms';
+import { useAppLocale } from '../../../../../i18n/AppLocaleStore';
 
 interface EntityDetailContentProps {
   entity: ClientEntity;
@@ -33,6 +34,7 @@ interface EntityDetailContentProps {
 
 /** Renders read-only field values or the standard editable resource form. */
 export function EntityDetailContent(props: EntityDetailContentProps) {
+  const { t } = useAppLocale();
   const visibleFields = props.fields.length > 0
     ? props.fields
     : Object.keys(props.entity.payload ?? {}).map((fieldKey) => ({
@@ -60,15 +62,15 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
         {!props.isMyLock ? (
           <dl className="space-y-4 text-xs">
             <div>
-              <dt className="mb-1 text-slate-500">Nome</dt>
+              <dt className="mb-1 text-slate-500">{t('common.name')}</dt>
               <dd className="text-slate-900">{props.entity.name}</dd>
             </div>
             <div>
-              <dt className="mb-1 text-slate-500">Descrizione</dt>
-              <dd className="text-slate-700">{props.entity.description || '—'}</dd>
+              <dt className="mb-1 text-slate-500">{t('common.description')}</dt>
+              <dd className="text-slate-700">{props.entity.description || t('common.notAvailable')}</dd>
             </div>
             <div>
-              <dt className="mb-2 text-slate-500">Campi</dt>
+              <dt className="mb-2 text-slate-500">{t('common.fields')}</dt>
               <dd className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {visibleFields
                   .filter((field) => !['file', 'image'].includes(field.dataType.toLowerCase()))
@@ -100,9 +102,9 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
                                 typeKey={field.relationTargetTypeKey}
                               />
                             ) : value === null || value === undefined || value === '' ? (
-                              '—'
+                              t('common.notAvailable')
                             ) : typeof value === 'boolean' ? (
-                              value ? 'Sì' : 'No'
+                              value ? t('common.yes') : t('common.no')
                             ) : (
                               enumLabel ?? String(value)
                             )}
@@ -116,8 +118,8 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
         ) : (
           <ResourceFormRenderer
             baseFields={buildResourceIdentityFields({
-              nameLabel: 'Nome entità',
-              descriptionLabel: 'Descrizione',
+              nameLabel: t('entity.name'),
+              descriptionLabel: t('common.description'),
               descriptionRows: 2,
             })}
             fields={props.fields}

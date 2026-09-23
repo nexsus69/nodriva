@@ -21,6 +21,7 @@ describe('mapAppErrorToApiErrorResponse', () => {
     expect(response).toEqual({
       code: 'RESOURCE_DELETE_RESTRICTED',
       message: 'Impossibile eliminare la risorsa perché possiede riferimenti attivi.',
+      messageKey: 'errors.resourceDeleteRestricted',
       totalReferencerCount: 2,
       referencers: [{ domain: 'entity', type: 'Task', id: 'task-1', name: 'External task', href: '/nodes/node-1/entities/task-1' }],
     });

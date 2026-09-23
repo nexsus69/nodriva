@@ -1,4 +1,7 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export interface ResponsiveDataColumn<T> {
   key: string;
@@ -15,14 +18,16 @@ export interface ResponsiveDataViewProps<T> {
 }
 
 /** Generic list surface: columns on desktop, labelled cards on mobile. */
-export function ResponsiveDataView<T>({ items, columns, getKey, renderActions, empty = 'Nessun elemento.' }: ResponsiveDataViewProps<T>) {
-  if (items.length === 0) return <>{empty}</>;
+export function ResponsiveDataView<T>({ items, columns, getKey, renderActions, empty }: ResponsiveDataViewProps<T>) {
+  const { t } = useAppLocale();
+  const resolvedEmpty = empty ?? t('common.empty');
+  if (items.length === 0) return <>{resolvedEmpty}</>;
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
       <div role="table" className="hidden md:block">
         <div role="row" className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))_auto] gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
           {columns.map((column) => <div role="columnheader" key={column.key}>{column.header}</div>)}
-          {renderActions && <div role="columnheader" aria-label="Azioni" />}
+          {renderActions && <div role="columnheader" aria-label={t('common.actions')} />}
         </div>
         {items.map((item) => (
           <div role="row" key={getKey(item)} className="grid grid-cols-[repeat(auto-fit,minmax(0,1fr))_auto] gap-4 border-b border-slate-100 px-4 py-3 text-sm last:border-b-0">

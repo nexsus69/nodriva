@@ -14,8 +14,10 @@ import { EntityResourceMenu } from '../../../../../components/ui/menu';
 import { RelationPanel } from '../../../../../components/ui/relations';
 import { EntityDetailContent } from './EntityDetailContent';
 import { useEntityDetailController } from '../_hooks/useEntityDetailController';
+import { useAppLocale } from '../../../../../i18n/AppLocaleStore';
 
 export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, nodeId: suppliedNodeId }: { admin?: boolean; entityId?: string; nodeId?: string }) {
+  const { t } = useAppLocale();
   const { nodeId, entityId } = useParams<{ nodeId: string; entityId: string }>();
   const resolvedNodeId = suppliedNodeId ?? nodeId;
   const resolvedEntityId = suppliedEntityId ?? entityId;
@@ -28,19 +30,19 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
     return (
       <PageShell className="max-w-2xl">
         <div className="flex min-w-0 items-center gap-1">
-          {admin ? <Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← Entità</Link> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
+          {admin ? <Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← {t('admin.entities')}</Link> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
           <span className="text-slate-400">/</span>
           <Skeleton className="h-3 w-20" />
         </div>
         {controller.isError ? (
           <Panel className="border-rose-200 bg-rose-50 text-xs text-rose-700">
-            Errore: {controller.error?.message}
+            {t('common.error')}: {controller.error?.message}
           </Panel>
         ) : (
           <>
             <Panel>
               <SkeletonState
-                label="Caricamento intestazione entità"
+                label={t('entity.loadingHeader')}
                 className="flex items-center gap-3"
               >
                 <div className="flex-1 space-y-2">
@@ -53,7 +55,7 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
             </Panel>
             <Panel>
               <SkeletonState
-                label="Caricamento campi entità"
+                label={t('entity.loadingFields')}
                 className="grid grid-cols-1 gap-4 sm:grid-cols-2"
               >
                 {[0, 1, 2, 3].map((field) => (
@@ -73,8 +75,8 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
   const entity = controller.entity;
   return (
     <PageShell className="max-w-2xl">
-      <div aria-label={admin ? 'Percorso dettaglio amministrativo' : undefined} className="flex min-w-0 items-center gap-1">
-        {admin ? <><Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← Entità</Link><span className="text-xs font-semibold text-slate-500">Dettaglio amministrativo</span></> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
+      <div aria-label={admin ? t('admin.detailPath') : undefined} className="flex min-w-0 items-center gap-1">
+        {admin ? <><Link href="/admin/content/entities" className="text-xs font-semibold text-indigo-700">← {t('admin.entities')}</Link><span className="text-xs font-semibold text-slate-500">{t('admin.detail')}</span></> : <NodeBreadcrumb nodeId={resolvedNodeId} currentNodeLinkable />}
         <span className="text-slate-400">/</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-xs font-mono font-semibold text-slate-800">
           <span className="truncate">{entity.name}</span>
@@ -84,7 +86,7 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
       <Panel className="flex flex-col gap-4 p-4 text-slate-900 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div className="min-w-0">
           <span className="block break-all text-[10px] font-mono uppercase text-indigo-600">
-            ID Entità: {entity.id}
+            {t('entity.id')}: {entity.id}
           </span>
           <h1 className="mt-1 flex items-center gap-1 text-xl font-bold">
             <span>{entity.name}</span>
@@ -98,8 +100,8 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
             />
           </h1>
           <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
-            Tipo: {controller.entityType?.name ?? <Skeleton className="inline-block h-3 w-24" />}
-            {' '}(V: {entity.rowVersion})
+            {t('common.type')}: {controller.entityType?.name ?? <Skeleton className="inline-block h-3 w-24" />}
+            {' '}({t('common.version')}: {entity.rowVersion})
           </p>
         </div>
         <LockBadge

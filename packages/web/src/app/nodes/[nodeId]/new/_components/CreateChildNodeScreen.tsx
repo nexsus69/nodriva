@@ -14,11 +14,13 @@ import {
 import { PageShell, Panel } from '../../../../components/ui/layout';
 import { isAttachmentField } from '../../../../components/ui/forms/dynamicResourceForm';
 import { useCreateChildNode } from '../_hooks/useCreateChildNode';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 /** Renders the node-creation screen from standard fields plus selected type metadata. */
 export function CreateChildNodeScreen() {
   const { nodeId } = useParams<{ nodeId: string }>();
   const controller = useCreateChildNode(nodeId);
+  const { t } = useAppLocale();
   const attachmentKeys = new Set(
     controller.fields.filter(isAttachmentField).map((field) => field.fieldKey),
   );
@@ -44,13 +46,13 @@ export function CreateChildNodeScreen() {
         href={controller.returnTo}
         className="text-xs font-mono text-slate-400 hover:text-slate-200"
       >
-        ← Torna alla pagina di origine
+        ← {t('resource.returnToOrigin')}
       </Link>
       <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Crea nuovo sottonodo</h1>
+          <h1 className="text-xl font-bold text-slate-100">{t('resource.createChildNode')}</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Aggiunge un elemento figlio alla gerarchia sotto il nodo corrente.
+            {t('resource.createChildNodeDescription')}
           </p>
         </div>
         {controller.error && (
@@ -60,9 +62,9 @@ export function CreateChildNodeScreen() {
         )}
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
-            type: { name: 'typeKey', label: 'Tipo Nodo', options: typeOptions },
-            nameLabel: 'Nome Nodo',
-            descriptionLabel: 'Descrizione',
+            type: { name: 'typeKey', label: t('resource.nodeType'), options: typeOptions },
+            nameLabel: t('resource.nodeName'),
+            descriptionLabel: t('resource.description'),
           })}
           fields={controller.fields}
           values={formValues}
@@ -86,9 +88,9 @@ export function CreateChildNodeScreen() {
           onCancel={() => { void controller.cancel(); }}
           isPending={controller.isPending}
           submitDisabled={!controller.name}
-          submitLabel="Crea Sotto-Nodo"
-          pendingLabel="Creazione…"
-          cancelLabel="Annulla"
+          submitLabel={t('resource.createChildNode')}
+          pendingLabel={t('resource.creating')}
+          cancelLabel={t('common.cancel')}
           theme="dark"
           definition={{
             key: 'create-child-node',

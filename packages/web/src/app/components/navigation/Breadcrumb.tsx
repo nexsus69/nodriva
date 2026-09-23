@@ -1,5 +1,6 @@
 import Link from '@/app/components/navigation/GuardedLink';
 import type { ReactNode } from 'react';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export interface BreadcrumbItem {
   label: string;
@@ -29,6 +30,7 @@ function HomeCrumb({ item }: { item: BreadcrumbItem }) {
 }
 
 export function ResponsiveBreadcrumb({ items, ariaLabel = 'Breadcrumb' }: { items: readonly BreadcrumbItem[]; ariaLabel?: string }) {
+  const { t } = useAppLocale();
   const current = items[items.length - 1];
   const previous = items.length > 2 ? items[items.length - 2] : null;
 
@@ -38,9 +40,9 @@ export function ResponsiveBreadcrumb({ items, ariaLabel = 'Breadcrumb' }: { item
         {items.map((item, index) => <li key={`${item.label}-${index}`} className="flex min-w-0 shrink items-center gap-2">{index === 0 ? <HomeCrumb item={item} /> : <><span aria-hidden="true" className="shrink-0 text-slate-400">/</span><Crumb item={item} current={index === items.length - 1} /></>}</li>)}
       </ol>
       <ol className="flex min-w-0 items-center gap-2 lg:hidden">
-        <li className="flex min-w-0 shrink items-center gap-2"><HomeCrumb item={items[0] ?? { label: 'Home', href: '/' }} /></li>
+        <li className="flex min-w-0 shrink items-center gap-2"><HomeCrumb item={items[0] ?? { label: t('breadcrumb.home'), href: '/' }} /></li>
         {items.length > 2 && <li aria-hidden="true" className="shrink-0 text-slate-400">/</li>}
-        {items.length > 3 && <li className="shrink-0 text-slate-500" title="Livelli intermedi nascosti">…</li>}
+        {items.length > 3 && <li className="shrink-0 text-slate-500" title={t('breadcrumb.hiddenLevels')}>…</li>}
         {previous && previous !== items[0] && <li className="flex min-w-0 shrink items-center gap-2"><span aria-hidden="true" className="shrink-0 text-slate-400">/</span><Crumb item={previous} current={previous === current} /></li>}
         {current && current !== items[0] && <li className="flex min-w-0 shrink items-center gap-2"><span aria-hidden="true" className="shrink-0 text-slate-400">/</span><Crumb item={current} current /></li>}
       </ol>

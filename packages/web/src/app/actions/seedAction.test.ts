@@ -49,7 +49,7 @@ describe('seedDatabaseAction', () => {
 
     await expect(seedDatabaseAction('INITIALIZE SYSTEM')).resolves.toEqual({
       success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Si è verificato un errore interno. Riprova più tardi.' },
+      error: { code: 'INTERNAL_ERROR', message: 'Si è verificato un errore interno. Riprova più tardi.', messageKey: 'errors.internal' },
     });
     expect(report).toHaveBeenCalled();
     report.mockRestore();

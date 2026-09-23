@@ -6,6 +6,7 @@ import { SentinelDebugOverlay } from './SentinelDebugOverlay';
 import { VirtualGroupedTableBody } from './VirtualGroupedTableBody';
 import { VirtualTableHead } from './VirtualTableHead';
 import { useVirtualGroupedTableController } from './useVirtualGroupedTableController';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export function VirtualGroupedTable<T extends GroupableItem>({
   items,
@@ -18,7 +19,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
   canLoadMoreForward = true,
   canLoadMoreBackward = true,
   isError = false,
-  errorMessage = 'Si è verificato un errore durante il caricamento dei dati.',
+  errorMessage,
   onRetry,
   onLoadMoreForward,
   onLoadMoreBackward,
@@ -26,13 +27,14 @@ export function VirtualGroupedTable<T extends GroupableItem>({
   renderRowActions,
   selectedIds,
   onSelectionChange,
-  emptyStateMessage = 'Nessun elemento presente.',
+  emptyStateMessage,
   showDebugOverlay = false,
   captureAnchorRef,
   debugInfo,
   onDebugRefresh,
   onDebugRetry,
 }: VirtualGroupedTableProps<T> & { showDebugOverlay?: boolean }) {
+  const { t } = useAppLocale();
   const {
     containerRef,
     topSentinelRef,
@@ -69,7 +71,7 @@ export function VirtualGroupedTable<T extends GroupableItem>({
     <div
       ref={containerRef}
       role="table"
-      aria-label="Tabella Virtualizzata Entità"
+      aria-label={t('table.virtualizedEntities')}
       className="relative flex h-full w-full flex-col overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm"
       style={{ overflowAnchor: 'none' }}
     >
@@ -113,9 +115,9 @@ export function VirtualGroupedTable<T extends GroupableItem>({
         columns={columns}
         isLoading={isLoading}
         isError={isError}
-        errorMessage={errorMessage}
+        errorMessage={errorMessage ?? t('table.loadError')}
         onRetry={onRetry}
-        emptyStateMessage={emptyStateMessage}
+        emptyStateMessage={emptyStateMessage ?? t('table.empty')}
         selectedIds={selectedIds}
         onToggleSelect={onSelectionChange ? handleToggleSelect : undefined}
         renderGroupHeaderActions={renderGroupHeaderActions}

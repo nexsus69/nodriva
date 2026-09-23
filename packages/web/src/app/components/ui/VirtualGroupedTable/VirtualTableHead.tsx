@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { VirtualTableColumnDef } from './types';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 interface VirtualTableHeadProps<T> {
   columns: VirtualTableColumnDef<T>[];
@@ -20,6 +21,7 @@ export function VirtualTableHead<T>({
   onToggleSelectAll,
   gridTemplateColumns,
 }: VirtualTableHeadProps<T>) {
+  const { t } = useAppLocale();
   return (
     <div
       role="rowgroup"
@@ -41,7 +43,7 @@ export function VirtualTableHead<T>({
             />
           </div>
         )}
-        <div role="columnheader" aria-label="Stato lock" className="flex items-center justify-center">
+        <div role="columnheader" aria-label={t('table.lockStatus')} className="flex items-center justify-center">
           <span aria-hidden="true">🔒</span>
         </div>
         {columns.map((col) => (
@@ -51,7 +53,7 @@ export function VirtualTableHead<T>({
         ))}
         {hasRowActions && (
           <div role="columnheader" className="min-w-0 text-right whitespace-normal break-words leading-4">
-            Azioni
+            {t('common.actions')}
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import type { InfiniteListDebugInfo } from './types';
 import { CompensationCard, SemanticViewDebugPanel, SentinelStatusCard } from './SentinelDebugSections';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export interface SentinelDebugOverlayProps {
   topTriggerCount: number;
@@ -21,6 +22,7 @@ export interface SentinelDebugOverlayProps {
 }
 
 export function SentinelDebugOverlay(props: SentinelDebugOverlayProps) {
+  const { t } = useAppLocale();
   const [copied, setCopied] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
@@ -78,11 +80,11 @@ export function SentinelDebugOverlay(props: SentinelDebugOverlayProps) {
 
   return (
     <div ref={panelRef} style={panelStyle} className={`fixed top-2 right-2 sm:top-4 sm:right-4 z-[9999] max-w-[calc(100vw-1rem)] border border-slate-700/80 bg-slate-950/95 shadow-2xl text-slate-200 text-xs font-mono backdrop-blur-md ${isCollapsed ? 'w-[min(280px,calc(100vw-1rem))] rounded-lg' : 'w-[min(390px,calc(100vw-1rem))] rounded-xl'}`}>
-      <div onPointerDown={startDragging} onPointerMove={movePanel} onPointerUp={stopDragging} onPointerCancel={stopDragging} className={`flex touch-none select-none items-center justify-between px-3.5 py-2.5 cursor-move ${isCollapsed ? '' : 'border-b border-slate-800'}`} title="Trascina per spostare il pannello">
-        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /><span className="font-bold text-slate-100 uppercase tracking-wider text-[11px]">Debug Lista & Cache</span></div>
+      <div onPointerDown={startDragging} onPointerMove={movePanel} onPointerUp={stopDragging} onPointerCancel={stopDragging} className={`flex touch-none select-none items-center justify-between px-3.5 py-2.5 cursor-move ${isCollapsed ? '' : 'border-b border-slate-800'}`} title={t('debug.dragPanel')}>
+        <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" /><span className="font-bold text-slate-100 uppercase tracking-wider text-[11px]">{t('debug.listCache')}</span></div>
         <div className="flex items-center gap-1">
-          {!isCollapsed && <><button type="button" onClick={() => setPosition(null)} className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700" title="Riporta in alto a destra">↗</button><button type="button" onClick={props.onResetCounts} className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold transition-colors border border-slate-700" title="Azzera Conteggi">Azzera</button></>}
-          <button type="button" onClick={toggleCollapsed} className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-slate-700" aria-expanded={!isCollapsed} title={isCollapsed ? 'Espandi pannello' : 'Collassa pannello'}>{isCollapsed ? '▢' : '—'}</button>
+          {!isCollapsed && <><button type="button" onClick={() => setPosition(null)} className="rounded border border-slate-700 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700" title={t('debug.resetPosition')}>↗</button><button type="button" onClick={props.onResetCounts} className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-[10px] font-semibold transition-colors border border-slate-700" title={t('debug.resetCounts')}>{t('debug.reset')}</button></>}
+          <button type="button" onClick={toggleCollapsed} className="rounded border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-slate-700" aria-expanded={!isCollapsed} title={isCollapsed ? t('debug.expand') : t('debug.collapse')}>{isCollapsed ? '▢' : '—'}</button>
         </div>
       </div>
 
@@ -92,10 +94,10 @@ export function SentinelDebugOverlay(props: SentinelDebugOverlayProps) {
           <SentinelStatusCard position="top" count={props.topTriggerCount} hasMore={props.hasMoreBackward} loading={props.isLoadingMoreBackward} />
           <SentinelStatusCard position="bottom" count={props.bottomTriggerCount} hasMore={props.hasMoreForward} loading={props.isLoadingMoreForward} />
           <CompensationCard compensation={props.lastCompensation} />
-          <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-900/40 border border-slate-800/60 rounded-lg text-slate-400"><span>Modalità:</span><span className="font-bold px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">NATIVE OBSERVER (0% CPU)</span></div>
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-slate-900/40 border border-slate-800/60 rounded-lg text-slate-400"><span>{t('debug.mode')}:</span><span className="font-bold px-1.5 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">{t('debug.nativeObserver')}</span></div>
           <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 px-1 border-t border-slate-800/60">
-            <span>Ultimo Trigger:</span>
-            <span className="font-semibold text-slate-300">{props.lastTriggered ? <span className={props.lastTriggered === 'top' ? 'text-emerald-400' : 'text-sky-400'}>{props.lastTriggered.toUpperCase()} ({props.lastTriggerTime})</span> : 'Nessuno'}</span>
+            <span>{t('debug.lastTrigger')}:</span>
+            <span className="font-semibold text-slate-300">{props.lastTriggered ? <span className={props.lastTriggered === 'top' ? 'text-emerald-400' : 'text-sky-400'}>{props.lastTriggered.toUpperCase()} ({props.lastTriggerTime})</span> : t('common.none')}</span>
           </div>
         </div>
       )}

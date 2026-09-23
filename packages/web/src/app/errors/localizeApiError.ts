@@ -14,6 +14,7 @@ const ERROR_KEYS: Record<string, string> = {
   TYPE_FIELD_HAS_VALUES: "errors.typeFieldHasValues",
   FIELD_ENCRYPTED_VALUES_EXIST: "errors.fieldEncryptedValuesExist",
   FIELD_ENCRYPTION_DISABLED: "errors.fieldEncryptionDisabled",
+  DUPLICATE_TYPE_KEY: "errors.duplicateTypeKey", DUPLICATE_FIELD_KEY: "errors.duplicateFieldKey", DUPLICATE_COLUMN_NAME: "errors.duplicateColumnName", DUPLICATE_EMAIL: "errors.duplicateEmail", DUPLICATE_ROLE_KEY: "errors.duplicateRoleKey", SYSTEM_TYPE_FORBIDDEN: "errors.systemTypeForbidden", SYSTEM_FIELD_FORBIDDEN: "errors.systemFieldForbidden", NODE_PATH_COLLISION: "errors.nodePathCollision", NODE_CYCLIC_MOVE: "errors.nodeCyclicMove", LOCK_CONFLICT: "errors.lockConflict", LOCK_NOT_FOUND: "errors.lockExpired", LOCK_EXPIRED: "errors.lockExpired", LOCK_FORBIDDEN: "errors.lockForbidden", LOCK_REQUIRED: "errors.lockRequired", CAPABILITY_DISABLED: "errors.capabilityDisabled", RESOURCE_DELETE_RESTRICTED: "errors.resourceDeleteRestricted", DUPLICATE_PLACEMENT_POLICY_KEY: "errors.duplicatePlacementPolicyKey",
 };
 
 const DETAIL_KEYS: Record<string, string> = {

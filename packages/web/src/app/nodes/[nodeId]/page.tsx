@@ -14,21 +14,24 @@ import { NodeEntitiesSection } from './_components/NodeEntitiesSection';
 import { NodeWorkspaceNavigation } from './_components/NodeWorkspaceNavigation';
 import { SubtreeEntitiesTableSection } from './_components/SubtreeEntitiesTableSection';
 import { useNodeDetail } from './_hooks/useNodeDetail';
+import { useAppLocale } from '../../i18n/AppLocaleStore';
 
 function AccessDenied() {
+  const { t } = useAppLocale();
   return (
     <PageShell>
       <Panel className="mx-auto max-w-xl space-y-4 border-rose-200 bg-rose-50">
         <div className="text-4xl">🔒</div>
-        <h1 className="text-xl font-semibold text-slate-900">Accesso al nodo negato</h1>
-        <p className="text-sm text-slate-600">Non disponi di uno scope di lettura per questa area.</p>
-        <Link href="/" className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500">Torna al workspace</Link>
+        <h1 className="text-xl font-semibold text-slate-900">{t('node.accessDenied')}</h1>
+        <p className="text-sm text-slate-600">{t('node.accessDeniedDescription')}</p>
+        <Link href="/" className="inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-500">{t('node.returnToWorkspace')}</Link>
       </Panel>
     </PageShell>
   );
 }
 
 export default function NodeDetailPage() {
+  const { t } = useAppLocale();
   const params = useParams();
   const nodeId = params.nodeId as string;
   const controller = useNodeDetail(nodeId);
@@ -42,11 +45,11 @@ export default function NodeDetailPage() {
       <NodeWorkspaceNavigation nodeId={nodeId} canCreate={canCreate} />
       <NodeContextOverview nodeId={nodeId} controller={controller} />
       {controller.displayedError && <Alert tone="danger">
-        <span className="font-bold">Errore:</span> {controller.displayedError}
+        <span className="font-bold">{t('common.error')}:</span> {controller.displayedError}
         {controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}
-        {controller.formStale && <button type="button" className="ml-3 underline" onClick={() => void controller.reloadFresh()}>Ricarica dati</button>}
+        {controller.formStale && <button type="button" className="ml-3 underline" onClick={() => void controller.reloadFresh()}>{t('common.reload')}</button>}
       </Alert>}
-      {controller.successMessage && <Alert tone="success"><span className="font-bold">Esito:</span> {controller.successMessage}</Alert>}
+      {controller.successMessage && <Alert tone="success"><span className="font-bold">{t('common.result')}:</span> {controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
       {controller.currentNode && controller.nodeTypes[controller.currentNode.nodeTypeId]?.typeKey && (
         <RelationPanel

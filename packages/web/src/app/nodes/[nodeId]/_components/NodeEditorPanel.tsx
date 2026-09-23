@@ -1,3 +1,5 @@
+'use client';
+
 /** Renders the node overview and its shared metadata-driven edit form. */
 import { LockBadge } from '../../../components/LockBadge';
 import { Panel, SectionHeader } from '../../../components/ui/layout';
@@ -11,6 +13,7 @@ import {
 } from '../../../components/ui/forms';
 import { Skeleton } from '../../../components/ui/feedback';
 import type { useNodeDetail } from '../_hooks/useNodeDetail';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 interface NodeEditorPanelProps {
   nodeId: string;
@@ -19,6 +22,7 @@ interface NodeEditorPanelProps {
 
 /** Presents node identity, lock state, dynamic draft fields, and owned attachments. */
 export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
+  const { t } = useAppLocale();
   const attachmentFields = controller.dynamicNodeFields.filter((field) => (
     ['file', 'image'].includes(field.dataType.toLowerCase())
   ));
@@ -44,7 +48,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             <div className="min-w-0">
               <h1 className="flex items-center gap-2 text-xl font-semibold text-slate-900">
                 {controller.isNodeLoading || !controller.currentNode ? (
-                  <span role="status" aria-label="Caricamento nodo">
+                  <span role="status" aria-label={t('node.loadingCurrent')}>
                     <Skeleton className="h-6 w-48" />
                   </span>
                 ) : (
@@ -65,14 +69,14 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
                 <Skeleton className="mt-1 h-3 w-36" />
               ) : (
                 <p className="mt-0.5 text-xs font-mono text-slate-400">
-                  Path: {controller.currentNode.pathLabel || controller.currentNode.path || '-'}
+                  {t('node.path')}: {controller.currentNode.pathLabel || controller.currentNode.path || '-'}
                 </p>
               )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-mono uppercase text-slate-500">
-              Version {controller.currentNode?.rowVersion || 1}
+              {t('node.version')} {controller.currentNode?.rowVersion || 1}
             </span>
             <LockBadge
               lockedByOther={controller.lockedByOther}
@@ -86,8 +90,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
         {controller.isMyLock ? (
           <ResourceFormRenderer
             baseFields={buildResourceIdentityFields({
-              nameLabel: 'Nome nodo',
-              descriptionLabel: 'Descrizione',
+              nameLabel: t('resource.nodeName'), descriptionLabel: t('resource.description'),
             })}
             fields={controller.dynamicNodeFields}
             values={formValues}
@@ -108,12 +111,10 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             )}
             onSubmit={controller.handleUpdateNode}
             onCancel={() => { void controller.exitEditMode(); }}
-            destructiveAction={{ label: 'Elimina nodo', onClick: () => { void controller.requestDeleteNode(); } }}
+            destructiveAction={{ label: t('menu.deleteNode'), onClick: () => { void controller.requestDeleteNode(); } }}
             isPending={controller.isSavingNode}
             submitDisabled={!controller.nodeName.trim() || controller.formStale}
-            submitLabel="Salva modifiche"
-            pendingLabel="Salvataggio…"
-            cancelLabel="Annulla"
+            submitLabel={t('node.saveChanges')} pendingLabel={t('common.saving')} cancelLabel={t('common.cancel')}
             theme="light"
             definition={{
               key: 'edit-node',
@@ -122,13 +123,13 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
               sections: [
                 {
                   key: 'identity',
-                  label: 'Informazioni principali',
+                  label: t('node.mainInformation'),
                   fieldNames: ['name', 'description'],
                   columns: 2,
                 },
                 {
                   key: 'fields',
-                  label: 'Campi del tipo',
+                  label: t('node.typeFields'),
                   fieldNames: dynamicFieldNames,
                   columns: 2,
                 },
@@ -148,8 +149,7 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             title={field.label ?? field.fieldKey}
             description={
               field.dataType.toLowerCase() === 'image'
-                ? 'Immagini collegate al campo.'
-                : 'Documenti collegati al campo.'
+                ? t('node.fieldImages') : t('node.fieldDocuments')
             }
           />
           <AttachmentList

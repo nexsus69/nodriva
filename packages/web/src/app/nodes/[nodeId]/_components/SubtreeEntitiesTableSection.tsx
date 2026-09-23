@@ -14,6 +14,7 @@ import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { EntityResourceMenu } from '../../../components/ui/menu';
 import { Skeleton } from '../../../components/ui/feedback';
 import { CustomSelect } from '../../../components/ui/forms';
+import { useAppLocale } from '../../../i18n/AppLocaleStore';
 
 export interface SubtreeEntitiesTableSectionProps {
   nodeId: string;
@@ -22,6 +23,7 @@ export interface SubtreeEntitiesTableSectionProps {
 export function SubtreeEntitiesTableSection({
   nodeId,
 }: SubtreeEntitiesTableSectionProps) {
+  const { t, locale } = useAppLocale();
   const { entityTypes } = useSemanticMetadata();
   const captureAnchorRef = useRef<
     ((direction: 'forward' | 'backward') => void) | null
@@ -70,7 +72,7 @@ export function SubtreeEntitiesTableSection({
   >[]>(() => [
     {
       key: 'name',
-      header: 'Nome Entità',
+      header: t('subtree.entityName'),
       width: '1.5fr',
       render: (item) => (
         <div className="flex min-w-0 items-center gap-1">
@@ -81,7 +83,7 @@ export function SubtreeEntitiesTableSection({
     },
     {
       key: 'entityTypeId',
-      header: 'Tipo',
+      header: t('common.type'),
       width: '1fr',
       render: (item) => {
         const entityType = Object.values(entityTypes).find(
@@ -90,18 +92,18 @@ export function SubtreeEntitiesTableSection({
         return entityType?.name ?? <Skeleton className="h-4 w-24" />;
       },
     },
-    { key: 'rowVersion', header: 'Versione', width: '0.8fr' },
+    { key: 'rowVersion', header: t('common.version'), width: '0.8fr' },
     {
       key: 'createdAt',
-      header: 'Creato Il',
+      header: t('common.createdAt'),
       width: '1.5fr',
       render: (item) => (
         <span className="font-mono text-xs text-slate-400">
-          {new Date(item.createdAt).toLocaleDateString()}
+          {new Date(item.createdAt).toLocaleDateString(locale)}
         </span>
       ),
     },
-  ], [entityTypes]);
+  ], [entityTypes, locale, t]);
 
   const formattedItems = items.map((item) => ({
     ...item,
@@ -111,30 +113,30 @@ export function SubtreeEntitiesTableSection({
   return (
     <section className="space-y-4 border-t border-slate-200 pt-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">Esplora dati</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Entità del sottoalbero</h2></div>
-        <span className="self-start rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm sm:self-auto">{items.length} caricate</span>
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-500">{t('subtree.explore')}</p><h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">{t('subtree.title')}</h2></div>
+        <span className="self-start rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-500 shadow-sm sm:self-auto">{items.length} {t('subtree.loaded')}</span>
       </div>
       <div className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Cerca
-          <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Nome, nodo o ID" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
+        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('common.search')}
+          <input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={t('subtree.searchPlaceholder')} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
         </label>
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Nome
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Contiene…" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
+        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('common.name')}
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder={t('common.contains')} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
         </label>
-        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Descrizione
-          <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contiene…" className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
+        <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{t('common.description')}
+          <input value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t('common.contains')} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm normal-case tracking-normal text-slate-800 outline-none focus:border-indigo-400" />
         </label>
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Lock
+          {t('common.lock')}
           <div className="mt-1 normal-case tracking-normal">
             <CustomSelect
               id="subtree-lock-state"
               value={lockState}
               tone="light"
-              placeholder="Tutti"
+              placeholder={t('common.all')}
               options={[
-                { value: 'locked', label: 'Bloccati' },
-                { value: 'unlocked', label: 'Non bloccati' },
+                { value: 'locked', label: t('subtree.locked') },
+                { value: 'unlocked', label: t('subtree.unlocked') },
               ]}
               onChange={(value) => setLockState(value as typeof lockState)}
             />
@@ -166,7 +168,7 @@ export function SubtreeEntitiesTableSection({
           )}
           renderRowActions={({ item }) => (
             <div className="flex items-center gap-2">
-              <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">Apri →</Link>
+              <Link href={`/nodes/${item.parentNodeId}/entities/${item.id}`} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">{t('common.open')} →</Link>
             </div>
           )}
         />

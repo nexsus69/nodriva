@@ -1,4 +1,7 @@
+'use client';
+
 import type { ReactNode } from 'react';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }) {
   const tones = {
@@ -21,8 +24,9 @@ export function Alert({ children, tone = 'info', role = 'status', className = ''
   return <div role={role} className={`break-words rounded-xl border p-4 text-xs ${tones[tone]} ${className}`}>{children}</div>;
 }
 
-export function EmptyState({ title = 'Nessun elemento', description, action }: { title?: ReactNode; description?: ReactNode; action?: ReactNode }) {
-  return <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><p className="text-sm font-semibold text-slate-700">{title}</p>{description && <p className="mx-auto mt-2 max-w-md text-xs text-slate-500">{description}</p>}{action && <div className="mt-4">{action}</div>}</div>;
+export function EmptyState({ title, description, action }: { title?: ReactNode; description?: ReactNode; action?: ReactNode }) {
+  const { t } = useAppLocale();
+  return <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"><p className="text-sm font-semibold text-slate-700">{title ?? t('common.empty')}</p>{description && <p className="mx-auto mt-2 max-w-md text-xs text-slate-500">{description}</p>}{action && <div className="mt-4">{action}</div>}</div>;
 }
 
 export function Skeleton({ className = '' }: { className?: string }) {

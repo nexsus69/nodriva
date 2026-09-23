@@ -173,6 +173,7 @@ describe('node mutation actions', () => {
         error: {
           code: 'INTERNAL_ERROR',
           message: 'Si è verificato un errore interno. Riprova più tardi.',
+          messageKey: 'errors.internal',
         },
       });
     expect(report).toHaveBeenCalled();

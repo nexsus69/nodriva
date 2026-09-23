@@ -2,6 +2,7 @@
 
 import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 const MENU_GAP = 8;
 const VIEWPORT_GUTTER = 8;
@@ -31,7 +32,9 @@ interface MenuPosition {
 }
 
 /** Small accessible action menu. The caller owns the actions and navigation. */
-export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align = 'right', className = '' }: ActionMenuProps) {
+export function ActionMenu({ items, trigger, label, align = 'right', className = '' }: ActionMenuProps) {
+  const { t } = useAppLocale();
+  const resolvedLabel = label ?? t('menu.openActions');
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<MenuPosition>({ top: 0, left: 0, opensUpward: false });
   const rootRef = useRef<HTMLSpanElement>(null);
@@ -91,7 +94,7 @@ export function ActionMenu({ items, trigger, label = 'Apri menu azioni', align =
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={label}
+        aria-label={resolvedLabel}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();

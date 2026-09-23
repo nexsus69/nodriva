@@ -1,4 +1,7 @@
+'use client';
+
 import type { FormEvent, ReactNode } from "react";
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 import { PasswordInput } from "./PasswordInput";
 import { AttachmentInput } from "./AttachmentInput";
 import { RelationPicker } from "./RelationPicker";
@@ -217,6 +220,7 @@ function FormField({
   validationMessages: FormValidationMessages;
   renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
 }) {
+  const { t } = useAppLocale();
   const fieldId = `form-field-${field.name}`;
   const labelPosition = field.layout?.labelPosition ?? "top";
   const rules = fieldRules(field, validationMessages);
@@ -233,8 +237,8 @@ function FormField({
           onChange={onChange}
         />
         {field.encryptionMode === "encrypted" && (
-          <span className="mt-1 block text-[11px] font-semibold text-amber-700" title="Campo cifrato" aria-label="Campo cifrato">
-            🔒 Campo cifrato
+          <span className="mt-1 block text-[11px] font-semibold text-amber-700" title={t('form.encryptedField')} aria-label={t('form.encryptedField')}>
+            🔒 {t('form.encryptedField')}
           </span>
         )}
         {field.description && (
@@ -353,8 +357,8 @@ function FormField({
     >
       <div>{label}</div>
       {field.encryptionMode === "encrypted" && (
-        <span className="mb-1 block text-[11px] font-semibold text-amber-700" title="Campo cifrato" aria-label="Campo cifrato">
-          🔒 Campo cifrato
+        <span className="mb-1 block text-[11px] font-semibold text-amber-700" title={t('form.encryptedField')} aria-label={t('form.encryptedField')}>
+          🔒 {t('form.encryptedField')}
         </span>
       )}
       {control}
@@ -366,7 +370,7 @@ function FormField({
       {rules.length > 0 && (
         <ul
           className="mt-1 space-y-0.5 text-[11px]"
-          aria-label="Validation rules"
+          aria-label={t('form.validationRules')}
         >
           {rules.map((rule, index) => {
             const valid = evaluateRule(rule, value);

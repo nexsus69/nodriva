@@ -15,11 +15,13 @@ import { PageShell, Panel } from '../../../../../components/ui/layout';
 import { isAttachmentField } from '../../../../../components/ui/forms/dynamicResourceForm';
 import { RelatedEntityModal } from './RelatedEntityModal';
 import { useCreateEntity } from '../_hooks/useCreateEntity';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 /** Renders entity creation from stable identity fields and the selected type definition. */
 export function CreateEntityScreen() {
   const { nodeId } = useParams<{ nodeId: string }>();
   const controller = useCreateEntity(nodeId);
+  const { t } = useAppLocale();
   const attachmentKeys = new Set(
     controller.fields.filter(isAttachmentField).map((field) => field.fieldKey),
   );
@@ -45,13 +47,13 @@ export function CreateEntityScreen() {
         href={controller.returnTo}
         className="text-xs font-mono text-slate-400 hover:text-slate-200"
       >
-        ← Torna alla pagina di origine
+        ← {t('resource.returnToOrigin')}
       </Link>
       <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">Nuova entità operativa</h1>
+          <h1 className="text-xl font-bold text-slate-100">{t('resource.newOperationalEntity')}</h1>
           <p className="mt-1 text-xs text-slate-400">
-            Crea una nuova entità compilando i dati di base e i campi dello schema.
+            {t('resource.newEntityDescription')}
           </p>
         </div>
         {controller.error && (
@@ -61,9 +63,9 @@ export function CreateEntityScreen() {
         )}
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
-            type: { name: 'typeKey', label: 'Tipo Entità', options: typeOptions },
-            nameLabel: 'Nome Entità',
-            descriptionLabel: 'Descrizione',
+            type: { name: 'typeKey', label: t('resource.entityType'), options: typeOptions },
+            nameLabel: t('resource.entityName'),
+            descriptionLabel: t('resource.description'),
           })}
           fields={controller.fields}
           values={formValues}
@@ -89,9 +91,9 @@ export function CreateEntityScreen() {
           submitDisabled={
             !controller.name || !controller.typeKey
           }
-          submitLabel="Crea Entità"
-          pendingLabel="Creazione…"
-          cancelLabel="Annulla"
+          submitLabel={t('resource.createEntity')}
+          pendingLabel={t('resource.creating')}
+          cancelLabel={t('common.cancel')}
           theme="dark"
           definition={{
             key: 'create-entity',

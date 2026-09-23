@@ -60,7 +60,7 @@ function resourceDeleteReferencers(details: Record<string, unknown> | undefined)
  * Domain errors may retain technical messages internally, but only this
  * function decides what is safe and stable to expose to the browser.
  */
-export function mapAppErrorToApiErrorResponse(
+function mapAppErrorToApiErrorResponseBase(
   error: unknown,
   context?: 'account-completion',
 ): ApiErrorResponse {
@@ -161,6 +161,24 @@ export function mapAppErrorToApiErrorResponse(
       console.error('[ErrorMapping] Unmapped domain error:', { code: error.code, message: error.message, details });
       return { code: 'INTERNAL_ERROR', message: 'Si è verificato un errore interno. Riprova più tardi.' };
   }
+}
+
+const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
+  ROW_VERSION_MISMATCH: 'errors.rowVersionMismatch', ACCESS_FORBIDDEN: 'errors.accessForbidden', AUTH_UNAUTHORIZED: 'errors.authUnauthorized',
+  INTERNAL_ERROR: 'errors.internal', VALIDATION_ERROR: 'admin.validationFailed', DUPLICATE_TYPE_KEY: 'errors.duplicateTypeKey',
+  DUPLICATE_FIELD_KEY: 'errors.duplicateFieldKey', DUPLICATE_COLUMN_NAME: 'errors.duplicateColumnName', DUPLICATE_EMAIL: 'errors.duplicateEmail',
+  DUPLICATE_ROLE_KEY: 'errors.duplicateRoleKey', NOT_FOUND: 'errors.notFound', SYSTEM_TYPE_FORBIDDEN: 'errors.systemTypeForbidden',
+  SYSTEM_FIELD_FORBIDDEN: 'errors.systemFieldForbidden', TYPE_HAS_INSTANCES: 'errors.typeHasInstances', TYPE_FIELD_HAS_VALUES: 'errors.typeFieldHasValues',
+  NODE_PATH_COLLISION: 'errors.nodePathCollision', NODE_CYCLIC_MOVE: 'errors.nodeCyclicMove', LOCK_CONFLICT: 'errors.lockConflict',
+  LOCK_NOT_FOUND: 'errors.lockExpired', LOCK_EXPIRED: 'errors.lockExpired', LOCK_FORBIDDEN: 'errors.lockForbidden', LOCK_REQUIRED: 'errors.lockRequired',
+  CAPABILITY_DISABLED: 'errors.capabilityDisabled', RESOURCE_DELETE_RESTRICTED: 'errors.resourceDeleteRestricted',
+  DUPLICATE_PLACEMENT_POLICY_KEY: 'errors.duplicatePlacementPolicyKey',
+};
+
+/** Adds the stable presentation key consumed by browser error boundaries. */
+export function mapAppErrorToApiErrorResponse(error: unknown, context?: 'account-completion'): ApiErrorResponse {
+  const response = mapAppErrorToApiErrorResponseBase(error, context);
+  return { ...response, messageKey: API_ERROR_MESSAGE_KEYS[response.code] ?? 'errors.internal' };
 }
 
 /** Safe exception boundary for legacy actions that still return domain data directly. */

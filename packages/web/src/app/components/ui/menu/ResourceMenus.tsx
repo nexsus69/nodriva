@@ -6,6 +6,7 @@ import { useNavigationRequest } from '../../../navigation/NavigationBlocker';
 import { useNavigationHref } from '../../../navigation/returnContext';
 import { useResourceMenuDelete } from './useResourceMenuDelete';
 import { ResourceDeleteRestriction } from '../feedback';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 function copyTechnicalId(id: string): void {
   void navigator.clipboard?.writeText(id);
@@ -26,6 +27,7 @@ export function NodeResourceMenu({ nodeId, nodeName, onEdit, onDelete }: NodeRes
   const createChildHref = useNavigationHref(`/nodes/${nodeId}/new`);
   const createEntityHref = useNavigationHref(`/nodes/${nodeId}/entities/new`);
   const menuDelete = useResourceMenuDelete({ kind: 'node', resourceId: nodeId });
+  const { t } = useAppLocale();
   const navigate = (href: string) => {
     void requestNavigation(() => router.push(href));
   };
@@ -33,14 +35,9 @@ export function NodeResourceMenu({ nodeId, nodeName, onEdit, onDelete }: NodeRes
   return (
     <span className="relative inline-flex">
       <OverflowMenu
-        label={`Azioni per ${nodeName}`}
+        label={`${t('menu.actionsFor')} ${nodeName}`}
         items={[
-          { id: 'open', label: 'Apri nodo', onSelect: () => navigate(nodeHref) },
-          { id: 'edit', label: 'Modifica nodo', onSelect: onEdit ?? (() => navigate(nodeHref)) },
-          { id: 'new-child', label: 'Nuovo sotto-nodo', onSelect: () => navigate(createChildHref) },
-          { id: 'new-entity', label: 'Nuova entità', onSelect: () => navigate(createEntityHref) },
-          { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => copyTechnicalId(nodeId) },
-          { id: 'delete', label: menuDelete.isDeleting ? 'Eliminazione in corso…' : 'Elimina nodo', destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
+          { id: 'open', label: t('menu.openNode'), onSelect: () => navigate(nodeHref) }, { id: 'edit', label: t('menu.editNode'), onSelect: onEdit ?? (() => navigate(nodeHref)) }, { id: 'new-child', label: t('menu.newChild'), onSelect: () => navigate(createChildHref) }, { id: 'new-entity', label: t('menu.newEntity'), onSelect: () => navigate(createEntityHref) }, { id: 'copy-id', label: t('menu.copyTechnicalId'), onSelect: () => copyTechnicalId(nodeId) }, { id: 'delete', label: menuDelete.isDeleting ? t('attachments.deleting') : t('menu.deleteNode'), destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
         ]}
       />
       {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}{menuDelete.deleteRestriction && <ResourceDeleteRestriction restriction={menuDelete.deleteRestriction} />}</span>}
@@ -63,6 +60,7 @@ export function EntityResourceMenu({ entityId, entityName, parentNodeId, onEdit,
   const requestNavigation = useNavigationRequest();
   const entityHref = useNavigationHref(`/nodes/${parentNodeId}/entities/${entityId}`);
   const menuDelete = useResourceMenuDelete({ kind: 'entity', resourceId: entityId, parentNodeId });
+  const { t } = useAppLocale();
   const navigate = (href: string) => {
     void requestNavigation(() => router.push(href));
   };
@@ -70,12 +68,9 @@ export function EntityResourceMenu({ entityId, entityName, parentNodeId, onEdit,
   return (
     <span className="relative inline-flex">
       <OverflowMenu
-        label={`Azioni per ${entityName}`}
+        label={`${t('menu.actionsFor')} ${entityName}`}
         items={[
-          { id: 'open', label: 'Apri entità', onSelect: () => navigate(entityHref) },
-          { id: 'edit', label: editDisabled ? 'In modifica' : 'Modifica entità', disabled: editDisabled, onSelect: onEdit ?? (() => navigate(entityHref)) },
-          { id: 'copy-id', label: 'Copia ID tecnico', onSelect: () => copyTechnicalId(entityId) },
-          { id: 'delete', label: menuDelete.isDeleting ? 'Eliminazione in corso…' : 'Elimina entità', destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
+          { id: 'open', label: t('menu.openEntity'), onSelect: () => navigate(entityHref) }, { id: 'edit', label: editDisabled ? t('menu.editing') : t('menu.editEntity'), disabled: editDisabled, onSelect: onEdit ?? (() => navigate(entityHref)) }, { id: 'copy-id', label: t('menu.copyTechnicalId'), onSelect: () => copyTechnicalId(entityId) }, { id: 'delete', label: menuDelete.isDeleting ? t('attachments.deleting') : t('menu.deleteEntity'), destructive: true, disabled: menuDelete.isDeleting, onSelect: onDelete ?? menuDelete.requestDelete },
         ]}
       />
       {menuDelete.errorMessage && <span role="alert" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 shadow-lg">{menuDelete.errorMessage}{menuDelete.deleteRestriction && <ResourceDeleteRestriction restriction={menuDelete.deleteRestriction} />}</span>}
