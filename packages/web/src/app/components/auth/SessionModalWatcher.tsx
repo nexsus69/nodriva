@@ -3,10 +3,12 @@
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useHumanActivity } from '../../activity/ActivityProvider';
+import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
 export function SessionModalWatcher() {
   const { sessionExpiresAt, isSessionExpired, checkSession, timing } = useHumanActivity();
   const { data: session } = useSession();
+  const { t } = useAppLocale();
 
   useEffect(() => {
     if (!sessionExpiresAt || isSessionExpired) return;
@@ -44,10 +46,8 @@ export function SessionModalWatcher() {
           </svg>
         </div>
         <div>
-          <h3 className="mb-2 text-lg font-semibold text-slate-900">Sessione scaduta</h3>
-          <p className="text-sm text-slate-500">
-            Per motivi di sicurezza, la tua sessione è stata interrotta per inattività.
-          </p>
+          <h3 className="mb-2 text-lg font-semibold text-slate-900">{t('session.expiredTitle')}</h3>
+          <p className="text-sm text-slate-500">{t('session.expiredDescription')}</p>
         </div>
         <button
           onClick={() => {
@@ -57,7 +57,7 @@ export function SessionModalWatcher() {
           }}
           className="flex w-full justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20"
         >
-          Accedi di nuovo
+          {t('session.signInAgain')}
         </button>
       </div>
     </div>

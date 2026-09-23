@@ -26,7 +26,8 @@
     "ops:health": "./scripts/stack-healthcheck.sh",
     "test:compose": "./scripts/docker-compose-profile-contract.sh",
     "docs:source": "node scripts/check-source-documentation.mjs",
-    "check": "pnpm docs:source && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build",
+    "i18n:guard": "node scripts/check-no-hardcoded-ui-text.mjs",
+    "check": "pnpm docs:source && pnpm i18n:guard && pnpm typecheck && pnpm lint && pnpm test && pnpm --filter @dashboard/core build && pnpm --filter @dashboard/web build",
     "verify:push": "pnpm check && pnpm test:postgres:local && pnpm e2e:parity"
   },
   "devDependencies": {

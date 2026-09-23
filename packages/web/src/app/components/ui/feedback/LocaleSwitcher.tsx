@@ -5,11 +5,11 @@ import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 
 /** Provides compact locale buttons while preserving the current workspace. */
 export function LocaleSwitcher() {
-  const { locale, setLocale } = useAppLocale();
+  const { locale, setLocale, t } = useAppLocale();
   return (
     <div
       className="flex items-center gap-1 border border-slate-200 bg-slate-50 p-1"
-      aria-label="Language"
+      aria-label={t('common.language')}
     >
       <button
         type="button"

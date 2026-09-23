@@ -19,6 +19,21 @@ export const ADMIN_MODULES: readonly AdminModule[] = [
     route: "/admin",
   },
   {
+    key: "account",
+    // The registry retains a key-shaped fallback for code paths that do not
+    // render UI; every visible label is resolved from the locale catalogue.
+    label: "account.title",
+    labelKey: "account.title",
+    description: "account.description",
+    descriptionKey: "account.description",
+    icon: "user",
+    order: 5,
+    children: [
+      { key: "account.profile", label: "account.profile", labelKey: "account.profile", description: "account.description", descriptionKey: "account.description", icon: "user", order: 10, route: "/admin/account" },
+      { key: "account.security", label: "account.security", labelKey: "account.security", description: "account.securityDescription", descriptionKey: "account.securityDescription", icon: "shield", order: 20, route: "/admin/account/security" },
+    ],
+  },
+  {
     key: "model",
     label: "Model",
     labelKey: "admin.model",

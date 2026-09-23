@@ -24,9 +24,13 @@ import { AdminEntityDetailScreen } from '../content/_components/AdminEntityDetai
 import { parseAdminContentDetailRoute } from '../content/adminContentDetailRoute';
 import Link from "@/app/components/navigation/GuardedLink";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { CurrentAccountScreen } from "@/app/account/_components/CurrentAccountScreen";
+import { AccountSecurityScreen } from "@/app/account/security/_components/AccountSecurityScreen";
 
 const MODULE_SCREENS: Record<string, () => React.ReactNode> = {
   overview: () => <AdminOverviewScreen />,
+  "account.profile": () => <CurrentAccountScreen securityHref="/admin/account/security" />,
+  "account.security": () => <AccountSecurityScreen />,
   "model.types": () => <AdminTypesPage />,
   "model.placement-policies": () => <PlacementPoliciesModuleScreen />,
   "model.field-protection": () => <SystemConfigModuleScreen kind="settings" section="field-protection" />,

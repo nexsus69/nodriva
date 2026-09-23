@@ -7,19 +7,21 @@ import { logoutAction } from '../../actions/authActions';
 import { AppCache } from '../../cache/GlobalCacheClient';
 import { useHumanActivity } from '../../activity/ActivityProvider';
 import { useNavigationConfirmation } from '../../navigation/NavigationBlocker';
+import { useAppLocale } from '../../i18n/AppLocaleStore';
 
 interface LogoutButtonProps {
   className?: string;
 }
 
-export function LogoutButton({ className }: LogoutButtonProps) {
+/** Shared logout lifecycle for every surface that offers a session exit. */
+export function useLogout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
   const { update: refreshSession } = useSession();
   const { resetActivity } = useHumanActivity();
   const confirmNavigation = useNavigationConfirmation();
 
-  const handleLogout = async () => {
+  const logout = async () => {
     if (!(await confirmNavigation())) return;
     setIsLoggingOut(true);
     try {
@@ -56,15 +58,21 @@ export function LogoutButton({ className }: LogoutButtonProps) {
     }
   };
 
+  return { logout, isLoggingOut };
+}
+
+export function LogoutButton({ className }: LogoutButtonProps) {
+  const { logout, isLoggingOut } = useLogout();
+  const { t } = useAppLocale();
   return (
     <button
-      onClick={handleLogout}
+      onClick={logout}
       disabled={isLoggingOut}
       className={`px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 transition-all flex items-center gap-2 ${className || ''}`}
-      title="Disconnetti"
+      title={t('account.logout')}
     >
       <span>{isLoggingOut ? '🔄' : '🚪'}</span>
-      <span>Logout</span>
+      <span>{isLoggingOut ? t('account.loggingOut') : t('account.logout')}</span>
     </button>
   );
 }

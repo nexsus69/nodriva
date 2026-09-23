@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { findAdminModuleByRoute, isAdminModuleRouteMatch } from "./AdminModule";
 import { ADMIN_MODULES, AdminModuleRegistry } from "./AdminModuleRegistry";
+import { APP_MESSAGES } from "@/app/i18n/AppLocaleStore";
 
 describe("AdminModuleRegistry", () => {
   it("keeps every level on the same recursive module contract", () => {
@@ -32,7 +33,7 @@ describe("AdminModuleRegistry", () => {
   it("assigns a semantic icon to every navigable module", () => {
     const allowedIcons = new Set([
       "activity", "dashboard", "database", "entities", "external", "nodes",
-      "recycle", "roles", "schema", "settings", "shield", "scope", "users",
+      "recycle", "roles", "schema", "settings", "shield", "scope", "user", "users",
     ]);
     const visit = (modules: readonly typeof ADMIN_MODULES[number][]): void => {
       for (const entry of modules) {
@@ -89,12 +90,31 @@ describe("AdminModuleRegistry", () => {
     const registry = new AdminModuleRegistry(ADMIN_MODULES);
     const visible = registry.visible({ permissions: new Set(["user.read"]) });
 
-    expect(visible.map((module) => module.key)).toEqual(["overview", "access"]);
+    expect(visible.map((module) => module.key)).toEqual(["overview", "account", "access"]);
+    expect(
+      visible
+        .find((module) => module.key === "account")
+        ?.children?.map((module) => module.key),
+    ).toEqual(["account.profile", "account.security"]);
     expect(
       visible
         .find((module) => module.key === "access")
         ?.children?.map((module) => module.key),
     ).toEqual(["access.users"]);
+  });
+
+  it("resolves every current-account navigation label and description in each supported locale", () => {
+    const account = new AdminModuleRegistry().find("account");
+    const accountEntries = [account, ...(account?.children ?? [])];
+
+    for (const messages of Object.values(APP_MESSAGES)) {
+      for (const entry of accountEntries) {
+        expect(entry?.labelKey).toBeTruthy();
+        expect(entry?.descriptionKey).toBeTruthy();
+        expect(messages[entry!.labelKey!]).toBeTruthy();
+        expect(messages[entry!.descriptionKey!]).toBeTruthy();
+      }
+    }
   });
 
   it("supports any-permission modules for shared administration surfaces", () => {

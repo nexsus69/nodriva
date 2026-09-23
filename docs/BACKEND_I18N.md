@@ -27,6 +27,14 @@ The Web client resolves `ApiErrorResponse.messageKey` (or the stable error
 screens must not render `error.message` directly when a localized resolver is
 available; unknown historical codes may use the safe server fallback.
 
+All new browser-facing text, including labels, placeholders, empty and loading
+states, confirmation copy, tooltips and accessible names, belongs in
+`packages/web/src/app/i18n/AppLocaleStore.ts` for every supported locale. The
+repository command `pnpm i18n:guard`, included in `pnpm check`, rejects newly
+added hardcoded browser-facing text outside that catalogue. Technical keys,
+URLs, SQL, user-authored content and test fixtures are intentionally outside
+this presentation rule.
+
 Validation rejections are not audit events: only mutations that are actually
 persisted are recorded in the audit stream. Authorization or abuse telemetry,
 if introduced later, must use a separate security-event contract.
