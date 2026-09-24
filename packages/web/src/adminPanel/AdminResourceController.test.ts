@@ -122,6 +122,21 @@ describe("AdminResourceController", () => {
     expect(controller.getSnapshot()).toMatchObject({ pending: false, loading: false, rows: [{ id: "1", name: "Saved" }] });
   });
 
+  it("leaves remote collection refresh to its page coordinator after a detail mutation", async () => {
+    const update = vi.fn(async (id: string, input: Record<string, unknown>) => ({ id, name: String(input.name) }));
+    const definition = defineAdminResource<Row, Row>({
+      key: "remote-example", moduleKey: "example.module", label: "Remote", description: "Remote resource",
+      list: { mode: "remote", columns: [], emptyLabel: "Empty", loadingLabel: "Loading" },
+      detail: { load: async (id: string) => ({ id, name: "Initial" }), update },
+    });
+    const controller = new AdminResourceController(definition, undefined);
+
+    await expect(controller.update("1", { name: "Updated" }, 7)).resolves.toEqual({ id: "1", name: "Updated" });
+
+    expect(update).toHaveBeenCalledWith("1", { name: "Updated" }, 7);
+    expect(controller.getSnapshot()).toMatchObject({ pending: false, error: null, detail: { id: "1", name: "Updated" } });
+  });
+
   it("ignores an obsolete list response after a newer reload", async () => {
     let resolveFirst!: (rows: readonly Row[]) => void;
     const first = new Promise<readonly Row[]>((resolve) => { resolveFirst = resolve; });

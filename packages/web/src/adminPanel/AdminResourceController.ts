@@ -97,7 +97,7 @@ export class AdminResourceController<
     try {
       const detail = await this.definition.detail.create(input);
       this.patch({ detail, pending: false });
-      await this.loadList();
+      await this.reloadLocalListAfterMutation();
       return detail;
     } catch (reason) {
       this.patch({ pending: false, error: toError(reason) });
@@ -119,7 +119,7 @@ export class AdminResourceController<
         expectedRowVersion,
       );
       this.patch({ detail, pending: false });
-      await this.loadList();
+      await this.reloadLocalListAfterMutation();
       return detail;
     } catch (reason) {
       this.patch({ pending: false, error: toError(reason) });
@@ -135,12 +135,22 @@ export class AdminResourceController<
     try {
       await action.execute(row, this.context);
       this.patch({ pending: false });
-      await this.loadList();
+      await this.reloadLocalListAfterMutation();
       return true;
     } catch (reason) {
       this.patch({ pending: false, error: toError(reason) });
       return false;
     }
+  }
+
+  /**
+   * A remote collection has a dedicated page coordinator that owns page,
+   * search, sorting and realtime refresh.  Detail mutations must not bypass
+   * that owner through the generic full-list lifecycle.
+   */
+  private async reloadLocalListAfterMutation(): Promise<void> {
+    if (this.definition.list.mode === 'remote') return;
+    await this.loadList();
   }
 
   private patch(

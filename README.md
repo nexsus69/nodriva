@@ -53,6 +53,12 @@ Both profiles share the administrative bootstrap configured by
 additive, and idempotent: it initializes missing accounts, roles, permissions,
 capabilities, and settings without deleting application data.
 
+## Installation
+
+For a complete, deployment-agnostic installation path—including standalone
+SQLite, external PostgreSQL, optional integrations and operational
+verification—read the [installation guide](docs/INSTALLATION.md).
+
 ## Quick start
 
 The commands below start the repository's PostgreSQL reference/test profile.

@@ -28,10 +28,11 @@ export function useAdminResourceController<
   );
 
   useEffect(() => {
+    if (definition.list.mode === 'remote') return;
     void controller.loadList();
-  }, [controller]);
+  }, [controller, definition.list.mode]);
   useAdminRealtimeCollectionRefresh(
-    definition.list.realtimeDependencies,
+    definition.list.mode === 'remote' ? undefined : definition.list.realtimeDependencies,
     controller.loadList,
   );
 
