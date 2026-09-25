@@ -1,13 +1,34 @@
+/** Exercises safe user-cache mutation outcome propagation. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ listUsersPageAction: vi.fn() }));
-vi.mock('../actions/userActions', () => ({ listUsersPageAction: mocks.listUsersPageAction }));
+const mocks = vi.hoisted(() => ({ listUsersPageAction: vi.fn(), resetUserPasswordAction: vi.fn() }));
+vi.mock('../actions/userActions', () => ({
+  listUsersPageAction: mocks.listUsersPageAction,
+  resetUserPasswordAction: mocks.resetUserPasswordAction,
+}));
 
 import { CacheKernel } from './CacheKernel';
 import { UserCacheClient } from './UserCacheClient';
 
 describe('UserCacheClient paged catalogue', () => {
-  beforeEach(() => mocks.listUsersPageAction.mockReset());
+  beforeEach(() => {
+    mocks.listUsersPageAction.mockReset();
+    mocks.resetUserPasswordAction.mockReset();
+  });
+
+  it('preserves the backend password-reset rejection for the form to display', async () => {
+    mocks.resetUserPasswordAction.mockResolvedValue({
+      success: false,
+      error: { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.' },
+    });
+    const client = new UserCacheClient(new CacheKernel(), () => undefined);
+
+    await expect(client.resetUserPassword({
+      userId: '11111111-1111-4111-8111-111111111111',
+      newPassword: 'Password123456',
+      expectedRowVersion: 1,
+    })).rejects.toThrow('La password non rispetta i requisiti indicati.');
+  });
 
   it('keeps page 1 and page 2 separate, then invalidates both after a mutation event', async () => {
     mocks.listUsersPageAction.mockImplementation(async (input?: { page: number }) => {

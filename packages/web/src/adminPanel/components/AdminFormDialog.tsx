@@ -3,11 +3,11 @@
 /** Provides the generic modal shell for any definition-driven administrative form. */
 import type { FormEvent, ReactNode } from "react";
 import { FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
-import { Alert } from "@/app/components/ui/feedback";
 import type { AdminSurfaceDefinition } from "../AdminSurfaceDefinition";
 import { AdminSurfaceHost } from "./AdminSurfaceHost";
 import { AdminSurfaceHeader } from "./AdminSurfaceHeader";
 import { ADMIN_THEME } from "@/Theme";
+import type { UserMutationFailure } from "@/app/mutations/useUserMutation";
 
 /** Default surface configuration used by form dialogs without a custom layout. */
 export const ADMIN_FORM_DIALOG_SURFACE: AdminSurfaceDefinition = {
@@ -27,6 +27,7 @@ export function AdminFormDialog({
   definition,
   values,
   pending,
+  submitDisabled = false,
   submitLabel,
   cancelLabel,
   onChange,
@@ -35,11 +36,14 @@ export function AdminFormDialog({
   surface = ADMIN_FORM_DIALOG_SURFACE,
   children,
   error,
+  mutationFailure,
+  onRetryMutation,
 }: {
   title: string;
   definition: FormDefinition;
   values: Record<string, unknown>;
   pending: boolean;
+  submitDisabled?: boolean;
   submitLabel: string;
   cancelLabel: string;
   onChange: (name: string, value: unknown) => void;
@@ -48,6 +52,8 @@ export function AdminFormDialog({
   surface?: AdminSurfaceDefinition;
   children?: ReactNode;
   error?: string;
+  mutationFailure?: UserMutationFailure | null;
+  onRetryMutation?: () => void;
 }) {
   return (
     <AdminSurfaceHost
@@ -64,13 +70,16 @@ export function AdminFormDialog({
           appearance={ADMIN_THEME.appearance}
         />
         <div className="p-6">
-        {error && <Alert tone="danger" className="mb-4">{error}</Alert>}
         <FormRenderer
           definition={definition}
           values={values}
           onChange={onChange}
           onSubmit={onSubmit}
           isPending={pending}
+          submitDisabled={submitDisabled}
+          error={error}
+          mutationFailure={mutationFailure}
+          onRetryMutation={onRetryMutation}
           theme={ADMIN_THEME.form}
           submitLabel={submitLabel}
           cancelLabel={cancelLabel}

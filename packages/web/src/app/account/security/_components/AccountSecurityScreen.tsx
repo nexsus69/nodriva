@@ -1,7 +1,10 @@
 'use client';
 
+/** Presents MFA actions and the outcome supplied by their shared controller. */
+
 import { useMfaSecurity } from '../_hooks/useMfaSecurity';
 import { useAppLocale } from '../../../i18n/AppLocaleStore';
+import { MutationFeedback } from '../../../mutations/MutationFeedback';
 
 export function AccountSecurityScreen() {
   const { t } = useAppLocale();
@@ -12,8 +15,8 @@ export function AccountSecurityScreen() {
     {controller.recoveryCodes.length > 0 && <div className="space-y-3"><p className="font-semibold text-emerald-700">{t('account.mfaEnabledRecoveryCodes')}</p><ul className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-4 font-mono text-sm">{controller.recoveryCodes.map((item) => <li key={item}>{item}</li>)}</ul></div>}
     {!controller.enrollment && <CodeInput value={controller.code} onChange={controller.setCode} label={t('account.currentMfaCode')} />}
     <button disabled={controller.busy} onClick={controller.disable} className="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 disabled:opacity-50">{t('account.disableMfa')}</button>
-    {controller.message && <p role="status" className="text-sm text-slate-700">{controller.message}</p>}
+    <MutationFeedback failure={controller.failure} onRetry={controller.retry} />
   </section></main>;
 }
 
-function CodeInput({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) { return <input value={value} onChange={(event) => onChange(event.target.value)} inputMode="numeric" autoComplete="one-time-code" aria-label={label} placeholder={label} className="w-full rounded-xl border border-slate-300 px-3 py-2" />; }
+function CodeInput({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) { return <input value={value} onChange={(event) => onChange(event.target.value)} inputMode="numeric" autoComplete="one-time-code" aria-label={label} placeholder={label} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-500 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/15" />; }

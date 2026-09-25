@@ -17,14 +17,14 @@ describe('account completion error boundary', () => {
   it('maps a rejected token to the public link message', async () => {
     complete.mockRejectedValue(new UnauthorizedError('Invalid or expired account action'));
     await expect(completeAccountActionAction('token', 'password')).resolves.toEqual({
-      success: false, error: 'Il link non è valido, è scaduto o è già stato utilizzato.',
+      success: false, error: { code: 'AUTH_UNAUTHORIZED', message: 'Il link non è valido, è scaduto o è già stato utilizzato.', messageKey: 'errors.authUnauthorized' },
     });
   });
 
   it('recognizes password validation by domain code rather than message text', async () => {
     complete.mockRejectedValue(new ValidationError('Different internal wording', { password: ['weak'] }));
     await expect(completeAccountActionAction('token', 'password')).resolves.toEqual({
-      success: false, error: 'La password non rispetta i requisiti indicati.',
+      success: false, error: { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.', messageKey: 'admin.validationFailed' },
     });
   });
 
@@ -33,7 +33,7 @@ describe('account completion error boundary', () => {
       const report = vi.spyOn(console, 'error').mockImplementation(() => {});
       complete.mockRejectedValue(error);
       await expect(completeAccountActionAction('secret-token', 'secret-password')).resolves.toEqual({
-        success: false, error: 'Si è verificato un errore interno. Riprova più tardi.',
+        success: false, error: { code: 'INTERNAL_ERROR', message: 'Si è verificato un errore interno. Riprova più tardi.', messageKey: 'errors.internal' },
       });
       expect(report).toHaveBeenCalledOnce();
     },

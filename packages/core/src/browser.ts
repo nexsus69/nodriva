@@ -25,6 +25,12 @@ export type {
 export { validateAttachmentSelection } from './application/dto/ResourceAttachment.js';
 export { defaultAttachmentSecurityPolicy, detectAttachmentType } from './application/dto/AttachmentSecurityPolicy.js';
 export type { AttachmentSecurityPolicy } from './application/dto/AttachmentSecurityPolicy.js';
+export {
+  USER_PASSWORD_POLICY,
+  getUnmetUserPasswordRequirements,
+  isUserPasswordValid,
+} from './domain/policies/UserPasswordPolicy.js';
+export type { UserPasswordRequirement } from './domain/policies/UserPasswordPolicy.js';
 export type {
   ResourceAttachmentKind,
   ResourceAttachmentReference,

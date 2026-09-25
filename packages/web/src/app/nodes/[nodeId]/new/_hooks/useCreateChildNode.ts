@@ -12,6 +12,7 @@ import { coerceDynamicPayload, initializeDynamicPayload, uploadDynamicAttachment
 import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../navigation/unsavedChanges';
 import { useReturnContext } from '../../../../navigation/returnContext';
+import { useUserMutation } from '../../../../mutations/useUserMutation';
 
 export function useCreateChildNode(parentNodeId: string) {
   const router = useRouter();
@@ -26,6 +27,7 @@ export function useCreateChildNode(parentNodeId: string) {
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mutation = useUserMutation();
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const createdId = useRef<string | null>(null);
   const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
@@ -52,7 +54,7 @@ export function useCreateChildNode(parentNodeId: string) {
     if (submitting.current) return;
     submitting.current = true; setError(null);
     startTransition(async () => {
-      try {
+      const result = await mutation.execute(async () => {
         await validateDynamicAttachments(fields, attachments);
         const resourceId = createdId.current ?? (await AppCache.createNode({ parentNodeId, nodeTypeKey: selectedTypeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
         createdId.current = resourceId;
@@ -61,9 +63,9 @@ export function useCreateChildNode(parentNodeId: string) {
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
-      } catch (reason) {
+      });
+      if (!result.ok) {
         submitting.current = false;
-        setError(reason instanceof Error ? reason.message : 'Errore nella creazione del nodo.');
       }
     });
   };
@@ -79,5 +81,5 @@ export function useCreateChildNode(parentNodeId: string) {
     router.push(returnTo);
   };
 
-  return { nodeTypesList, isPending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error, setError, attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
+  return { nodeTypesList, isPending: isPending || mutation.pending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error: error ?? mutation.failure?.message ?? null, setError, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry(), attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
 }

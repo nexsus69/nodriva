@@ -327,6 +327,26 @@ test di protocollo, accessibilità e comportamento.
   cleanup idempotente o rappresentazione di debug. Non possono determinare
   autorizzazioni, presenza di dati o successo di una mutation.
 
+### Esito delle mutazioni avviate dall’utente
+
+Ogni cambiamento di stato avviato dall’utente — inclusi creazione,
+aggiornamento, eliminazione, ripristino, password, MFA, ruoli, scope,
+allegati, relazioni, lock, configurazione e workflow — passa attraverso
+`useUserMutation` oppure un coordinator che lo compone. Questo è l’unico
+owner di pending, successo, errore, classificazione e retry nel layer di
+presentazione. I componenti presentazionali ricevono soltanto snapshot e
+callback; non intercettano rejection, non reinterpretano codici e non
+mantengono copie locali equivalenti dello stato della mutazione.
+
+Una rejection è sempre convertita in un esito risolto e visibile nel boundary
+contestuale dell’azione. `ApiErrorResponse` conserva il codice e viene
+localizzato dal client: validazione, autorizzazione, lock/concorrenza e risorsa
+non trovata non sono ritentabili automaticamente; solo un guasto
+infrastrutturale espone il retry. Un errore non elimina né sovrascrive la
+bozza: la superficie la conserva finché l’utente non completa con successo o
+decide esplicitamente di scartarla. Il backend resta l’autorità per ACL,
+validazione, lock e `rowVersion`.
+
 ## Stati di caricamento
 
 Quando una vista non dispone ancora dei dati necessari, deve preservare per

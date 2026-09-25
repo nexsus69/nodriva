@@ -3,8 +3,9 @@
 /** Provides the complete user profile, role assignment, status, and password workflow. */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { UserDetailDto } from "@dashboard/core";
+import { isUserPasswordValid } from "@dashboard/core/browser";
 import { Alert, Skeleton } from "@/app/components/ui/feedback";
-import { createValidationMessages, defineForm, FormRenderer, type FormDefinition } from "@/app/components/ui/forms";
+import { createValidationMessages, defineForm, FormRenderer, PasswordRequirements, type FormDefinition } from "@/app/components/ui/forms";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminFormSurface } from "@/adminPanel/useAdminFormSurface";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
@@ -39,7 +40,7 @@ function passwordDefinition(t: (key: string) => string): FormDefinition<Password
     key: "admin.users.password",
     version: "1",
     validationMessages: createValidationMessages(t),
-    fields: [{ name: "password", type: "password", label: t("admin.newPassword"), required: true, validation: { minLength: 12 } }],
+    fields: [{ name: "password", type: "password", label: t("admin.newPassword"), required: true }],
   });
 }
 
@@ -57,7 +58,6 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
   const [detail, setDetail] = useState<UserDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [pending, setPending] = useState(false);
   const profileInitialValues = useMemo(() => detail ? profileValues(detail) : {}, [detail]);
   const profileSurface = useAdminFormSurface<ProfileForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:profile`, surfaceKind: "modal", draftKey: `admin.users.profile:${userId}`, formVersion: "1", initialValues: profileInitialValues, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
   const passwordSurface = useAdminFormSurface<PasswordForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:password`, surfaceKind: "modal", draftKey: `admin.users.password:${userId}`, formVersion: "1", initialValues: { password: "" }, closePolicy: "discard" });
@@ -83,22 +83,26 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!detail) return;
-    setPending(true);
-    try {
+    await profileSurface.submitMutation(async () => {
       await AppCache.users.updateUser({ userId, email: String(profileSurface.values.email ?? "").trim(), isSuperAdmin: Boolean(profileSurface.values.isSuperAdmin), expectedRowVersion: detail.rowVersion });
+    }, async () => {
       profileSurface.complete();
       await load();
-    } finally { setPending(false); }
+    });
   };
   const savePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!detail) return;
-    setPending(true);
-    try {
+    if (!isUserPasswordValid(String(passwordSurface.values.password ?? ""))) {
+      passwordSurface.reportMutationError(t("account.passwordRequirementsNotMet"));
+      return;
+    }
+    await passwordSurface.submitMutation(async () => {
       await AppCache.users.resetUserPassword({ userId, newPassword: String(passwordSurface.values.password ?? ""), expectedRowVersion: detail.rowVersion });
+    }, async () => {
       passwordSurface.complete();
       await load();
-    } finally { setPending(false); }
+    });
   };
 
   if (loading) return <section className="space-y-4 border border-slate-200 bg-white p-6"><Skeleton className="h-6 w-64" /><Skeleton className="h-40 w-full" /></section>;
@@ -132,11 +136,14 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
               [name]: value,
             }))}
             onSubmit={(event) => void saveProfile(event)}
-            isPending={pending}
+            isPending={profileSurface.isSubmitting}
             submitDisabled={!profileSurface.isDirty}
             submitLabel={t("admin.saveChanges")}
             pendingLabel={t("admin.saving")}
             theme={ADMIN_THEME.form}
+            error={profileSurface.error?.message ?? null}
+            mutationFailure={profileSurface.mutationFailure}
+            onRetryMutation={profileSurface.retryMutation}
           />
         </section>
       )}
@@ -152,11 +159,17 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
             [name]: value,
           }))}
           onSubmit={(event) => void savePassword(event)}
-          isPending={pending}
+          isPending={passwordSurface.isSubmitting}
+          submitDisabled={!isUserPasswordValid(String(passwordSurface.values.password ?? ""))}
           submitLabel={t("admin.resetPassword")}
           pendingLabel={t("admin.saving")}
-            theme={ADMIN_THEME.form}
-        />
+          theme={ADMIN_THEME.form}
+          error={passwordSurface.error?.message ?? null}
+          mutationFailure={passwordSurface.mutationFailure}
+          onRetryMutation={passwordSurface.retryMutation}
+        >
+          <PasswordRequirements password={String(passwordSurface.values.password ?? "")} />
+        </FormRenderer>
       </section>
     </section>
   );

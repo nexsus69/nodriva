@@ -9,6 +9,7 @@ import {
 import type { ResourceReference } from '@dashboard/core';
 import { AppCache } from '../cache/GlobalCacheClient';
 import { useHumanActivity } from '../activity/ActivityProvider';
+import { useUserMutation } from '../mutations/useUserMutation';
 
 type UseLockProps = ResourceReference;
 
@@ -85,7 +86,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     getLockSnapshot,
     getLockSnapshot
   );
-  const [error, setError] = useState<string | null>(null);
+  const mutation = useUserMutation();
   const [acquiredSessionId, setAcquiredSessionId] = useState<string>();
   const ownsLockRef = useRef(false);
   const { registerActiveLock } = useHumanActivity();
@@ -95,14 +96,9 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   const acquireLock = useCallback(async (): Promise<boolean> => {
     return new Promise((resolve) => {
       startLockTransition(() => {
-        void (async () => {
-          setError(null);
+        void mutation.execute(async () => {
           const result = await acquireLockAction(resourceType, resourceId);
-          if (!result.success) {
-            setError(result.message || 'Impossibile entrare in modalità modifica.');
-            resolve(false);
-            return;
-          }
+          if (!result.success) throw result.details;
 
           // The server action is authoritative. The session returned here can be
           // available before the client session provider finishes synchronizing.
@@ -115,11 +111,10 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
             bySessionId: result.lock.sessionId,
             expiresAt: result.lock.expiresAt,
           });
-          resolve(true);
-        })();
+        }).then((outcome) => resolve(outcome.ok));
       });
     });
-  }, [currentUserId, resourceId, resourceType, startLockTransition]);
+  }, [currentUserId, mutation, resourceId, resourceType, startLockTransition]);
 
   /** Releases an owned lock through the same Server Action boundary used for acquisition. */
   const releaseLock = useCallback(async (): Promise<void> => {
@@ -127,22 +122,17 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     if (!ownsLockRef.current) return;
     await new Promise<void>((resolve) => {
       startLockTransition(() => {
-        void (async () => {
+        void mutation.execute(async () => {
           const result = await releaseLockAction(resourceType, resourceId);
-          if (!result.success) {
-            setError(result.message || 'Impossibile rilasciare il lock.');
-            resolve();
-            return;
-          }
+          if (!result.success) throw result.details;
 
           setAcquiredSessionId(undefined);
           forgetBrowserLock({ resourceType, resourceId });
           AppCache.setLockState(resourceType, resourceId, { locked: false });
-          resolve();
-        })();
+        }).then(() => resolve());
       });
     });
-  }, [resourceId, resourceType, startLockTransition]);
+  }, [mutation, resourceId, resourceType, startLockTransition]);
 
   useEffect(() => {
     void AppCache.hydrateLockState(resourceType, resourceId);
@@ -218,7 +208,9 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   return {
     lockedByOther,
     isMyLock,
-    error,
+    error: mutation.failure?.message ?? null,
+    mutationFailure: mutation.failure,
+    retryMutation: () => void mutation.retry(),
     acquireLock,
     releaseLock,
   };

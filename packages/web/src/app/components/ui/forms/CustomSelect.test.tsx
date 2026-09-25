@@ -19,4 +19,19 @@ describe("CustomSelect", () => {
     expect(markup).toContain("Administrator");
     expect(markup).not.toContain("<select");
   });
+
+  it("uses the accessible placeholder tone on light surfaces", () => {
+    const markup = renderToStaticMarkup(
+      <CustomSelect
+        id="role"
+        value=""
+        options={[]}
+        tone="light"
+        placeholder="Choose a role"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("text-slate-500");
+  });
 });

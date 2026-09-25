@@ -50,6 +50,7 @@ export type {
 } from "./ResourceFormRenderer";
 export { PasswordInput } from "./PasswordInput";
 export type { PasswordInputProps } from "./PasswordInput";
+export { PasswordRequirements } from "./PasswordRequirements";
 export { AttachmentInput } from "./AttachmentInput";
 export type { AttachmentInputProps } from "./AttachmentInput";
 export { AttachmentList } from "./AttachmentList";

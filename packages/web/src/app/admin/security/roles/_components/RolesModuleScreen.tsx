@@ -21,6 +21,7 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { canUseAdminResourceOperation } from "@/adminPanel/AdminResourceDefinition";
 import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { useAdminCollectionMutation } from "@/adminPanel/useAdminCollectionMutation";
 import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 const EMPTY_ROLE: RoleForm = {
@@ -38,7 +39,6 @@ function useRolesRemoteCoordinator() {
   const [rows, setRows] = useState<readonly RoleListItemDto[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sort, setSortState] = useState<AdminTableSortState | null>(null);
   const version = useRef(0);
@@ -61,8 +61,8 @@ function useRolesRemoteCoordinator() {
   useAdminRealtimeCollectionRefresh(["roles", "role"], () => load(currentPage));
   const setSearch = useCallback((next: string) => { reset(); setModuleState(moduleKey, { search: next }); }, [reset, setModuleState]);
   const setSort = useCallback((next: AdminTableSortState) => { reset(); setSortState(next); }, [reset]);
-  const execute = useCallback(async (work: () => Promise<void>) => { setPending(true); setError(null); try { await work(); await load(); return true; } catch (reason) { setError(reason instanceof Error ? reason : new Error(String(reason))); return false; } finally { setPending(false); } }, [load]);
-  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+  const mutation = useAdminCollectionMutation(() => load());
+  return { rows, loading, error, search, setSearch, sort, setSort, pagination, load, ...mutation };
 }
 
 /** Proposes the same stable key grammar used by backend role validation. */
@@ -100,11 +100,11 @@ export function RolesModuleScreen() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const created = await controller.execute(async () => {
+    await formSurface.submitMutation(async () => {
       const result = await AppCache.admin.createRole({ roleKey: formSurface.values.roleKey.trim(), name: formSurface.values.name.trim(), description: formSurface.values.description.trim() || undefined, permissionIds: formSurface.values.permissionIds });
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.loadingRoles"));
-    });
-    if (created) formSurface.complete();
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: t("admin.loadingRoles") };
+      await controller.load();
+    }, formSurface.complete);
   };
 
   const definition: AdminCollectionDefinition<(typeof controller.rows)[number]> = {
@@ -117,6 +117,8 @@ export function RolesModuleScreen() {
     rows: controller.rows,
     loading: controller.loading,
     error: controller.error,
+    mutationFailure: controller.mutationFailure,
+    onRetryMutation: controller.retryMutation,
     createLabel: canCreate ? t("admin.createRole") : undefined,
     onCreate: canCreate ? () => formSurface.open({ mode: "create" }) : undefined,
     onOpen: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.roleKey }),
@@ -140,7 +142,7 @@ export function RolesModuleScreen() {
           title={t("admin.createRole")}
           definition={formDefinition}
           values={formSurface.values}
-          pending={controller.pending}
+          pending={formSurface.isSubmitting}
           submitLabel={t("admin.createRole")}
           cancelLabel={t("admin.cancel")}
           onChange={(name, value) => formSurface.setValues((current) => {
@@ -151,6 +153,8 @@ export function RolesModuleScreen() {
           })}
           onSubmit={submit}
           onClose={() => void formSurface.close()}
+          mutationFailure={formSurface.mutationFailure}
+          onRetryMutation={formSurface.retryMutation}
           surface={ROLE_CREATE_SURFACE}
         />
       )}

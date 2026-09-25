@@ -68,7 +68,7 @@ export function RelationPicker({
       } catch {
         if (!cancelled && requestVersion.current === version) {
           setCandidates([]);
-          setError(t('relation.loadCandidatesError', 'Unable to load relationship resources. Try again.'));
+          setError(t('relation.loadCandidatesError'));
         }
       } finally {
         if (!cancelled && requestVersion.current === version) {
@@ -158,11 +158,11 @@ export function RelationPicker({
           setLoading(true);
           setError(null);
         }}
-        placeholder={t('relation.searchPlaceholder', 'Search authorized resources…')}
+        placeholder={t('relation.searchPlaceholder')}
         className={`w-full rounded-lg border px-3 py-2 text-xs ${
           tone === 'light'
-            ? 'border-slate-200 bg-slate-50 text-slate-800'
-            : 'border-slate-800 bg-slate-900 text-slate-100'
+            ? 'border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-500'
+            : 'border-slate-800 bg-slate-900 text-slate-100 placeholder:text-slate-400'
         }`}
       />
       {loading ? (
@@ -175,7 +175,7 @@ export function RelationPicker({
         }`}>
           {candidates.length === 0 ? (
             <p className="px-2 py-2 text-xs text-slate-500">
-              {t('relation.noCandidates', 'No resources are available.')}
+              {t('relation.noCandidates')}
             </p>
           ) : candidates.map((candidate) => {
             const selected = selectedIds.includes(candidate.id);
@@ -214,7 +214,7 @@ export function RelationPicker({
           required={required}
           value={String(value ?? '')}
           tone={tone}
-          placeholder={t('relation.selectPlaceholder', 'Select an authorized resource')}
+          placeholder={t('relation.selectPlaceholder')}
           options={candidates.map((candidate) => ({
             value: candidate.id,
             label: `${candidate.name}${
@@ -230,10 +230,7 @@ export function RelationPicker({
         </p>
       )}
       <p className="text-[10px] text-slate-500">
-        {t(
-          'relation.scopeHelp',
-          'Only active resources visible in the user scopes are shown.',
-        )}
+        {t('relation.scopeHelp')}
       </p>
     </div>
   );

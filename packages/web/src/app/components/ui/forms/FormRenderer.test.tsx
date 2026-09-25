@@ -5,6 +5,46 @@ import { FormRenderer } from "./FormRenderer";
 import { defineForm } from "./FormDefinition";
 
 describe("FormRenderer", () => {
+  it("uses a readable placeholder tone for light form controls", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[{ name: "title", type: "text", label: "Title" }]}
+        values={{ title: "" }}
+        onChange={vi.fn()}
+        theme="light"
+      />,
+    );
+
+    expect(markup).toContain("placeholder:text-slate-500");
+  });
+
+  it("localizes shared validation fallbacks through the active locale", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[{ name: "title", type: "text", label: "Title", required: true }]}
+        values={{ title: "" }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(markup).toContain("Questo valore è obbligatorio.");
+    expect(markup).not.toContain(">Required<");
+  });
+
+  it("renders a controller-owned mutation error at the form boundary", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[]}
+        values={{}}
+        onChange={vi.fn()}
+        error="The password could not be saved."
+      />,
+    );
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain("The password could not be saved.");
+  });
+
   it("renders schema-driven text and boolean fields", () => {
     const markup = renderToStaticMarkup(
       <FormRenderer

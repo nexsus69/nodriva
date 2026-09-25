@@ -8,6 +8,9 @@ import { RelationPicker } from "./RelationPicker";
 import { CustomSelect } from "./CustomSelect";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { NodeTreeSelect } from "./NodeTreeSelect";
+import { Alert } from "../feedback";
+import { MutationFeedback } from "@/app/mutations/MutationFeedback";
+import type { UserMutationFailure } from "@/app/mutations/useUserMutation";
 import type {
   FormDefinition,
   FormFieldLayout,
@@ -16,6 +19,7 @@ import type {
   FormValidationMessages,
   FormLabelPosition,
 } from "./FormDefinition";
+import { createValidationMessages } from "./FormDefinition";
 
 export type {
   FormDefinition,
@@ -57,6 +61,10 @@ export interface FormRendererProps {
   renderFieldAddon?: (field: FormFieldSchema) => ReactNode;
   showActions?: boolean;
   actionPlacement?: "flow" | "sticky";
+  /** A mutation failure owned by the form controller and rendered at the form boundary. */
+  error?: string | null;
+  mutationFailure?: UserMutationFailure | null;
+  onRetryMutation?: () => void;
   /**
    * Selects whether this component owns a form element or contributes fields
    * to a form owned by its parent. The latter prevents invalid nested forms
@@ -65,23 +73,10 @@ export interface FormRendererProps {
   renderMode?: "form" | "content";
 }
 
-const DEFAULT_VALIDATION_MESSAGES: FormValidationMessages = {
-  required: "Required",
-  pattern: "Valid format",
-  selectPlaceholder: "Select a value",
-  searchOptions: "Search options",
-  minLength: (count) => `At least ${count} characters`,
-  maxLength: (count) => `At most ${count} characters`,
-  email: "Valid email",
-  min: (value) => `Minimum ${value}`,
-  max: (value) => `Maximum ${value}`,
-  step: (value) => `Step ${value}`,
-};
-
 function fieldClassName(theme: "dark" | "light"): string {
   return theme === "light"
-    ? "min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-    : "min-h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60";
+    ? "min-h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+    : "min-h-10 w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60";
 }
 const gridColumns: Record<number, string> = {
   1: "grid-cols-1",
@@ -322,6 +317,7 @@ function FormField({
         onChange={onChange}
         placeholder={field.placeholder}
         className={fieldClassName(theme)}
+        tone={theme}
       />
     ) : field.type === "textarea" ? (
       <textarea
@@ -531,8 +527,8 @@ export function FormRenderer({
   onSubmit,
   isPending = false,
   submitDisabled = false,
-  submitLabel = "Salva",
-  pendingLabel = "Salvataggio...",
+  submitLabel,
+  pendingLabel,
   cancelLabel,
   onCancel,
   destructiveAction,
@@ -541,12 +537,19 @@ export function FormRenderer({
   renderFieldAddon,
   showActions = true,
   actionPlacement = "flow",
+  error,
+  mutationFailure,
+  onRetryMutation,
   renderMode = "form",
 }: FormRendererProps) {
+  const { t } = useAppLocale();
   const resolvedFields = definition?.fields ?? fields ?? [];
   const layout = definition?.layout;
   const validationMessages =
-    definition?.validationMessages ?? DEFAULT_VALIDATION_MESSAGES;
+    definition?.validationMessages ?? createValidationMessages(t);
+  const resolvedSubmitLabel = submitLabel ?? t("form.save");
+  const resolvedPendingLabel = pendingLabel ?? t("form.saving");
+  const resolvedCancelLabel = cancelLabel ?? t("common.cancel");
   const sections = definition?.sections ?? [
     { key: "default", fieldNames: resolvedFields.map((field) => field.name) },
   ];
@@ -556,6 +559,9 @@ export function FormRenderer({
   );
   const content = (
     <>
+      {mutationFailure ? (
+        <MutationFeedback failure={mutationFailure} onRetry={onRetryMutation ?? (() => undefined)} className="mb-4" />
+      ) : error ? <Alert tone="danger" role="alert" className="mb-4">{error}</Alert> : null}
       {sections.map((section) => (
         <FormSection
           key={section.key}
@@ -603,7 +609,7 @@ export function FormRenderer({
                 disabled={isPending}
                 className={`min-h-9 border border-transparent px-3.5 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${theme === "light" ? "text-slate-600 hover:bg-slate-100" : "text-slate-300 hover:bg-slate-800"}`}
               >
-                {cancelLabel ?? "Annulla"}
+                {resolvedCancelLabel}
               </button>
             )}
             <button
@@ -611,7 +617,7 @@ export function FormRenderer({
               disabled={isPending || submitDisabled}
               className="min-h-9 border border-violet-600 bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:border-violet-700 hover:bg-violet-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
             >
-              {isPending ? pendingLabel : submitLabel}
+              {isPending ? resolvedPendingLabel : resolvedSubmitLabel}
             </button>
           </div>
         </div>

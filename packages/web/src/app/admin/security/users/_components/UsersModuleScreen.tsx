@@ -3,11 +3,13 @@
 /** Composes the user collection and scoped user provisioning workflow. */
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { RoleListItemDto, ScopeAssignmentDto, UserListItemDto } from "@dashboard/core";
+import { isUserPasswordValid } from "@dashboard/core/browser";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import {
   createValidationMessages,
   defineForm,
   type FormDefinition,
+  PasswordRequirements,
 } from "@/app/components/ui/forms";
 import { AdminCollectionScreen, type AdminCollectionDefinition } from "@/adminPanel/components/AdminCollectionScreen";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
@@ -22,6 +24,7 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { AdminStatusBadge } from "@/adminPanel/components/AdminStatusBadge";
 import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { useAdminCollectionMutation } from "@/adminPanel/useAdminCollectionMutation";
 import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 /** Stores the identity fields and mandatory initial scope fields. */
@@ -152,7 +155,6 @@ function useUsersRemoteCoordinator() {
   const [rows, setRows] = useState<readonly UserListItemDto[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sort, setSortState] = useState<AdminTableSortState | null>(null);
   const version = useRef(0);
@@ -191,19 +193,8 @@ function useUsersRemoteCoordinator() {
     reset();
     setSortState(next);
   }, [reset]);
-  const execute = useCallback(async (work: () => Promise<void>) => {
-    setPending(true);
-    setError(null);
-    try {
-      await work();
-      await load();
-      return true;
-    } catch (reason) {
-      setError(reason instanceof Error ? reason : new Error(String(reason)));
-      return false;
-    } finally { setPending(false); }
-  }, [load]);
-  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+  const mutation = useAdminCollectionMutation(() => load());
+  return { rows, loading, error, search, setSearch, sort, setSort, pagination, load, ...mutation };
 }
 
 /** Provides user creation with an atomic initial role and node scope. */
@@ -319,6 +310,7 @@ export function UsersModuleScreen() {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isUserPasswordValid(String(formSurface.values.password ?? ""))) return;
     const assignments = assignmentRows.rowIds.map((rowId) => ({
       nodeId: String(formSurface.values[assignmentFieldName(rowId, "nodeId")] ?? ""),
       roleId: String(formSurface.values[assignmentFieldName(rowId, "roleId")] ?? ""),
@@ -326,17 +318,17 @@ export function UsersModuleScreen() {
         formSurface.values[assignmentFieldName(rowId, "propagation")] ?? "subtree",
       ) as "self" | "subtree",
     })).filter((assignment) => assignment.nodeId && assignment.roleId);
-    const succeeded = await collection.execute(async () => {
+    await formSurface.submitMutation(async () => {
           await AppCache.users.createScopedUser({
             email: String(formSurface.values.email ?? "").trim(),
             password: String(formSurface.values.password ?? ""),
             assignments,
           });
-        });
-    if (succeeded) {
+          await collection.load();
+        }, () => {
       formSurface.complete();
       assignmentRows.reset();
-    }
+    });
   };
 
   /** Closes the form and resets repeatable rows only after a confirmed discard. */
@@ -354,6 +346,8 @@ export function UsersModuleScreen() {
     rows: collection.rows,
     loading: collection.loading,
     error: collection.error,
+    mutationFailure: collection.mutationFailure,
+    onRetryMutation: collection.retryMutation,
     createLabel: canCreate ? t("admin.createUser") : undefined,
     onCreate: canCreate ? () => formSurface.open({ mode: "create" }) : undefined,
     onOpen: (row) => selectResource({ moduleKey: resource.moduleKey, resourceId: row.id }),
@@ -395,13 +389,17 @@ export function UsersModuleScreen() {
           title={t("admin.createUser")}
           definition={definition}
           values={formSurface.values}
-          pending={collection.pending}
+          pending={formSurface.isSubmitting}
+          submitDisabled={!isUserPasswordValid(String(formSurface.values.password ?? ""))}
           submitLabel={t("admin.createUser")}
           cancelLabel={t("admin.cancel")}
           onChange={(name, value) => formSurface.setValues((current) => ({ ...current, [name]: value }))}
           onSubmit={(event) => void submit(event)}
           onClose={() => void closeCreateForm()}
+          mutationFailure={formSurface.mutationFailure}
+          onRetryMutation={formSurface.retryMutation}
         >
+          <PasswordRequirements password={String(formSurface.values.password ?? "")} />
           <div className="flex items-center justify-between border-t border-slate-200 pt-4">
             <p className="text-xs text-slate-500">{t("admin.userScopeRequired")}</p>
             <div className="flex gap-2">

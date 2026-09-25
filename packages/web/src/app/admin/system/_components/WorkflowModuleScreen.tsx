@@ -14,6 +14,7 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { useAdminCollectionMutation } from "@/adminPanel/useAdminCollectionMutation";
 import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 type WorkflowRow = WorkflowDefinition & { id: string };
@@ -30,7 +31,6 @@ function useWorkflowsRemoteCoordinator() {
   const [rows, setRows] = useState<readonly WorkflowRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sort, setSortState] = useState<AdminTableSortState | null>(null);
   const version = useRef(0);
@@ -52,8 +52,8 @@ function useWorkflowsRemoteCoordinator() {
   useAdminRealtimeCollectionRefresh(["workflow-definitions"], () => load(currentPage));
   const setSearch = useCallback((next: string) => { reset(); setModuleState(moduleKey, { search: next }); }, [reset, setModuleState]);
   const setSort = useCallback((next: AdminTableSortState) => { reset(); setSortState(next); }, [reset]);
-  const execute = useCallback(async (work: () => Promise<void>) => { setPending(true); setError(null); try { await work(); await load(); return true; } catch (reason) { setError(reason instanceof Error ? reason : new Error(String(reason))); return false; } finally { setPending(false); } }, [load]);
-  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+  const mutation = useAdminCollectionMutation(() => load());
+  return { rows, loading, error, search, setSearch, sort, setSort, pagination, load, ...mutation };
 }
 
 /** Creates a safe snake_case proposal without changing an explicitly customized key. */
@@ -174,19 +174,20 @@ export function WorkflowModuleScreen() {
       triggerEventTypes: [eventType.eventType], conditions: parseCondition(value),
       steps: [{ stepId: String(value.actionType ?? "audit.record").replace(/\./g, "_"), actionType: String(value.actionType ?? "audit.record"), input: {} }],
     };
-    const succeeded = await collection.execute(async () => {
+    await surface.submitMutation(async () => {
       const result = await AppCache.admin.publishWorkflowDefinition(workflow);
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
-    });
-    if (succeeded) surface.complete();
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: t("admin.loading") };
+      await collection.load();
+    }, surface.complete);
   };
   const screen: AdminCollectionDefinition<WorkflowRow> = {
     title: resource.label, description: resource.description, icon: "activity", columns: resource.list.columns, rows: collection.rows,
     loading: collection.loading, error: collection.error ?? (eventError ? new Error(eventError) : null), emptyLabel: resource.list.emptyLabel,
+    mutationFailure: collection.mutationFailure, onRetryMutation: collection.retryMutation,
     loadingLabel: resource.list.loadingLabel, createLabel: t("admin.createWorkflow"), onCreate: canPublish ? () => surface.open({ mode: "create" }) : undefined,
     refreshLabel: t("admin.refresh"), onRefresh: () => void collection.load(collection.pagination.page), actionMenuLabel: t("admin.actions"),
     search: { value: collection.search, label: "Cerca workflow", placeholder: "Cerca workflow", onChange: collection.setSearch },
     pagination: { mode: "remote", page: collection.pagination.page, pageCount: collection.pagination.pageCount, onPageChange: (page) => void collection.load(page), sort: collection.sort, onSortChange: collection.setSort },
   };
-  return <>{<AdminCollectionScreen definition={screen} />}{surface.isOpen && <AdminFormDialog title={t("admin.createWorkflow")} definition={definition} values={surface.values} pending={collection.pending} submitLabel={t("admin.publishWorkflow")} cancelLabel={t("admin.cancel")} onChange={updateFormValue} onSubmit={(event) => void publish(event)} onClose={() => void surface.close()}><p className="rounded border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">{t("admin.workflowAuditActionHelp")}</p></AdminFormDialog>}</>;
+  return <>{<AdminCollectionScreen definition={screen} />}{surface.isOpen && <AdminFormDialog title={t("admin.createWorkflow")} definition={definition} values={surface.values} pending={surface.isSubmitting} submitLabel={t("admin.publishWorkflow")} cancelLabel={t("admin.cancel")} onChange={updateFormValue} onSubmit={(event) => void publish(event)} onClose={() => void surface.close()} mutationFailure={surface.mutationFailure} onRetryMutation={surface.retryMutation}><p className="rounded border border-violet-200 bg-violet-50 p-3 text-sm text-violet-900">{t("admin.workflowAuditActionHelp")}</p></AdminFormDialog>}</>;
 }

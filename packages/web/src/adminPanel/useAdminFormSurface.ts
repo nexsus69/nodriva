@@ -10,6 +10,7 @@ import {
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
 import { useUnsavedChanges } from "@/app/navigation/NavigationBlocker";
+import { useUserMutation } from "@/app/mutations/useUserMutation";
 
 /** Defines how a form surface treats an unsaved draft when it is closed. */
 export type AdminFormClosePolicy = "preserve" | "discard";
@@ -35,6 +36,10 @@ export interface AdminFormSurfaceIdentity {
   mode?: "create" | "edit";
   resourceId?: string;
 }
+
+export type AdminFormMutationResult<T> =
+  | { ok: true; value: T }
+  | { ok: false };
 
 /** Resolves an open form from its stable surface identity and persisted draft. */
 export function resolveAdminFormSurfaceState<T extends object>({
@@ -91,6 +96,7 @@ export function useAdminFormSurface<T extends object>({
   const saveDraft = useAdminWorkspaceStore((state) => state.saveDraft);
   const removeDraft = useAdminWorkspaceStore((state) => state.removeDraft);
   const [explicitlyOpened, setExplicitlyOpened] = useState(false);
+  const mutation = useUserMutation();
   const resolvedState = useMemo(
     () => resolveAdminFormSurfaceState({ initialValues, draft, surface, moduleKey, surfaceKey, hasHydrated, explicitlyOpened }),
     [draft, explicitlyOpened, hasHydrated, initialValues, moduleKey, surface, surfaceKey],
@@ -117,6 +123,7 @@ export function useAdminFormSurface<T extends object>({
   /** Persists one or more form changes through the shared workspace store. */
   const setValues = useCallback(
     (updater: SetStateAction<T>) => {
+      mutation.clear();
       const currentDraft = useAdminWorkspaceStore.getState().drafts[draftKey];
       const currentValues = {
         ...initialValues,
@@ -136,7 +143,7 @@ export function useAdminFormSurface<T extends object>({
         updatedAt: Date.now(),
       });
     },
-    [draftKey, formVersion, initialValues, saveDraft],
+    [draftKey, formVersion, initialValues, mutation, saveDraft],
   );
 
   /** Starts an edit draft with an explicit record baseline. */
@@ -190,10 +197,16 @@ export function useAdminFormSurface<T extends object>({
 
   /** Completes a successful mutation and always removes its draft. */
   const complete = useCallback(() => {
+    mutation.clear();
     setExplicitlyOpened(false);
     removeDraft(draftKey);
     closeSurface();
-  }, [closeSurface, draftKey, removeDraft]);
+  }, [closeSurface, draftKey, mutation, removeDraft]);
+
+  /** Reports a locally validated form rejection through the same presentation channel. */
+  const reportMutationError = useCallback((message: string) => {
+    mutation.reportValidationFailure(message);
+  }, [mutation]);
 
   return {
     values,
@@ -206,6 +219,12 @@ export function useAdminFormSurface<T extends object>({
     open,
     close,
     complete,
+    submitMutation: mutation.execute,
+    reportMutationError,
+    error: mutation.failure ? new Error(mutation.failure.message) : null,
+    mutationFailure: mutation.failure,
+    retryMutation: () => void mutation.retry(),
+    isSubmitting: mutation.pending,
     draftKey,
   };
 }

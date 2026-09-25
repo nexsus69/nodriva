@@ -16,6 +16,7 @@ import { isAttachmentField } from '../../../../../components/ui/forms/dynamicRes
 import { RelatedEntityModal } from './RelatedEntityModal';
 import { useCreateEntity } from '../_hooks/useCreateEntity';
 import { useAppLocale } from '@/app/i18n/AppLocaleStore';
+import { MutationFeedback } from '@/app/mutations/MutationFeedback';
 
 /** Renders entity creation from stable identity fields and the selected type definition. */
 export function CreateEntityScreen() {
@@ -56,11 +57,12 @@ export function CreateEntityScreen() {
             {t('resource.newEntityDescription')}
           </p>
         </div>
-        {controller.error && (
+        {controller.error && !controller.mutationFailure && (
           <Alert tone="danger" className="bg-rose-500/10 text-rose-300">
             {controller.error}
           </Alert>
         )}
+        <MutationFeedback failure={controller.mutationFailure} onRetry={controller.retryMutation} />
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
             type: { name: 'typeKey', label: t('resource.entityType'), options: typeOptions },
@@ -102,13 +104,13 @@ export function CreateEntityScreen() {
             sections: [
               {
                 key: 'identity',
-                label: 'Informazioni principali',
+                label: t('node.mainInformation'),
                 fieldNames: ['typeKey', 'name', 'description'],
                 columns: 2,
               },
               {
                 key: 'fields',
-                label: 'Campi del tipo',
+                label: t('node.typeFields'),
                 fieldNames: dynamicFieldNames,
                 columns: 2,
               },
@@ -129,7 +131,7 @@ export function CreateEntityScreen() {
                     onClick={() => controller.setEnumField(field)}
                     className="block text-xs font-semibold text-indigo-300 hover:text-indigo-200"
                   >
-                    + Aggiungi opzione
+                    + {t('form.addOption')}
                   </button>
                 )}
                 {field.dataType.toLowerCase() === 'relation'
@@ -140,7 +142,7 @@ export function CreateEntityScreen() {
                       onClick={() => controller.related.open(field)}
                       className="block text-xs font-semibold text-indigo-300 hover:text-indigo-200"
                     >
-                      + Crea nuova istanza di {targetType.name}
+                      + {t('form.createRelatedInstance').replace('{type}', targetType.name)}
                     </button>
                   )}
               </div>
@@ -168,7 +170,6 @@ export function CreateEntityScreen() {
           typeKey={controller.typeKey}
           fieldId={controller.enumField.id!}
           onClose={() => controller.setEnumField(null)}
-          onError={controller.setError}
           onOptionAdded={controller.addEnumOption}
         />
       )}

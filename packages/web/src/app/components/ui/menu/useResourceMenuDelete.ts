@@ -1,13 +1,13 @@
 'use client';
 
 /** Executes the canonical soft-delete flow available from every resource menu. */
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../cache/GlobalCacheClient';
 import { requestConfirmation } from '../feedback/ConfirmDialogStore';
 import { useNavigationConfirmation } from '../../../navigation/NavigationBlocker';
 import { resolveDeletionReturnContext, useCurrentInternalPath } from '../../../navigation/returnContext';
-import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
+import { getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
+import { useUserMutation } from '../../../mutations/useUserMutation';
 
 type ResourceMenuDeleteInput =
   | { kind: 'node'; resourceId: string }
@@ -17,6 +17,8 @@ interface ResourceMenuDeleteResult {
   requestDelete: () => Promise<void>;
   isDeleting: boolean;
   errorMessage: string | null;
+  retryDelete: () => void;
+  canRetry: boolean;
   deleteRestriction: ResourceDeleteRestriction | null;
 }
 
@@ -28,9 +30,8 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
   const router = useRouter();
   const origin = useCurrentInternalPath();
   const confirmNavigation = useNavigationConfirmation();
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
+  const mutation = useUserMutation();
+  const deleteRestriction = getResourceDeleteRestriction(mutation.failure?.apiError ?? {});
 
   const requestDelete = async () => {
     const isNode = input.kind === 'node';
@@ -45,10 +46,7 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
     });
     if (!confirmed || !(await confirmNavigation())) return;
 
-    setIsDeleting(true);
-    setErrorMessage(null);
-    setDeleteRestriction(null);
-    try {
+    const outcome = await mutation.execute(async () => {
       const deleted = isNode
         ? await AppCache.deleteNode(input.resourceId)
         : await AppCache.deleteEntity(input.resourceId);
@@ -61,15 +59,9 @@ export function useResourceMenuDelete(input: ResourceMenuDeleteInput): ResourceM
       const destination = resolveDeletionReturnContext(origin, fallback, deletedRoute);
       if (destination === origin) router.refresh();
       else router.push(destination);
-    } catch (error) {
-      setErrorMessage(error instanceof Error
-        ? formatResourceDeleteError(error as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown })
-        : 'Non è stato possibile eliminare la risorsa.');
-      setDeleteRestriction(error instanceof Error ? getResourceDeleteRestriction(error as Error & { code?: unknown; totalReferencerCount?: unknown; referencers?: unknown }) : null);
-    } finally {
-      setIsDeleting(false);
-    }
+    });
+    void outcome;
   };
 
-  return { requestDelete, isDeleting, errorMessage, deleteRestriction };
+  return { requestDelete, isDeleting: mutation.pending, errorMessage: mutation.failure?.message ?? null, retryDelete: () => void mutation.retry(), canRetry: Boolean(mutation.failure?.retryable), deleteRestriction };
 }

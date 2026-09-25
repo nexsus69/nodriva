@@ -1,6 +1,9 @@
 'use server';
 
+/** Exposes MFA mutations as safe, typed action outcomes. */
+
 import { AuthResolver } from './auth/AuthResolver';
+import { mapAppErrorToApiErrorResponse } from './errorMapping';
 
 async function resolveMfaContext() {
   const userId = await AuthResolver.resolveActorUserId();
@@ -12,17 +15,29 @@ async function resolveMfaContext() {
 }
 
 export async function beginMfaEnrollmentAction(currentCode?: string) {
-  const context = await resolveMfaContext();
-  return context.service.beginEnrollment(context.userId, context.email, currentCode?.trim());
+  try {
+    const context = await resolveMfaContext();
+    return { success: true as const, data: await context.service.beginEnrollment(context.userId, context.email, currentCode?.trim()) };
+  } catch (error) {
+    return { success: false as const, error: mapAppErrorToApiErrorResponse(error) };
+  }
 }
 
 export async function confirmMfaEnrollmentAction(code: string) {
-  const context = await resolveMfaContext();
-  return { recoveryCodes: await context.service.confirmEnrollment(context.userId, code.trim()) };
+  try {
+    const context = await resolveMfaContext();
+    return { success: true as const, data: { recoveryCodes: await context.service.confirmEnrollment(context.userId, code.trim()) } };
+  } catch (error) {
+    return { success: false as const, error: mapAppErrorToApiErrorResponse(error) };
+  }
 }
 
 export async function disableMfaAction(code: string) {
-  const context = await resolveMfaContext();
-  await context.service.disable(context.userId, code.trim());
-  return { success: true };
+  try {
+    const context = await resolveMfaContext();
+    await context.service.disable(context.userId, code.trim());
+    return { success: true as const };
+  } catch (error) {
+    return { success: false as const, error: mapAppErrorToApiErrorResponse(error) };
+  }
 }

@@ -20,6 +20,6 @@ export async function completeAccountActionAction(token: string, password: strin
     return { success: true as const };
   } catch (error) {
     const mapped = mapAppErrorToApiErrorResponse(error, 'account-completion');
-    return { success: false as const, error: mapped.message };
+    return { success: false as const, error: mapped };
   }
 }

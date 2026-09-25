@@ -18,6 +18,8 @@ import { requestConfirmation, Skeleton } from '../feedback';
 import { ModalShell } from '../feedback/ModalShell';
 import { RelationPicker } from '../forms/RelationPicker';
 import { RelationshipChangeReview } from './RelationshipChangeReview';
+import { MutationFeedback } from '@/app/mutations/MutationFeedback';
+import { useUserMutation } from '@/app/mutations/useUserMutation';
 
 type ResourceDomain = 'node' | 'entity';
 
@@ -47,7 +49,7 @@ export function RelationPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedSources, setSelectedSources] = useState<RelationCandidate[]>([]);
   const [preview, setPreview] = useState<IncomingRelationshipMutationPreview | null>(null);
-  const [saving, setSaving] = useState(false);
+  const mutation = useUserMutation();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,7 +87,7 @@ export function RelationPanel({
   };
 
   const closeGroup = () => {
-    if (saving) return;
+    if (mutation.pending) return;
     setActiveGroup(null);
     setSelectedIds([]);
     setSelectedSources([]);
@@ -94,9 +96,7 @@ export function RelationPanel({
 
   const prepareLinks = async () => {
     if (!activeGroup || selectedSources.length === 0) return;
-    setSaving(true);
-    setError(null);
-    try {
+    await mutation.execute(async () => {
       const nextPreview = await prepareIncomingRelationshipAction({
         sourceDomain: activeGroup.definition.sourceDomain,
         sourceTypeKey: activeGroup.definition.sourceTypeKey,
@@ -109,25 +109,14 @@ export function RelationPanel({
           expectedRowVersion: source.rowVersion,
         })),
       });
-      if (!nextPreview.success) {
-        setError(nextPreview.error.message);
-        return;
-      }
-      setPreview(nextPreview.data);
-    } catch (cause) {
-      setError(cause instanceof Error
-        ? cause.message
-        : t('relation.saveError', 'Unable to save relationship links.'));
-    } finally {
-      setSaving(false);
-    }
+      if (!nextPreview.success) throw nextPreview.error;
+      return nextPreview.data;
+    }, setPreview);
   };
 
   const commitLinks = async () => {
     if (!activeGroup || !preview || selectedSources.length === 0) return;
-    setSaving(true);
-    setError(null);
-    try {
+    const outcome = await mutation.execute(async () => {
       const result = await AppCache.mutations.run(
         `relationship:${resourceDomain}:${resourceId}`,
         (mutationId) => mutateIncomingRelationshipAction({
@@ -143,22 +132,14 @@ export function RelationPanel({
         }),
         (changed) => { if (changed.success) applyRelationshipChanges(changed.data); },
       );
-      if (!result.success) {
-        setError(result.error.message);
-        return;
-      }
+      if (!result.success) throw result.error;
       setActiveGroup(null);
       setSelectedIds([]);
       setSelectedSources([]);
       setPreview(null);
       await load();
-    } catch (cause) {
-      setError(cause instanceof Error
-        ? cause.message
-        : t('relation.saveError', 'Unable to save relationship links.'));
-    } finally {
-      setSaving(false);
-    }
+    });
+    void outcome;
   };
 
   const unlink = async (group: IncomingRelationshipGroup, source: RelationCandidate) => {
@@ -171,9 +152,7 @@ export function RelationPanel({
     });
     if (!confirmed) return;
 
-    setSaving(true);
-    setError(null);
-    try {
+    await mutation.execute(async () => {
       const result = await AppCache.mutations.run(
         `relationship:${resourceDomain}:${resourceId}`,
         (mutationId) => mutateIncomingRelationshipAction({
@@ -188,18 +167,9 @@ export function RelationPanel({
         }),
         (changed) => { if (changed.success) applyRelationshipChanges(changed.data); },
       );
-      if (!result.success) {
-        setError(result.error.message);
-        return;
-      }
+      if (!result.success) throw result.error;
       await load();
-    } catch (cause) {
-      setError(cause instanceof Error
-        ? cause.message
-        : t('relation.saveError', 'Unable to save relationship links.'));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   if (!loading && !error && groups.length === 0) return null;
@@ -222,6 +192,7 @@ export function RelationPanel({
           {error}
         </p>
       )}
+      <MutationFeedback failure={mutation.failure} onRetry={() => void mutation.retry()} />
 
       {loading ? (
         <div className="space-y-3 p-4" role="status" aria-label={t('relation.loading', 'Loading relationships')}>
@@ -234,7 +205,7 @@ export function RelationPanel({
             <RelationshipGroup
               key={group.definition.sourceFieldId}
               group={group}
-              disabled={saving}
+              disabled={mutation.pending}
               manageLabel={t('relation.manage', 'Manage links')}
               removeLabel={t('relation.remove', 'Remove link')}
               emptyLabel={t('relation.noLinks', 'No linked resources.')}
@@ -270,7 +241,7 @@ export function RelationPanel({
               <RelationshipChangeReview
                 preview={preview}
                 selectedSources={selectedSources}
-                pending={saving}
+                pending={mutation.pending}
                 onBack={() => setPreview(null)}
                 onConfirm={() => { void commitLinks(); }}
               />
@@ -294,7 +265,7 @@ export function RelationPanel({
                   <button
                     type="button"
                     onClick={closeGroup}
-                    disabled={saving}
+                    disabled={mutation.pending}
                     className="border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 disabled:opacity-50"
                   >
                     {t('relation.close', 'Close')}
@@ -302,10 +273,10 @@ export function RelationPanel({
                   <button
                     type="button"
                     onClick={() => { void prepareLinks(); }}
-                    disabled={saving || selectedIds.length === 0 || selectedSources.length !== selectedIds.length}
+                    disabled={mutation.pending || selectedIds.length === 0 || selectedSources.length !== selectedIds.length}
                     className="bg-indigo-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                   >
-                    {saving
+                    {mutation.pending
                       ? t('relation.saving', 'Saving links…')
                       : t('relation.reviewChanges', 'Review changes')}
                   </button>

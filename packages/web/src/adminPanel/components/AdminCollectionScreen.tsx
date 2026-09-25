@@ -15,6 +15,8 @@ import { useAdminPagination } from "../useAdminPagination";
 import { AdminButton } from "./AdminButton";
 import { AdminPageHeader, type AdminBreadcrumbItem } from "./AdminPageHeader";
 import { AdminToolbar } from "./AdminToolbar";
+import { MutationFeedback } from "@/app/mutations/MutationFeedback";
+import type { UserMutationFailure } from "@/app/mutations/useUserMutation";
 
 interface AdminClientPagination {
   mode?: "client";
@@ -51,6 +53,8 @@ export interface AdminCollectionDefinition<TRow extends { id: string }> {
   emptyLabel: string;
   loadingLabel: string;
   error: Error | null;
+  mutationFailure?: UserMutationFailure | null;
+  onRetryMutation?: () => void;
   loading: boolean;
   rows: readonly TRow[];
   /** A filter section that is built separately from the collection shell. */
@@ -134,7 +138,10 @@ export function AdminCollectionScreen<TRow extends { id: string }>(
         </AdminToolbar>
       )}
       {definition.error && (
-        <Alert tone="danger">{definition.error.message}</Alert>
+        <Alert tone="danger" role="alert">{definition.error.message}</Alert>
+      )}
+      {definition.mutationFailure && (
+        <MutationFeedback failure={definition.mutationFailure} onRetry={definition.onRetryMutation ?? (() => undefined)} />
       )}
       {definition.loading && definition.rows.length === 0 ? (
         <SkeletonState

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FormOption } from "./FormDefinition";
+import { useAppLocale } from "../../../i18n/AppLocaleStore";
 
 /** Renders a keyboard-accessible select without relying on browser-native UI. */
 export function CustomSelect({
@@ -11,9 +12,9 @@ export function CustomSelect({
   disabled = false,
   required = false,
   tone = "dark",
-  placeholder = "Select a value",
+  placeholder,
   searchable = false,
-  searchPlaceholder = "Search options",
+  searchPlaceholder,
   onChange,
 }: {
   id: string;
@@ -27,6 +28,9 @@ export function CustomSelect({
   searchPlaceholder?: string;
   onChange: (value: string) => void;
 }) {
+  const { t } = useAppLocale();
+  const resolvedPlaceholder = placeholder ?? t("admin.selectValue");
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t("admin.searchOptions");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const visibleOptions = useMemo(() => {
@@ -119,8 +123,8 @@ export function CustomSelect({
         onKeyDown={handleKeyDown}
         className={`flex min-h-10 w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 ${tone === "light" ? "border-slate-300 bg-white text-slate-900" : "border-slate-700 bg-slate-900 text-slate-100"}`}
       >
-        <span className={selected ? undefined : "text-slate-400"}>
-          {selected?.label ?? placeholder}
+        <span className={selected ? undefined : tone === "light" ? "text-slate-500" : "text-slate-400"}>
+          {selected?.label ?? resolvedPlaceholder}
         </span>
         <svg
           viewBox="0 0 20 20"
@@ -146,9 +150,9 @@ export function CustomSelect({
                 autoFocus
                 type="search"
                 value={query}
-                placeholder={searchPlaceholder}
+                placeholder={resolvedSearchPlaceholder}
                 onChange={(event) => setQuery(event.target.value)}
-                className={`w-full rounded border px-2.5 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 ${tone === "light" ? "border-slate-200 bg-slate-50 text-slate-900" : "border-slate-700 bg-slate-800 text-slate-100"}`}
+                className={`w-full rounded border px-2.5 py-2 text-sm outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/15 ${tone === "light" ? "border-slate-200 bg-slate-50 text-slate-900" : "border-slate-700 bg-slate-800 text-slate-100 placeholder:text-slate-400"}`}
               />
             </li>
           )}
@@ -159,7 +163,7 @@ export function CustomSelect({
             onClick={() => select("")}
             className={`cursor-pointer px-3 py-2 ${!value ? "bg-violet-50 font-medium text-violet-700" : "text-slate-400 hover:bg-slate-100/10"}`}
           >
-            {placeholder}
+            {resolvedPlaceholder}
           </li>
           {visibleOptions.map((option, index) => (
             <li
@@ -177,7 +181,7 @@ export function CustomSelect({
           ))}
           {visibleOptions.length === 0 && (
             <li className={`px-3 py-2 text-sm ${tone === "light" ? "text-slate-500" : "text-slate-400"}`}>
-              {searchPlaceholder}
+              {resolvedSearchPlaceholder}
             </li>
           )}
         </ul>

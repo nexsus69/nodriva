@@ -2,6 +2,7 @@
 
 /** Renders a reusable password input with explicit visibility control. */
 import { useState } from 'react';
+import { useAppLocale } from '../../../i18n/AppLocaleStore';
 
 export interface PasswordInputProps {
   id?: string;
@@ -15,6 +16,7 @@ export interface PasswordInputProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  tone?: 'dark' | 'light';
 }
 
 export function PasswordInput({
@@ -29,8 +31,10 @@ export function PasswordInput({
   placeholder,
   className = 'w-full rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 pr-10 text-xs text-slate-100 focus:outline-none focus:border-indigo-500',
   disabled = false,
+  tone = 'dark',
 }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
+  const { t } = useAppLocale();
 
   return (
     <div className="relative">
@@ -52,9 +56,9 @@ export function PasswordInput({
         type="button"
         disabled={disabled}
         onClick={() => setVisible((current) => !current)}
-        aria-label={visible ? 'Nascondi password' : 'Mostra password'}
+        aria-label={visible ? t('form.hidePassword') : t('form.showPassword')}
         aria-pressed={visible}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-slate-400 hover:text-slate-200"
+        className={`absolute inset-y-0 right-0 flex w-10 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${tone === 'light' ? 'text-slate-500 hover:text-slate-700' : 'text-slate-400 hover:text-slate-200'}`}
       >
         <svg
           aria-hidden="true"

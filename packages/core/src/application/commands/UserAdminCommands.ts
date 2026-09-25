@@ -1,12 +1,17 @@
+/** Defines validated administrative commands for user lifecycle mutations. */
 import { z } from 'zod';
+import {
+  USER_PASSWORD_PATTERNS,
+  USER_PASSWORD_POLICY,
+} from '../../domain/policies/UserPasswordPolicy.js';
 
 export const UserPasswordSchema = z.string()
-  .min(12, 'Password must be at least 12 characters long.')
-  .max(128, 'Password must be at most 128 characters long.')
-  .regex(/[a-z]/, 'Password must contain a lowercase letter.')
-  .regex(/[A-Z]/, 'Password must contain an uppercase letter.')
-  .regex(/[0-9]/, 'Password must contain a number.')
-  .regex(/[^A-Za-z0-9]/, 'Password must contain a special character.');
+  .min(USER_PASSWORD_POLICY.minLength, 'Password must be at least 12 characters long.')
+  .max(USER_PASSWORD_POLICY.maxLength, 'Password must be at most 128 characters long.')
+  .regex(USER_PASSWORD_PATTERNS.lowercase, 'Password must contain a lowercase letter.')
+  .regex(USER_PASSWORD_PATTERNS.uppercase, 'Password must contain an uppercase letter.')
+  .regex(USER_PASSWORD_PATTERNS.number, 'Password must contain a number.')
+  .regex(USER_PASSWORD_PATTERNS.special, 'Password must contain a special character.');
 
 export const CreateUserCommandSchema = z.object({
   email: z.string().email(),

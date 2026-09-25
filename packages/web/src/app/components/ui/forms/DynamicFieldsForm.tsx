@@ -29,10 +29,11 @@ export function DynamicFieldsForm({
   entityTypes,
   onCreateRelation,
   onAddEnumOption,
-  title = 'Campi dinamici',
+  title,
   tone = 'dark',
 }: DynamicFieldsFormProps) {
   const { t } = useAppLocale();
+  const resolvedTitle = title ?? t('form.dynamicFields');
   if (fields.length === 0) return null;
 
   const schema = buildResourceFormSchema(
@@ -47,7 +48,7 @@ export function DynamicFieldsForm({
   return (
     <div className={`space-y-3 border-t pt-4 ${tone === 'light' ? 'border-slate-200' : 'border-slate-800'}`}>
       <h3 className={`text-xs font-bold uppercase tracking-wider ${tone === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
-        {title}{title === 'Campi dinamici' && ` (${fields.length})`}
+        {resolvedTitle}{title === undefined && ` (${fields.length})`}
       </h3>
       <FormRenderer
         definition={{
@@ -69,12 +70,12 @@ export function DynamicFieldsForm({
             <div className="space-y-1">
               {field.enumMode === 'managed' && onAddEnumOption && (
                 <button type="button" onClick={() => onAddEnumOption(field)} className="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
-                  + Aggiungi opzione
+                  + {t('form.addOption')}
                 </button>
               )}
               {schemaField.type === 'relation' && field.relationTargetDomain === 'entity' && targetType && onCreateRelation && (
                 <button type="button" onClick={() => onCreateRelation(field)} className="text-xs font-semibold text-indigo-400 hover:text-indigo-300">
-                  + Crea nuova istanza di {targetType.name}
+                  + {t('form.createRelatedInstance').replace('{type}', targetType.name)}
                 </button>
               )}
             </div>

@@ -141,12 +141,12 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
             )}
             onSubmit={props.onSubmit}
             onCancel={props.onCancel}
-            destructiveAction={{ label: 'Elimina', onClick: props.onDelete }}
+            destructiveAction={{ label: t('menu.deleteEntity'), onClick: props.onDelete }}
             isPending={props.isPending}
             submitDisabled={!props.name.trim() || props.formStale}
-            submitLabel="Salva modifiche"
-            pendingLabel="Salvataggio…"
-            cancelLabel="Annulla"
+            submitLabel={t('node.saveChanges')}
+            pendingLabel={t('common.saving')}
+            cancelLabel={t('common.cancel')}
             theme="light"
             definition={{
               key: 'edit-entity',
@@ -155,13 +155,13 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
               sections: [
                 {
                   key: 'identity',
-                  label: 'Informazioni principali',
+                  label: t('node.mainInformation'),
                   fieldNames: ['name', 'description'],
                   columns: 2,
                 },
                 {
                   key: 'fields',
-                  label: 'Campi del tipo',
+                  label: t('node.typeFields'),
                   fieldNames: dynamicFieldNames,
                   columns: 2,
                 },

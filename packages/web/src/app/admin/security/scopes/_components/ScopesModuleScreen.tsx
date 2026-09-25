@@ -20,6 +20,7 @@ import { useAdminAuthorization } from "@/adminPanel/AdminAuthorizationContext";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtimeCollectionRefresh";
+import { useAdminCollectionMutation } from "@/adminPanel/useAdminCollectionMutation";
 import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 
 type ScopeForm = { userId: string; nodeId: string; roleId: string; assignmentEffect: string; propagation: string };
@@ -33,7 +34,6 @@ function useScopesRemoteCoordinator() {
   const [rows, setRows] = useState<readonly ScopeAssignmentDto[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [pending, setPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [sort, setSortState] = useState<AdminTableSortState | null>(null);
   const version = useRef(0);
@@ -77,21 +77,8 @@ function useScopesRemoteCoordinator() {
     reset();
     setSortState(next);
   }, [reset]);
-  const execute = useCallback(async (work: () => Promise<void>) => {
-    setPending(true);
-    setError(null);
-    try {
-      await work();
-      await load();
-      return true;
-    } catch (reason) {
-      setError(reason instanceof Error ? reason : new Error(String(reason)));
-      return false;
-    } finally {
-      setPending(false);
-    }
-  }, [load]);
-  return { rows, loading, pending, error, search, setSearch, sort, setSort, pagination, load, execute };
+  const mutation = useAdminCollectionMutation(() => load());
+  return { rows, loading, error, search, setSearch, sort, setSort, pagination, load, ...mutation };
 }
 
 /** Builds the shared scope assignment form from currently authorized choices. */
@@ -221,13 +208,13 @@ export function ScopesModuleScreen() {
       assignmentEffect: formSurface.values.assignmentEffect as "allow" | "deny",
       propagation: formSurface.values.propagation as "self" | "subtree",
     };
-    const succeeded = await collection.execute(async () => {
+    await formSurface.submitMutation(async () => {
       const result = editing
         ? await AppCache.admin.updateScopeAssignment({ assignmentId: editing.id, roleId: values.roleId, assignmentEffect: values.assignmentEffect, propagation: values.propagation })
         : await AppCache.admin.createScopeAssignment(values);
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.loadingScopes"));
-    });
-    if (succeeded) formSurface.complete();
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: t("admin.loadingScopes") };
+      await collection.load();
+    }, formSurface.complete);
   };
   const openCreate = () => {
     formSurface.complete();
@@ -249,7 +236,7 @@ export function ScopesModuleScreen() {
     if (!confirmed) return;
     await collection.execute(async () => {
       const result = await AppCache.admin.deleteScopeAssignment({ assignmentId: row.id });
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.deleteScopeTitle"));
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: t("admin.deleteScopeTitle") };
     });
   };
   const collectionDefinition: AdminCollectionDefinition<ScopeAssignmentDto> = {
@@ -262,6 +249,8 @@ export function ScopesModuleScreen() {
     rows: collection.rows,
     loading: collection.loading,
     error: collection.error,
+    mutationFailure: collection.mutationFailure,
+    onRetryMutation: collection.retryMutation,
     createLabel: canCreate ? t("admin.createScope") : undefined,
     onCreate: canCreate ? openCreate : undefined,
     onOpen: canUpdate ? openEdit : undefined,
@@ -291,12 +280,14 @@ export function ScopesModuleScreen() {
           title={editing ? t("admin.editScope") : t("admin.createScope")}
           definition={definition}
           values={formSurface.values}
-          pending={collection.pending}
+          pending={formSurface.isSubmitting}
           submitLabel={editing ? t("admin.saveChanges") : t("admin.createScope")}
           cancelLabel={t("admin.cancel")}
           onChange={(name, value) => formSurface.setValues((current) => ({ ...current, [name]: String(value) }))}
           onSubmit={(event) => void submit(event)}
           onClose={() => void formSurface.close()}
+          mutationFailure={formSurface.mutationFailure}
+          onRetryMutation={formSurface.retryMutation}
         />
       )}
     </>

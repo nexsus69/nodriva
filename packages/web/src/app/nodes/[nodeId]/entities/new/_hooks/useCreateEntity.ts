@@ -14,6 +14,7 @@ import { useRelatedEntityCreation } from './useRelatedEntityCreation';
 import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 import { useReturnContext } from '../../../../../navigation/returnContext';
+import { useUserMutation } from '../../../../../mutations/useUserMutation';
 
 export function useCreateEntity(parentNodeId: string) {
   const router = useRouter();
@@ -28,13 +29,14 @@ export function useCreateEntity(parentNodeId: string) {
   const [fields, setFields] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
+  const mutation = useUserMutation();
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const createdId = useRef<string | null>(null);
   const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
   const [hasCreatedResource, setHasCreatedResource] = useState(false);
   const submitting = useRef(false);
-  const related = useRelatedEntityCreation(parentNodeId, setPayload, setError);
+  const related = useRelatedEntityCreation(parentNodeId, setPayload);
   const navigationGuard = useUnsavedChanges(
     name !== '' || description !== '' || !areFormValuesEqual(payload, initialPayload)
       || hasSelectedFiles(attachments) || hasCreatedResource,
@@ -56,7 +58,7 @@ export function useCreateEntity(parentNodeId: string) {
     if (submitting.current) return;
     submitting.current = true; setError(null);
     startTransition(async () => {
-      try {
+      const result = await mutation.execute(async () => {
         await validateDynamicAttachments(fields, attachments);
         const resourceId = createdId.current ?? (await AppCache.createEntity({ parentNodeId, entityTypeKey: selectedTypeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
         createdId.current = resourceId;
@@ -65,9 +67,9 @@ export function useCreateEntity(parentNodeId: string) {
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
-      } catch (reason) {
+      });
+      if (!result.ok) {
         submitting.current = false;
-        setError(reason instanceof Error ? reason.message : 'Errore nella creazione dell’entità.');
       }
     });
   };
@@ -82,5 +84,5 @@ export function useCreateEntity(parentNodeId: string) {
     router.push(returnTo);
   };
 
-  return { entityTypesList, siblingEntities, isPending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, payload, setPayload, error, setError, attachments, setAttachments, enumField, setEnumField, related, returnTo, submit, addEnumOption, cancel };
+  return { entityTypesList, siblingEntities, isPending: isPending || mutation.pending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, payload, setPayload, error: error ?? mutation.failure?.message ?? null, setError, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry(), attachments, setAttachments, enumField, setEnumField, related, returnTo, submit, addEnumOption, cancel };
 }

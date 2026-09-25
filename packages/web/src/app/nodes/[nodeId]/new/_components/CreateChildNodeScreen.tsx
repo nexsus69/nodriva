@@ -15,6 +15,7 @@ import { PageShell, Panel } from '../../../../components/ui/layout';
 import { isAttachmentField } from '../../../../components/ui/forms/dynamicResourceForm';
 import { useCreateChildNode } from '../_hooks/useCreateChildNode';
 import { useAppLocale } from '@/app/i18n/AppLocaleStore';
+import { MutationFeedback } from '@/app/mutations/MutationFeedback';
 
 /** Renders the node-creation screen from standard fields plus selected type metadata. */
 export function CreateChildNodeScreen() {
@@ -55,11 +56,12 @@ export function CreateChildNodeScreen() {
             {t('resource.createChildNodeDescription')}
           </p>
         </div>
-        {controller.error && (
+        {controller.error && !controller.mutationFailure && (
           <Alert tone="danger" className="bg-rose-500/10 text-rose-300">
             {controller.error}
           </Alert>
         )}
+        <MutationFeedback failure={controller.mutationFailure} onRetry={controller.retryMutation} />
         <ResourceFormRenderer
           baseFields={buildResourceIdentityFields({
             type: { name: 'typeKey', label: t('resource.nodeType'), options: typeOptions },
@@ -99,13 +101,13 @@ export function CreateChildNodeScreen() {
             sections: [
               {
                 key: 'identity',
-                label: 'Informazioni principali',
+                label: t('node.mainInformation'),
                 fieldNames: ['typeKey', 'name', 'description'],
                 columns: 2,
               },
               {
                 key: 'fields',
-                label: 'Campi del tipo',
+                label: t('node.typeFields'),
                 fieldNames: dynamicFieldNames,
                 columns: 2,
               },
@@ -120,7 +122,7 @@ export function CreateChildNodeScreen() {
                 onClick={() => controller.setEnumField(field)}
                 className="mt-2 text-xs font-semibold text-indigo-300 hover:text-indigo-200"
               >
-                + Aggiungi opzione
+                + {t('form.addOption')}
               </button>
             );
           }}
@@ -132,7 +134,6 @@ export function CreateChildNodeScreen() {
           typeKey={controller.typeKey}
           fieldId={controller.enumField.id!}
           onClose={() => controller.setEnumField(null)}
-          onError={controller.setError}
           onOptionAdded={controller.addEnumOption}
         />
       )}
