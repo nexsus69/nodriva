@@ -33,6 +33,7 @@ export function CreateChildNodeScreen() {
     label: `${type.name} (${type.typeKey})`,
   }));
   const dynamicFieldNames = controller.fields.map((field) => field.fieldKey);
+  const formTheme = 'dark' as const;
   const formValues = flattenResourceFormDraft({
     typeKey: controller.typeKey,
     name: controller.name,
@@ -93,7 +94,7 @@ export function CreateChildNodeScreen() {
           submitLabel={t('resource.createChildNode')}
           pendingLabel={t('resource.creating')}
           cancelLabel={t('common.cancel')}
-          theme="dark"
+          theme={formTheme}
           definition={{
             key: 'create-child-node',
             version: '1',
@@ -119,7 +120,7 @@ export function CreateChildNodeScreen() {
             return (
               <button
                 type="button"
-                onClick={() => controller.setEnumField(field)}
+                onClick={() => controller.enumOption.open(field)}
                 className="mt-2 text-xs font-semibold text-indigo-300 hover:text-indigo-200"
               >
                 + {t('form.addOption')}
@@ -128,13 +129,18 @@ export function CreateChildNodeScreen() {
           }}
         />
       </Panel>
-      {controller.enumField && (
+      {controller.enumOption.field && (
         <EnumOptionModal
-          kind="node"
-          typeKey={controller.typeKey}
-          fieldId={controller.enumField.id!}
-          onClose={() => controller.setEnumField(null)}
-          onOptionAdded={controller.addEnumOption}
+          open
+          values={controller.enumOption.values}
+          pending={controller.enumOption.pending}
+          failure={controller.enumOption.failure}
+          theme={formTheme}
+          onChange={controller.enumOption.change}
+          onSubmit={(event) => { event.preventDefault(); void controller.enumOption.submit(); }}
+          onRetry={controller.enumOption.retry}
+          onClose={controller.enumOption.close}
+          onDiscard={controller.enumOption.discard}
         />
       )}
     </PageShell>

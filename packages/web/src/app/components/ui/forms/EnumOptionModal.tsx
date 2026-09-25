@@ -1,56 +1,87 @@
-'use client';
+"use client";
 
-/** Adds a managed enum option while retaining any failed input for correction or retry. */
-import { useState, type FormEvent } from 'react';
-import { AppCache } from '../../../cache/GlobalCacheClient';
-import { useAppLocale } from '@/app/i18n/AppLocaleStore';
-import { MutationFeedback } from '@/app/mutations/MutationFeedback';
-import { useUserMutation } from '@/app/mutations/useUserMutation';
+/** Renders the managed-enum nested draft through the same builder and modal surface as other forms. */
+import type { FormEvent } from "react";
+import { useMemo } from "react";
+import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { FormModal } from "./FormModal";
+import { createValidationMessages, defineForm, type FormDefinition } from "./FormDefinition";
+import type { EnumOptionDraftValues } from "./useManagedEnumOptionForm";
+import type { UserMutationFailure } from "@/app/mutations/useUserMutation";
 
-export interface ManagedEnumOption {
-  id: string;
-  value: string;
-  label: string;
-  position: number;
-  isActive: boolean;
+/** Builds the declarative contract for a new managed enum option. */
+export function createEnumOptionDefinition(t: (key: string) => string): FormDefinition {
+  return defineForm({
+    key: "managed-enum-option",
+    version: "1",
+    validationMessages: createValidationMessages(t),
+    fields: [
+      {
+        name: "value",
+        type: "text",
+        label: t("enum.technicalValueLabel"),
+        description: t("enum.technicalValueHelp"),
+        placeholder: t("enum.technicalValuePlaceholder"),
+        required: true,
+        validation: { minLength: 1, maxLength: 100, pattern: "^[a-z][a-z0-9_-]*$" },
+      },
+      {
+        name: "label",
+        type: "text",
+        label: t("enum.labelLabel"),
+        description: t("enum.labelHelp"),
+        placeholder: t("enum.labelPlaceholder"),
+        required: true,
+        validation: { minLength: 1, maxLength: 150 },
+      },
+    ],
+  });
 }
 
 export interface EnumOptionModalProps {
-  kind: 'node' | 'entity';
-  typeKey: string;
-  fieldId: string;
+  open: boolean;
+  values: EnumOptionDraftValues;
+  pending: boolean;
+  failure: UserMutationFailure | null;
+  theme: "dark" | "light";
+  onChange: (name: string, value: unknown) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onRetry: () => void;
   onClose: () => void;
-  onOptionAdded: (option: ManagedEnumOption) => void;
+  onDiscard: () => void;
 }
 
-export function EnumOptionModal({ kind, typeKey, fieldId, onClose, onOptionAdded }: EnumOptionModalProps) {
-  const [value, setValue] = useState('');
-  const [label, setLabel] = useState('');
-  const mutation = useUserMutation();
+export function EnumOptionModal({
+  open,
+  values,
+  pending,
+  failure,
+  theme,
+  onChange,
+  onSubmit,
+  onRetry,
+  onClose,
+  onDiscard,
+}: EnumOptionModalProps) {
   const { t } = useAppLocale();
-
-  const handleSubmit = (event: FormEvent) => {
-    event.preventDefault();
-    void mutation.execute(async () => {
-        const result = await AppCache.admin.addEnumOption(kind, typeKey, fieldId, value.trim(), label.trim());
-        if (!result.success || !result.data) throw result.error ?? { code: 'INTERNAL_ERROR', message: t('enum.addError') };
-        onOptionAdded(result.data);
-        onClose();
-    });
-  };
-
+  const definition = useMemo(() => createEnumOptionDefinition(t), [t]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <form className="w-full max-w-md space-y-4 rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl" onSubmit={handleSubmit}>
-        <h2 className="text-lg font-bold text-slate-100">{t('enum.newOption')}</h2>
-        <MutationFeedback failure={mutation.failure} onRetry={() => void mutation.retry()} />
-        <input required pattern="[a-z][a-z0-9_-]*" value={value} onChange={(event) => setValue(event.target.value)} placeholder={t('enum.technicalValuePlaceholder')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-sm text-white" />
-        <input required value={label} onChange={(event) => setLabel(event.target.value)} placeholder={t('enum.labelPlaceholder')} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-xs text-slate-300">{t('common.cancel')}</button>
-          <button type="submit" disabled={mutation.pending} className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{mutation.pending ? t('common.saving') : t('enum.saveOption')}</button>
-        </div>
-      </form>
-    </div>
+    <FormModal
+      open={open}
+      title={t("enum.newOption")}
+      definition={definition}
+      values={{ ...values }}
+      onChange={onChange}
+      onSubmit={onSubmit}
+      isPending={pending}
+      mutationFailure={failure}
+      onRetryMutation={onRetry}
+      theme={theme}
+      submitLabel={t("enum.saveOption")}
+      pendingLabel={t("common.saving")}
+      cancelLabel={t("common.cancel")}
+      destructiveAction={{ label: t("admin.discardChanges"), onClick: onDiscard }}
+      onClose={onClose}
+    />
   );
 }

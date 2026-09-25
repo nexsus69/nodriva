@@ -69,6 +69,7 @@ export function NodeTreeSelect({
   nodes,
   labels,
   interaction = "both",
+  tone = "light",
   disabled = false,
   required = false,
   loading = false,
@@ -80,6 +81,7 @@ export function NodeTreeSelect({
   nodes: readonly FormTreeNodeOption[];
   labels: FormNodeTreeLabels;
   interaction?: "drag-drop" | "direct" | "both";
+  tone?: "dark" | "light";
   disabled?: boolean;
   required?: boolean;
   loading?: boolean;
@@ -164,7 +166,7 @@ export function NodeTreeSelect({
               onClick={() => toggleBranch(branch.id)}
               disabled={disabled}
               aria-label={`${expanded ? labels.collapse : labels.expand}: ${branch.name}`}
-              className="size-6 shrink-0 rounded text-slate-500 hover:bg-slate-100 disabled:opacity-50"
+              className={`size-6 shrink-0 rounded disabled:opacity-50 ${tone === "light" ? "text-slate-500 hover:bg-slate-100" : "text-slate-400 hover:bg-slate-800"}`}
             >
               {expanded ? "▾" : "▸"}
             </button>
@@ -182,14 +184,14 @@ export function NodeTreeSelect({
               pointerNodeId.current = null;
               if (directSelectionEnabled) onChange(branch.id);
             }}
-            className={`min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-xs disabled:opacity-50 ${selected ? "bg-indigo-100 font-semibold text-indigo-800" : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"}`}
+            className={`min-w-0 flex-1 truncate rounded px-2 py-1.5 text-left text-xs disabled:opacity-50 ${selected ? tone === "light" ? "bg-indigo-100 font-semibold text-indigo-800" : "bg-indigo-950 font-semibold text-indigo-100" : tone === "light" ? "text-slate-700 hover:bg-indigo-50 hover:text-indigo-700" : "text-slate-200 hover:bg-slate-800 hover:text-white"}`}
             title={branch.pathLabel}
           >
             {branch.name}
           </button>
         </div>
         {hasChildren && expanded && (
-          <ul role="group" className="ml-4 border-l border-slate-200 pl-2">
+          <ul role="group" className={`ml-4 border-l pl-2 ${tone === "light" ? "border-slate-200" : "border-slate-700"}`}>
             {branch.children.map(renderBranch)}
           </ul>
         )}
@@ -199,7 +201,7 @@ export function NodeTreeSelect({
 
   return (
     <div
-      className="space-y-3 border border-slate-200 bg-slate-50 p-3"
+      className={`space-y-3 border p-3 ${tone === "light" ? "border-slate-200 bg-slate-50" : "border-slate-700 bg-slate-900"}`}
       data-node-tree-field={name}
       aria-busy={loading}
       onPointerCancel={() => {
@@ -214,13 +216,13 @@ export function NodeTreeSelect({
         value={value}
         required={required}
       />
-      <p className="text-xs font-semibold text-slate-700">
+      <p className={`text-xs font-semibold ${tone === "light" ? "text-slate-700" : "text-slate-200"}`}>
         {labels.instruction}
       </p>
       <ul
         role="tree"
         aria-label={labels.instruction}
-        className="max-h-64 overflow-auto border border-slate-200 bg-white p-2"
+        className={`max-h-64 overflow-auto border p-2 ${tone === "light" ? "border-slate-200 bg-white" : "border-slate-700 bg-slate-950"}`}
       >
         {loading ? (
           <li className="space-y-2 p-2" aria-label={labels.loading}>
@@ -230,7 +232,7 @@ export function NodeTreeSelect({
           </li>
         ) : tree.map(renderBranch)}
         {!loading && tree.length === 0 && (
-          <li className="p-2 text-xs text-slate-500">{labels.empty}</li>
+          <li className={`p-2 text-xs ${tone === "light" ? "text-slate-500" : "text-slate-400"}`}>{labels.empty}</li>
         )}
       </ul>
       <div
@@ -257,7 +259,7 @@ export function NodeTreeSelect({
         data-node-tree-drop-target
         data-selected-node-id={selectedNode?.id}
         aria-live="polite"
-        className={`min-h-14 border-2 border-dashed p-3 text-xs ${dragActive ? "border-violet-500 bg-violet-50 text-violet-800" : "border-violet-200 bg-white text-slate-600"}`}
+        className={`min-h-14 border-2 border-dashed p-3 text-xs ${dragActive ? "border-violet-500 bg-violet-50 text-violet-800" : tone === "light" ? "border-violet-200 bg-white text-slate-600" : "border-violet-700 bg-slate-950 text-slate-300"}`}
       >
         {loading ? (labels.loading ?? labels.instruction) : (selectedNode?.pathLabel ?? labels.dropPlaceholder)}
       </div>

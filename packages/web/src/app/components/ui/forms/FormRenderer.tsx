@@ -20,6 +20,7 @@ import type {
   FormLabelPosition,
 } from "./FormDefinition";
 import { createValidationMessages } from "./FormDefinition";
+import { SITE_THEME } from "@/Theme";
 
 export type {
   FormDefinition,
@@ -258,6 +259,7 @@ function FormField({
   const control =
     field.type === "attachment" ? (
       <AttachmentInput
+        tone={theme}
         kind={field.kind}
         maxFiles={field.maxFiles}
         maxSizeBytes={field.maxSizeBytes}
@@ -289,6 +291,7 @@ function FormField({
         labels={field.labels}
         loading={field.loading}
         interaction={field.interaction}
+        tone={theme}
         disabled={field.disabled}
         required={isRequired}
         onChange={(nodeId) => onChange(nodeId)}
@@ -326,6 +329,8 @@ function FormField({
         required={isRequired}
         rows={field.rows ?? 3}
         disabled={field.disabled}
+        minLength={field.validation?.minLength}
+        maxLength={field.validation?.maxLength}
         value={String(value ?? "")}
         placeholder={field.placeholder}
         onChange={(event) => onChange(event.target.value)}
@@ -337,8 +342,12 @@ function FormField({
         name={field.name}
         required={isRequired}
         type={field.type}
-        min={field.type === "number" ? field.min : undefined}
-        step={field.type === "number" ? field.step : undefined}
+        pattern={field.validation?.pattern}
+        minLength={field.validation?.minLength}
+        maxLength={field.validation?.maxLength}
+        min={field.type === "number" ? field.validation?.min ?? field.min : undefined}
+        max={field.type === "number" ? field.validation?.max : undefined}
+        step={field.type === "number" ? field.validation?.step ?? field.step : undefined}
         value={String(value ?? "")}
         placeholder={field.placeholder}
         autoComplete={field.autoComplete}
@@ -533,7 +542,7 @@ export function FormRenderer({
   onCancel,
   destructiveAction,
   children,
-  theme = "dark",
+  theme = SITE_THEME.form,
   renderFieldAddon,
   showActions = true,
   actionPlacement = "flow",

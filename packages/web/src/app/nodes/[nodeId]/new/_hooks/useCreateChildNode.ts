@@ -1,7 +1,7 @@
 'use client';
 
 /** Owns a child-node creation draft without acquiring a lock on its containing node. */
-import { useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../cache/ViewStore';
@@ -13,6 +13,7 @@ import { useUnsavedChanges } from '../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../navigation/unsavedChanges';
 import { useReturnContext } from '../../../../navigation/returnContext';
 import { useUserMutation } from '../../../../mutations/useUserMutation';
+import { useManagedEnumOptionForm } from '../../../../components/ui/forms/useManagedEnumOptionForm';
 
 export function useCreateChildNode(parentNodeId: string) {
   const router = useRouter();
@@ -25,7 +26,6 @@ export function useCreateChildNode(parentNodeId: string) {
   const selectedTypeKey = typeKey || nodeTypesList[0]?.typeKey || '';
   const [fields, setFields] = useState<DynamicField[]>([]);
   const [payload, setPayload] = useState<Record<string, unknown>>({});
-  const [enumField, setEnumField] = useState<DynamicField | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mutation = useUserMutation();
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
@@ -33,9 +33,20 @@ export function useCreateChildNode(parentNodeId: string) {
   const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
   const [hasCreatedResource, setHasCreatedResource] = useState(false);
   const submitting = useRef(false);
+  const addEnumOption = useCallback((field: DynamicField, option: NonNullable<DynamicField['enumOptions']>[number]) => {
+    setFields((current) => current.map((candidate) => candidate.id === field.id ? {
+      ...candidate,
+      enumOptions: [...(candidate.enumOptions ?? []), option],
+    } : candidate));
+  }, []);
+  const enumOption = useManagedEnumOptionForm<DynamicField>({
+    kind: 'node',
+    typeKey: selectedTypeKey,
+    onOptionAdded: addEnumOption,
+  });
   const navigationGuard = useUnsavedChanges(
     name !== '' || description !== '' || !areFormValuesEqual(payload, initialPayload)
-      || hasSelectedFiles(attachments) || hasCreatedResource,
+      || hasSelectedFiles(attachments) || hasCreatedResource || enumOption.isDirty,
   );
 
   useEffect(() => {
@@ -70,16 +81,11 @@ export function useCreateChildNode(parentNodeId: string) {
     });
   };
 
-  const addEnumOption = (option: NonNullable<DynamicField['enumOptions']>[number]) => {
-    if (!enumField) return;
-    setFields((current) => current.map((field) => field.id === enumField.id ? { ...field, enumOptions: [...(field.enumOptions ?? []), option] } : field));
-  };
-
   const cancel = async () => {
     if (!(await navigationGuard.confirmDiscard())) return;
     navigationGuard.allowNavigation();
     router.push(returnTo);
   };
 
-  return { nodeTypesList, isPending: isPending || mutation.pending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, setFields, payload, setPayload, enumField, setEnumField, error: error ?? mutation.failure?.message ?? null, setError, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry(), attachments, setAttachments, returnTo, submit, addEnumOption, cancel };
+  return { nodeTypesList, isPending: isPending || mutation.pending, name, setName, description, setDescription, typeKey: selectedTypeKey, setTypeKey, fields, setFields, payload, setPayload, error: error ?? mutation.failure?.message ?? null, setError, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry(), attachments, setAttachments, enumOption, returnTo, submit, cancel };
 }

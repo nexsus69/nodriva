@@ -311,6 +311,24 @@ non si applica automaticamente ai componenti infrastrutturali complessi: per
 questi la separazione avviene per responsabilità osservabile e deve mantenere
 test di protocollo, accessibilità e comportamento.
 
+### Form builder, superfici e bozze annidate
+
+Ogni form di inserimento o modifica usa `FormDefinition` e `FormRenderer`;
+una modale o drawer di form compone la stessa definizione tramite una superficie
+condivisa. Il tema del form deriva dall'unica policy del renderer e viene
+propagato a ogni field renderer: testo, placeholder, bordi, focus, helper,
+errore, allegato, relation picker e selettore ad albero non possono scegliere
+un tema locale divergente quando sono composti in un form.
+
+Il controller della superficie possiede la bozza, inclusa ogni bozza annidata
+avviata da un suo campo. Un componente modale presentazionale riceve valori e
+callback tipizzati; non conserva campi equivalenti in `useState`. Chiudere una
+superficie annidata conserva la bozza per la riapertura e la include nel guard
+di modifiche non salvate del form padre. Soltanto un esplicito scarto o il
+successo della relativa mutazione la rimuovono. Login o altre interazioni che
+non rappresentano una bozza dati possono usare un form nativo, ma devono
+comporre primitive visive condivise e documentare l'eccezione.
+
 ## Error handling dei flussi UI
 
 - Gli errori applicativi attesi attraversano il boundary delle Server Actions

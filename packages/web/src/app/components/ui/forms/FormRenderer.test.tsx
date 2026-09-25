@@ -18,6 +18,30 @@ describe("FormRenderer", () => {
     expect(markup).toContain("placeholder:text-slate-500");
   });
 
+  it("propagates the parent appearance to attachment and node-tree controls", () => {
+    const markup = renderToStaticMarkup(
+      <FormRenderer
+        fields={[
+          { name: "document", type: "attachment", label: "Document", kind: "file" },
+          {
+            name: "parentNode", type: "nodeTree", label: "Parent node", nodes: [],
+            labels: {
+              instruction: "Choose a node", empty: "No nodes", dropPlaceholder: "Drop here",
+              expand: "Expand", collapse: "Collapse",
+            },
+          },
+        ]}
+        values={{ document: [], parentNode: "" }}
+        onChange={vi.fn()}
+        theme="dark"
+      />,
+    );
+
+    expect(markup).toContain("border-slate-800 bg-slate-900");
+    expect(markup).toContain('data-node-tree-field="parentNode"');
+    expect(markup).toContain("border-slate-700 bg-slate-900");
+  });
+
   it("localizes shared validation fallbacks through the active locale", () => {
     const markup = renderToStaticMarkup(
       <FormRenderer

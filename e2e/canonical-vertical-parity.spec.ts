@@ -152,6 +152,9 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
   await expect(page.getByRole('button', { name: '+ Aggiungi opzione' })).toBeVisible();
   await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
   await page.getByPlaceholder(/Valore tecnico/).fill('planned');
+  await page.getByRole('dialog').getByRole('button', { name: 'Annulla' }).click();
+  await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
+  await expect(page.getByPlaceholder(/Valore tecnico/)).toHaveValue('planned');
   await page.getByPlaceholder(/Etichetta/).fill('Planned');
   await page.getByRole('button', { name: 'Salva opzione' }).click();
   await page.getByRole('combobox', { name: 'Status' }).click();

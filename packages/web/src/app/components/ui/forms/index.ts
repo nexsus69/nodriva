@@ -8,10 +8,22 @@ export { NodeTreeSelect, buildFormTree } from "./NodeTreeSelect";
 export type { FormTreeBranch } from "./NodeTreeSelect";
 export { RelationValue } from "./RelationValue";
 export { EnumOptionModal } from "./EnumOptionModal";
+export type { EnumOptionModalProps } from "./EnumOptionModal";
+export { FormModal } from "./FormModal";
+export type { FormModalProps } from "./FormModal";
+export {
+  EMPTY_ENUM_OPTION_DRAFT,
+  hasDirtyEnumOptionDraft,
+  readEnumOptionDraft,
+  removeEnumOptionDraft,
+  updateEnumOptionDraft,
+  useManagedEnumOptionForm,
+} from "./useManagedEnumOptionForm";
 export type {
-  EnumOptionModalProps,
+  EnumOptionDraftValues,
+  ManagedEnumField,
   ManagedEnumOption,
-} from "./EnumOptionModal";
+} from "./useManagedEnumOptionForm";
 export { FormRenderer } from "./FormRenderer";
 export { createValidationMessages, defineForm } from "./FormDefinition";
 export { buildResourceIdentityFields } from "./ResourceFormDefinition";

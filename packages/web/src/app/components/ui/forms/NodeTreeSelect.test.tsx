@@ -47,6 +47,23 @@ describe("NodeTreeSelect", () => {
     expect(markup).toContain("data-node-tree-drop-target");
   });
 
+  it("inherits a dark form surface for tree and selected-node states", () => {
+    const markup = renderToStaticMarkup(
+      <NodeTreeSelect
+        id="node"
+        name="nodeId"
+        value="root"
+        nodes={nodes}
+        labels={labels}
+        tone="dark"
+        onChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("border-slate-700 bg-slate-900");
+    expect(markup).toContain("bg-indigo-950 font-semibold text-indigo-100");
+  });
+
   it("keeps the empty state hidden while the authorized catalogue is loading", () => {
     const markup = renderToStaticMarkup(
       <NodeTreeSelect

@@ -34,6 +34,7 @@ export function CreateEntityScreen() {
     label: `${type.name} (${type.typeKey})`,
   }));
   const dynamicFieldNames = controller.fields.map((field) => field.fieldKey);
+  const formTheme = 'dark' as const;
   const formValues = flattenResourceFormDraft({
     typeKey: controller.typeKey,
     name: controller.name,
@@ -96,7 +97,7 @@ export function CreateEntityScreen() {
           submitLabel={t('resource.createEntity')}
           pendingLabel={t('resource.creating')}
           cancelLabel={t('common.cancel')}
-          theme="dark"
+          theme={formTheme}
           definition={{
             key: 'create-entity',
             version: '1',
@@ -128,7 +129,7 @@ export function CreateEntityScreen() {
                 {field.enumMode === 'managed' && (
                   <button
                     type="button"
-                    onClick={() => controller.setEnumField(field)}
+                    onClick={() => controller.enumOption.open(field)}
                     className="block text-xs font-semibold text-indigo-300 hover:text-indigo-200"
                   >
                     + {t('form.addOption')}
@@ -164,13 +165,18 @@ export function CreateEntityScreen() {
           onSubmit={controller.related.submit}
         />
       )}
-      {controller.enumField && (
+      {controller.enumOption.field && (
         <EnumOptionModal
-          kind="entity"
-          typeKey={controller.typeKey}
-          fieldId={controller.enumField.id!}
-          onClose={() => controller.setEnumField(null)}
-          onOptionAdded={controller.addEnumOption}
+          open
+          values={controller.enumOption.values}
+          pending={controller.enumOption.pending}
+          failure={controller.enumOption.failure}
+          theme={formTheme}
+          onChange={controller.enumOption.change}
+          onSubmit={(event) => { event.preventDefault(); void controller.enumOption.submit(); }}
+          onRetry={controller.enumOption.retry}
+          onClose={controller.enumOption.close}
+          onDiscard={controller.enumOption.discard}
         />
       )}
     </PageShell>
