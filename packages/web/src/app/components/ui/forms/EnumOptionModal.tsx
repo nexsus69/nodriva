@@ -23,7 +23,8 @@ export function createEnumOptionDefinition(t: (key: string) => string): FormDefi
         description: t("enum.technicalValueHelp"),
         placeholder: t("enum.technicalValuePlaceholder"),
         required: true,
-        validation: { minLength: 1, maxLength: 100, pattern: "^[a-z][a-z0-9_-]*$" },
+        // HTML patterns use the Unicode Sets (`v`) flag: the hyphen must be escaped.
+        validation: { minLength: 1, maxLength: 100, pattern: "^[a-z][a-z0-9_\\-]*$" },
       },
       {
         name: "label",

@@ -218,14 +218,14 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
 async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames): Promise<string> {
   await page.goto(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
   await expect(page.getByText('Modalità modifica')).toHaveCount(0);
-  await page.getByRole('link', { name: /Sotto-Nodo/ }).first().click();
+  await page.getByRole('link', { name: /Aggiungi sotto-nodo/i }).first().click();
   await selectApplicationOption(
     page,
     'Tipo Nodo *',
     new RegExp(names.nodeTypeKey),
   );
   await page.getByLabel('Nome Nodo *').fill(names.childName);
-  const createButton = page.getByRole('button', { name: 'Crea Sotto-Nodo' });
+  const createButton = page.getByRole('button', { name: 'Crea nuovo sottonodo' });
   await expect(page.getByLabel('Nome Nodo *')).toHaveValue(names.childName);
   await expect(createButton).toBeEnabled();
   await createButton.click();

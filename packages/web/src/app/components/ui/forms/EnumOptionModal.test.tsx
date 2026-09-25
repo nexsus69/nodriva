@@ -23,7 +23,7 @@ describe("EnumOptionModal", () => {
     expect(markup).toContain('role="dialog"');
     expect(markup).toContain("Valore tecnico");
     expect(markup).toContain("Etichetta visibile");
-    expect(markup).toContain('pattern="^[a-z][a-z0-9_-]*$"');
+    expect(markup).toContain('pattern="^[a-z][a-z0-9_\\-]*$"');
     expect(markup).toContain("border-slate-700 bg-slate-900");
     expect(markup).toContain("Elimina modifiche");
   });
