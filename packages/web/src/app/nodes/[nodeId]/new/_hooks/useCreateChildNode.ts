@@ -74,7 +74,7 @@ export function useCreateChildNode(parentNodeId: string) {
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
-      });
+      }, undefined, { successKey: 'mutation.nodeCreated' });
       if (!result.ok) {
         submitting.current = false;
       }

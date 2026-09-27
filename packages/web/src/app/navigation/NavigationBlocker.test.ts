@@ -19,11 +19,13 @@ describe('NavigationBlockerRegistry', () => {
 
   it('clears every draft only after a confirmed navigation decision', () => {
     const registry = new NavigationBlockerRegistry();
-    registry.setBlocked('node-editor', true);
-    registry.setBlocked('entity-editor', true);
+    const discarded: string[] = [];
+    registry.setBlocked('node-editor', true, () => discarded.push('node-editor'));
+    registry.setBlocked('entity-editor', true, () => discarded.push('entity-editor'));
 
     expect(registry.clear()).toBe(true);
     expect(registry.isBlocked).toBe(false);
+    expect(discarded).toEqual(['node-editor', 'entity-editor']);
     expect(registry.clear()).toBe(false);
   });
 });

@@ -32,7 +32,6 @@ export function AdminNodeDetailScreen({ nodeId }: { nodeId: string }) {
         </span>
       </div>
       {controller.displayedError && <Alert tone="danger"><strong>{t('common.error')}:</strong> {controller.displayedError}{controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}</Alert>}
-      {controller.successMessage && <Alert tone="success">{controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
       {controller.currentNode && controller.nodeTypes[controller.currentNode.nodeTypeId]?.typeKey && <RelationPanel resourceDomain="node" resourceTypeKey={controller.nodeTypes[controller.currentNode.nodeTypeId].typeKey} resourceId={nodeId} />}
     </PageShell>

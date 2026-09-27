@@ -185,12 +185,6 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     draftKey: `admin.${resource.moduleKey}.edit`,
     formVersion: definition.version,
     initialValues: {},
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const openEdit = (row: SystemRow) => {
     formSurface.complete();

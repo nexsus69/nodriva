@@ -9,6 +9,7 @@ import {
   applyResourceFormDraftChange,
   buildResourceIdentityFields,
   flattenResourceFormDraft,
+  ResourceFieldActions,
   ResourceFormRenderer,
 } from '../../../../components/ui/forms';
 import { PageShell, Panel } from '../../../../components/ui/layout';
@@ -16,6 +17,7 @@ import { isAttachmentField } from '../../../../components/ui/forms/dynamicResour
 import { useCreateChildNode } from '../_hooks/useCreateChildNode';
 import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 import { MutationFeedback } from '@/app/mutations/MutationFeedback';
+import { SITE_THEME } from '@/Theme';
 
 /** Renders the node-creation screen from standard fields plus selected type metadata. */
 export function CreateChildNodeScreen() {
@@ -33,7 +35,7 @@ export function CreateChildNodeScreen() {
     label: `${type.name} (${type.typeKey})`,
   }));
   const dynamicFieldNames = controller.fields.map((field) => field.fieldKey);
-  const formTheme = 'dark' as const;
+  const formTheme = SITE_THEME.form;
   const formValues = flattenResourceFormDraft({
     typeKey: controller.typeKey,
     name: controller.name,
@@ -43,22 +45,22 @@ export function CreateChildNodeScreen() {
   });
 
   return (
-    <PageShell className="max-w-xl">
+    <PageShell className="max-w-2xl">
       <Link
         href={controller.returnTo}
-        className="text-xs font-mono text-slate-400 hover:text-slate-200"
+        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
       >
         ← {t('resource.returnToOrigin')}
       </Link>
-      <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
+      <Panel className="space-y-6 p-4 sm:p-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">{t('resource.createChildNode')}</h1>
-          <p className="mt-1 text-xs text-slate-400">
+          <h1 className="text-xl font-bold text-slate-900">{t('resource.createChildNode')}</h1>
+          <p className="mt-1 text-xs text-slate-600">
             {t('resource.createChildNodeDescription')}
           </p>
         </div>
         {controller.error && !controller.mutationFailure && (
-          <Alert tone="danger" className="bg-rose-500/10 text-rose-300">
+          <Alert tone="danger">
             {controller.error}
           </Alert>
         )}
@@ -116,16 +118,8 @@ export function CreateChildNodeScreen() {
           }}
           renderFieldAddon={(formField) => {
             const field = fieldByKey.get(formField.name);
-            if (!field || field.enumMode !== 'managed') return null;
-            return (
-              <button
-                type="button"
-                onClick={() => controller.enumOption.open(field)}
-                className="mt-2 text-xs font-semibold text-indigo-300 hover:text-indigo-200"
-              >
-                + {t('form.addOption')}
-              </button>
-            );
+            if (!field) return null;
+            return <ResourceFieldActions field={field} onAddEnumOption={controller.enumOption.open} />;
           }}
         />
       </Panel>
@@ -133,6 +127,7 @@ export function CreateChildNodeScreen() {
         <EnumOptionModal
           open
           values={controller.enumOption.values}
+          isDirty={controller.enumOption.isCurrentDirty}
           pending={controller.enumOption.pending}
           failure={controller.enumOption.failure}
           theme={formTheme}

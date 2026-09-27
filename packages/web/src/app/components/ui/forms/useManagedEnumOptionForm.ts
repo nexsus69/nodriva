@@ -64,7 +64,12 @@ export function removeEnumOptionDraft(
 export function hasDirtyEnumOptionDraft(
   drafts: Readonly<Record<string, EnumOptionDraftValues>>,
 ): boolean {
-  return Object.values(drafts).some((draft) => draft.value.trim() !== "" || draft.label.trim() !== "");
+  return Object.values(drafts).some(hasDirtyEnumOptionValues);
+}
+
+/** Identifies whether the currently visible nested draft requires a discard confirmation. */
+export function hasDirtyEnumOptionValues(draft: EnumOptionDraftValues): boolean {
+  return draft.value.trim() !== "" || draft.label.trim() !== "";
 }
 
 /** Coordinates the enum form without letting the modal own duplicate local state. */
@@ -107,8 +112,15 @@ export function useManagedEnumOptionForm<TField extends ManagedEnumField>({
   }, []);
 
   const discard = useCallback(() => {
-    if (fieldId) clear(fieldId);
-  }, [clear, fieldId]);
+    if (fieldId) setDrafts((current) => removeEnumOptionDraft(current, fieldId));
+  }, [fieldId]);
+
+  /** Disposes every nested enum draft when its owning resource form is discarded. */
+  const reset = useCallback(() => {
+    setField(null);
+    setDrafts({});
+    mutation.clear();
+  }, [mutation]);
 
   const submit = useCallback(async () => {
     if (!field || !fieldId) return;
@@ -128,7 +140,7 @@ export function useManagedEnumOptionForm<TField extends ManagedEnumField>({
     }, (option) => {
       onOptionAdded(field, option);
       clear(fieldId);
-    });
+    }, { successKey: 'mutation.enumOptionAdded' });
   }, [clear, drafts, field, fieldId, kind, mutation, onOptionAdded, t, typeKey]);
 
   return {
@@ -138,10 +150,12 @@ export function useManagedEnumOptionForm<TField extends ManagedEnumField>({
     close,
     change,
     discard,
+    reset,
     submit,
     pending: mutation.pending,
     failure: mutation.failure,
     retry: () => void mutation.retry(),
     isDirty: hasDirtyEnumOptionDraft(drafts),
+    isCurrentDirty: hasDirtyEnumOptionValues(values),
   };
 }

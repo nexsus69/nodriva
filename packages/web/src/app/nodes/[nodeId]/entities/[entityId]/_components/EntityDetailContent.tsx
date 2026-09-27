@@ -8,14 +8,17 @@ import {
   buildResourceIdentityFields,
   flattenResourceFormDraft,
   RelationValue,
+  ResourceFieldActions,
   ResourceFormRenderer,
   type DynamicField,
 } from '../../../../../components/ui/forms';
+import type { EntityTypeMeta } from '../../../../../types/models';
 import { useAppLocale } from '../../../../../i18n/AppLocaleStore';
 
 interface EntityDetailContentProps {
   entity: ClientEntity;
   fields: DynamicField[];
+  entityTypes: readonly EntityTypeMeta[];
   payload: Record<string, unknown>;
   attachmentsByField: Record<string, readonly File[]>;
   name: string;
@@ -30,6 +33,8 @@ interface EntityDetailContentProps {
   onSubmit: FormEventHandler<HTMLFormElement>;
   onCancel: () => void;
   onDelete: () => void;
+  onAddEnumOption: (field: DynamicField) => void;
+  onCreateRelatedEntity: (field: DynamicField) => void;
 }
 
 /** Renders read-only field values or the standard editable resource form. */
@@ -49,6 +54,7 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
     attachmentFields.map((field) => field.fieldKey),
   );
   const dynamicFieldNames = props.fields.map((field) => field.fieldKey);
+  const fieldByKey = new Map(props.fields.map((field) => [field.fieldKey, field]));
   const formValues = flattenResourceFormDraft({
     name: props.name,
     description: props.description,
@@ -166,6 +172,19 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
                   columns: 2,
                 },
               ],
+            }}
+            renderFieldAddon={(formField) => {
+              const field = fieldByKey.get(formField.name);
+              if (!field) return null;
+              const targetType = props.entityTypes.find(
+                (type) => type.typeKey === field.relationTargetTypeKey || type.id === field.relationTargetTypeKey,
+              );
+              return <ResourceFieldActions
+                field={field}
+                relatedTypeName={targetType?.name}
+                onAddEnumOption={props.onAddEnumOption}
+                onCreateRelatedEntity={props.onCreateRelatedEntity}
+              />;
             }}
           />
         )}

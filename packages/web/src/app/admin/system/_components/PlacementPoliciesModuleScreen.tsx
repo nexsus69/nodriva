@@ -114,8 +114,8 @@ export function PlacementPoliciesModuleScreen() {
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const canDelete = canUseAdminResourceOperation(resource, "delete", authorization.permissions);
-  const policySurface = useAdminFormSurface<PolicyForm>({ moduleKey: resource.moduleKey, surfaceKey: "policy-form", surfaceKind: "drawer", draftKey: "admin.model.placement-policy.form", formVersion: "2", initialValues: EMPTY_POLICY, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
-  const ruleSurface = useAdminFormSurface<RuleForm>({ moduleKey: resource.moduleKey, surfaceKey: "rule-form", surfaceKind: "modal", draftKey: "admin.model.placement-policy.rule-form", formVersion: "2", initialValues: EMPTY_RULE, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
+  const policySurface = useAdminFormSurface<PolicyForm>({ moduleKey: resource.moduleKey, surfaceKey: "policy-form", surfaceKind: "drawer", draftKey: "admin.model.placement-policy.form", formVersion: "2", initialValues: EMPTY_POLICY });
+  const ruleSurface = useAdminFormSurface<RuleForm>({ moduleKey: resource.moduleKey, surfaceKey: "rule-form", surfaceKind: "modal", draftKey: "admin.model.placement-policy.rule-form", formVersion: "2", initialValues: EMPTY_RULE });
   const editing = policySurface.mode === "edit" && policySurface.resourceId ? controller.rows.find((row) => row.id === policySurface.resourceId) ?? null : null;
   const policyDefinition = useMemo(() => createPolicyForm(t, policySurface.mode === "edit"), [policySurface.mode, t]);
   const ruleDefinition = useMemo(() => createRuleForm(t, nodes, typeOptions, nodesLoading), [nodes, nodesLoading, t, typeOptions]);

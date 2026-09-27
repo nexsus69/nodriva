@@ -59,8 +59,8 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const profileInitialValues = useMemo(() => detail ? profileValues(detail) : {}, [detail]);
-  const profileSurface = useAdminFormSurface<ProfileForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:profile`, surfaceKind: "modal", draftKey: `admin.users.profile:${userId}`, formVersion: "1", initialValues: profileInitialValues, closePolicy: "discard", confirmOnDiscard: true, confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing") });
-  const passwordSurface = useAdminFormSurface<PasswordForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:password`, surfaceKind: "modal", draftKey: `admin.users.password:${userId}`, formVersion: "1", initialValues: { password: "" }, closePolicy: "discard" });
+  const profileSurface = useAdminFormSurface<ProfileForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:profile`, surfaceKind: "modal", draftKey: `admin.users.profile:${userId}`, formVersion: "1", initialValues: profileInitialValues });
+  const passwordSurface = useAdminFormSurface<PasswordForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:password`, surfaceKind: "modal", draftKey: `admin.users.password:${userId}`, formVersion: "1", initialValues: { password: "" } });
   const profileForm = useMemo(() => detail ? profileDefinition(t) : null, [detail, t]);
   const passwordForm = useMemo(() => passwordDefinition(t), [t]);
 

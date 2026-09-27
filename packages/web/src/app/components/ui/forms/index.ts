@@ -1,6 +1,11 @@
 /** Exposes the reusable form controls and definition contracts. */
 export { DynamicFieldsForm } from "./DynamicFieldsForm";
 export type { DynamicField, DynamicFieldsFormProps } from "./DynamicFieldsForm";
+export { RelatedEntityModal } from "./RelatedEntityModal";
+export type { RelatedEntityModalProps } from "./RelatedEntityModal";
+export { ResourceFieldActions } from "./ResourceFieldActions";
+export type { ResourceFieldActionsProps } from "./ResourceFieldActions";
+export { useRelatedEntityCreation } from "./useRelatedEntityCreation";
 export { RelationPicker } from "./RelationPicker";
 export { CustomSelect } from "./CustomSelect";
 export { ToggleSwitch } from "./ToggleSwitch";
@@ -13,6 +18,7 @@ export { FormModal } from "./FormModal";
 export type { FormModalProps } from "./FormModal";
 export {
   EMPTY_ENUM_OPTION_DRAFT,
+  hasDirtyEnumOptionValues,
   hasDirtyEnumOptionDraft,
   readEnumOptionDraft,
   removeEnumOptionDraft,

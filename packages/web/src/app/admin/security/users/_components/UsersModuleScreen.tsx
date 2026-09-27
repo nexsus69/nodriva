@@ -260,12 +260,6 @@ export function UsersModuleScreen() {
     draftKey: "admin.users.create",
     formVersion: definition.version,
     initialValues: EMPTY_USER,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
 
   /** Adds a new optional role-scope row to the provisioning form. */

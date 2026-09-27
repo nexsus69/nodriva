@@ -111,7 +111,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
             bySessionId: result.lock.sessionId,
             expiresAt: result.lock.expiresAt,
           });
-        }).then((outcome) => resolve(outcome.ok));
+        }, undefined, { notifySuccess: false }).then((outcome) => resolve(outcome.ok));
       });
     });
   }, [currentUserId, mutation, resourceId, resourceType, startLockTransition]);
@@ -129,7 +129,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
           setAcquiredSessionId(undefined);
           forgetBrowserLock({ resourceType, resourceId });
           AppCache.setLockState(resourceType, resourceId, { locked: false });
-        }).then(() => resolve());
+        }, undefined, { notifySuccess: false }).then(() => resolve());
       });
     });
   }, [mutation, resourceId, resourceType, startLockTransition]);

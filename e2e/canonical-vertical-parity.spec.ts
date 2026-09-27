@@ -153,10 +153,18 @@ async function addManagedEnumOption(page: Page, baseUrl: string, names: Scenario
   await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
   await page.getByPlaceholder(/Valore tecnico/).fill('planned');
   await page.getByRole('dialog').getByRole('button', { name: 'Annulla' }).click();
-  await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Continua a modificare' }).click();
   await expect(page.getByPlaceholder(/Valore tecnico/)).toHaveValue('planned');
+  await page.getByRole('dialog').getByRole('button', { name: 'Annulla' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Elimina modifiche' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
+  await expect(page.getByPlaceholder(/Valore tecnico/)).toHaveValue('');
+  await page.getByPlaceholder(/Valore tecnico/).fill('planned');
   await page.getByPlaceholder(/Etichetta/).fill('Planned');
   await page.getByRole('button', { name: 'Salva opzione' }).click();
+  await expect(page.getByText('Opzione aggiunta con successo.', { exact: true })).toBeVisible();
   await page.getByRole('combobox', { name: 'Status' }).click();
   await expect(page.getByRole('option', { name: 'Planned', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -230,6 +238,7 @@ async function createChildNode(page: Page, baseUrl: string, names: ScenarioNames
   await expect(createButton).toBeEnabled();
   await createButton.click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${ROOT_NODE_ID}`);
+  await expect(page.getByText('Nodo creato con successo.', { exact: true })).toBeVisible();
   await expect(page.getByText('Modalità modifica')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toBeEnabled();
   const childLink = page.getByRole('link', { name: names.childName, exact: true }).first();
@@ -275,6 +284,7 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   await expect(createButton).toBeEnabled();
   await createButton.click();
   await expect(page).toHaveURL(`${baseUrl}/nodes/${originNodeId}`);
+  await expect(page.getByText('Entità creata con successo.', { exact: true })).toBeVisible();
   await expect(page.getByText('Modalità modifica')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Modifica', exact: true })).toBeEnabled();
   if (originNodeId !== nodeId) {
@@ -286,6 +296,23 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
   const href = await entityLink.getAttribute('href');
   if (!href) throw new Error('The canonical entity link has no href.');
   return new URL(href, baseUrl).toString();
+}
+
+/** Verifies that metadata actions remain available while editing the same resource type. */
+async function verifyEntityEditFieldActions(page: Page, entityUrl: string): Promise<void> {
+  await page.goto(entityUrl);
+  await page.getByRole('button', { name: 'Modifica', exact: true }).click();
+  await expect(page.getByRole('button', { name: '+ Aggiungi opzione' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Crea nuova istanza/i })).toBeVisible();
+
+  await page.getByRole('button', { name: '+ Aggiungi opzione' }).click();
+  await expect(page.getByRole('dialog', { name: 'Nuova opzione enum' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Nuova opzione enum' }).getByRole('button', { name: 'Annulla' }).click();
+
+  await page.getByRole('button', { name: /Crea nuova istanza/i }).click();
+  await expect(page.getByRole('dialog', { name: 'Nuova istanza collegata' })).toBeVisible();
+  await page.getByRole('dialog', { name: 'Nuova istanza collegata' }).getByRole('button', { name: 'Annulla' }).click();
+  await page.getByRole('button', { name: 'Esci dalla modifica' }).click();
 }
 
 async function exerciseConcurrency(
@@ -315,7 +342,7 @@ async function exerciseConcurrency(
 
   await firstPage.getByLabel('Descrizione').fill('Updated by the first canonical session');
   await firstPage.getByRole('button', { name: 'Salva modifiche' }).click();
-  await expect(firstPage.getByText('Entità aggiornata con successo.')).toBeVisible();
+  await expect(firstPage.getByText('Salvataggio completato.', { exact: true })).toBeVisible();
 
   if (expectsRealtimeUpdate) {
     await expect(secondPage.getByText('Updated by the first canonical session', { exact: true })).toBeVisible();
@@ -323,7 +350,7 @@ async function exerciseConcurrency(
     await expect(secondPage.getByText('Modalità modifica')).toBeVisible();
     await secondPage.getByLabel('Descrizione').fill('Follow-up from the second canonical session');
     await secondPage.getByRole('button', { name: 'Salva modifiche' }).click();
-    await expect(secondPage.getByText('Entità aggiornata con successo.')).toBeVisible();
+    await expect(secondPage.getByText('Salvataggio completato.', { exact: true })).toBeVisible();
     return { lock: true, rowVersionConflict: false, realtimeUpdate: true };
   }
 
@@ -546,6 +573,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       await createEntity(firstOperatorPage, baseUrl, childNodeId, names, names.thirdEntityName, names.firstEntityName);
       return [firstUrl, secondUrl] as const;
     });
+    await runCanonicalPhase(adapter, 'entity-edit-field-actions', () => verifyEntityEditFieldActions(firstOperatorPage, firstEntityUrl));
 
     await runCanonicalPhase(adapter, 'admin-content-details', async () => {
       await adminPage.goto(`${baseUrl}/admin/content/nodes`);

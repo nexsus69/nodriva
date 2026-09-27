@@ -16,6 +16,7 @@ import { resolveNodeAccess, type NodeAccessState } from './nodeAccessState';
 import { requestConfirmation } from '../../../components/ui/feedback/ConfirmDialogStore';
 import { useDeletionReturnContext } from '../../../navigation/returnContext';
 import { formatResourceDeleteError, getResourceDeleteRestriction, type ResourceDeleteRestriction } from '../../../errors/resourceDeleteError';
+import { publishMutationSuccess } from '../../../mutations/MutationOutcomeStore';
 import {
   abandonConcurrentEdit,
   acceptConcurrentEditVersion,
@@ -40,7 +41,6 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
   const [nodeAccessAttempt, setNodeAccessAttempt] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [nodeName, setNodeName] = useState('');
   const [nodeDescription, setNodeDescription] = useState('');
   const [dynamicNodeFields, setDynamicNodeFields] = useState<DynamicNodeField[]>([]);
@@ -121,7 +121,6 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
   const beginNodeEditing = async (): Promise<boolean> => {
     if (!currentNode) return false;
     setErrorMessage(null);
-    setSuccessMessage(null);
     setNodeName(currentNode.name);
     setNodeDescription(currentNode.description || '');
     setDynamicNodePayload(currentNode.payload ?? {});
@@ -155,7 +154,6 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
     if (!currentNode || !lock.isMyLock) return;
     if (!canSubmitConcurrentEdit(reconciledEditLifecycle, currentNode.rowVersion)) return;
     setErrorMessage(null);
-    setSuccessMessage(null);
     startNodeUpdate(async () => {
       try {
         const updatedNode = await AppCache.updateNode({
@@ -175,7 +173,7 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
         }
         setAttachmentsByField({});
         await lock.releaseLock();
-        setSuccessMessage('Nodo aggiornato con successo.');
+        publishMutationSuccess('mutation.updated');
       } catch (cause) {
         if (isRowVersionMismatch(cause)) {
           const refreshed = await AppCache.refreshNode(nodeId);
@@ -234,7 +232,7 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
 
   return {
     nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, nodeTypes, entityDefinitions,
-    isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, deleteRestriction, successMessage,
+    isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, deleteRestriction,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode, formStale, reloadFresh,
     readOnly, lockedByOther: lock.lockedByOther, isMyLock: lock.isMyLock, lockError: lock.error,
     setDynamicNodePayload, setAttachmentsByField, setNodeName, setNodeDescription,

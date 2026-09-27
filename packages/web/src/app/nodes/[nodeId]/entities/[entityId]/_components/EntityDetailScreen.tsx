@@ -15,6 +15,8 @@ import { RelationPanel } from '../../../../../components/ui/relations';
 import { EntityDetailContent } from './EntityDetailContent';
 import { useEntityDetailController } from '../_hooks/useEntityDetailController';
 import { useAppLocale } from '../../../../../i18n/AppLocaleStore';
+import { EnumOptionModal, RelatedEntityModal } from '../../../../../components/ui/forms';
+import { SITE_THEME } from '@/Theme';
 
 export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, nodeId: suppliedNodeId }: { admin?: boolean; entityId?: string; nodeId?: string }) {
   const { t } = useAppLocale();
@@ -119,15 +121,13 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
           {controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}
         </Feedback>
       )}
-      {controller.successMessage && (
-        <Feedback tone="emerald" label="Esito" message={controller.successMessage} />
-      )}
       {controller.lock.error && (
         <Feedback tone="amber" label="Lock" message={controller.lock.error} />
       )}
       <EntityDetailContent
         entity={entity}
         fields={controller.fields}
+        entityTypes={controller.entityTypesList}
         payload={controller.payload}
         attachmentsByField={controller.attachments}
         name={controller.name}
@@ -144,7 +144,40 @@ export function EntityDetailScreen({ admin = false, entityId: suppliedEntityId, 
         onDelete={() => {
           void controller.requestDelete();
         }}
+        onAddEnumOption={controller.enumOption.open}
+        onCreateRelatedEntity={controller.related.open}
       />
+      {controller.related.field && (
+        <RelatedEntityModal
+          fields={controller.related.fields}
+          payload={controller.related.payload}
+          name={controller.related.name}
+          description={controller.related.description}
+          isDirty={controller.related.isDirty}
+          isPending={controller.related.pending}
+          setPayload={controller.related.setPayload}
+          setName={controller.related.setName}
+          setDescription={controller.related.setDescription}
+          onClose={controller.related.close}
+          onDiscard={controller.related.discard}
+          onSubmit={controller.related.submit}
+        />
+      )}
+      {controller.enumOption.field && (
+        <EnumOptionModal
+          open
+          values={controller.enumOption.values}
+          isDirty={controller.enumOption.isCurrentDirty}
+          pending={controller.enumOption.pending}
+          failure={controller.enumOption.failure}
+          theme={SITE_THEME.form}
+          onChange={controller.enumOption.change}
+          onSubmit={(event) => { event.preventDefault(); void controller.enumOption.submit(); }}
+          onRetry={controller.enumOption.retry}
+          onClose={controller.enumOption.close}
+          onDiscard={controller.enumOption.discard}
+        />
+      )}
       {controller.entityType?.typeKey && (
         <RelationPanel
           resourceDomain="entity"

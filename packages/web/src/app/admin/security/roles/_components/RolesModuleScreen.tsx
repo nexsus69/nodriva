@@ -89,12 +89,6 @@ export function RolesModuleScreen() {
     draftKey: "admin.roles.create",
     formVersion: "2",
     initialValues: EMPTY_ROLE,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const formDefinition = useMemo(() => createRoleForm(t, Boolean(formSurface.values.customKey)), [formSurface.values.customKey, t]);
 

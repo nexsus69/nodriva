@@ -111,7 +111,7 @@ export function RelationPanel({
       });
       if (!nextPreview.success) throw nextPreview.error;
       return nextPreview.data;
-    }, setPreview);
+    }, setPreview, { notifySuccess: false });
   };
 
   const commitLinks = async () => {

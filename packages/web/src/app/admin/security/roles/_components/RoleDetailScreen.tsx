@@ -43,12 +43,6 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
     draftKey: `admin.roles.detail:${roleKey}`,
     formVersion: ROLE_PERMISSION_FORM_VERSION,
     initialValues,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const isReadOnly = detail?.isSystem === true;
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);

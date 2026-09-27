@@ -9,14 +9,16 @@ import {
   applyResourceFormDraftChange,
   buildResourceIdentityFields,
   flattenResourceFormDraft,
+  RelatedEntityModal,
+  ResourceFieldActions,
   ResourceFormRenderer,
 } from '../../../../../components/ui/forms';
 import { PageShell, Panel } from '../../../../../components/ui/layout';
 import { isAttachmentField } from '../../../../../components/ui/forms/dynamicResourceForm';
-import { RelatedEntityModal } from './RelatedEntityModal';
 import { useCreateEntity } from '../_hooks/useCreateEntity';
 import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 import { MutationFeedback } from '@/app/mutations/MutationFeedback';
+import { SITE_THEME } from '@/Theme';
 
 /** Renders entity creation from stable identity fields and the selected type definition. */
 export function CreateEntityScreen() {
@@ -34,7 +36,7 @@ export function CreateEntityScreen() {
     label: `${type.name} (${type.typeKey})`,
   }));
   const dynamicFieldNames = controller.fields.map((field) => field.fieldKey);
-  const formTheme = 'dark' as const;
+  const formTheme = SITE_THEME.form;
   const formValues = flattenResourceFormDraft({
     typeKey: controller.typeKey,
     name: controller.name,
@@ -44,22 +46,22 @@ export function CreateEntityScreen() {
   });
 
   return (
-    <PageShell className="max-w-xl">
+    <PageShell className="max-w-2xl">
       <Link
         href={controller.returnTo}
-        className="text-xs font-mono text-slate-400 hover:text-slate-200"
+        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900"
       >
         ← {t('resource.returnToOrigin')}
       </Link>
-      <Panel className="space-y-6 border-slate-800 bg-slate-900 text-slate-100">
+      <Panel className="space-y-6 p-4 sm:p-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-100">{t('resource.newOperationalEntity')}</h1>
-          <p className="mt-1 text-xs text-slate-400">
+          <h1 className="text-xl font-bold text-slate-900">{t('resource.newOperationalEntity')}</h1>
+          <p className="mt-1 text-xs text-slate-600">
             {t('resource.newEntityDescription')}
           </p>
         </div>
         {controller.error && !controller.mutationFailure && (
-          <Alert tone="danger" className="bg-rose-500/10 text-rose-300">
+          <Alert tone="danger">
             {controller.error}
           </Alert>
         )}
@@ -124,30 +126,12 @@ export function CreateEntityScreen() {
               (type) => type.typeKey === field.relationTargetTypeKey
                 || type.id === field.relationTargetTypeKey,
             );
-            return (
-              <div className="mt-2 space-y-1">
-                {field.enumMode === 'managed' && (
-                  <button
-                    type="button"
-                    onClick={() => controller.enumOption.open(field)}
-                    className="block text-xs font-semibold text-indigo-300 hover:text-indigo-200"
-                  >
-                    + {t('form.addOption')}
-                  </button>
-                )}
-                {field.dataType.toLowerCase() === 'relation'
-                  && field.relationTargetDomain === 'entity'
-                  && targetType && (
-                    <button
-                      type="button"
-                      onClick={() => controller.related.open(field)}
-                      className="block text-xs font-semibold text-indigo-300 hover:text-indigo-200"
-                    >
-                      + {t('form.createRelatedInstance').replace('{type}', targetType.name)}
-                    </button>
-                  )}
-              </div>
-            );
+            return <ResourceFieldActions
+              field={field}
+              relatedTypeName={targetType?.name}
+              onAddEnumOption={controller.enumOption.open}
+              onCreateRelatedEntity={controller.related.open}
+            />;
           }}
         />
       </Panel>
@@ -157,11 +141,13 @@ export function CreateEntityScreen() {
           payload={controller.related.payload}
           name={controller.related.name}
           description={controller.related.description}
+          isDirty={controller.related.isDirty}
           isPending={controller.related.pending}
           setPayload={controller.related.setPayload}
           setName={controller.related.setName}
           setDescription={controller.related.setDescription}
           onClose={controller.related.close}
+          onDiscard={controller.related.discard}
           onSubmit={controller.related.submit}
         />
       )}
@@ -169,6 +155,7 @@ export function CreateEntityScreen() {
         <EnumOptionModal
           open
           values={controller.enumOption.values}
+          isDirty={controller.enumOption.isCurrentDirty}
           pending={controller.enumOption.pending}
           failure={controller.enumOption.failure}
           theme={formTheme}

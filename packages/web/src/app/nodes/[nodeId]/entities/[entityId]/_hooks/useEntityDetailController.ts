@@ -1,7 +1,7 @@
 'use client';
 
 /** Coordinates entity detail editing, soft deletion, locking, and safe return navigation. */
-import { useEffect, useState, useTransition, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache, isRowVersionMismatch } from '../../../../../cache/GlobalCacheClient';
 import { GlobalViewStore } from '../../../../../cache/ViewStore';
@@ -10,7 +10,9 @@ import { useLock } from '../../../../../hooks/useLock';
 import { useSemanticEntityCollection } from '../../../../../hooks/useSemanticEntityCollection';
 import { useSemanticEntityDetail } from '../../../../../hooks/useSemanticEntityDetail';
 import { useSemanticMetadata } from '../../../../../hooks/useSemanticMetadata';
-import type { DynamicField } from '../../../../../components/ui/forms';
+import { useRelatedEntityCreation, type DynamicField } from '../../../../../components/ui/forms';
+import { useManagedEnumOptionForm } from '../../../../../components/ui/forms/useManagedEnumOptionForm';
+import { publishMutationSuccess } from '../../../../../mutations/MutationOutcomeStore';
 import { uploadDynamicAttachments, validateDynamicAttachments } from '../../../../../components/ui/forms/dynamicResourceForm';
 import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
@@ -49,7 +51,6 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const [payload, setPayload] = useState<Record<string, unknown>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [deleteRestriction, setDeleteRestriction] = useState<ResourceDeleteRestriction | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const [editLifecycle, setEditLifecycle] = useState(IDLE_CONCURRENT_EDIT);
   const lock = useLock({ resourceType: 'entity', resourceId: entityId });
@@ -65,11 +66,25 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         (type) => type.id === detail.entity!.entityTypeId || type.typeKey === detail.entity!.entityTypeId,
       )
     : undefined;
+  const addEnumOption = useCallback((field: DynamicField, option: NonNullable<DynamicField['enumOptions']>[number]) => {
+    setFields((current) => current.map((candidate) => candidate.id === field.id ? {
+      ...candidate,
+      enumOptions: [...(candidate.enumOptions ?? []), option],
+    } : candidate));
+  }, []);
+  const related = useRelatedEntityCreation(parentNodeId, setPayload);
+  const enumOption = useManagedEnumOptionForm<DynamicField>({
+    kind: 'entity',
+    typeKey: entityType?.typeKey ?? '',
+    onOptionAdded: addEnumOption,
+  });
   const hasUnsavedChanges = Boolean(lock.isMyLock && detail.entity && (
     name !== (detail.entity.name || '')
     || description !== (detail.entity.description || '')
     || !areFormValuesEqual(payload, detail.entity.payload ?? {})
     || hasSelectedFiles(attachments)
+    || enumOption.isDirty
+    || related.isDirty
   ));
   const navigationGuard = useUnsavedChanges(hasUnsavedChanges);
 
@@ -84,6 +99,8 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
   const beginEditing = async () => {
     if (!detail.entity) return false;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
+    enumOption.reset();
+    related.reset();
     setEditLifecycle(beginConcurrentEdit(detail.entity.rowVersion));
     return lock.acquireLock();
   };
@@ -91,6 +108,8 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     if (!detail.entity) return;
     if (!(await navigationGuard.confirmDiscard())) return;
     setName(detail.entity.name || ''); setDescription(detail.entity.description || ''); setPayload(detail.entity.payload || {}); setAttachments({});
+    enumOption.reset();
+    related.reset();
     setEditLifecycle(abandonConcurrentEdit());
     await lock.releaseLock();
   };
@@ -107,7 +126,7 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     event.preventDefault();
     if (!detail.entity) return;
     if (!canSubmitConcurrentEdit(reconciledEditLifecycle, detail.entity.rowVersion)) return;
-    setErrorMessage(null); setSuccessMessage(null);
+    setErrorMessage(null);
     startTransition(async () => {
       try {
         const processed = { ...detail.entity!.payload, ...payload };
@@ -126,7 +145,8 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         setEditLifecycle(acceptConcurrentEditVersion(updatedEntity.rowVersion));
         await uploadDynamicAttachments('entity', entityId, fields, attachments);
         setAttachments({});
-        await lock.releaseLock(); setSuccessMessage('Entità aggiornata con successo.');
+        await lock.releaseLock();
+        publishMutationSuccess('mutation.updated');
       } catch (reason) {
         if (isRowVersionMismatch(reason) && detail.entity) {
           const refreshed = await AppCache.refreshEntity(entityId, detail.entity.entityTypeId);
@@ -177,5 +197,5 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     confirmDelete();
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage: formStale ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.' : errorMessage, deleteRestriction, successMessage, attachments, setAttachments, formStale, reloadFresh, lock, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
+  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage: formStale ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.' : errorMessage, deleteRestriction, attachments, setAttachments, formStale, reloadFresh, lock, enumOption, related, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }

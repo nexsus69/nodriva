@@ -18,12 +18,17 @@ function discardConfirmationOptions() {
   };
 }
 
-export class NavigationBlockerRegistry {
-  private readonly blockers = new Set<string>();
+/** Requests the sole application confirmation used before discarding any dirty form draft. */
+export function confirmDiscardFormDraft(): Promise<boolean> {
+  return requestConfirmation(discardConfirmationOptions());
+}
 
-  setBlocked(id: string, blocked: boolean): boolean {
+export class NavigationBlockerRegistry {
+  private readonly blockers = new Map<string, (() => void) | undefined>();
+
+  setBlocked(id: string, blocked: boolean, onDiscard?: () => void): boolean {
     const sizeBefore = this.blockers.size;
-    if (blocked) this.blockers.add(id);
+    if (blocked) this.blockers.set(id, onDiscard);
     else this.blockers.delete(id);
     return sizeBefore !== this.blockers.size;
   }
@@ -34,13 +39,15 @@ export class NavigationBlockerRegistry {
 
   clear(): boolean {
     if (this.blockers.size === 0) return false;
+    const discardHandlers = [...this.blockers.values()];
     this.blockers.clear();
+    discardHandlers.forEach((onDiscard) => onDiscard?.());
     return true;
   }
 }
 
 interface NavigationBlockerContextValue {
-  setBlocked: (id: string, blocked: boolean) => void;
+  setBlocked: (id: string, blocked: boolean, onDiscard?: () => void) => void;
   confirmNavigation: () => Promise<boolean>;
   requestNavigation: (continueNavigation: () => void) => Promise<boolean>;
   requestHrefNavigation: (href: string) => Promise<boolean>;
@@ -62,13 +69,13 @@ export function NavigationBlockerProvider({ children }: { children: React.ReactN
   const registry = useRef(new NavigationBlockerRegistry());
   const [, setRevision] = useState(0);
 
-  const setBlocked = useCallback((id: string, blocked: boolean) => {
-    if (registry.current.setBlocked(id, blocked)) setRevision((current) => current + 1);
+  const setBlocked = useCallback((id: string, blocked: boolean, onDiscard?: () => void) => {
+    if (registry.current.setBlocked(id, blocked, onDiscard)) setRevision((current) => current + 1);
   }, []);
 
   const confirmNavigation = useCallback(async () => {
     if (!registry.current.isBlocked) return true;
-    if (!(await requestConfirmation(discardConfirmationOptions()))) return false;
+    if (!(await confirmDiscardFormDraft())) return false;
     if (registry.current.clear()) setRevision((current) => current + 1);
     return true;
   }, []);
@@ -101,23 +108,26 @@ export function NavigationBlockerProvider({ children }: { children: React.ReactN
   return <NavigationBlockerContext.Provider value={value}>{children}</NavigationBlockerContext.Provider>;
 }
 
-export function useUnsavedChanges(isDirty: boolean) {
+export function useUnsavedChanges(isDirty: boolean, onDiscard?: () => void) {
   const context = useContext(NavigationBlockerContext);
   const blockerId = useId();
   if (!context) throw new Error('useUnsavedChanges deve essere usato dentro NavigationBlockerProvider.');
 
   useEffect(() => {
-    context.setBlocked(blockerId, isDirty);
+    context.setBlocked(blockerId, isDirty, onDiscard);
     return () => context.setBlocked(blockerId, false);
-  }, [blockerId, context, isDirty]);
+  }, [blockerId, context, isDirty, onDiscard]);
 
   const allowNavigation = useCallback(() => context.setBlocked(blockerId, false), [blockerId, context]);
   const confirmDiscard = useCallback(async () => {
     if (!isDirty) return true;
-    const confirmed = await requestConfirmation(discardConfirmationOptions());
-    if (confirmed) context.setBlocked(blockerId, false);
+    const confirmed = await confirmDiscardFormDraft();
+    if (confirmed) {
+      onDiscard?.();
+      context.setBlocked(blockerId, false);
+    }
     return confirmed;
-  }, [blockerId, context, isDirty]);
+  }, [blockerId, context, isDirty, onDiscard]);
   return { confirmDiscard, allowNavigation };
 }
 

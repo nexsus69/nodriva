@@ -322,15 +322,32 @@ un tema locale divergente quando sono composti in un form.
 
 Il controller della superficie possiede la bozza, inclusa ogni bozza annidata
 avviata da un suo campo. Un componente modale presentazionale riceve valori e
-callback tipizzati; non conserva campi equivalenti in `useState`. Chiudere una
-superficie annidata conserva la bozza per la riapertura e la include nel guard
-di modifiche non salvate del form padre. Soltanto un esplicito scarto o il
-successo della relativa mutazione la rimuovono. Login o altre interazioni che
-non rappresentano una bozza dati possono usare un form nativo, ma devono
-comporre primitive visive condivise e documentare l'eccezione.
+callback tipizzati; non conserva campi equivalenti in `useState`. Per ogni
+bozza sporca, `Annulla`, ×, backdrop e navigazione richiamano l'unica conferma
+di scarto dell'applicazione: `Continua a modificare` mantiene superficie e
+valori; `Elimina modifiche` chiama la pulizia del controller e chiude la
+superficie. Non sono ammessi pulsanti aggiuntivi o policy locali che saltino
+questo flusso. Il guard del form padre include le bozze annidate. Login o altre
+interazioni che non rappresentano una bozza dati possono usare un form nativo,
+ma devono comporre primitive visive condivise e documentare l'eccezione.
+
+`ResourceFormRenderer` usa il tema definito in `SITE_THEME`; una schermata
+risorsa non può imporre un tema locale. Le azioni consentite da un campo
+metadata-driven, inclusi enum gestiti e creazione di un target relazione,
+compongono `ResourceFieldActions` sia in creazione sia in modifica. Il lock
+può limitarne l'uso nell'editing, ma non può cambiare la loro presentazione o
+introdurre una seconda implementazione.
 
 ## Error handling dei flussi UI
 
+- Ogni mutazione utente riuscita pubblica un `MutationSuccessOutcome` nel canale
+  condiviso. Il messaggio è una chiave localizzata dichiarata dal controller
+  oppure il fallback `mutation.completed`; non è ammesso introdurre toast,
+  banner o testi di successo locali per un singolo form. L'host globale conserva
+  l'esito oltre la chiusura di una modale e le navigazioni client, fino alla sua
+  sostituzione o chiusura esplicita. Operazioni tecniche senza esito utente,
+  come acquisizione/rilascio lock o preparazione di una preview, lo disabilitano
+  esplicitamente.
 - Gli errori applicativi attesi attraversano il boundary delle Server Actions
   come `ApiErrorResponse` tipizzate. Il client può mostrarli senza reinterpretare
   codici o messaggi.

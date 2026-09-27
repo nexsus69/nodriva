@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import type { ApiErrorResponse } from "@dashboard/core";
 import { localizeUnknownError } from "@/app/errors/localizeApiError";
 import { useAppLocale } from "@/app/i18n/AppLocaleStore";
+import { publishMutationSuccess } from './MutationOutcomeStore';
 
 export type MutationFailureKind =
   | "validation"
@@ -28,6 +29,12 @@ export type UserMutationResult<T> = { ok: true; value: T } | { ok: false };
 type MutationOperation<T> = () => Promise<T>;
 type MutationSuccess<T> = (value: T) => void | Promise<void>;
 
+/** Controls the common success feedback without making transport mutations presentation owners. */
+export interface MutationExecutionOptions {
+  notifySuccess?: boolean;
+  successKey?: string;
+}
+
 /**
  * The only presentation lifecycle owner for a user operation: it absorbs a
  * rejection, exposes a localized error and retains the operation for safe
@@ -38,19 +45,24 @@ export function useUserMutation() {
   const [status, setStatus] = useState<MutationStatus>("idle");
   const [failure, setFailure] = useState<UserMutationFailure | null>(null);
   const retryOperation = useRef<MutationOperation<unknown> | null>(null);
+  const retryOptions = useRef<MutationExecutionOptions | undefined>(undefined);
 
   const execute = useCallback(async <T,>(
     operation: MutationOperation<T>,
     onSuccess?: MutationSuccess<T>,
+    options: MutationExecutionOptions = {},
   ): Promise<UserMutationResult<T>> => {
     const attempt = () => runUserMutationAttempt(operation, onSuccess);
     retryOperation.current = attempt as MutationOperation<unknown>;
+    retryOptions.current = options;
     setStatus("pending");
     setFailure(null);
     const outcome = await runUserMutationOperation(attempt, t);
     if (outcome.ok) {
       retryOperation.current = null;
+      retryOptions.current = undefined;
       setStatus("success");
+      if (options.notifySuccess !== false) publishMutationSuccess(options.successKey);
       return outcome;
     }
     {
@@ -70,11 +82,12 @@ export function useUserMutation() {
 
   const retry = useCallback(async (): Promise<UserMutationResult<unknown> | null> => {
     if (!retryOperation.current) return null;
-    return execute(retryOperation.current);
+    return execute(retryOperation.current, undefined, retryOptions.current);
   }, [execute]);
 
   const clear = useCallback(() => {
     retryOperation.current = null;
+    retryOptions.current = undefined;
     setFailure(null);
     setStatus("idle");
   }, []);

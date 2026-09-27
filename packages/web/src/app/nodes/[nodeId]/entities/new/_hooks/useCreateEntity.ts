@@ -8,9 +8,8 @@ import { GlobalViewStore } from '../../../../../cache/ViewStore';
 import { ViewKeyBuilder } from '../../../../../cache/SemanticViewKey';
 import { useSemanticEntityCollection } from '../../../../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../../../../hooks/useSemanticMetadata';
-import type { DynamicField } from '../../../../../components/ui/forms';
+import { useRelatedEntityCreation, type DynamicField } from '../../../../../components/ui/forms';
 import { coerceDynamicPayload, initializeDynamicPayload, uploadDynamicAttachments, validateDynamicAttachments } from '../../../../../components/ui/forms/dynamicResourceForm';
-import { useRelatedEntityCreation } from './useRelatedEntityCreation';
 import { useUnsavedChanges } from '../../../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../../../navigation/unsavedChanges';
 import { useReturnContext } from '../../../../../navigation/returnContext';
@@ -50,7 +49,7 @@ export function useCreateEntity(parentNodeId: string) {
   });
   const navigationGuard = useUnsavedChanges(
     name !== '' || description !== '' || !areFormValuesEqual(payload, initialPayload)
-      || hasSelectedFiles(attachments) || hasCreatedResource || enumOption.isDirty,
+      || hasSelectedFiles(attachments) || hasCreatedResource || enumOption.isDirty || related.isDirty,
   );
 
   useEffect(() => {
@@ -78,7 +77,7 @@ export function useCreateEntity(parentNodeId: string) {
         GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
-      });
+      }, undefined, { successKey: 'mutation.entityCreated' });
       if (!result.ok) {
         submitting.current = false;
       }

@@ -17,6 +17,7 @@ import { WorkspaceShell } from "./components/layout/WorkspaceShell";
 import { ActivityProvider } from "./activity/ActivityProvider";
 import { NavigationBlockerProvider } from "./navigation/NavigationBlocker";
 import { ConfirmDialogHost } from "./components/ui/feedback/ConfirmDialog";
+import { MutationOutcomeHost } from './mutations/MutationOutcomeHost';
 
 export default async function RootLayout({
   children,
@@ -35,6 +36,7 @@ export default async function RootLayout({
               <SessionCacheSynchronizer />
               <SessionModalWatcher />
               <WorkspaceShell>{children}</WorkspaceShell>
+              <MutationOutcomeHost />
               <ConfirmDialogHost />
             </NavigationBlockerProvider>
           </ActivityProvider>

@@ -60,7 +60,6 @@ const TYPE_REALTIME_DEPENDENCIES = ["admin-types-page", "types", "type-detail", 
 
 /** Loads and mutates model types through the shared administrative cache client. */
 function useTypesModule() {
-  const { t } = useAppLocale();
   const [types, setTypes] = useState<readonly TypeListItemDto[]>([]);
   const [error, setError] = useState<ApiErrorResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,12 +90,6 @@ function useTypesModule() {
     draftKey,
     formVersion: "1",
     initialValues: EMPTY_TYPE_FORM,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const form = formSurface.values;
 

@@ -42,6 +42,7 @@ export function createEnumOptionDefinition(t: (key: string) => string): FormDefi
 export interface EnumOptionModalProps {
   open: boolean;
   values: EnumOptionDraftValues;
+  isDirty: boolean;
   pending: boolean;
   failure: UserMutationFailure | null;
   theme: "dark" | "light";
@@ -55,6 +56,7 @@ export interface EnumOptionModalProps {
 export function EnumOptionModal({
   open,
   values,
+  isDirty,
   pending,
   failure,
   theme,
@@ -70,6 +72,7 @@ export function EnumOptionModal({
     <FormModal
       open={open}
       title={t("enum.newOption")}
+      isDirty={isDirty}
       definition={definition}
       values={{ ...values }}
       onChange={onChange}
@@ -81,7 +84,7 @@ export function EnumOptionModal({
       submitLabel={t("enum.saveOption")}
       pendingLabel={t("common.saving")}
       cancelLabel={t("common.cancel")}
-      destructiveAction={{ label: t("admin.discardChanges"), onClick: onDiscard }}
+      onDiscard={onDiscard}
       onClose={onClose}
     />
   );

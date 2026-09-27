@@ -9,6 +9,7 @@ describe("EnumOptionModal", () => {
       <EnumOptionModal
         open
         values={{ value: "vip", label: "Cliente VIP" }}
+        isDirty
         pending={false}
         failure={null}
         theme="dark"
@@ -25,6 +26,7 @@ describe("EnumOptionModal", () => {
     expect(markup).toContain("Etichetta visibile");
     expect(markup).toContain('pattern="^[a-z][a-z0-9_\\-]*$"');
     expect(markup).toContain("border-slate-700 bg-slate-900");
-    expect(markup).toContain("Elimina modifiche");
+    expect(markup).toContain("Annulla");
+    expect(markup).not.toContain("Elimina modifiche");
   });
 });

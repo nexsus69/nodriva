@@ -65,12 +65,6 @@ export function TypeDetailDrawer({
     draftKey: `admin.types.metadata:${kind}:${typeKey}`,
     formVersion: "1",
     initialValues: metadataInitialValues,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const fieldForm = useAdminFormSurface<FieldForm>({
     moduleKey: "model.types",
@@ -79,12 +73,6 @@ export function TypeDetailDrawer({
     draftKey: `admin.types.field:${kind}:${typeKey}`,
     formVersion: "1",
     initialValues: EMPTY_FIELD,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const fieldDialogOpen = surface.isDialogOpen && fieldForm.isOpen;
   const editingFieldId = surface.editingFieldId;

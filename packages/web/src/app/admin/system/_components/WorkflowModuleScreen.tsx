@@ -140,8 +140,7 @@ export function WorkflowModuleScreen() {
   }, [t]);
   const surface = useAdminFormSurface<WorkflowForm>({
     moduleKey: resource.moduleKey, surfaceKey: "publish", surfaceKind: "modal", draftKey: "admin.automation.workflows.publish", formVersion: "2",
-    initialValues: { version: 1, active: true, actionType: "audit.record", conditionOperator: "equals" }, closePolicy: "discard", confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"), confirmDescription: t("admin.discardDescription"), confirmConfirmLabel: t("admin.discardChanges"), confirmCancelLabel: t("admin.keepEditing"),
+    initialValues: { version: 1, active: true, actionType: "audit.record", conditionOperator: "equals" },
   });
   const definition = useMemo(() => workflowForm(t, eventTypes, actionTypes, Boolean(surface.values.customKey)), [actionTypes, eventTypes, surface.values.customKey, t]);
   const workflowId = String(surface.values.workflowId ?? "").trim();

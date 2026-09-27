@@ -174,12 +174,6 @@ export function ScopesModuleScreen() {
     draftKey: "admin.scopes.create",
     formVersion: definition.version,
     initialValues: EMPTY_SCOPE,
-    closePolicy: "discard",
-    confirmOnDiscard: true,
-    confirmTitle: t("admin.discardTitle"),
-    confirmDescription: t("admin.discardDescription"),
-    confirmConfirmLabel: t("admin.discardChanges"),
-    confirmCancelLabel: t("admin.keepEditing"),
   });
   const editing = formSurfaceResource(collection.rows);
   const canCreate = canUseAdminResourceOperation(resource, "create", authorization.permissions);

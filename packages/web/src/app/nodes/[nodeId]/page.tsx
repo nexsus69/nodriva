@@ -49,7 +49,6 @@ export default function NodeDetailPage() {
         {controller.deleteRestriction && <ResourceDeleteRestriction restriction={controller.deleteRestriction} />}
         {controller.formStale && <button type="button" className="ml-3 underline" onClick={() => void controller.reloadFresh()}>{t('common.reload')}</button>}
       </Alert>}
-      {controller.successMessage && <Alert tone="success"><span className="font-bold">{t('common.result')}:</span> {controller.successMessage}</Alert>}
       <NodeEditorPanel nodeId={nodeId} controller={controller} />
       {controller.currentNode && controller.nodeTypes[controller.currentNode.nodeTypeId]?.typeKey && (
         <RelationPanel

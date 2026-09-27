@@ -7,13 +7,8 @@ import {
   type AdminFormDraft,
   type AdminSurfaceState,
 } from "./AdminWorkspaceStore";
-import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
-import { useAppLocale } from "@/app/i18n/AppLocaleStore";
-import { useUnsavedChanges } from "@/app/navigation/NavigationBlocker";
+import { confirmDiscardFormDraft, useUnsavedChanges } from "@/app/navigation/NavigationBlocker";
 import { useUserMutation } from "@/app/mutations/useUserMutation";
-
-/** Defines how a form surface treats an unsaved draft when it is closed. */
-export type AdminFormClosePolicy = "preserve" | "discard";
 
 /** Configures the shared persistence and close behavior of an Admin Panel form. */
 export interface AdminFormSurfaceOptions<T extends object> {
@@ -23,12 +18,6 @@ export interface AdminFormSurfaceOptions<T extends object> {
   draftKey: string;
   formVersion: string;
   initialValues: T;
-  closePolicy?: AdminFormClosePolicy;
-  confirmOnDiscard?: boolean;
-  confirmTitle?: string;
-  confirmDescription?: string;
-  confirmConfirmLabel?: string;
-  confirmCancelLabel?: string;
 }
 
 /** Identifies the operation restored together with a form surface. */
@@ -68,7 +57,7 @@ export function resolveAdminFormSurfaceState<T extends object>({
   return { values, isOpen, isDirty: draft !== undefined && !areValuesEqual(values, baseline) };
 }
 
-/** Exposes a reload-safe form surface with configurable draft cleanup semantics. */
+/** Exposes a reload-safe form surface with the application-wide discard policy. */
 export function useAdminFormSurface<T extends object>({
   moduleKey,
   surfaceKey,
@@ -76,18 +65,7 @@ export function useAdminFormSurface<T extends object>({
   draftKey,
   formVersion,
   initialValues,
-  closePolicy = "discard",
-  confirmOnDiscard = false,
-  confirmTitle,
-  confirmDescription,
-  confirmConfirmLabel,
-  confirmCancelLabel,
 }: AdminFormSurfaceOptions<T>) {
-  const { t } = useAppLocale();
-  const resolvedConfirmTitle = confirmTitle ?? t("admin.discardTitle");
-  const resolvedConfirmDescription = confirmDescription ?? t("admin.discardDescription");
-  const resolvedConfirmConfirmLabel = confirmConfirmLabel ?? t("admin.discardChanges");
-  const resolvedConfirmCancelLabel = confirmCancelLabel ?? t("admin.keepEditing");
   const draft = useAdminWorkspaceStore((state) => state.drafts[draftKey]);
   const surface = useAdminWorkspaceStore((state) => state.surface);
   const hasHydrated = useAdminWorkspaceStore((state) => state.hasHydrated);
@@ -102,9 +80,13 @@ export function useAdminFormSurface<T extends object>({
     [draft, explicitlyOpened, hasHydrated, initialValues, moduleKey, surface, surfaceKey],
   );
   const { values, isOpen, isDirty } = resolvedState;
+  const discardDraft = useCallback(() => {
+    mutation.clear();
+    removeDraft(draftKey);
+  }, [draftKey, mutation, removeDraft]);
   // A draft is dirty only when its values differ from the initial form state.
   // This lets a user type, clear the field, and close without a false warning.
-  useUnsavedChanges(isDirty);
+  useUnsavedChanges(isDirty, discardDraft);
 
   /** Opens the configured modal or drawer without changing its draft. */
   const open = useCallback(
@@ -160,48 +142,25 @@ export function useAdminFormSurface<T extends object>({
     [draftKey, formVersion, saveDraft],
   );
 
-  /** Closes the surface and applies the configured draft cleanup policy. */
+  /** Closes the surface only after the shared confirmation approves a dirty draft discard. */
   const close = useCallback(async () => {
-    if (closePolicy === "discard") {
-      if (isDirty) {
-        if (
-          confirmOnDiscard &&
-          !(await requestConfirmation({
-            title: resolvedConfirmTitle,
-            description: resolvedConfirmDescription,
-            confirmLabel: resolvedConfirmConfirmLabel,
-            cancelLabel: resolvedConfirmCancelLabel,
-            tone: "danger",
-          }))
-        ) {
-          return false;
-        }
-      }
-      removeDraft(draftKey);
-    }
+    if (isDirty && !(await confirmDiscardFormDraft())) return false;
+    discardDraft();
     setExplicitlyOpened(false);
     closeSurface();
     return true;
   }, [
-    closePolicy,
-    confirmOnDiscard,
     closeSurface,
-    draftKey,
+    discardDraft,
     isDirty,
-    removeDraft,
-    resolvedConfirmCancelLabel,
-    resolvedConfirmConfirmLabel,
-    resolvedConfirmDescription,
-    resolvedConfirmTitle,
   ]);
 
   /** Completes a successful mutation and always removes its draft. */
   const complete = useCallback(() => {
-    mutation.clear();
+    discardDraft();
     setExplicitlyOpened(false);
-    removeDraft(draftKey);
     closeSurface();
-  }, [closeSurface, draftKey, mutation, removeDraft]);
+  }, [closeSurface, discardDraft]);
 
   /** Reports a locally validated form rejection through the same presentation channel. */
   const reportMutationError = useCallback((message: string) => {

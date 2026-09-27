@@ -1,3 +1,4 @@
+/** Verifies dirty-value utilities and shared discard cleanup for blocked navigation. */
 import { describe, expect, it } from 'vitest';
 import { NavigationBlockerRegistry } from './NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from './unsavedChanges';
@@ -15,10 +16,12 @@ describe('NavigationBlockerRegistry', () => {
 
   it('sblocca tutte le bozze dopo la conferma di uscita globale', () => {
     const registry = new NavigationBlockerRegistry();
-    registry.setBlocked('node', true);
-    registry.setBlocked('admin-modal', true);
+    const discarded: string[] = [];
+    registry.setBlocked('node', true, () => discarded.push('node'));
+    registry.setBlocked('admin-modal', true, () => discarded.push('admin-modal'));
     expect(registry.clear()).toBe(true);
     expect(registry.isBlocked).toBe(false);
+    expect(discarded).toEqual(['node', 'admin-modal']);
     expect(registry.clear()).toBe(false);
   });
 
