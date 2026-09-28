@@ -383,6 +383,13 @@ bozza: la superficie la conserva finché l’utente non completa con successo o
 decide esplicitamente di scartarla. Il backend resta l’autorità per ACL,
 validazione, lock e `rowVersion`.
 
+Una scadenza di sessione confermata dal backend (`401`) non è una rejection
+della form: il client elimina cache e lock e carica il login con
+`error=SessionExpired`. Un guasto di rete non produce questo redirect. Cleanup
+tecnici post-unmount, come il rilascio lock, usano endpoint HTTP stabili e non
+Server Action, così un bundle precedente a un deploy non può mostrare ID di
+azione non trovati.
+
 ## Stati di caricamento
 
 Quando una vista non dispone ancora dei dati necessari, deve preservare per

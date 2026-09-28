@@ -1,14 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useHumanActivity } from '../../activity/ActivityProvider';
-import { useAppLocale } from '@/app/i18n/AppLocaleStore';
+
+export const SESSION_EXPIRED_LOGIN_PATH = '/login?error=SessionExpired';
+
+/** A redirect is allowed only after the activity protocol has authoritatively marked expiry. */
+export function shouldRedirectForExpiredSession(
+  userId: string | undefined,
+  sessionExpiresAt: string | undefined,
+  isSessionExpired: boolean,
+): boolean {
+  return Boolean(userId && sessionExpiresAt && isSessionExpired);
+}
 
 export function SessionModalWatcher() {
   const { sessionExpiresAt, isSessionExpired, checkSession, timing } = useHumanActivity();
   const { data: session } = useSession();
-  const { t } = useAppLocale();
+  const hasStartedExpiryRedirect = useRef(false);
 
   useEffect(() => {
     if (!sessionExpiresAt || isSessionExpired) return;
@@ -34,32 +44,16 @@ export function SessionModalWatcher() {
     };
   }, [checkSession, isSessionExpired, sessionExpiresAt, timing]);
 
-  // Un logout volontario azzera sessionExpiresAt prima che useSession aggiorni
-  // il proprio snapshot. La modal deve apparire solo per una scadenza reale.
-  if (!session?.userId || !sessionExpiresAt || !isSessionExpired) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/25 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-2xl shadow-slate-900/20">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-50 text-rose-500 ring-1 ring-rose-100">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        </div>
-        <div>
-          <h3 className="mb-2 text-lg font-semibold text-slate-900">{t('session.expiredTitle')}</h3>
-          <p className="text-sm text-slate-500">{t('session.expiredDescription')}</p>
-        </div>
-        <button
-          onClick={() => {
-            // The expiry path already purged caches; reload to recreate all auth providers from the server session.
-            // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Security boundary requires a fresh server-authenticated document.
-            window.location.href = '/login?error=SessionExpired';
-          }}
-          className="flex w-full justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 transition-colors hover:bg-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/20"
-        >
-          {t('session.signInAgain')}
-        </button>
-      </div>
-    </div>
-  );
+  // Only an authoritative activity response may cross this security boundary.
+  // Network failures keep the current document and let the activity controller retry.
+  useEffect(() => {
+    if (!shouldRedirectForExpiredSession(session?.userId, sessionExpiresAt, isSessionExpired) || hasStartedExpiryRedirect.current) return;
+    hasStartedExpiryRedirect.current = true;
+    // The activity controller already purged cache and lock state. A full document
+    // load also drops any stale Server Action references from a prior deployment.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Session expiry requires a fresh server-authenticated document.
+    window.location.assign(SESSION_EXPIRED_LOGIN_PATH);
+  }, [isSessionExpired, session?.userId, sessionExpiresAt]);
+
+  return null;
 }

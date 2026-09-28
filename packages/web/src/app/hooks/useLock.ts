@@ -13,8 +13,10 @@ import { useUserMutation } from '../mutations/useUserMutation';
 
 type UseLockProps = ResourceReference;
 
-/** Holds deferred cleanup releases while Next.js refreshes a client subtree after a Server Action. */
+/** Holds deferred cleanup releases while a client subtree remounts. */
 const scheduledLockReleases = new Map<string, ReturnType<typeof setTimeout>>();
+
+export const LOCK_RELEASE_ENDPOINT = '/api/locks/release';
 
 /** Preserves a server-confirmed browser ownership across a Next.js route refresh. */
 const confirmedBrowserLockSessions = new Map<string, string>();
@@ -55,6 +57,22 @@ function scheduleLockRelease(reference: ResourceReference, release: () => void):
     release();
   }, 0);
   scheduledLockReleases.set(key, timer);
+}
+
+/** Releases a lock through the stable HTTP endpoint, safe across Server Action deployments. */
+export function releaseLockThroughApi(reference: ResourceReference, preferBeacon = false): void {
+  const body = JSON.stringify(reference);
+  const payload = new Blob([body], { type: 'application/json' });
+  const sent = preferBeacon
+    && typeof navigator.sendBeacon === 'function'
+    && navigator.sendBeacon(LOCK_RELEASE_ENDPOINT, payload);
+  if (sent) return;
+  void fetch(LOCK_RELEASE_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: preferBeacon,
+  }).catch(() => undefined);
 }
 
 /** Checks whether a lock belongs to the current browser or its last server-confirmed acquisition. */
@@ -165,18 +183,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       if (!ownsLockRef.current) return;
       cancelScheduledLockRelease({ resourceType, resourceId });
       forgetBrowserLock({ resourceType, resourceId });
-      const body = JSON.stringify({ resourceType, resourceId });
-      const payload = new Blob([body], { type: 'application/json' });
-      const sent = typeof navigator.sendBeacon === 'function'
-        && navigator.sendBeacon('/api/locks/release', payload);
-      if (!sent) {
-        void fetch('/api/locks/release', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body,
-          keepalive: true,
-        }).catch(() => undefined);
-      }
+      releaseLockThroughApi({ resourceType, resourceId }, true);
       ownsLockRef.current = false;
     };
 
@@ -189,7 +196,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
           { resourceType, resourceId },
           () => {
             forgetBrowserLock({ resourceType, resourceId });
-            void releaseLockAction(resourceType, resourceId);
+            releaseLockThroughApi({ resourceType, resourceId });
             AppCache.setLockState(resourceType, resourceId, { locked: false });
           },
         );
