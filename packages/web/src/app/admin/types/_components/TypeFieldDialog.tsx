@@ -4,14 +4,14 @@
 import type { FormEvent } from "react";
 import { AdminFormDialog } from "@/adminPanel/components/AdminFormDialog";
 import { buildFieldDefinition, type FieldForm } from "./typeDetailModel";
-import type { ApiErrorResponse } from "@dashboard/core";
-import { localizeApiError } from "@/app/errors/localizeApiError";
+import type { UserMutationFailure } from "@/app/mutations/useUserMutation";
 
 export function TypeFieldDialog({
   field,
   editing,
   pending,
-  error,
+  mutationFailure,
+  onRetryMutation,
   t,
   onChange,
   onSubmit,
@@ -20,7 +20,8 @@ export function TypeFieldDialog({
   field: FieldForm;
   editing: boolean;
   pending: boolean;
-  error?: ApiErrorResponse | null;
+  mutationFailure?: UserMutationFailure | null;
+  onRetryMutation?: () => void;
   t: (key: string) => string;
   onChange: (name: string, value: unknown) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -40,7 +41,8 @@ export function TypeFieldDialog({
       onChange={onChange}
       onSubmit={onSubmit}
       onClose={onClose}
-      error={error ? localizeApiError(error, t) : undefined}
+      mutationFailure={mutationFailure}
+      onRetryMutation={onRetryMutation}
     />
   );
 }

@@ -10,6 +10,7 @@ import type {
 } from "@dashboard/core";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
+import { useUserMutation } from "@/app/mutations/useUserMutation";
 import { EMPTY_FIELD, type FieldForm } from "./typeDetailModel";
 
 export function useTypeDetailController(
@@ -20,8 +21,7 @@ export function useTypeDetailController(
   const [detail, setDetail] = useState<TypeDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorResponse | null>(null);
-  const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
-  const [pending, setPending] = useState(false);
+  const mutation = useUserMutation();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,23 +43,26 @@ export function useTypeDetailController(
         data?: TypeDetailDto;
         error?: ApiErrorResponse;
       }>,
+      afterCompletion?: () => void,
     ) => {
-      setPending(true);
-      setFormError(null);
-      const result = await operation();
-      if (result.success && result.data) {
-        setDetail(result.data);
-      } else setFormError(result.error ?? null);
-      setPending(false);
-      return result.success;
+      const outcome = await mutation.execute(async () => {
+        const result = await operation();
+        if (result.success && result.data) return result.data;
+        throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
+      }, async (updatedDetail) => {
+        setDetail(updatedDetail);
+        await afterCompletion?.();
+      });
+      return outcome.ok;
     },
-    [],
+    [mutation],
   );
 
   const saveMetadata = useCallback(
     async (
       event: React.FormEvent<HTMLFormElement>,
       metadata: { name: string; description: string },
+      afterCompletion?: () => void,
     ) => {
       event.preventDefault();
       if (!detail) return false;
@@ -67,14 +70,13 @@ export function useTypeDetailController(
         AppCache.admin.updateType(kind, typeKey, {
           ...metadata,
           expectedRowVersion: detail.rowVersion,
-        }),
-      );
+        }), afterCompletion);
     },
     [detail, kind, mutate, typeKey],
   );
 
   const saveField = useCallback(
-    async (field: FieldForm, editingFieldId: string | null) => {
+    async (field: FieldForm, editingFieldId: string | null, afterCompletion?: () => void) => {
       if (!detail) return false;
       if (editingFieldId)
         return mutate(() =>
@@ -87,8 +89,7 @@ export function useTypeDetailController(
             defaultValueText: field.defaultValueText || null,
             encryptionMode: field.encryptionMode,
             expectedTypeRowVersion: detail.rowVersion,
-          }),
-        );
+          }), afterCompletion);
       return mutate(() =>
         AppCache.admin.createField(kind, typeKey, {
           ...field,
@@ -101,8 +102,7 @@ export function useTypeDetailController(
           defaultValueText: field.defaultValueText || null,
           expectedTypeRowVersion: detail.rowVersion,
           position: detail.fields.length,
-        }),
-      );
+        }), afterCompletion);
     },
     [detail, kind, mutate, typeKey],
   );
@@ -152,8 +152,9 @@ export function useTypeDetailController(
     detail,
     loading,
     error,
-    formError,
-    pending,
+    mutationFailure: mutation.failure,
+    retryMutation: () => void mutation.retry(),
+    pending: mutation.pending,
     load,
     saveMetadata,
     saveField,

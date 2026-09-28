@@ -59,7 +59,7 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
 
   const save = async () => {
     if (!detail) return;
-    const updated = await controller.controller.update(
+    const updated = await controller.update(
       roleKey,
       {
         roleKey: detail.roleKey,
@@ -139,6 +139,8 @@ export function RoleDetailScreen({ roleKey, onClose }: { roleKey: string; onClos
             cancelLabel={t("admin.backToRoles")}
             onCancel={() => void returnToList()}
             theme={ADMIN_THEME.form}
+            mutationFailure={controller.mutationFailure}
+            onRetryMutation={controller.retryMutation}
           />
         </section>
       )}

@@ -51,6 +51,11 @@ export class AdminResourceController<
   public getSnapshot = (): AdminResourceSnapshot<TRow, TDetail> =>
     this.snapshot;
 
+  /** Clears a mutation error after the shared user-mutation lifecycle owns it. */
+  public clearError = (): void => {
+    if (this.snapshot.error) this.patch({ error: null });
+  };
+
   public subscribe = (listener: () => void): (() => void) => {
     this.subscribers.add(listener);
     return () => this.subscribers.delete(listener);

@@ -169,11 +169,11 @@ export function createRoleForm(t: AdminTranslator, customKey = false): FormDefin
 }
 
 async function unwrap<T>(
-  result: Promise<{ success: boolean; data?: T; error?: { message: string } }>,
+  result: Promise<{ success: boolean; data?: T; error?: { code: string; message: string } }>,
 ): Promise<T> {
   const resolved = await result;
   if (!resolved.success || resolved.data === undefined) {
-    throw new Error(resolved.error?.message ?? "Unable to load the role.");
+    throw resolved.error ?? { code: "INTERNAL_ERROR", message: "" };
   }
   return resolved.data;
 }

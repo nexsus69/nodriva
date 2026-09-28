@@ -47,6 +47,13 @@ export function completeAttachmentDeletion(state: AttachmentCollectionState, att
   };
 }
 
+/** Clears a failed delete's pending marker; user feedback is owned by the shared mutation lifecycle. */
+export function abortAttachmentDeletion(state: AttachmentCollectionState, attachmentId: string): AttachmentCollectionState {
+  const pendingDeletionIds = new Set(state.pendingDeletionIds);
+  pendingDeletionIds.delete(attachmentId);
+  return { ...state, pendingDeletionIds };
+}
+
 export function failAttachmentDeletion(state: AttachmentCollectionState, attachmentId: string, error: string): AttachmentCollectionState {
   const pendingDeletionIds = new Set(state.pendingDeletionIds);
   pendingDeletionIds.delete(attachmentId);

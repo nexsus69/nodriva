@@ -125,14 +125,14 @@ export function TypeDetailDrawer({
   };
   const submitField = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (await controller.saveField(field, editingFieldId)) {
+    await controller.saveField(field, editingFieldId, () => {
       fieldForm.complete();
       surface.update({
         isDialogOpen: false,
         editingFieldId: null,
         draft: EMPTY_FIELD,
       });
-    }
+    });
   };
 
   /** Closes the nested field form through the same confirmation lifecycle as every form. */
@@ -183,9 +183,6 @@ export function TypeDetailDrawer({
           {controller.error && (
             <Alert tone="danger">{localizeApiError(controller.error, t)}</Alert>
           )}
-          {controller.formError && !fieldDialogOpen && (
-            <Alert tone="danger">{localizeApiError(controller.formError, t)}</Alert>
-          )}
           {!controller.loading &&
             controller.detail &&
             activeTab === "settings" && (
@@ -207,11 +204,11 @@ export function TypeDetailDrawer({
                   }))
                 }
                 onSubmit={(event) => {
-                  void controller.saveMetadata(event, metadataForm.values).then((saved) => {
-                    if (saved) metadataForm.complete();
-                  });
+                  void controller.saveMetadata(event, metadataForm.values, () => metadataForm.complete());
                 }}
                 isPending={controller.pending}
+                mutationFailure={controller.mutationFailure}
+                onRetryMutation={controller.retryMutation}
                 submitLabel={t("admin.saveChanges")}
                 cancelLabel={t("admin.cancel")}
                 onCancel={() => void close()}
@@ -238,7 +235,8 @@ export function TypeDetailDrawer({
           field={field}
           editing={Boolean(editingFieldId)}
           pending={controller.pending}
-          error={controller.formError}
+          mutationFailure={controller.mutationFailure}
+          onRetryMutation={controller.retryMutation}
           t={t}
           onChange={(name, value) =>
             fieldForm.setValues((current) => ({ ...current, [name]: value }))

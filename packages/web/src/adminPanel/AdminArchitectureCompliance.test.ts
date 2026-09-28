@@ -88,4 +88,11 @@ describe("Admin Panel architecture", () => {
     expect(fs.readFileSync(path.join(WEB_ROOT, "adminPanel/useAdminFormSurface.ts"), "utf8"))
       .not.toContain('confirmTitle = "Discard unsaved changes?"');
   });
+
+  it("routes administrative writes through the shared user-mutation lifecycle", () => {
+    const source = fs.readFileSync(path.join(WEB_ROOT, "adminPanel/useAdminResourceController.ts"), "utf8");
+
+    expect(source).toContain("useUserMutation");
+    expect(source).toContain("mutation.execute");
+  });
 });

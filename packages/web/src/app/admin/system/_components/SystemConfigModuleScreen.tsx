@@ -128,6 +128,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     },
   }), [kind, moduleKey, settingsSection, t]);
   const collection = useAdminResourceController(resource, undefined);
+  const { executeAction, pending: collectionPending } = collection;
   const canUpdate = canUseAdminResourceOperation(resource, "update", authorization.permissions);
   const surface = useAdminWorkspaceStore((state) => state.surface);
   const editing = surface?.moduleKey === resource.moduleKey && surface.resourceId
@@ -155,8 +156,8 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
               offLabel={t("admin.no")}
               className="w-[4.5rem]"
               onChange={(next) => {
-                if (collection.pending) return;
-                void collection.controller.executeAction(
+                if (collectionPending) return;
+                void executeAction(
                   {
                     key: "toggle-setting",
                     label: t("admin.saveChanges"),
@@ -166,7 +167,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
                         settingValueText: String(next),
                         expectedRowVersion: current.rowVersion,
                       });
-                      if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
+                      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
                     },
                   },
                   current,
@@ -177,7 +178,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
         },
       },
     ];
-  }, [canUpdate, collection.controller, collection.pending, kind, resource.list.columns, t]);
+  }, [canUpdate, collectionPending, executeAction, kind, resource.list.columns, t]);
   const formSurface = useAdminFormSurface<SystemForm>({
     moduleKey: resource.moduleKey,
     surfaceKey: "edit",
@@ -198,7 +199,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editing) return;
-    const succeeded = await collection.controller.executeAction(
+    const succeeded = await collection.executeAction(
       {
         key: "update",
         label: t("admin.saveChanges"),
@@ -206,7 +207,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
           const result = kind === "capabilities"
             ? await AppCache.admin.updateCapabilityStatus({ capabilityKey: (editing as RuntimeCapabilityDto).capabilityKey, status: formSurface.values.status as "enabled" | "disabled" | "optional" })
             : await AppCache.admin.updateSetting({ settingKey: (editing as SystemSettingDto).settingKey, settingValueText: String(formSurface.values.valueText ?? ""), expectedRowVersion: (editing as SystemSettingDto).rowVersion });
-          if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
+          if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
         },
       },
       editing,
@@ -223,6 +224,8 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     rows: collection.rows,
     loading: collection.loading,
     error: collection.error,
+    mutationFailure: collection.mutationFailure,
+    onRetryMutation: collection.retryMutation,
     onOpen: canUpdate ? openEdit : undefined,
     rowLabel: (row) => kind === "capabilities"
       ? runtimeCapabilitySemanticEntry(row as RuntimeCapabilityDto, t).label
@@ -236,7 +239,7 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
   return (
     <>
       <AdminCollectionScreen definition={definitionForScreen} />
-      {formSurface.isOpen && editing && <AdminFormDialog title={t("admin.edit")} definition={definition} values={formSurface.values} pending={collection.pending} submitLabel={t("admin.saveChanges")} cancelLabel={t("admin.cancel")} onChange={(name, value) => formSurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void submit(event)} onClose={() => void formSurface.close()} />}
+      {formSurface.isOpen && editing && <AdminFormDialog title={t("admin.edit")} definition={definition} values={formSurface.values} pending={collection.pending} submitLabel={t("admin.saveChanges")} cancelLabel={t("admin.cancel")} onChange={(name, value) => formSurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void submit(event)} onClose={() => void formSurface.close()} mutationFailure={collection.mutationFailure} onRetryMutation={collection.retryMutation} />}
     </>
   );
 }

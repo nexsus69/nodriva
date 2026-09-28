@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
   type Dispatch,
   type FormEvent,
   type SetStateAction,
@@ -18,10 +17,7 @@ import type {
   TypeKind,
   TypeListItemDto,
 } from "@dashboard/core";
-import {
-  Alert,
-  StatusBadge,
-} from "@/app/components/ui/feedback";
+import { StatusBadge } from "@/app/components/ui/feedback";
 import { AppCache } from "@/app/cache/GlobalCacheClient";
 import { useAdminWorkspaceStore } from "@/adminPanel/AdminWorkspaceStore";
 import { refreshAdminCollection } from "@/adminPanel/refreshAdminCollection";
@@ -42,7 +38,6 @@ import { useAdminRealtimeCollectionRefresh } from "@/adminPanel/useAdminRealtime
 import { useAdminRemotePagination } from "@/adminPanel/useAdminRemotePagination";
 import type { AdminTableSortState } from "@/adminPanel/components/AdminTable";
 import { ADMIN_THEME } from "@/Theme";
-import { localizeApiError, localizeApiErrorDetail } from "@/app/errors/localizeApiError";
 
 type TypeForm = {
   typeKey: string;
@@ -65,8 +60,6 @@ function useTypesModule() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [sort, setSort] = useState<AdminTableSortState | null>(null);
-  const [formError, setFormError] = useState<ApiErrorResponse | null>(null);
-  const [isPending, startTransition] = useTransition();
   const loadVersion = useRef(0);
   const moduleKey = "model.types";
   const moduleState = useAdminWorkspaceStore(
@@ -143,24 +136,21 @@ function useTypesModule() {
 
   /** Opens a fresh creation surface without sharing draft state with another module. */
   const openCreate = useCallback(() => {
-    setFormError(null);
     formSurface.open();
   }, [formSurface]);
 
   /** Closes the creation surface and discards its local draft. */
   const closeCreate = useCallback(async () => {
     if (await formSurface.close()) {
-      setFormError(null);
       setModuleState(moduleKey, { createStep: "basics" });
     }
   }, [formSurface, setModuleState]);
 
   /** Validates and submits a new type using the canonical cache mutation path. */
   const submit = useCallback(
-    (event: FormEvent<HTMLFormElement>) => {
+    async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      setFormError(null);
-      startTransition(async () => {
+      await formSurface.submitMutation(async () => {
         const result = await AppCache.admin.createType({
           kind,
           typeKey: form.typeKey.trim(),
@@ -171,11 +161,11 @@ function useTypesModule() {
               ? form.storageTable.trim() || undefined
               : undefined,
         });
-        if (result.success) {
+        if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
+        await load();
+      }, () => {
           formSurface.complete();
           setModuleState(moduleKey, { createStep: "basics" });
-          await load();
-        } else setFormError(result.error ?? null);
       });
     },
     [form, formSurface, kind, load, setModuleState],
@@ -201,8 +191,9 @@ function useTypesModule() {
     modalOpen: formSurface.isOpen,
     openCreate,
     closeCreate,
-    formError,
-    isPending,
+    mutationFailure: formSurface.mutationFailure,
+    retryMutation: formSurface.retryMutation,
+    isPending: formSurface.isSubmitting,
     submit,
     createStep,
     setCreateStep: (step: "basics" | "configuration") =>
@@ -322,42 +313,13 @@ function buildTypeFormDefinition(
   };
 }
 
-/** Maps validation fields to the labels visible in the current locale. */
-function fieldLabel(
-  field: string | undefined,
-  t: (key: string) => string,
-): string {
-  if (!field || field === "root") return t("admin.validationGeneral");
-  const labels: Record<string, string> = {
-    typeKey: t("admin.typeKey"),
-    name: t("admin.name"),
-    description: t("admin.description"),
-    storageTable: t("admin.storageTable"),
-  };
-  return labels[field] ?? field;
-}
-
-/** Translates the common Zod validation messages returned by the backend. */
-function validationDetail(message: string, t: (key: string) => string): string {
-  return localizeApiErrorDetail({ code: "VALIDATION_FAILED", message }, t);
-}
-
-/** Presents a localized summary while retaining the backend error for diagnostics. */
-function validationSummary(
-  error: ApiErrorResponse,
-  t: (key: string) => string,
-): string {
-  return error.code === "VALIDATION_ERROR"
-    ? t("admin.validationFailed")
-    : localizeApiError(error, t);
-}
-
 /** Renders the focused creation drawer from the shared form definition engine. */
 function CreateTypeDrawer({
   kind,
   form,
   setForm,
-  error,
+  mutationFailure,
+  onRetryMutation,
   pending,
   onClose,
   onSubmit,
@@ -367,7 +329,8 @@ function CreateTypeDrawer({
   kind: TypeKind;
   form: TypeForm;
   setForm: Dispatch<SetStateAction<TypeForm>>;
-  error: ApiErrorResponse | null;
+  mutationFailure: import("@/app/mutations/useUserMutation").UserMutationFailure | null;
+  onRetryMutation: () => void;
   pending: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -408,23 +371,6 @@ function CreateTypeDrawer({
           onClose={onClose}
           appearance={ADMIN_THEME.appearance}
         />
-        {error && (
-          <Alert tone="danger" className="mt-5">
-            <div className="space-y-2">
-              <p>{validationSummary(error, t)}</p>
-              {error.details && error.details.length > 0 && (
-                <ul className="list-disc space-y-1 pl-5 text-xs">
-                  {error.details.map((detail, index) => (
-                    <li key={`${detail.field ?? "root"}-${index}`}>
-                      {fieldLabel(detail.field, t)}:{" "}
-                      {validationDetail(detail.message, t)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </Alert>
-        )}
         <div className="p-6">
           {step === "configuration" && (
             <div className="mb-5 border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
@@ -450,6 +396,8 @@ function CreateTypeDrawer({
             }
             onSubmit={handleSubmit}
             isPending={pending}
+            mutationFailure={mutationFailure}
+            onRetryMutation={onRetryMutation}
             submitLabel={
               step === "basics" ? t("admin.next") : t("admin.createType")
             }
@@ -515,7 +463,8 @@ export default function AdminTypesPage() {
           kind={controller.kind}
           form={controller.form}
           setForm={controller.setForm}
-          error={controller.formError}
+          mutationFailure={controller.mutationFailure}
+          onRetryMutation={controller.retryMutation}
           pending={controller.isPending}
           onClose={controller.closeCreate}
           onSubmit={controller.submit}

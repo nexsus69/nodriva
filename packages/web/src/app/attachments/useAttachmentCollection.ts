@@ -10,13 +10,14 @@ import {
   type AttachmentItem,
 } from './attachmentClient';
 import {
+  abortAttachmentDeletion,
   beginAttachmentDeletion,
   beginAttachmentRefresh,
   completeAttachmentDeletion,
-  failAttachmentDeletion,
   failAttachmentRefresh,
   receiveAttachmentCollection,
 } from './attachmentCollectionModel';
+import { useUserMutation } from '../mutations/useUserMutation';
 
 export interface AttachmentCollectionTarget {
   resourceType: 'node' | 'entity';
@@ -50,6 +51,7 @@ export function useAttachmentCollection(target: AttachmentCollectionTarget) {
     [cacheTarget],
   );
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const mutation = useUserMutation();
 
   const refresh = useCallback(async () => {
     const version = ++requestVersion.current;
@@ -76,22 +78,25 @@ export function useAttachmentCollection(target: AttachmentCollectionTarget) {
   }), [refresh, resourceTarget]);
 
   const remove = useCallback(async (attachment: AttachmentItem) => {
-    requestVersion.current += 1;
-    AppCache.setAttachmentCollection(cacheTarget, beginAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
-    try {
-      await deleteResourceAttachment({
-        id: attachment.id,
-        resourceType: target.resourceType,
-        resourceId: target.resourceId,
-      });
-      AppCache.setAttachmentCollection(cacheTarget, completeAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
-    } catch (error) {
-      AppCache.setAttachmentCollection(
-        cacheTarget,
-        failAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id, errorMessage(error, 'Impossibile eliminare l’allegato.')),
-      );
-    }
-  }, [cacheTarget, target.resourceId, target.resourceType]);
+    await mutation.execute(async () => {
+      requestVersion.current += 1;
+      AppCache.setAttachmentCollection(cacheTarget, beginAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
+      try {
+        await deleteResourceAttachment({
+          id: attachment.id,
+          resourceType: target.resourceType,
+          resourceId: target.resourceId,
+        });
+        AppCache.setAttachmentCollection(cacheTarget, completeAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
+      } catch (error) {
+        AppCache.setAttachmentCollection(
+          cacheTarget,
+          abortAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id),
+        );
+        throw error;
+      }
+    });
+  }, [cacheTarget, mutation, target.resourceId, target.resourceType]);
 
-  return { ...state, refresh, remove };
+  return { ...state, refresh, remove, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry() };
 }

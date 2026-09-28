@@ -94,6 +94,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await expect(page.getByLabel('Nome *')).toHaveValue(names.nodeTypeName);
   await page.getByRole('button', { name: 'Avanti' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
+  await expect(page.getByText('Operazione completata.', { exact: true })).toBeVisible();
   await expect(page.getByText(names.nodeTypeKey, { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /Tipi entità|Entity types/i }).click();
@@ -104,6 +105,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await page.getByLabel('Tabella storage *').fill(`entity_${names.entityTypeKey}`);
   await expect(page.getByLabel('Tabella storage *')).toHaveValue(`entity_${names.entityTypeKey}`);
   await page.getByRole('dialog').getByRole('button', { name: 'Crea tipo' }).click();
+  await expect(page.getByText('Operazione completata.', { exact: true })).toBeVisible();
   await page.getByRole('row', { name: names.entityTypeName }).click();
   await expect(page.getByRole('heading', { name: names.entityTypeName })).toBeVisible();
   await page.getByRole('button', { name: /^Campi \(\d+\)$/ }).click();
@@ -139,6 +141,7 @@ async function addField(page: Page, options: {
   }
   await page.getByLabel('Etichetta *').fill(options.label);
   await page.getByRole('button', { name: 'Aggiungi campo', exact: true }).click();
+  await expect(page.getByText('Operazione completata.', { exact: true })).toBeVisible();
   await expect(page.getByText(options.key, { exact: true }).first()).toBeVisible();
 }
 
@@ -197,6 +200,7 @@ async function createOperatorAccess(page: Page, baseUrl: string, names: Scenario
   }
   console.info(`[canonical:${names.roleKey}] operator:save-permissions`);
   await page.getByRole('button', { name: 'Salva permessi' }).click();
+  await expect(page.getByText('Operazione completata.', { exact: true })).toBeVisible();
 
   console.info(`[canonical:${names.roleKey}] operator:open-users`);
   await page.goto(`${baseUrl}/admin/access/users`);

@@ -158,9 +158,9 @@ export function PlacementPoliciesModuleScreen() {
   const submitPolicy = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const values = { policyKey: policySurface.values.policyKey.trim(), name: policySurface.values.name.trim(), description: policySurface.values.description.trim(), policyMode: policySurface.values.policyMode as PlacementPolicyListItemDto["policyMode"] };
-    const succeeded = await controller.controller.executeAction({ key: editing ? "update" : "create", label: t("admin.saveChanges"), execute: async () => {
+    const succeeded = await controller.executeAction({ key: editing ? "update" : "create", label: t("admin.saveChanges"), execute: async () => {
       const result = editing ? await AppCache.admin.updatePlacementPolicy({ ...values, expectedRowVersion: editing.rowVersion }) : await AppCache.admin.createPlacementPolicy(values);
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.loading"));
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
     } }, editing ?? ({ id: "new" } as PlacementPolicyListItemDto));
     if (succeeded) policySurface.complete();
   };
@@ -168,9 +168,9 @@ export function PlacementPoliciesModuleScreen() {
   const deletePolicy = async (row: PlacementPolicyListItemDto) => {
     const confirmed = await requestConfirmation({ title: t("admin.deletePolicyTitle"), description: t("admin.deletePolicyDescription"), confirmLabel: t("admin.delete"), cancelLabel: t("admin.cancel"), tone: "danger" });
     if (!confirmed) return;
-    await controller.controller.executeAction({ key: "delete", label: t("admin.delete"), execute: async () => {
+    await controller.executeAction({ key: "delete", label: t("admin.delete"), execute: async () => {
       const result = await AppCache.admin.deletePlacementPolicy({ policyKey: row.policyKey, expectedRowVersion: row.rowVersion });
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.deletePolicyTitle"));
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
     } }, row);
   };
 
@@ -179,9 +179,9 @@ export function PlacementPoliciesModuleScreen() {
     const policyKey = ruleSurface.resourceId;
     const row = controller.rows.find((item) => item.policyKey === policyKey);
     if (!policyKey || !row) return;
-    const succeeded = await controller.controller.executeAction({ key: "create-rule", label: t("admin.addRule"), execute: async () => {
+    const succeeded = await controller.executeAction({ key: "create-rule", label: t("admin.addRule"), execute: async () => {
       const result = await AppCache.admin.createPlacementRule({ policyKey, ruleType: ruleSurface.values.ruleType, targetNodeId: ruleSurface.values.targetNodeId || undefined, targetNodeTypeId: ruleSurface.values.targetNodeTypeId || undefined, comparator: ruleSurface.values.comparator || undefined, valueText: ruleSurface.values.valueText || undefined });
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.addRule"));
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
     } }, row);
     if (succeeded) {
       ruleSurface.complete();
@@ -194,9 +194,9 @@ export function PlacementPoliciesModuleScreen() {
     const confirmed = await requestConfirmation({ title: t("admin.deleteRule"), confirmLabel: t("admin.delete"), cancelLabel: t("admin.cancel"), tone: "danger" });
     const row = controller.rows.find((item) => item.policyKey === detail.policyKey);
     if (!confirmed || !row) return;
-    const succeeded = await controller.controller.executeAction({ key: "delete-rule", label: t("admin.deleteRule"), execute: async () => {
+    const succeeded = await controller.executeAction({ key: "delete-rule", label: t("admin.deleteRule"), execute: async () => {
       const result = await AppCache.admin.deletePlacementRule({ ruleId });
-      if (!result.success) throw new Error(result.error?.message ?? t("admin.deleteRule"));
+      if (!result.success) throw result.error ?? { code: "INTERNAL_ERROR", message: "" };
     } }, row);
     if (succeeded) await refreshDetail(detail.policyKey);
   };
@@ -211,6 +211,8 @@ export function PlacementPoliciesModuleScreen() {
     rows: controller.rows,
     loading: controller.loading,
     error: controller.error,
+    mutationFailure: controller.mutationFailure,
+    onRetryMutation: controller.retryMutation,
     createLabel: canCreate ? t("admin.createPolicy") : undefined,
     onCreate: canCreate ? openCreate : undefined,
     onOpen: (row) => updateModuleState({ detailPolicyKey: row.policyKey }),
@@ -242,6 +244,8 @@ export function PlacementPoliciesModuleScreen() {
           }))}
           onSubmit={(event) => void submitPolicy(event)}
           onClose={() => void policySurface.close()}
+          mutationFailure={controller.mutationFailure}
+          onRetryMutation={controller.retryMutation}
         />
       )}
       {visibleDetail && (
@@ -308,6 +312,8 @@ export function PlacementPoliciesModuleScreen() {
           } as RuleForm))}
           onSubmit={(event) => void createRule(event)}
           onClose={() => void ruleSurface.close()}
+          mutationFailure={controller.mutationFailure}
+          onRetryMutation={controller.retryMutation}
         />
       )}
     </>

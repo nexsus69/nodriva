@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  abortAttachmentDeletion,
   beginAttachmentDeletion,
   beginAttachmentRefresh,
   completeAttachmentDeletion,
@@ -38,5 +39,13 @@ describe('attachment collection lifecycle', () => {
     expect(failed.items).toEqual([first, second]);
     expect(failed.error).toBe('Eliminazione non riuscita');
     expect(INITIAL_ATTACHMENT_COLLECTION.hasLoaded).toBe(false);
+  });
+
+  it('clears a failed deletion marker without duplicating its error presentation', () => {
+    const aborted = abortAttachmentDeletion(beginAttachmentDeletion(receiveAttachmentCollection([first, second]), first.id), first.id);
+
+    expect(aborted.items).toEqual([first, second]);
+    expect(aborted.pendingDeletionIds).toEqual(new Set());
+    expect(aborted.error).toBeNull();
   });
 });
