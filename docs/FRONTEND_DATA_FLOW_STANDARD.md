@@ -345,7 +345,8 @@ introdurre una seconda implementazione.
   oppure il fallback `mutation.completed`; non è ammesso introdurre toast,
   banner o testi di successo locali per un singolo form. L'host globale conserva
   l'esito oltre la chiusura di una modale e le navigazioni client, fino alla sua
-  sostituzione o chiusura esplicita. Operazioni tecniche senza esito utente,
+  sostituzione, chiusura esplicita o scadenza centralizzata dopo cinque secondi.
+  Operazioni tecniche senza esito utente,
   come acquisizione/rilascio lock o preparazione di una preview, lo disabilitano
   esplicitamente.
 - Gli errori applicativi attesi attraversano il boundary delle Server Actions
