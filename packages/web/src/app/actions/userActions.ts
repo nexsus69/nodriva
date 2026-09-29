@@ -1,6 +1,6 @@
 'use server';
 
-import { userAdminService } from '../../server/db';
+import { authApplicationService, userAdminService } from '../../server/db';
 import { AuthResolver } from './auth/AuthResolver';
 import { mapAppErrorToApiErrorResponse } from './errorMapping';
 import {
@@ -192,6 +192,20 @@ export async function resetUserPasswordAction(cmd: ResetUserPasswordUiCommand): 
     const res = await userAdminService.getUserById(actorUserId, user.id);
     await publishAdministrativeChange({ resourceType: 'user', resourceId: user.id, changeType: 'updated', actorUserId, data: res ?? undefined });
     return { success: true, data: res ?? undefined };
+  } catch (err) {
+    return { success: false, error: mapErrorToApiErrorResponse(err) };
+  }
+}
+
+/** Releases only the selected account's credential-attempt limiter. */
+export async function releaseUserLoginRateLimitAction(userId: string): Promise<{
+  success: boolean;
+  error?: ApiErrorResponse;
+}> {
+  try {
+    const actorUserId = await AuthResolver.resolveActorUserId();
+    await authApplicationService.releaseUserLoginRateLimit(actorUserId, userId);
+    return { success: true };
   } catch (err) {
     return { success: false, error: mapErrorToApiErrorResponse(err) };
   }

@@ -17,6 +17,7 @@ import {
   runtimeCapabilitySemanticEntry,
   systemSettingSemanticEntry,
 } from "@/adminPanel/adminSemanticCatalog";
+import { LoginRateLimitSourcePanel } from "./LoginRateLimitSourcePanel";
 
 type SystemRow = RuntimeCapabilityDto | SystemSettingDto;
 type SystemForm = { status?: string; valueText?: string | boolean };
@@ -237,9 +238,10 @@ export function SystemConfigModuleScreen({ kind, section }: { kind: "capabilitie
     pagination: { stateKey: resource.moduleKey },
   };
   return (
-    <>
+    <div className="space-y-6">
       <AdminCollectionScreen definition={definitionForScreen} />
       {formSurface.isOpen && editing && <AdminFormDialog title={t("admin.edit")} definition={definition} values={formSurface.values} pending={collection.pending} submitLabel={t("admin.saveChanges")} cancelLabel={t("admin.cancel")} onChange={(name, value) => formSurface.setValues((current) => ({ ...current, [name]: value }))} onSubmit={(event) => void submit(event)} onClose={() => void formSurface.close()} mutationFailure={collection.mutationFailure} onRetryMutation={collection.retryMutation} />}
-    </>
+      {section === "session-security" && <LoginRateLimitSourcePanel />}
+    </div>
   );
 }

@@ -6,6 +6,13 @@ export class UnauthorizedError extends AppError {
   }
 }
 
+/** A safe, temporary login denial that does not identify which limiter subject matched. */
+export class LoginRateLimitedError extends AppError {
+  constructor(blockedUntil: Date, cause?: unknown) {
+    super('LOGIN_RATE_LIMITED', 'Login attempts are temporarily limited.', { blockedUntil: blockedUntil.toISOString() }, cause);
+  }
+}
+
 export class ForbiddenError extends AppError {
   constructor(message = 'You do not have permission to perform this action.', details?: Record<string, unknown>, cause?: unknown) {
     super('ACCESS_FORBIDDEN', message, details, cause);

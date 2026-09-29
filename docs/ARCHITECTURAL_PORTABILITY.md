@@ -29,6 +29,7 @@ assembling concrete adapters and injecting them into application services.
 | Dynamic type storage | `StorageTableManagementPort` | physical tables through controlled DDL | JSON payload plus relational field metadata |
 | Attachments and quota | `AttachmentRepository` | `AttachmentRepositoryPostgres` | `AttachmentRepositorySqlite` |
 | Upload rate limiting | `AttachmentRateLimitPort` | `AttachmentRateLimitPortPostgres` | `AttachmentRateLimitPortSqlite` |
+| Login-attempt throttling | `LoginRateLimitPort` | `LoginRateLimitPortPostgres` | `LoginRateLimitPortSqlite` |
 
 The PostgreSQL implementation additionally materializes the assigned hierarchy
 path in `node_scope_assignments.node_path`. This is an adapter-level projection

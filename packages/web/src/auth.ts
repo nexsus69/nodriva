@@ -1,6 +1,9 @@
+/** Configures credentials authentication and preserves safe throttle outcomes across Auth.js. */
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authApplicationService, lockService } from './server/db';
+import { LoginRateLimitedError } from '@dashboard/core';
+import { LoginRateLimitCredentialsError } from './auth/LoginRateLimitCredentialsError';
 import { authConfig } from './auth.config';
 import { parseLoginCredentials } from './app/actions/auth/authInputValidation';
 import { reconcileDatabaseSessionToken } from './server/authSessionToken';
@@ -57,6 +60,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             dbSessionId: loginResult.sessionId,
           };
         } catch (err: unknown) {
+          if (err instanceof LoginRateLimitedError) {
+            throw new LoginRateLimitCredentialsError();
+          }
           console.error('NextAuth authorize error:', err instanceof Error ? err.message : 'Unknown error');
           return null;
         }

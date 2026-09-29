@@ -1,3 +1,4 @@
+/** Covers SQLite session and durable login-throttle security contracts. */
 import { describe, expect, it } from 'vitest';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
@@ -28,8 +29,8 @@ describe('SQLite session and security adapters', () => {
     const rate = new LoginRateLimitPortSqlite(database);
     const now = new Date('2026-01-01T00:00:00Z');
     for (let index = 0; index < 5; index += 1) await rate.recordFailure('subject', now);
-    await expect(rate.assertAllowed('subject', now)).rejects.toThrow('Invalid credentials');
-    await expect(rate.assertAllowed('subject', new Date('2026-01-01T00:16:00Z'))).resolves.toBeUndefined();
+    await expect(rate.getBlockedUntil('subject', now)).resolves.toEqual(new Date('2026-01-01T00:15:00.000Z'));
+    await expect(rate.getBlockedUntil('subject', new Date('2026-01-01T00:16:00Z'))).resolves.toBeNull();
     database.close();
   });
 });

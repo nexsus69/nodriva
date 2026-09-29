@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminPageHeader } from "@/adminPanel/components/AdminPageHeader";
 import { ADMIN_THEME } from "@/Theme";
+import { useUserMutation } from "@/app/mutations/useUserMutation";
+import { requestConfirmation } from "@/app/components/ui/feedback/ConfirmDialogStore";
 
 type ProfileForm = Record<string, unknown>;
 type PasswordForm = { password: string };
@@ -61,6 +63,7 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
   const profileInitialValues = useMemo(() => detail ? profileValues(detail) : {}, [detail]);
   const profileSurface = useAdminFormSurface<ProfileForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:profile`, surfaceKind: "modal", draftKey: `admin.users.profile:${userId}`, formVersion: "1", initialValues: profileInitialValues });
   const passwordSurface = useAdminFormSurface<PasswordForm>({ moduleKey: "access.users", surfaceKey: `user:${userId}:password`, surfaceKind: "modal", draftKey: `admin.users.password:${userId}`, formVersion: "1", initialValues: { password: "" } });
+  const loginRateLimitMutation = useUserMutation();
   const profileForm = useMemo(() => detail ? profileDefinition(t) : null, [detail, t]);
   const passwordForm = useMemo(() => passwordDefinition(t), [t]);
 
@@ -103,6 +106,22 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
       passwordSurface.complete();
       await load();
     });
+  };
+  const releaseLoginRateLimit = async () => {
+    if (!detail) return;
+    const confirmed = await requestConfirmation({
+      title: t("admin.releaseLoginRateLimitTitle"),
+      description: t("admin.releaseLoginRateLimitDescription"),
+      confirmLabel: t("admin.releaseLoginRateLimit"),
+      cancelLabel: t("admin.cancel"),
+      tone: "neutral",
+    });
+    if (!confirmed) return;
+    await loginRateLimitMutation.execute(
+      () => AppCache.users.releaseLoginRateLimit(userId),
+      undefined,
+      { successKey: "admin.loginRateLimitReleased" },
+    );
   };
 
   if (loading) return <section className="space-y-4 border border-slate-200 bg-white p-6"><Skeleton className="h-6 w-64" /><Skeleton className="h-40 w-full" /></section>;
@@ -170,6 +189,14 @@ export function UserDetailScreen({ userId, onClose }: { userId: string; onClose?
         >
           <PasswordRequirements password={String(passwordSurface.values.password ?? "")} />
         </FormRenderer>
+      </section>
+      <section className="border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="font-semibold text-slate-900">{t("admin.loginProtection")}</h2>
+        <p className="mt-2 text-sm text-slate-600">{t("admin.userLoginProtectionDescription")}</p>
+        {loginRateLimitMutation.failure && <Alert tone="danger" className="mt-4">{loginRateLimitMutation.failure.message}</Alert>}
+        <AdminButton className="mt-4" icon="shield" onClick={() => void releaseLoginRateLimit()} disabled={loginRateLimitMutation.pending}>
+          {t("admin.releaseLoginRateLimit")}
+        </AdminButton>
       </section>
     </section>
   );

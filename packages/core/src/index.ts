@@ -233,6 +233,7 @@ export type {
 export { AppError } from "./domain/errors/AppError.js";
 export {
   UnauthorizedError,
+  LoginRateLimitedError,
   ForbiddenError,
   ValidationError,
   CapabilityDisabledError,
@@ -375,6 +376,7 @@ export {
 export { AccessControlPort } from "./application/ports/AccessControlPort.js";
 export { AuditPort } from "./application/ports/AuditPort.js";
 export { LoginRateLimitPort } from "./application/ports/LoginRateLimitPort.js";
+export type { LoginRateLimitStatus } from "./application/services/AuthApplicationService.js";
 export { AccountActionTokenPort } from "./application/ports/AccountActionTokenPort.js";
 export type { AccountActionPurpose } from "./application/ports/AccountActionTokenPort.js";
 export { AccountActionDeliveryPort } from "./application/ports/AccountActionDeliveryPort.js";

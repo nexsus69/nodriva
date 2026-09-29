@@ -1,8 +1,9 @@
 'use server';
 
 import { signIn, signOut } from '../../auth';
-import { AuthError } from 'next-auth';
+import { AuthError, CredentialsSignin } from 'next-auth';
 import { parseLoginCredentials } from './auth/authInputValidation';
+import { LOGIN_RATE_LIMITED_CREDENTIALS_CODE } from '../../auth/LoginRateLimitCredentialsError';
 
 function isNextRedirect(error: unknown): boolean {
   return (
@@ -38,6 +39,9 @@ export async function loginAction(email: unknown, password: unknown, mfaCode?: u
 
     return { success: true };
   } catch (err: unknown) {
+    if (err instanceof CredentialsSignin && err.code === LOGIN_RATE_LIMITED_CREDENTIALS_CODE) {
+      return { success: false, errorCode: 'LOGIN_RATE_LIMITED' as const };
+    }
     // NextAuth lancia AuthError per credenziali invalide
     if (err instanceof AuthError) {
       return { success: false, error: 'Credenziali non valide o utente disabilitato' };

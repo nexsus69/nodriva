@@ -55,6 +55,27 @@ timeout della richiesta (10 secondi se omesso). The HTTPS endpoint receives
 `to`, `template`, `actionUrl` and `expiresAt` and must send the corresponding
 email.
 
+## Login-attempt throttling and administrative release
+
+The login limiter records five rejected attempts in a fifteen-minute window
+for each normalized account subject and trusted source-address subject. The
+fifth rejection, and every later request while either subject remains blocked,
+returns the same safe temporary-throttle outcome to the login form. The form
+states that attempts are temporarily suspended and asks the person to retry in
+a few minutes; it never says whether the matching subject was the account, the
+source address, or both, and it does not reveal account existence.
+
+A successful login clears both subjects. An administrator must not clear a
+source-address block merely by releasing an account, because a shared network
+may have been limited for attempts against other identities. A super-admin can
+release an account subject from that user's administrative detail, or inspect
+and release a known exact source address in **Platform → Session security**.
+Both operations re-check permission and super-admin authority inside an
+authorization transaction and write `auth.login_rate_limit_released` audit
+evidence. Source addresses remain stored as hashes: the administrative panel
+hashes the entered address only to look up its block and never exposes an
+inventory of origin addresses.
+
 TOTP requires `MFA_ENCRYPTION_KEY`, a base64-encoded 32-byte deployment secret.
 Enrollment secrets are AES-256-GCM encrypted; recovery codes are stored only as
 SHA-256 hashes. Rotate this key only with a planned re-enrollment or a dedicated

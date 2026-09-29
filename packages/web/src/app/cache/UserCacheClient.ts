@@ -20,6 +20,7 @@ import {
   listUsersAction,
   listUsersPageAction,
   resetUserPasswordAction,
+  releaseUserLoginRateLimitAction,
   updateUserAction,
   updateUserStatusAction,
 } from '../actions/userActions';
@@ -220,6 +221,11 @@ export class UserCacheClient {
     await this.refreshCurrentSession(result.data.id);
     this.invalidatePages();
     return result.data;
+  }
+
+  public async releaseLoginRateLimit(userId: string): Promise<void> {
+    const result = await releaseUserLoginRateLimitAction(userId);
+    if (!result.success) throw actionError(result.error ?? { code: 'INTERNAL_ERROR', message: 'Impossibile rilasciare il blocco di accesso.' });
   }
 
   public purge(): void {

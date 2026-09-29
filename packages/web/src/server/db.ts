@@ -550,6 +550,8 @@ export const authApplicationService = new AuthApplicationService(
   loginRateLimitPort,
   mfaTotpService,
   auditPort,
+  transactionPort,
+  accessControlPort,
 );
 export const humanActivityService = new HumanActivityService(
   sessionRepository,

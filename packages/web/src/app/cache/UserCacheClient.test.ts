@@ -1,10 +1,11 @@
 /** Exercises safe user-cache mutation outcome propagation. */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ listUsersPageAction: vi.fn(), resetUserPasswordAction: vi.fn() }));
+const mocks = vi.hoisted(() => ({ listUsersPageAction: vi.fn(), resetUserPasswordAction: vi.fn(), releaseUserLoginRateLimitAction: vi.fn() }));
 vi.mock('../actions/userActions', () => ({
   listUsersPageAction: mocks.listUsersPageAction,
   resetUserPasswordAction: mocks.resetUserPasswordAction,
+  releaseUserLoginRateLimitAction: mocks.releaseUserLoginRateLimitAction,
 }));
 
 import { CacheKernel } from './CacheKernel';
@@ -14,6 +15,7 @@ describe('UserCacheClient paged catalogue', () => {
   beforeEach(() => {
     mocks.listUsersPageAction.mockReset();
     mocks.resetUserPasswordAction.mockReset();
+    mocks.releaseUserLoginRateLimitAction.mockReset();
   });
 
   it('preserves the backend password-reset rejection for the form to display', async () => {
@@ -44,5 +46,12 @@ describe('UserCacheClient paged catalogue', () => {
     await client.listUsersPage({ page: 1, pageSize: 25 });
     await client.listUsersPage({ page: 2, pageSize: 25 });
     expect(mocks.listUsersPageAction).toHaveBeenCalledTimes(4);
+  });
+
+  it('preserves a rejected account-block release for the user-detail feedback', async () => {
+    mocks.releaseUserLoginRateLimitAction.mockResolvedValue({ success: false, error: { code: 'ACCESS_FORBIDDEN', message: 'Non autorizzato.' } });
+    const client = new UserCacheClient(new CacheKernel(), () => undefined);
+
+    await expect(client.releaseLoginRateLimit('11111111-1111-4111-8111-111111111111')).rejects.toThrow('Non autorizzato.');
   });
 });

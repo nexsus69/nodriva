@@ -101,6 +101,9 @@ async function exerciseAdmin(browser: Browser, baseUrl: string, suffix: string):
 
     await page.goto(`${baseUrl}/admin/platform/runtime`);
     await expect(page.getByText(/Realtime synchronization|Sincronizzazione realtime/i)).toBeVisible();
+    await page.goto(`${baseUrl}/admin/platform/session-security`);
+    await expect(page.getByRole('heading', { name: /Login protection|Protezione accesso/i })).toBeVisible();
+    await expect(page.getByLabel(/Source IP address|Indirizzo IP di origine/i)).toBeVisible();
     await page.goto(`${baseUrl}/admin/governance/audit-recording`);
     await expect(page.getByText(/Record ordinary lock activity|Registra attività lock ordinaria/i)).toBeVisible();
 
