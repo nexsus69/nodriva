@@ -189,6 +189,31 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
       .toMatchObject([{ type: 'row', reference: { id: createdEntity.id } }]);
   });
 
+  it('hydrates entity type metadata introduced by a fresh direct collection before reporting it ready', async () => {
+    const directCollectionKey = 'NODE_ENTITY_COLLECTION|baseNodeId:metadata-node';
+    vi.mocked(listEntitiesAction).mockResolvedValue([{
+      id: 'entity-needing-type',
+      entityTypeId: 'device',
+      parentNodeId: 'metadata-node',
+      name: 'Entity needing metadata',
+      description: '',
+      rowVersion: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      payload: {},
+    }] as never);
+
+    await ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'metadata-node' },
+      requireComplete: true,
+    });
+
+    expect(listEntityTypesAction).toHaveBeenCalledTimes(1);
+    expect(GlobalViewStore.get(directCollectionKey)?.status).toBe('success');
+    expect(GlobalViewStore.get(directCollectionKey)?.satisfactionStatus).toBe('satisfied');
+  });
+
   it('requires full canonical data only when the view consumer requests it', () => {
     AppCache.metadata.inject('entity', { id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1 });
     IngestionLayer.ingestSubtreeList(

@@ -697,6 +697,22 @@ export class FetchCoordinator {
 export class ViewResolver {
   private static readonly pendingResolutions = new Map<string, Promise<ViewState | null>>();
 
+  /** Completes records referenced by a freshly ingested view before exposing its readiness. */
+  private static async hydrateReferencedRecords(intent: ViewIntent, viewKey: string): Promise<void> {
+    let inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+    if (inspection.status !== 'missing-records' && inspection.status !== 'partial') return;
+    try {
+      const hydrated = await RecordHydrator.hydrate(inspection.references);
+      inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
+      if (!hydrated || inspection.status !== 'satisfied') {
+        await FetchCoordinator.executeFetch(intent, viewKey);
+      }
+    } catch (error: unknown) {
+      FetchCoordinator.recordError(viewKey, error);
+      throw error;
+    }
+  }
+
   static resolve(intent: ViewIntent): Promise<ViewState | null> {
     const viewKey = ViewKeyBuilder.build(intent.params);
     const requestKey = `${AppCache.getCacheEpoch()}|${GlobalViewStore.getRevision(viewKey)}|${viewKey}|${intent.type}|${intent.type === 'extend' ? intent.direction : 'initial'}`;
@@ -729,17 +745,13 @@ export class ViewResolver {
     if (intent.type === 'extend' || inspection.status === 'missing-view' || inspection.status === 'stale') {
       await FetchCoordinator.executeFetch(intent, viewKey);
     } else if (inspection.status === 'missing-records' || inspection.status === 'partial') {
-      try {
-        const hydrated = await RecordHydrator.hydrate(inspection.references);
-        inspection = SatisfiabilityEvaluator.inspect(viewKey, intent.requireComplete);
-        if (!hydrated || inspection.status !== 'satisfied') {
-          await FetchCoordinator.executeFetch(intent, viewKey);
-        }
-      } catch (error: unknown) {
-        FetchCoordinator.recordError(viewKey, error);
-        throw error;
-      }
+      await this.hydrateReferencedRecords(intent, viewKey);
     }
+
+    // A fetch can introduce descriptors whose dependent records were not in
+    // the cache at the beginning of this resolve. Complete those references
+    // before a consumer can remain indefinitely in the loading state.
+    await this.hydrateReferencedRecords(intent, viewKey);
 
     const satisfaction = SatisfiabilityEvaluator.evaluate(viewKey, intent.requireComplete);
     const finalView = GlobalViewStore.get(viewKey);
