@@ -206,7 +206,7 @@ export class IngestionLayer {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         payload: item.payload,
-      }, true);
+      }, true, 'view:subtree');
 
       newDescriptors.push({
         type: 'row',
@@ -380,7 +380,7 @@ export class IngestionLayer {
       description: entity.description,
       rowVersion: entity.rowVersion,
       payload: entity.payload,
-    }, false); // inject as complete
+    }, false, 'view:entity-detail'); // inject as complete
 
     const newPage: ViewPage = {
       items: [{
@@ -474,7 +474,7 @@ export class IngestionLayer {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         payload: item.payload,
-      }, false);
+      }, false, 'view:node-entity-collection');
 
       newDescriptors.push({
         type: 'row',

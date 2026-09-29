@@ -79,6 +79,13 @@ già svuotato il read model prima del bootstrap. Se HTTP non è raggiungibile, l
 UI può mantenere la bozza ma non avvia azioni dipendenti da uno snapshot non
 verificato.
 
+La certificazione è associata alla generazione del singolo record, non a un
+flag globale permanente: un record precedente alla perdita di continuità resta
+stale, mentre una risposta HTTP autorevole ottenuta dopo tale perdita certifica
+il record nella nuova generazione. In questo modo il fallback conservativo non
+può lasciare una vista in caricamento dopo che tutte le sue dipendenze sono
+state effettivamente rilette dal backend.
+
 Quando realtime è deliberatamente disabilitato, il read model resta nello stato
 `disabled`: ogni accesso logico significativo carica dal server la proiezione
 necessaria. Durante il primo bootstrap non deve annullare le letture autorevoli

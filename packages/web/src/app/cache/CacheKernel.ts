@@ -12,6 +12,12 @@ export type RecordSatisfaction = 'missing' | 'incomplete' | 'stale' | 'satisfied
 /** Controls the completeness level written into the canonical record store. */
 export interface CacheRecordWriteOptions {
   completeness?: RecordCompleteness;
+  /**
+   * Marks a write backed by an authoritative server response for the current
+   * read-model generation. Untrusted realtime deliveries must not certify a
+   * record after continuity has been lost.
+   */
+  certified?: boolean;
 }
 
 /** Immutable list projection stored by the cache without duplicating records. */
@@ -73,6 +79,7 @@ interface StoredRecord {
   updatedAt: number;
   completeness: RecordCompleteness;
   stale: boolean;
+  certificationGeneration: number;
 }
 
 /** Stores an ordered query projection and its dependency invalidation policy. */
@@ -107,6 +114,8 @@ export class CacheKernel {
   private epoch = 0;
   /** Prevents a degraded transport from certifying a browser snapshot as current. */
   private readModelTrusted = true;
+  /** Separates records retained from an uncertain generation from fresh authoritative reads. */
+  private certificationGeneration = 0;
   /** Clock used for TTL and update timestamps. */
   private readonly now: () => number;
   /** Extracts optimistic row versions without coupling the kernel to a model. */
@@ -135,7 +144,9 @@ export class CacheKernel {
 
   /** Sets the single freshness policy used by every normalized cache facade. */
   public setReadModelTrusted(trusted: boolean): void {
+    if (this.readModelTrusted === trusted) return;
     this.readModelTrusted = trusted;
+    if (!trusted) this.certificationGeneration += 1;
   }
 
   /** Reads one canonical record without exposing the internal storage wrapper. */
@@ -151,7 +162,7 @@ export class CacheKernel {
   ): RecordSatisfaction {
     const stored = this.records.get(this.recordKey(namespace, id));
     if (!stored) return 'missing';
-    if (!this.readModelTrusted) return 'stale';
+    if (stored.certificationGeneration !== this.certificationGeneration) return 'stale';
     if (stored.stale) return 'stale';
     if (requiredCompleteness === 'full' && stored.completeness !== 'full') return 'incomplete';
     return 'satisfied';
@@ -167,6 +178,7 @@ export class CacheKernel {
     const current = this.records.get(key);
     const incomingVersion = this.getRecordVersion(record);
     const incomingCompleteness = options.completeness ?? 'full';
+    const certified = options.certified ?? this.readModelTrusted;
 
     if (
       current?.version !== undefined &&
@@ -196,6 +208,9 @@ export class CacheKernel {
       updatedAt: this.now(),
       completeness,
       stale: false,
+      certificationGeneration: certified
+        ? this.certificationGeneration
+        : this.certificationGeneration - 1,
     };
     this.records.set(key, next);
     this.recordSubscribers.get(key)?.forEach((subscriber) => subscriber(next.record));

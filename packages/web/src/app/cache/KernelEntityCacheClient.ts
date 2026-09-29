@@ -56,6 +56,7 @@ export class KernelEntityCacheClient {
   public inject(id: string, data: Partial<ClientEntity> & { id: string }, _isPartial = false, source = 'unknown'): void {
     const accepted = this.kernel.upsertRecord(this.namespace, data as ClientEntity, {
       completeness: _isPartial ? 'summary' : 'full',
+      certified: source !== 'unknown' && !source.startsWith('realtime:'),
     });
     this.recentWrites.push({
       timestamp: Date.now(),

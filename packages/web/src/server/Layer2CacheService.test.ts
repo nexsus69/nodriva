@@ -32,6 +32,7 @@ import { getNodeBreadcrumbAction, getNodeByIdAction, moveNodeAction } from '../a
 import { GlobalPolicyRegistry } from '../app/cache/PolicyRegistry';
 import { CacheGarbageCollector } from '../app/cache/CacheGarbageCollector';
 import { AppCache } from '../app/cache/GlobalCacheClient';
+import { CacheKernel } from '../app/cache/CacheKernel';
 
 describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
   const viewKey = 'SUBTREE_LIST|baseNodeId:test-node-1';
@@ -212,6 +213,37 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(listEntityTypesAction).toHaveBeenCalledTimes(1);
     expect(GlobalViewStore.get(directCollectionKey)?.status).toBe('success');
     expect(GlobalViewStore.get(directCollectionKey)?.satisfactionStatus).toBe('satisfied');
+  });
+
+  it('certifies a direct collection after an authoritative reread when realtime cache hits are unavailable', async () => {
+    const directCollectionKey = 'NODE_ENTITY_COLLECTION|baseNodeId:unreliable-node';
+    const kernel = (AppCache as unknown as { kernel: CacheKernel }).kernel;
+    kernel.setReadModelTrusted(false);
+    vi.mocked(listEntitiesAction).mockResolvedValue([{
+      id: 'entity-after-continuity-gap',
+      entityTypeId: 'device',
+      parentNodeId: 'unreliable-node',
+      name: 'Authoritative entity',
+      description: '',
+      rowVersion: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      payload: {},
+    }] as never);
+
+    try {
+      await ViewResolver.resolve({
+        type: 'resolve',
+        params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'unreliable-node' },
+        requireComplete: true,
+      });
+
+      expect(listEntityTypesAction).toHaveBeenCalledTimes(1);
+      expect(GlobalViewStore.get(directCollectionKey)?.status).toBe('success');
+      expect(GlobalViewStore.get(directCollectionKey)?.satisfactionStatus).toBe('satisfied');
+    } finally {
+      kernel.setReadModelTrusted(true);
+    }
   });
 
   it('requires full canonical data only when the view consumer requests it', () => {

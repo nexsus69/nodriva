@@ -295,6 +295,10 @@ async function createEntity(page: Page, baseUrl: string, nodeId: string, names: 
     await page.goto(`${baseUrl}/nodes/${nodeId}`);
     await expect(page.getByText('Modalità modifica')).toHaveCount(0);
   }
+  const directEntitySection = page.getByRole('heading', { name: /^Entità del nodo \([1-9]\d*\)$/ }).locator('xpath=../../..');
+  await expect(page.getByLabel(/Caricamento numero entità/i)).toHaveCount(0);
+  await expect(directEntitySection.getByRole('link', { name: entityName, exact: true })).toBeVisible();
+  await expect(directEntitySection.getByLabel(/Caricamento entità/i)).toHaveCount(0);
   const entityLink = page.getByRole('link', { name: entityName, exact: true }).first();
   await expect(entityLink).toBeVisible();
   const href = await entityLink.getAttribute('href');

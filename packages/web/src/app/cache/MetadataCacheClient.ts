@@ -38,7 +38,7 @@ export class MetadataCacheClient {
         records.forEach((record) => this.kernel.upsertRecord(
           RECORD_NAMESPACES[kind],
           record,
-          { completeness: 'full' },
+          { completeness: 'full', certified: true },
         ));
         return {
           ids: records.map((record) => record.id),
@@ -62,7 +62,7 @@ export class MetadataCacheClient {
   }
 
   public inject(kind: MetadataKind, record: MetadataRecord): void {
-    this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record, { completeness: 'full' });
+    this.kernel.upsertRecord(RECORD_NAMESPACES[kind], record, { completeness: 'full', certified: true });
   }
 
   public subscribe(kind: MetadataKind, subscriber: MetadataSubscriber): () => void {

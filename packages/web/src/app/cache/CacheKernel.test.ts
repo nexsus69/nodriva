@@ -104,6 +104,21 @@ describe('CacheKernel', () => {
     expect(loader).toHaveBeenCalledTimes(2);
   });
 
+  it('certifies an authoritative record written after read-model continuity is lost', () => {
+    kernel.upsertRecord<TestRecord>('entity-type', { id: 'task', name: 'Cached task type', rowVersion: 1 });
+    kernel.setReadModelTrusted(false);
+
+    expect(kernel.getRecordSatisfaction('entity-type', 'task', 'full')).toBe('stale');
+
+    kernel.upsertRecord<TestRecord>(
+      'entity-type',
+      { id: 'task', name: 'Fresh task type', rowVersion: 2 },
+      { completeness: 'full', certified: true },
+    );
+
+    expect(kernel.getRecordSatisfaction('entity-type', 'task', 'full')).toBe('satisfied');
+  });
+
   it('rejects a logical cache hit when its continuity verifier fails and reloads it', async () => {
     const verifyCacheHit = vi.fn().mockResolvedValue(false);
     const guardedKernel = new CacheKernel({ verifyCacheHit });
