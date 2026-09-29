@@ -6,6 +6,7 @@ vi.mock('../app/actions/entityActions', () => ({
   createEntityAction: vi.fn(),
   updateEntityAction: vi.fn(),
   deleteEntityAction: vi.fn(),
+  listEntitiesAction: vi.fn(),
   listSubtreeEntitiesAction: vi.fn(),
   listEntityTypesAction: vi.fn(),
 }));
@@ -22,6 +23,7 @@ import { IngestionLayer, RecordHydrator, SatisfiabilityEvaluator, ViewResolver }
 import {
   createEntityAction,
   deleteEntityAction,
+  listEntitiesAction,
   listSubtreeEntitiesAction,
   listEntityTypesAction,
   updateEntityAction,
@@ -136,6 +138,55 @@ describe('Layer 2 (CacheService) - GC and Window Trimming', () => {
     expect(getNodeBreadcrumbAction).toHaveBeenCalledTimes(2);
     expect(GlobalViewStore.get('BREADCRUMB|baseNodeId:private-node')?.status).toBe('success');
     expect(AppCache.nodes.get('private-node')).toBeNull();
+  });
+
+  it('rereads a direct entity collection invalidated while its first load is in flight', async () => {
+    const directCollectionKey = 'NODE_ENTITY_COLLECTION|baseNodeId:test-node-1';
+    const createdEntity = {
+      id: 'entity-created',
+      entityTypeId: 'device',
+      parentNodeId: 'test-node-1',
+      name: 'Created while loading',
+      description: '',
+      rowVersion: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      payload: {},
+    };
+    let resolveStaleRead: ((value: typeof createdEntity[]) => void) | undefined;
+    vi.mocked(listEntitiesAction)
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveStaleRead = resolve; }) as never)
+      .mockResolvedValueOnce([createdEntity] as never);
+    vi.mocked(createEntityAction).mockResolvedValue({ success: true, data: createdEntity } as never);
+    AppCache.metadata.inject('entity', {
+      id: 'device', typeKey: 'device', name: 'Device', description: '', storageTable: 'entity_device', currentSchemaVersion: 1,
+    });
+
+    const firstRead = ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'test-node-1' },
+      requireComplete: true,
+    });
+    await vi.waitFor(() => expect(resolveStaleRead).toBeTypeOf('function'));
+    expect(GlobalViewStore.get(directCollectionKey)?.dependencyTokens)
+      .toContain(VIEW_DEPENDENCIES.entityMembership);
+
+    await AppCache.createEntity({ parentNodeId: 'test-node-1', entityTypeId: 'device', name: createdEntity.name });
+    expect(GlobalViewStore.get(directCollectionKey)).toBeNull();
+
+    const refreshedRead = ViewResolver.resolve({
+      type: 'resolve',
+      params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'test-node-1' },
+      requireComplete: true,
+    });
+    await refreshedRead;
+    resolveStaleRead!([]);
+    await firstRead;
+
+    expect(listEntitiesAction).toHaveBeenCalledTimes(2);
+    expect(GlobalViewStore.get(directCollectionKey)?.status).toBe('success');
+    expect(flattenViewPages(GlobalViewStore.get(directCollectionKey)))
+      .toMatchObject([{ type: 'row', reference: { id: createdEntity.id } }]);
   });
 
   it('requires full canonical data only when the view consumer requests it', () => {

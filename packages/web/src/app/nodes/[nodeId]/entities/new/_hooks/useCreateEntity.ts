@@ -4,8 +4,6 @@
 import { useCallback, useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../../../cache/GlobalCacheClient';
-import { GlobalViewStore } from '../../../../../cache/ViewStore';
-import { ViewKeyBuilder } from '../../../../../cache/SemanticViewKey';
 import { useSemanticEntityCollection } from '../../../../../hooks/useSemanticEntityCollection';
 import { useSemanticMetadata } from '../../../../../hooks/useSemanticMetadata';
 import { useRelatedEntityCreation, type DynamicField } from '../../../../../components/ui/forms';
@@ -74,7 +72,6 @@ export function useCreateEntity(parentNodeId: string) {
         createdId.current = resourceId;
         setHasCreatedResource(true);
         await uploadDynamicAttachments('entity', resourceId, fields, attachments);
-        GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
       }, undefined, { successKey: 'mutation.entityCreated' });

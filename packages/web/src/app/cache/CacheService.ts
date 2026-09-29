@@ -9,7 +9,7 @@ import {
   flattenViewPages,
   getViewItemKey,
   getViewRowReferences,
-  VIEW_DEPENDENCIES,
+  getSemanticViewDependencyTokens,
   getViewHasMoreForward,
   getViewHasMoreBackward,
   getViewNextCursor,
@@ -79,6 +79,14 @@ function cursorsEqual(first: unknown, second: unknown): boolean {
 export type ViewIntent = 
   | { type: 'resolve'; params: SemanticViewKeyParams; requireComplete: boolean }
   | { type: 'extend'; params: SemanticViewKeyParams; requireComplete: boolean; direction: 'forward' | 'backward'; pageSize?: number };
+
+/** Signals that a mutation invalidated this view while its authoritative read was in flight. */
+class ViewRevisionChangedError extends Error {
+  public constructor() {
+    super('Semantic view changed while data was loading.');
+    this.name = 'ViewRevisionChangedError';
+  }
+}
 
 export interface SatisfactionResult {
   status: SatisfactionStatus;
@@ -343,7 +351,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: entityTypeSatisfaction(items),
       updatedAt: Date.now(),
-      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership, VIEW_DEPENDENCIES.nodeHierarchy],
+      dependencyTokens: getSemanticViewDependencyTokens('SUBTREE_LIST'),
       diagnostics: {
         forwardExtensions:
           diagnostics.forwardExtensions +
@@ -426,7 +434,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
-      dependencyTokens: [VIEW_DEPENDENCIES.nodeChildren],
+      dependencyTokens: getSemanticViewDependencyTokens('NODE_CHILDREN_LIST'),
     });
   }
 
@@ -448,7 +456,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
-      dependencyTokens: [VIEW_DEPENDENCIES.nodeHierarchy],
+      dependencyTokens: getSemanticViewDependencyTokens('BREADCRUMB'),
     });
   }
 
@@ -498,7 +506,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: entityTypeSatisfaction(items),
       updatedAt: Date.now(),
-      dependencyTokens: [VIEW_DEPENDENCIES.entityMembership],
+      dependencyTokens: getSemanticViewDependencyTokens('NODE_ENTITY_COLLECTION'),
     });
   }
 
@@ -541,11 +549,7 @@ export class IngestionLayer {
       error: null,
       satisfactionStatus: 'satisfied',
       updatedAt: Date.now(),
-      dependencyTokens: [
-        metadataType === 'node'
-          ? VIEW_DEPENDENCIES.nodeMetadata
-          : VIEW_DEPENDENCIES.entityMetadata,
-      ],
+      dependencyTokens: getSemanticViewDependencyTokens('METADATA_LIST', metadataType),
     });
   }
 }
@@ -576,8 +580,12 @@ export class FetchCoordinator {
   static async executeFetch(intent: ViewIntent, viewKey: string): Promise<void> {
     const existingView = GlobalViewStore.get(viewKey);
     const requestEpoch = AppCache.getCacheEpoch();
+    const requestViewRevision = GlobalViewStore.getRevision(viewKey);
     const assertCurrentEpoch = () => {
       if (AppCache.getCacheEpoch() !== requestEpoch) throw new CacheEpochChangedError();
+      if (GlobalViewStore.getRevision(viewKey) !== requestViewRevision) {
+        throw new ViewRevisionChangedError();
+      }
     };
     
     // Solo per il resolve iniziale (o se non c'è view): segnala 'loading' al ViewStore.
@@ -587,7 +595,11 @@ export class FetchCoordinator {
       GlobalViewStore.set(viewKey, {
         ...(existingView || { 
             viewKey, pages: [], satisfactionStatus: 'missing-view', 
-            updatedAt: Date.now() 
+            updatedAt: Date.now(),
+            dependencyTokens: getSemanticViewDependencyTokens(
+              intent.params.viewType,
+              intent.params.metadataType,
+            ),
         }),
         status: 'loading',
         error: null
@@ -669,6 +681,10 @@ export class FetchCoordinator {
         // The same semantic intent must be reread, rather than rendered as an error.
         return this.executeFetch(intent, viewKey);
       }
+      if (error instanceof ViewRevisionChangedError) {
+        // A newer resolve has already been scheduled by the invalidation subscriber.
+        return;
+      }
       this.recordError(viewKey, error);
       throw error;
     }
@@ -683,7 +699,7 @@ export class ViewResolver {
 
   static resolve(intent: ViewIntent): Promise<ViewState | null> {
     const viewKey = ViewKeyBuilder.build(intent.params);
-    const requestKey = `${AppCache.getCacheEpoch()}|${viewKey}|${intent.type}|${intent.type === 'extend' ? intent.direction : 'initial'}`;
+    const requestKey = `${AppCache.getCacheEpoch()}|${GlobalViewStore.getRevision(viewKey)}|${viewKey}|${intent.type}|${intent.type === 'extend' ? intent.direction : 'initial'}`;
     const pending = this.pendingResolutions.get(requestKey);
     if (pending) return pending;
 

@@ -4,8 +4,6 @@
 import { useCallback, useEffect, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache, isRowVersionMismatch } from '../../../../../cache/GlobalCacheClient';
-import { GlobalViewStore } from '../../../../../cache/ViewStore';
-import { ViewKeyBuilder } from '../../../../../cache/SemanticViewKey';
 import { useLock } from '../../../../../hooks/useLock';
 import { useSemanticEntityCollection } from '../../../../../hooks/useSemanticEntityCollection';
 import { useSemanticEntityDetail } from '../../../../../hooks/useSemanticEntityDetail';
@@ -172,7 +170,6 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     startTransition(async () => {
       try {
         await AppCache.deleteEntity(entityId, detail.entity!.entityTypeId, detail.entity!.rowVersion);
-        GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(deletionReturnTo);
       } catch (reason) {

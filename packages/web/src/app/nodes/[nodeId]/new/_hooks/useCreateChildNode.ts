@@ -4,8 +4,6 @@
 import { useCallback, useEffect, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppCache } from '../../../../cache/GlobalCacheClient';
-import { GlobalViewStore } from '../../../../cache/ViewStore';
-import { ViewKeyBuilder } from '../../../../cache/SemanticViewKey';
 import { useSemanticMetadata } from '../../../../hooks/useSemanticMetadata';
 import type { DynamicField } from '../../../../components/ui/forms';
 import { coerceDynamicPayload, initializeDynamicPayload, uploadDynamicAttachments, validateDynamicAttachments } from '../../../../components/ui/forms/dynamicResourceForm';
@@ -71,7 +69,6 @@ export function useCreateChildNode(parentNodeId: string) {
         createdId.current = resourceId;
         setHasCreatedResource(true);
         await uploadDynamicAttachments('node', resourceId, fields, attachments);
-        GlobalViewStore.delete(ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId }));
         navigationGuard.allowNavigation();
         router.push(returnTo);
       }, undefined, { successKey: 'mutation.nodeCreated' });

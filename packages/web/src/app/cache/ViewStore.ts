@@ -1,3 +1,4 @@
+/** Owns semantic view state, dependency invalidation, and stale-response revisions. */
 import type { RecordCompleteness } from './CacheKernel';
 
 export const VIEW_DEPENDENCIES = {
@@ -7,6 +8,31 @@ export const VIEW_DEPENDENCIES = {
   nodeMetadata: 'metadata:node',
   entityMetadata: 'metadata:entity',
 } as const;
+
+/** Returns the authoritative dependency set before a semantic view starts loading. */
+export function getSemanticViewDependencyTokens(
+  viewType: string,
+  metadataType?: 'node' | 'entity',
+): string[] {
+  switch (viewType) {
+    case 'SUBTREE_LIST':
+      return [VIEW_DEPENDENCIES.entityMembership, VIEW_DEPENDENCIES.nodeHierarchy];
+    case 'BREADCRUMB':
+      return [VIEW_DEPENDENCIES.nodeHierarchy];
+    case 'NODE_CHILDREN_LIST':
+      return [VIEW_DEPENDENCIES.nodeChildren];
+    case 'NODE_ENTITY_COLLECTION':
+      return [VIEW_DEPENDENCIES.entityMembership];
+    case 'METADATA_LIST':
+      return [
+        metadataType === 'node'
+          ? VIEW_DEPENDENCIES.nodeMetadata
+          : VIEW_DEPENDENCIES.entityMetadata,
+      ];
+    default:
+      return [];
+  }
+}
 
 export type CacheRecordNamespace =
   | 'node'
@@ -66,6 +92,8 @@ export interface ViewState {
 
 export class ViewStoreClient {
   private views = new Map<string, ViewState>();
+  /** Monotonic per-view revisions reject a response started before an eviction. */
+  private revisions = new Map<string, number>();
   private subscribers = new Map<string, Set<(view: ViewState | null) => void>>();
   private referenceIndex = new Map<string, Set<string>>();
   private dependencyIndex = new Map<string, Set<string>>();
@@ -102,6 +130,10 @@ export class ViewStoreClient {
     return this.views.get(viewKey) || null;
   }
 
+  public getRevision(viewKey: string): number {
+    return this.revisions.get(viewKey) ?? 0;
+  }
+
   public set(viewKey: string, state: ViewState): void {
     const previous = this.views.get(viewKey);
     if (previous) this.indexView(previous, false);
@@ -112,6 +144,9 @@ export class ViewStoreClient {
 
   public delete(viewKey: string): void {
     const previous = this.views.get(viewKey);
+    if (previous) {
+      this.revisions.set(viewKey, this.getRevision(viewKey) + 1);
+    }
     if (previous) this.indexView(previous, false);
     this.views.delete(viewKey);
     this.notifySubscribers(viewKey);
@@ -152,6 +187,7 @@ export class ViewStoreClient {
 
   public purge(): void {
     const keys = this.getKeys();
+    keys.forEach((viewKey) => this.revisions.set(viewKey, this.getRevision(viewKey) + 1));
     this.views.clear();
     this.referenceIndex.clear();
     this.dependencyIndex.clear();
