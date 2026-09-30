@@ -59,11 +59,11 @@ capabilities, and settings without deleting application data.
 
 For a complete, deployment-agnostic installation path—including standalone
 SQLite, external PostgreSQL, optional integrations and operational
-verification—read the [installation guide](docs/INSTALLATION.md).
+verification—read the [English installation guide](docs/INSTALLATION.en.md).
 
 A fresh installation contains the administrator and system catalogues, not demo
-nodes, entities or application types. Continue with [first-run setup](docs/FIRST_RUN.md)
-and [Node.js operations, upgrades and troubleshooting](docs/NODE_OPERATIONS.md).
+nodes, entities or application types. Continue with [first-run setup](docs/FIRST_RUN.en.md)
+and [Node.js operations, upgrades and troubleshooting](docs/NODE_OPERATIONS.en.md).
 
 ## Quick start
 
@@ -72,7 +72,7 @@ They are not the only installation method and do not constitute a universal
 production-ready deployment. For Node.js with SQLite or an external PostgreSQL,
 start the Web application with the selected environment configuration and run
 the applicable bootstrap/migrations independently. See the
-[deployment model](docs/DEPLOYMENT_MODEL.md).
+[English documentation index](docs/README.en.md).
 
 Create a protected `.env.docker` file with the required values and start the
 base PostgreSQL reference profile:
