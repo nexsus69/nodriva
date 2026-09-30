@@ -4,6 +4,10 @@ Questo runbook verifica il profilo Compose di riferimento/test. Non certifica
 un deployment generico e non sostituisce healthcheck, backup, alert o procedure
 del provider scelto dall'operatore.
 
+Per SQLite o PostgreSQL avviati direttamente con Node.js, vedere invece
+[installazione](INSTALLATION.md), [primo utilizzo](FIRST_RUN.md) e
+[runbook Node.js](NODE_OPERATIONS.md), senza richiedere container Docker.
+
 ## Healthcheck
 
 La verifica non modifica dati e controlla endpoint applicativo, stato dei
@@ -92,8 +96,9 @@ backup verificato supera la RPO concordata.
 - `pnpm check` completato;
 - job CI `PostgreSQL integration and adapter parity` completato senza test
   saltati;
-- `E2E_RUN=true E2E_EMAIL=... E2E_PASSWORD=... E2E_USER_ID=... pnpm e2e`
-  completato con due contesti Chromium autenticati;
+- `pnpm e2e:full` completato con fixture isolate e realtime; predisporre il
+  database PostgreSQL di test come descritto in
+  [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md), senza credenziali operative;
 - `pnpm e2e:parity` completato contro il database PostgreSQL di test e un
   database SQLite temporaneo; include pannello admin e verticale canonica;
 - per lo standalone: `DATABASE_ADAPTER=sqlite` e

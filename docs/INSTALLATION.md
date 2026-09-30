@@ -4,6 +4,11 @@ Questa guida installa Nodriva senza assumere Docker, un cloud provider o un
 orchestratore specifico. Docker Compose è un profilo di riferimento opzionale:
 non è un requisito dell'applicazione.
 
+Percorso: prerequisiti → un solo profilo database → build e avvio → verifica
+→ [primo utilizzo](FIRST_RUN.md). Per requisiti del processo, aggiornamenti e
+diagnostica vedere il [runbook Node.js](NODE_OPERATIONS.md). Gli esempi shell
+partono dalla root del repository, salvo indicazione diversa; non sono reset.
+
 ## 1. Scegliere il profilo
 
 | Profilo | Quando usarlo | Requisiti obbligatori |
@@ -17,6 +22,19 @@ antivirus, backup schedulato, metriche e delivery delle azioni account sono
 integrazioni opzionali: abilitarle solo quando il relativo deployment è stato
 configurato e verificato.
 
+### Cosa contiene una nuova installazione
+
+Su un database nuovo vengono creati schema, amministratore iniziale, ruoli,
+permessi, impostazioni e cataloghi tecnici. **Non vengono creati nodi, entità,
+allegati o tipi applicativi demo.** I tipi e i contenuti si configurano dopo il
+primo accesso. Lo stesso vale per entrambi gli adapter.
+
+Riutilizzare un file SQLite, un database PostgreSQL o un volume Docker esistente
+conserva i dati: reinstallazione e bootstrap non svuotano l'ambiente. Per una
+seconda installazione pulita predisporre storage e database separati; non
+eliminare quelli correnti. Le fixture E2E non sono un installer e non devono
+essere eseguite contro dati operativi.
+
 ## 2. Prerequisiti comuni
 
 - Node.js 24 e Corepack;
@@ -24,16 +42,29 @@ configurato e verificato.
 - un URL pubblico HTTPS per un deployment accessibile agli utenti;
 - secret diversi per ogni ambiente e mai salvati nel repository.
 
+Partire da un checkout della release scelta, annotandone il commit. La versione
+pnpm è fissata da `packageManager` nel `package.json`: usare quella versione,
+non aggiornare il lockfile durante l'installazione. Per PostgreSQL gli esempi
+sono verificati sul profilo PostgreSQL 17; servono anche i client `psql`,
+`pg_dump` e `pg_restore` compatibili con il server.
+
 Installare le dipendenze dalla root del repository:
 
 ```bash
 corepack enable
 pnpm install --frozen-lockfile
+pnpm --filter @dashboard/core build
 ```
 
 Copiare `.env.example` in un file protetto esterno al repository (per esempio
 `/etc/nodriva/nodriva.env`), sostituire ogni placeholder e limitare i permessi
 al solo account che avvia il processo.
+
+Se viene caricato con `.`, il file deve essere compatibile con la shell:
+quotare i valori contenenti caratteri speciali. Non usare `set -x` né stampare
+l'ambiente nei log. Il file copiato è un modello, non una configurazione pronta.
+Usare percorsi **assoluti** per dati e allegati: la directory di lavoro cambia
+tra CLI, server standalone e service manager.
 
 Le variabili comuni richieste sono:
 
@@ -43,16 +74,29 @@ NEXTAUTH_SECRET=<almeno 32 caratteri casuali>
 SEED_ADMIN_EMAIL=admin@example.test
 SEED_ADMIN_PASSWORD=<password iniziale forte>
 ATTACHMENTS_ROOT=/srv/nodriva/attachments
+ATTACHMENTS_REQUIRE_ENCRYPTION=true
 ATTACHMENTS_ENCRYPTION_KEY=<64 caratteri esadecimali casuali>
 FIELD_ENCRYPTION_KEY=<64 caratteri esadecimali casuali>
 MFA_ENCRYPTION_KEY=<32 byte casuali codificati base64>
+NEXT_PUBLIC_REALTIME_ENABLED=false
+ATTACHMENTS_REQUIRE_SCAN=false
 ```
 
 Il bootstrap dell'amministratore è additivo e idempotente: non cancella dati
 esistenti. Le chiavi di cifratura devono essere salvate e sottoposte a backup
 insieme ai dati; perderle rende irrecuperabili i valori cifrati.
 
-### Riferimento completo delle variabili applicative
+Generare valori indipendenti con `openssl rand -hex 32` (secret auth e chiavi
+hex) oppure `openssl rand -base64 32` (MFA), in un terminale riservato senza
+registrazione dell'output. Trasferirli nel secret manager/file protetto. Non
+rigenerarli a ogni riavvio; conservare le versioni necessarie ai backup,
+separatamente dagli archivi cifrati.
+
+Per una prova locale usare `NEXTAUTH_URL=http://127.0.0.1:3000` e bind loopback.
+Per accesso remoto predisporre DNS, certificato e proxy HTTPS prima di esporre
+il servizio. Adattare sempre gli hostname di esempio.
+
+### Principali variabili applicative
 
 Queste sono le variabili lette dal processo Web. L'orchestratore può aggiungere
 porte, hostname, logging e limiti di risorsa propri: non fanno parte del
@@ -60,7 +104,8 @@ contratto applicativo Nodriva.
 
 | Gruppo | Variabili | Necessarie quando | Note |
 | --- | --- | --- | --- |
-| Avvio e autenticazione | `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` | sempre | l'URL deve essere l'origine pubblica canonica; il seed è idempotente |
+| Avvio e autenticazione | `NEXTAUTH_URL`, `NEXTAUTH_SECRET`; `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` per bootstrap | autenticazione; identità iniziale durante bootstrap | il seed non reimposta la password di un utente esistente |
+| Sessione | `NEXT_PUBLIC_SESSION_IDLE_TIMEOUT_SECONDS` | opzionale, default 1800 secondi | policy temporale condivisa; una modifica richiede rebuild |
 | SQLite | `DATABASE_ADAPTER=sqlite`, `SQLITE_DATABASE_PATH` | profilo standalone | il percorso deve stare su storage persistente |
 | PostgreSQL | `DATABASE_ADAPTER=postgres`, `DATABASE_URL`, `REQUIRE_RESTRICTED_DB_ROLE=true` | profilo PostgreSQL | il login nell'URL deve appartenere a `dashboard_app`, non essere superuser |
 | Allegati | `ATTACHMENTS_ROOT`, `ATTACHMENTS_REQUIRE_ENCRYPTION` | sempre se si usano allegati | filesystem persistente, non pubblico |
@@ -88,26 +133,38 @@ DATABASE_ADAPTER=sqlite
 SQLITE_DATABASE_PATH=/srv/nodriva/data/nodriva.sqlite
 ```
 
-Creare le directory persistenti con permessi riservati al processo Web:
-
-```bash
-install -d -m 0700 /srv/nodriva/data /srv/nodriva/attachments
-```
+Le directory dei dati e degli allegati devono esistere, essere persistenti e
+scrivibili dal processo Web, senza accesso pubblico. La loro predisposizione
+e la configurazione degli account del sistema operativo spettano al deployment.
 
 Avviare il Web con l'ambiente selezionato. L'esempio usa una shell POSIX; un
 service manager, Kubernetes o altro orchestratore deve passare le stesse
 variabili senza scriverle nei log.
 
 ```bash
+set -eu
 set -a
 . /etc/nodriva/nodriva.env
 set +a
+pnpm --filter @dashboard/core build
 pnpm --filter @dashboard/web build
-pnpm --filter @dashboard/web start
+mkdir -p packages/web/.next/standalone/packages/web/.next/static
+mkdir -p packages/web/.next/standalone/packages/web/public
+cp -a packages/web/.next/static/. packages/web/.next/standalone/packages/web/.next/static/
+cp -a packages/web/public/. packages/web/.next/standalone/packages/web/public/
+HOSTNAME=127.0.0.1 PORT=3000 node packages/web/.next/standalone/packages/web/server.js
 ```
 
 Al primo avvio Nodriva crea lo schema SQLite e il bootstrap amministrativo.
 Realtime e antivirus restano normalmente disabilitati in questo profilo.
+
+Eseguire build e avvio come account autorizzato, non come root. Il repository
+usa `output: 'standalone'`: il server generato è il percorso production qui
+documentato; copiare anche asset statici e `public`, come fa l'immagine Docker.
+Il comando resta in primo piano; la gestione del processo spetta al deployment.
+I requisiti applicativi sono in [NODE_OPERATIONS.md](NODE_OPERATIONS.md).
+La build carica moduli server: usare
+solo l'ambiente scelto e non un file SQLite operativo per una build di prova.
 
 ## 4. PostgreSQL esterno
 
@@ -119,12 +176,18 @@ Inizializzare lo schema base e applicare tutte le migrazioni in ordine
 lessicografico usando esclusivamente l'identità amministrativa. Esempio:
 
 ```bash
+set -eu
 psql "$NODRIVA_POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 \
   -f Specifiche/dashboard_v4_schema_corrected.sql
 for migration in db/migrations/*.sql; do
   psql "$NODRIVA_POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 -f "$migration"
 done
 ```
+
+`NODRIVA_POSTGRES_ADMIN_URL` è una variabile dell'operatore, da fornire mediante
+il proprio flusso secret; non è una configurazione del Web. Non eseguire lo
+schema base su un database già popolato. Un errore interrompe la sequenza:
+non avviare l'applicazione finché migrazioni e controlli non sono conclusi.
 
 Seguire [db/README.md](../db/README.md) per il ruolo `dashboard_app`, il login
 dedicato e i vincoli del ruolo ristretto. Il processo Web non deve mai usare
@@ -138,8 +201,54 @@ DATABASE_URL=postgresql://dashboard_web:<secret>@db.example.test:5432/nodriva?ss
 REQUIRE_RESTRICTED_DB_ROLE=true
 ```
 
-Costruire e avviare il Web con gli stessi comandi del profilo SQLite. Le
-migrazioni e il bootstrap devono terminare prima che il Web accetti traffico.
+La password nella URI deve essere percent-encoded se contiene caratteri come
+`@`, `/` o `#`. Per TLS privato predisporre la CA attendibile nel processo Node,
+ad esempio tramite `NODE_EXTRA_CA_CERTS`; non disabilitare la verifica TLS.
+
+### Bootstrap amministrativo fuori Docker
+
+Lo schema SQL non crea l'utente iniziale e il Web PostgreSQL non esegue
+automaticamente il seed. Con ambiente applicativo caricato e Core compilato,
+eseguire il comando seguente dalla root. Usa il servizio autorevole già usato
+da Compose, con il login applicativo ristretto in `DATABASE_URL`.
+
+```bash
+set -eu
+set -a
+. /etc/nodriva/nodriva.env
+set +a
+pnpm --filter @dashboard/core build
+pnpm --filter @dashboard/core exec node --input-type=module <<'NODE'
+import pg from 'pg';
+import { PgExecutor, TransactionPortPostgres, SystemSeedPostgres } from './dist/index.js';
+if (process.env.DATABASE_ADAPTER !== 'postgres' || !process.env.DATABASE_URL
+    || !process.env.SEED_ADMIN_EMAIL || !process.env.SEED_ADMIN_PASSWORD) {
+  throw new Error('Configurare profilo PostgreSQL, DATABASE_URL e credenziali seed');
+}
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+try {
+  const seed = new SystemSeedPostgres(
+    new PgExecutor(pool), new TransactionPortPostgres(pool),
+    process.env.SEED_ADMIN_PASSWORD, process.env.SEED_ADMIN_EMAIL,
+  );
+  await seed.seedDatabase();
+  if (!await seed.checkSeeded()) throw new Error('Bootstrap incompleto');
+  console.log('Bootstrap amministrativo completato');
+} finally {
+  await pool.end();
+}
+NODE
+```
+
+Un successo indica catalogo inizializzato, non dati demo caricati. Il bootstrap
+non cambia la password di un account già presente e non sostituisce le
+migrazioni. Non tentare di creare la prima identità dal pannello: l'azione UI
+richiede già un superadmin autenticato.
+
+Costruire e avviare il Web con i comandi del paragrafo SQLite, mantenendo però
+`DATABASE_ADAPTER=postgres` e il relativo ambiente. Anche PostgreSQL richiede
+la directory allegati persistente e scrivibile dall'account Web. Migrazioni e
+bootstrap devono terminare prima che il Web accetti traffico.
 
 ## 5. Integrazioni opzionali
 
@@ -162,19 +271,23 @@ leggibile dal Web. Il Web non crea, modifica né espone il backup. Consultare
 
 ## 6. Verifica dopo l'installazione
 
-Prima di esporre l'istanza agli utenti:
+Prima di esporre l'istanza agli utenti verificare il processo avviato:
 
 ```bash
-pnpm --filter @dashboard/web typecheck
-pnpm --filter @dashboard/web lint
-pnpm --filter @dashboard/web test
-pnpm --filter @dashboard/web build
+curl --fail --silent --show-error --output /dev/null http://127.0.0.1:3000/login
+curl --fail --silent --show-error --output /dev/null https://nodriva.example.test/login
 ```
 
-Verificare inoltre l'healthcheck HTTP, il login dell'amministratore iniziale,
-la scrittura in una directory allegati persistente e, se configurate, tutte le
-integrazioni. La checklist completa è in
-[OPERATIONS_READINESS.md](OPERATIONS_READINESS.md).
+Adattare porta e URL; il secondo controllo vale per un deployment HTTPS.
+Una risposta HTTP corretta non prova login, database o autorizzazione: completare
+[FIRST_RUN.md](FIRST_RUN.md), verificare persistenza dopo riavvio, allegati e
+integrazioni configurate. Per Compose usare anche
+[OPERATIONS_READINESS.md](OPERATIONS_READINESS.md), specifico di quel profilo.
+
+Typecheck, lint, test e build della release (`pnpm check`, integrazioni e E2E)
+si eseguono in CI o in un ambiente isolato secondo
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md), non con credenziali, file o database
+operativi. Non confondere una suite verde con un'installazione verificata.
 
 ## 7. Compose come esempio opzionale
 
@@ -189,3 +302,5 @@ realtime, antivirus, monitoring e backup che servono al deployment.
 - [Catalogo configurazioni runtime e deployment](RUNTIME_CONFIGURATION_CATALOG.md)
 - [Sicurezza operativa](SECURITY_OPERATIONS.md)
 - [Backup e restore](BACKUP_RESTORE.md)
+- [Primo accesso e configurazione iniziale](FIRST_RUN.md)
+- [Requisiti operativi, upgrade e troubleshooting Node.js](NODE_OPERATIONS.md)

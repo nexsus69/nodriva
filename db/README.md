@@ -7,6 +7,13 @@ sostituisce il database operativo.
 
 The canonical authentication table is `user_sessions`.
 
+Schema and migrations alone do not create the first administrator. For a new
+external PostgreSQL installation, complete the explicit `SystemSeedPostgres`
+bootstrap in [the installation guide](../docs/INSTALLATION.md#bootstrap-amministrativo-fuori-docker)
+before starting the Web. Compose performs this step through `db-seed`. Neither
+path loads demo nodes, entities or application types. Do not run the base schema
+again during an upgrade; apply the missing migrations with a deployment record.
+
 Apply migrations in filename order against a database initialized from
 `Specifiche/dashboard_v4_schema_corrected.sql`. Legacy `sessions` rows remain
 untouched until migration `009`, which converts their raw tokens to hashes

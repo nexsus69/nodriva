@@ -59,6 +59,10 @@ For a complete, deployment-agnostic installation path—including standalone
 SQLite, external PostgreSQL, optional integrations and operational
 verification—read the [installation guide](docs/INSTALLATION.md).
 
+A fresh installation contains the administrator and system catalogues, not demo
+nodes, entities or application types. Continue with [first-run setup](docs/FIRST_RUN.md)
+and [Node.js operations, upgrades and troubleshooting](docs/NODE_OPERATIONS.md).
+
 ## Quick start
 
 The commands below start the repository's PostgreSQL reference/test profile.

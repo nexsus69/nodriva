@@ -32,9 +32,12 @@ hierarchy and dynamic storage tables.
 The scenario is retained in installations that already loaded the historical
 demo fixture. New installations use the non-destructive administrative
 bootstrap; demo data must be provisioned explicitly by development or E2E
-fixtures and is never created during service startup. In development
-it can be activated from the landing page using `RESET DEMO DATABASE` while
-`ALLOW_DESTRUCTIVE_SEED=true`; it must not be run against production data.
+fixtures and is never created during service startup. Historical instructions
+referring to `RESET DEMO DATABASE` and `ALLOW_DESTRUCTIVE_SEED` are obsolete:
+the current application does not expose that reset flow. `INITIALIZE SYSTEM`
+is an authenticated administrative bootstrap, not a demo-data loader or reset.
+For an empty installation follow [the first-run guide](FIRST_RUN.md); for
+automated scenarios use only the isolated test fixtures described below.
 
 The release-gate browser scenario is `pnpm e2e:canonical`. It provisions its
 own project-operations-shaped schema and data in temporary SQLite and
