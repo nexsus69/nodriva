@@ -1,1 +1,0 @@
-ADR 0003 — limiti del profilo SQLite: 10.000 nodi, profondità 20, 50.000 entità, 100.000 edge; oltre i limiti la risposta è PostgreSQL; F-08 validato con benchmark ai limiti.

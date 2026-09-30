@@ -1,5 +1,7 @@
 # Nodriva
 
+[English](README.md) | [Italiano](README.it.md)
+
 [![CI](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml)
 
 Nodriva is an open-source platform for defining and managing connected data
@@ -123,6 +125,9 @@ PostgreSQL integration/contract suite, and run `pnpm e2e:parity` with Chromium
 against SQLite and PostgreSQL.
 
 ## Documentation
+
+The complete documentation index is available in
+[English](docs/README.en.md) and [Italian](docs/README.md).
 
 - [Architecture](ARCHITECTURE.md)
 - [Product and deployment model](docs/DEPLOYMENT_MODEL.md)
