@@ -1,3 +1,4 @@
+/** Resolves typed runtime settings with optional authoritative uncached reads. */
 import type {
   ConfigurationDefinition,
   ConfigurationRegistry,
@@ -29,16 +30,16 @@ export class ConfigService {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async get<T>(key: string): Promise<T> {
+  async get<T>(key: string, options: { fresh?: boolean } = {}): Promise<T> {
     const definition = this.registry.get<T>(key);
     if (definition.source === 'derived') {
       throw new Error(`Derived configuration '${key}' cannot be read as a stored value.`);
     }
 
-    const cached = this.cache.get(key);
+    const cached = options.fresh ? undefined : this.cache.get(key);
     const record = cached && cached.expiresAt > this.now()
       ? cached.record
-      : await this.load(definition);
+      : await this.load(definition, !options.fresh);
     return record.value as T;
   }
 
@@ -69,7 +70,7 @@ export class ConfigService {
     else this.cache.clear();
   }
 
-  private async load<T>(definition: ConfigurationDefinition<T>): Promise<ConfigurationRecord> {
+  private async load<T>(definition: ConfigurationDefinition<T>, cache = true): Promise<ConfigurationRecord> {
     const stored = await this.repository.get(definition.key);
     const record = stored ?? {
       key: definition.key,
@@ -77,7 +78,7 @@ export class ConfigService {
       version: 1,
     };
     definition.validate(record.value as T);
-    this.cache.set(definition.key, { record, expiresAt: this.now() + this.cacheTtlMs });
+    if (cache) this.cache.set(definition.key, { record, expiresAt: this.now() + this.cacheTtlMs });
     return record;
   }
 }

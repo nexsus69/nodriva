@@ -6,7 +6,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 import type { FieldEncryptionServiceSqlite } from './FieldEncryptionServiceSqlite.js';
 
 export class RevisionPortSqlite implements RevisionPort {
-  constructor(private readonly database: SqliteDatabase, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {}
+  constructor(private readonly database: SqliteDatabase, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {
+    this.database.protectAsyncMethods(this);
+  }
   async recordNodeRevision(node: Node, eventType: 'created' | 'updated' | 'moved' | 'soft_deleted' | 'restored' | 'schema_changed', actorUserId: string | null): Promise<void> { const snapshot = { parentId: node.parentId, path: node.path, pathLabel: node.pathLabel, depth: node.depth, nodeTypeId: node.nodeTypeId, name: node.name, description: node.description, payload: this.fieldEncryption ? await this.fieldEncryption.redact('node', node.nodeTypeId, node.payload) : node.payload }; this.database.run('INSERT INTO node_revisions (node_id,revision_number,event_type,node_row_version,schema_version,snapshot_payload,created_by) VALUES (?,?,?,?,?,?,?)', [node.id, node.rowVersion, eventType, node.rowVersion, 1, JSON.stringify(snapshot), actorUserId]); }
   async recordEntityRevision(entity: Entity, eventType: 'created' | 'updated' | 'moved' | 'soft_deleted' | 'restored' | 'schema_changed', actorUserId: string | null): Promise<void> { const snapshot = { parentNodeId: entity.parentNodeId, name: entity.name, description: entity.description, payload: this.fieldEncryption ? await this.fieldEncryption.redact('entity', entity.entityTypeId, entity.payload) : entity.payload }; this.database.run('INSERT INTO entity_revisions (entity_id,revision_number,event_type,entity_row_version,schema_version,snapshot_payload,created_by) VALUES (?,?,?,?,?,?,?)', [entity.id, entity.rowVersion, eventType, entity.rowVersion, 1, JSON.stringify(snapshot), actorUserId]); }
 }

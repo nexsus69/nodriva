@@ -1,15 +1,8 @@
+/** Verifies HTTP target validation and safe attachment error semantics. */
 import { describe, expect, it } from 'vitest';
 import { AppError } from '@dashboard/core';
-import { attachmentPermission, isAttachmentAccessDenied, parseAttachmentTarget } from './attachmentAccess';
-
-describe('attachment permissions', () => {
-  it('separates read access from write access', () => {
-    expect(attachmentPermission('node', 'read')).toBe('node.read');
-    expect(attachmentPermission('entity', 'read')).toBe('entity.read');
-    expect(attachmentPermission('node', 'write')).toBe('node.edit');
-    expect(attachmentPermission('entity', 'write')).toBe('entity.edit');
-  });
-});
+import { parseAttachmentTarget } from './attachmentAccess';
+import { attachmentHttpError } from './attachmentHttp';
 
 describe('parseAttachmentTarget', () => {
   it('accepts seeded UUIDs without an RFC version nibble', () => {
@@ -33,8 +26,10 @@ describe('parseAttachmentTarget', () => {
 
 describe('attachment access error mapping', () => {
   it('maps forbidden access to the resource-not-found policy', () => {
-    expect(isAttachmentAccessDenied(new AppError('ACCESS_FORBIDDEN', 'denied'))).toBe(true);
-    expect(isAttachmentAccessDenied(new AppError('RESOURCE_NOT_FOUND', 'missing'))).toBe(false);
-    expect(isAttachmentAccessDenied(new Error('unexpected'))).toBe(false);
+    expect(attachmentHttpError(new AppError('ACCESS_FORBIDDEN', 'denied')).status).toBe(404);
+    expect(attachmentHttpError(new AppError('RESOURCE_NOT_FOUND', 'missing')).status).toBe(404);
+    expect(attachmentHttpError(new AppError('ROW_VERSION_MISMATCH', 'conflict')).status).toBe(409);
+    expect(attachmentHttpError(new AppError('LOCK_CONFLICT', 'conflict')).status).toBe(409);
+    expect(attachmentHttpError(new Error('unexpected')).status).toBe(500);
   });
 });

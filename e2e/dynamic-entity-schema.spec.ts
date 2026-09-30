@@ -33,7 +33,9 @@ test.describe('dynamic entity schema', () => {
     await textInputs.nth(2).fill('123456');
     await expect(page.getByRole('button', { name: 'Crea Entità' })).toBeEnabled();
     await page.getByRole('button', { name: 'Crea Entità' }).click();
-    await expect(page.getByText('Dynamic schema validation failed for entity payload.')).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'Il modulo contiene valori non validi.' })).toBeVisible();
+    await expect(textInputs.nth(0)).toHaveValue(entityName);
+    await expect(textInputs.nth(1)).toHaveValue('not-an-email');
 
     await textInputs.nth(1).fill('schema@example.test');
     await page.getByRole('button', { name: 'Crea Entità' }).click();

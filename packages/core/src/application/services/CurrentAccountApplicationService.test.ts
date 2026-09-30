@@ -1,5 +1,6 @@
+/** Implements CurrentAccountApplicationService regression tests within its adapter or regression boundary. */
 import { describe, expect, it, vi } from 'vitest';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 import { User } from '../../domain/models/User.js';
 import { CurrentAccountApplicationService } from './CurrentAccountApplicationService.js';
 
@@ -9,7 +10,7 @@ function subject() {
   const users = { findById: vi.fn().mockResolvedValue(user), updateUser: vi.fn() };
   const sessions = { deleteSessionsForUser: vi.fn() };
   const audit = { record: vi.fn() };
-  const service = new CurrentAccountApplicationService(users as never, sessions as never, audit as never, {
+  const service = new CurrentAccountApplicationService(PasswordHasher, users as never, sessions as never, audit as never, {
     runInTransaction: async <T>(work: () => Promise<T>) => work(),
     runInAuthorizationMutation: async <T>(work: () => Promise<T>) => work(),
   });

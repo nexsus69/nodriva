@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { isIP } from 'node:net';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { UserRepository } from '../ports/UserRepository.js';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import type { PasswordHasherPort } from '../ports/PasswordHasherPort.js';
 import { LoginRateLimitedError, UnauthorizedError, ValidationError } from '../../domain/errors/ApplicationErrors.js';
 import type { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
 import type { MfaTotpApplicationService } from './MfaTotpApplicationService.js';
@@ -18,7 +18,7 @@ export interface LoginRateLimitStatus {
 }
 
 export class AuthApplicationService {
-  constructor(
+  constructor(private readonly passwords: PasswordHasherPort,
     private readonly sessionRepository: SessionRepositoryPort,
     private readonly userRepository: UserRepository,
     private readonly sessionTiming: SessionTimingPolicyPort | number,
@@ -45,7 +45,7 @@ export class AuthApplicationService {
       if (user) await this.audit?.record(null, 'auth.login_rate_limited', 'user', user.id, null, null, null);
       throw new LoginRateLimitedError(activeBlock);
     }
-    const isValid = await PasswordHasher.verifyAsync(plainTextPassword, user?.passwordHash);
+    const isValid = await this.passwords.verifyAsync(plainTextPassword, user?.passwordHash);
     if (!user || !user.isActive || !isValid) {
       const block = this.latestBlock(await Promise.all(subjects.map((subject) => this.loginRateLimit?.recordFailure(subject, now))));
       if (block) {

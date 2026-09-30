@@ -189,6 +189,20 @@ persistence profiles with isolated data and compares navigation, mutations,
 detail views and audit outcomes across the full admin panel. Adapter-specific
 tests supplement these contracts for database-native details.
 
+Attachment commands are owned by `AttachmentApplicationService`, reuse the
+node/entity edit service for session-owned locks and `rowVersion`, and commit
+metadata, audit and enabled realtime outbox together. See
+[`ATTACHMENT_STORAGE_FORMAT.md`](docs/ATTACHMENT_STORAGE_FORMAT.md) for the
+HTTP mutation contract and storage cleanup protocol. SQLite serializes all
+asynchronous adapter access through the connection-owned gate, including calls
+outside an explicit application transaction; its transaction adapter uses
+`BEGIN IMMEDIATE` and releases ownership before post-commit effects.
+
+Password-consuming application services depend on `PasswordHasherPort`.
+The composition root supplies the infrastructure crypto implementation; Domain
+does not import Node.js crypto. Existing persisted password hashes remain
+compatible.
+
 ### Identity, scope and delegated permissions
 
 User identities and `user_roles` are global in the current data model. Global

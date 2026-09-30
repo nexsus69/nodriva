@@ -15,8 +15,8 @@ export class PostgresResourceSecurityPolicyResolver implements ResourceSecurityP
   async resolve(resourceType: 'node' | 'entity', resourceId: string): Promise<ResourceSecurityPolicy> {
     const nodeTypeId = await this.resolveNodeTypeId(resourceType, resourceId);
     const [encryptionGlobal, antivirusGlobal, nodePolicy] = await Promise.all([
-      this.configService.get<boolean>('attachments.encryptionEnabled'),
-      this.capabilityResolver?.isEnabled('antivirus') ?? this.configService.get<boolean>('attachments.antivirusEnabled'),
+      this.configService.get<boolean>('attachments.encryptionEnabled', { fresh: true }),
+      this.capabilityResolver?.isEnabled('antivirus') ?? this.configService.get<boolean>('attachments.antivirusEnabled', { fresh: true }),
       this.attachmentPolicyRepository.getEncryptionMode(nodeTypeId),
     ]);
     const mode = nodePolicy;

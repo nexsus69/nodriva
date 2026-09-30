@@ -1,6 +1,4 @@
-import type { TypeDomain } from '@dashboard/core';
-import { AppError } from '@dashboard/core';
-
+/** Parses attachment HTTP targets; application services own access policy. */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface AttachmentTarget {
@@ -20,46 +18,4 @@ export function parseAttachmentTarget(value: Partial<Record<string, FormDataEntr
   if (!UUID_PATTERN.test(resourceId as string)) return null;
   if (!/^[a-z][a-z0-9_]{0,63}$/.test(fieldKey as string)) return null;
   return { resourceType, resourceId: resourceId as string, fieldKey: fieldKey as string, kind };
-}
-
-export async function assertAttachmentAccess(actorUserId: string, resourceType: TypeDomain, resourceId: string, access: 'read' | 'write' = 'write') {
-  const { accessControlPort, nodeRepository, entityRepository } = await import('../../../server/db');
-  if (resourceType === 'node') {
-    const node = await nodeRepository.findById(resourceId);
-    if (!node) return null;
-    await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('node', access), node.id);
-    return { scopeNodeId: node.id, nodeTypeId: node.nodeTypeId, resourceTypeId: node.nodeTypeId };
-  }
-  const entity = await entityRepository.findById(resourceId);
-  if (!entity) return null;
-  await accessControlPort.assertHasPermission(actorUserId, attachmentPermission('entity', access), entity.parentNodeId);
-  const parentNode = await nodeRepository.findById(entity.parentNodeId);
-  if (!parentNode) return null;
-  return { scopeNodeId: entity.parentNodeId, nodeTypeId: parentNode.nodeTypeId, resourceTypeId: entity.entityTypeId };
-}
-
-export async function assertAttachmentField(resourceType: TypeDomain, typeId: string, fieldKey: string, kind: 'file' | 'image'): Promise<boolean> {
-  const { typeReader, nodeTypeRepository, entityTypeRepository } = await import('../../../server/db');
-  const type = resourceType === 'node' ? await nodeTypeRepository.findById(typeId) : await entityTypeRepository.findById(typeId);
-  if (!type) return false;
-  const definition = await typeReader.readDefinition(resourceType, type.typeKey);
-  return definition?.fields.some((field) => field.fieldKey === fieldKey && field.dataType === kind) ?? false;
-}
-
-export function authenticatedUser(request: { auth?: { userId?: string } | null }): string | null {
-  return typeof request.auth?.userId === 'string' ? request.auth.userId : null;
-}
-
-export function attachmentPermission(resourceType: TypeDomain, access: 'read' | 'write'): string {
-  return `${resourceType}.${access === 'write' ? 'edit' : 'read'}`;
-}
-
-/**
- * Attachment endpoints deliberately hide the existence of resources from
- * callers without the corresponding scope.  Repositories return `null` for
- * missing resources, while ACL checks raise ACCESS_FORBIDDEN; both cases must
- * have the same HTTP response.
- */
-export function isAttachmentAccessDenied(error: unknown): boolean {
-  return error instanceof AppError && error.code === 'ACCESS_FORBIDDEN';
 }

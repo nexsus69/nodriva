@@ -66,10 +66,10 @@ function mapAppErrorToApiErrorResponseBase(
 ): ApiErrorResponse {
   if (context === 'account-completion' && error instanceof AppError) {
     if (error.code === 'AUTH_UNAUTHORIZED') {
-      return { code: error.code, message: 'Il link non è valido, è scaduto o è già stato utilizzato.' };
+      return { code: error.code, message: 'Il link non è valido, è scaduto o è già stato utilizzato.', messageKey: 'accountCompletion.invalidLink' };
     }
     if (error.code === 'VALIDATION_FAILED') {
-      return { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.' };
+      return { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.', messageKey: 'account.passwordRequirementsNotMet' };
     }
   }
   const authorizationError = mapAuthorizationError(error);
@@ -178,7 +178,7 @@ const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
 /** Adds the stable presentation key consumed by browser error boundaries. */
 export function mapAppErrorToApiErrorResponse(error: unknown, context?: 'account-completion'): ApiErrorResponse {
   const response = mapAppErrorToApiErrorResponseBase(error, context);
-  return { ...response, messageKey: API_ERROR_MESSAGE_KEYS[response.code] ?? 'errors.internal' };
+  return { ...response, messageKey: response.messageKey ?? API_ERROR_MESSAGE_KEYS[response.code] ?? 'errors.internal' };
 }
 
 /** Safe exception boundary for legacy actions that still return domain data directly. */

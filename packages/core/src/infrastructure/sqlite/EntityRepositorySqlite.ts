@@ -10,7 +10,9 @@ interface EntityRow { id: string; entity_type_id: string; parent_node_id: string
 
 /** SQLite entity repository. Dynamic fields are stored as JSON, preserving the domain contract. */
 export class EntityRepositorySqlite implements EntityRepository {
-  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {}
+  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId: string | null }[]> {
     if (ids.length === 0) return [];

@@ -19,6 +19,7 @@ interface CanonicalOutcome {
   outsideScopeDenied: boolean;
   childCreated: boolean;
   entityCreated: boolean;
+  attachmentLifecycle: boolean;
   enumPersisted: boolean;
   relationPersisted: boolean;
   inverseRelationReplacementReviewed: boolean;
@@ -111,6 +112,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
   await page.getByRole('button', { name: /^Campi \(\d+\)$/ }).click();
 
   await addField(page, { key: 'status', label: 'Status', dataType: 'enum' });
+  await addField(page, { key: 'documents', label: 'Documents', dataType: 'file' });
   await addField(page, {
     key: 'depends_on',
     label: 'Depends on',
@@ -122,7 +124,7 @@ async function createType(page: Page, baseUrl: string, names: ScenarioNames): Pr
 async function addField(page: Page, options: {
   key: string;
   label: string;
-  dataType: 'enum' | 'relation';
+  dataType: 'enum' | 'relation' | 'file';
   relationTargetTypeKey?: string;
 }): Promise<void> {
   await page.getByRole('button', { name: /Aggiungi campo/i }).click();
@@ -131,11 +133,11 @@ async function addField(page: Page, options: {
   await selectApplicationOption(
     page,
     /Tipo dato/,
-    options.dataType === 'enum' ? /^(Scelta|Choice)(?:\s|$)/ : /^(Relazione|Relationship)(?:\s|$)/,
+    options.dataType === 'file' ? /^File(?:\s|$)/ : options.dataType === 'enum' ? /^(Scelta|Choice)(?:\s|$)/ : /^(Relazione|Relationship)(?:\s|$)/,
   );
   if (options.dataType === 'enum') {
     await selectApplicationOption(page, /Modalità enum/, /Opzioni gestite/);
-  } else {
+  } else if (options.dataType === 'relation') {
     await selectApplicationOption(page, /Dominio relazione/, /Tipi entità/);
     await page.getByLabel(/Chiave tipo relazione/).fill(options.relationTargetTypeKey!);
   }
@@ -321,6 +323,44 @@ async function verifyEntityEditFieldActions(page: Page, entityUrl: string): Prom
   await expect(page.getByRole('dialog', { name: 'Nuova istanza collegata' })).toBeVisible();
   await page.getByRole('dialog', { name: 'Nuova istanza collegata' }).getByRole('button', { name: 'Annulla' }).click();
   await page.getByRole('button', { name: 'Esci dalla modifica' }).click();
+}
+
+/** Covers attachment bytes, session ownership, stale versions and a retained unsaved draft. */
+async function exerciseAttachments(firstPage: Page, secondPage: Page, entityUrl: string, expectsRealtimeUpdate: boolean): Promise<void> {
+  await firstPage.goto(entityUrl);
+  await firstPage.getByRole('button', { name: 'Modifica', exact: true }).click();
+  await firstPage.locator('input[type="file"]').setInputFiles({ name: 'canonical.txt', mimeType: 'text/plain', buffer: Buffer.from('Canonical attachment') });
+  await firstPage.getByRole('button', { name: 'Salva modifiche' }).click();
+  await expect(firstPage.getByText('Salvataggio completato.', { exact: true })).toBeVisible();
+  await expect(firstPage.getByRole('button', { name: 'Modifica', exact: true })).toBeVisible();
+  const link = firstPage.getByRole('link', { name: /canonical.txt/ });
+  await expect(link).toBeVisible();
+  const attachmentUrl = new URL((await link.getAttribute('href'))!, entityUrl).toString();
+  const download = await firstPage.request.get(attachmentUrl);
+  expect(download.status()).toBe(200);
+  expect(await download.text()).toBe('Canonical attachment');
+  const resourceId = new URL(entityUrl).pathname.split('/').at(-1)!;
+  const listUrl = new URL(`/api/attachments?resourceType=entity&resourceId=${resourceId}&fieldKey=documents&kind=file`, entityUrl).toString();
+  const items = await (await firstPage.request.get(listUrl)).json();
+  const version = items[0].rowVersion as number;
+  if (expectsRealtimeUpdate) {
+    await expect(secondPage.getByRole('link', { name: /canonical.txt/ })).toBeVisible();
+    await expect(secondPage.getByText(new RegExp(`Versione: ${version}\\)`))).toBeVisible();
+  }
+  await firstPage.getByRole('button', { name: 'Modifica', exact: true }).click();
+  const conflict = await secondPage.request.delete(attachmentUrl, { headers: { 'If-Match': String(version) } });
+  expect(conflict.status()).toBe(409);
+  expect(await conflict.json()).toMatchObject({ error: 'LOCK_CONFLICT' });
+  const stale = await firstPage.request.delete(attachmentUrl, { headers: { 'If-Match': String(version - 1) } });
+  expect(stale.status()).toBe(409);
+  await firstPage.getByLabel('Descrizione').fill('Draft preserved after attachment deletion');
+  await link.locator('..').getByRole('button', { name: 'Elimina', exact: true }).click();
+  await expect(link).toHaveCount(0);
+  if (expectsRealtimeUpdate) await expect(secondPage.getByRole('link', { name: /canonical.txt/ })).toHaveCount(0);
+  await expect(firstPage.getByLabel('Descrizione')).toHaveValue('Draft preserved after attachment deletion');
+  await firstPage.getByRole('button', { name: 'Salva modifiche' }).click();
+  await expect(firstPage.getByText('Salvataggio completato.', { exact: true })).toBeVisible();
+  expect((await firstPage.request.get(attachmentUrl)).status()).toBe(404);
 }
 
 async function exerciseConcurrency(
@@ -625,6 +665,8 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       ),
     );
 
+    await runCanonicalPhase(adapter, 'attachment-lifecycle', () => exerciseAttachments(firstOperatorPage, secondOperatorPage, firstEntityUrl, adapter === 'postgres' && process.env.PARITY_REALTIME_ENABLED === 'true'));
+
     await runCanonicalPhase(adapter, 'restricted-entity-delete', async () => {
       await firstOperatorPage.goto(secondEntityUrl);
       await firstOperatorPage.getByRole('button', { name: `Azioni per ${names.secondEntityName}` }).click();
@@ -676,6 +718,7 @@ async function exerciseCanonicalVertical(browser: Browser, baseUrl: string, adap
       outsideScopeDenied: true,
       childCreated: true,
       entityCreated: true,
+      attachmentLifecycle: true,
       enumPersisted: true,
       relationPersisted: true,
       inverseRelationReplacementReviewed,
@@ -711,6 +754,7 @@ test.describe('canonical vertical SQLite/PostgreSQL parity', () => {
       outsideScopeDenied: true,
       childCreated: true,
       entityCreated: true,
+      attachmentLifecycle: true,
       enumPersisted: true,
       relationPersisted: true,
       inverseRelationReplacementReviewed: true,

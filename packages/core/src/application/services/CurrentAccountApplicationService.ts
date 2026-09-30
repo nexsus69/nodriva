@@ -1,5 +1,5 @@
 /** Owns security-sensitive mutations that an authenticated user performs on their own account. */
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import type { PasswordHasherPort } from '../ports/PasswordHasherPort.js';
 import { UnauthorizedError, ValidationError } from '../../domain/errors/ApplicationErrors.js';
 import { UserPasswordSchema } from '../commands/UserAdminCommands.js';
 import type { AuditPort } from '../ports/AuditPort.js';
@@ -8,7 +8,7 @@ import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { UserRepository } from '../ports/UserRepository.js';
 
 export class CurrentAccountApplicationService {
-  constructor(
+  constructor(private readonly passwords: PasswordHasherPort,
     private readonly users: UserRepository,
     private readonly sessions: SessionRepositoryPort,
     private readonly audit: AuditPort,
@@ -22,10 +22,10 @@ export class CurrentAccountApplicationService {
     }
     await this.transactions.runInTransaction(async () => {
       const user = await this.users.findById(actorUserId);
-      if (!user || !user.isActive || !PasswordHasher.verify(currentPassword, user.passwordHash)) {
+      if (!user || !user.isActive || !this.passwords.verify(currentPassword, user.passwordHash)) {
         throw new UnauthorizedError('Current password is invalid.');
       }
-      await this.users.updateUser(user.changePassword(PasswordHasher.hash(parsed.data)));
+      await this.users.updateUser(user.changePassword(this.passwords.hash(parsed.data)));
       await this.sessions.deleteSessionsForUser(user.id);
       await this.audit.record(user.id, 'user.change_own_password', 'user', user.id, null, null, { sessionsRevoked: true });
     });

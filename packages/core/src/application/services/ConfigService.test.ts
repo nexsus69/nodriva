@@ -1,9 +1,18 @@
+/** Verifies typed configuration caching and authoritative policy reads. */
 import { describe, expect, it, vi } from 'vitest';
 import { ConfigurationRegistry, attachmentAntivirusEnabledDefinition, attachmentEncryptionEnabledDefinition, sessionIdleTimeoutDefinition } from '../config/ConfigurationRegistry.js';
 import type { ConfigurationRepository } from '../ports/ConfigurationRepository.js';
 import { ConfigService } from './ConfigService.js';
 
 describe('ConfigService', () => {
+  it('bypasses stale cache without publishing an uncommitted policy read into it', async () => {
+    const get = vi.fn().mockResolvedValue({ key: attachmentEncryptionEnabledDefinition.key, value: false, version: 1 });
+    const service = new ConfigService({ get, set: vi.fn() }, new ConfigurationRegistry([attachmentEncryptionEnabledDefinition]));
+    expect(await service.get(attachmentEncryptionEnabledDefinition.key)).toBe(false);
+    get.mockResolvedValue({ key: attachmentEncryptionEnabledDefinition.key, value: true, version: 2 });
+    expect(await service.get(attachmentEncryptionEnabledDefinition.key, { fresh: true })).toBe(true);
+    expect(await service.get(attachmentEncryptionEnabledDefinition.key)).toBe(false);
+  });
   it('uses the default and derives the session timing policy', async () => {
     const repository: ConfigurationRepository = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
     const service = new ConfigService(repository, new ConfigurationRegistry([sessionIdleTimeoutDefinition]));

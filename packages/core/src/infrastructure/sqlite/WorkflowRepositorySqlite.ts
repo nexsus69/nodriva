@@ -45,7 +45,9 @@ interface WorkflowOperationalStatsRow {
 
 /** Keeps JSON serialization at the adapter boundary while preserving the shared port contract. */
 export class WorkflowRepositorySqlite implements WorkflowRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async registerEventType(definition: EventTypeDefinition): Promise<void> {
     this.database.run(

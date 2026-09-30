@@ -1,3 +1,4 @@
+/** Implements SystemConfigRepositorySqlite within its adapter or regression boundary. */
 import type { SystemConfigRepository } from '../../application/ports/SystemConfigRepository.js';
 import type { CapabilityStatus, PlacementPolicyDetailDto, PlacementPolicyListItemDto, RuntimeCapabilityDto, SystemSettingDto, PolicyMode } from '../../application/dto/SystemConfigDtos.js';
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
@@ -9,7 +10,9 @@ interface PolicyRow { id: string; policy_key: string; name: string; description:
 interface RuleRow { id: string; placementPolicyId: string; ruleType: string; targetNodeId: string | null; targetNodeName: string | null; targetNodeTypeId: string | null; targetNodeTypeName: string | null; comparator: string | null; valueText: string | null; createdAt: string; }
 
 export class SystemConfigRepositorySqlite implements SystemConfigRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listCapabilities(): Promise<RuntimeCapabilityDto[]> {
     return this.database.all<CapabilityRow>(`SELECT c.capability_key AS capabilityKey,c.capability_key AS id,COALESCE(m.name,c.capability_key) AS name,COALESCE(m.description,'') AS description,c.default_status AS defaultStatus,COALESCE(o.status,c.default_status) AS currentStatus,COALESCE(m.is_system,0) AS isSystem,COALESCE(m.updated_at,strftime('%Y-%m-%dT%H:%M:%fZ','now')) AS updatedAt FROM runtime_capabilities c LEFT JOIN runtime_capability_metadata m ON m.capability_key=c.capability_key LEFT JOIN runtime_capability_overrides o ON o.capability_key=c.capability_key AND o.scope_key='global' ORDER BY name`).map((row) => ({ ...row, isSystem: row.isSystem === 1, updatedAt: new Date(row.updatedAt).toISOString() }));

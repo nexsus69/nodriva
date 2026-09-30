@@ -11,7 +11,9 @@ import { AccessControlPortSqlite } from './AccessControlPortSqlite.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AdminContentCatalogQueryPortSqlite implements AdminContentCatalogQueryPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async findNodesPage(params: AdminContentCatalogPageParams): Promise<AdminContentCatalogPage<AdminNodeCatalogItem>> {
     const acl = AccessControlPortSqlite.getReadAccessControlSql('n', params.actorUserId, 'node.read');

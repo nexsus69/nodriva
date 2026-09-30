@@ -1,3 +1,4 @@
+/** Attachment persistence contract, including policy stability during aggregate mutations. */
 export interface AttachmentRecord {
   id: string;
   resourceType: 'node' | 'entity';
@@ -13,6 +14,8 @@ export interface AttachmentRecord {
 }
 
 export interface AttachmentRepository {
+  /** Holds schema/security configuration stable until the caller's transaction ends. */
+  lockMutationPolicy(): Promise<void>;
   list(resourceType: AttachmentRecord['resourceType'], resourceId: string, fieldKey?: string): Promise<AttachmentRecord[]>;
   getById(id: string): Promise<AttachmentRecord | null>;
   getResourceQuota(resourceType: AttachmentRecord['resourceType'], resourceId: string): Promise<number>;

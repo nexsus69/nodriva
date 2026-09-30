@@ -13,7 +13,7 @@ import {
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 
 const USER_ID = '00000000-0000-0000-0000-000000000010';
 const ACTOR_ID = '00000000-0000-0000-0000-000000000001';
@@ -82,7 +82,7 @@ describe('UserAdminApplicationService', () => {
       deleteSessionsForUser: vi.fn(),
     };
 
-    service = new UserAdminApplicationService(
+    service = new UserAdminApplicationService(PasswordHasher,
       mockUserRepository,
       mockAuditPort,
       mockTransactionPort,

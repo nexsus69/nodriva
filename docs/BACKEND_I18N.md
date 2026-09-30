@@ -27,6 +27,11 @@ The Web client resolves `ApiErrorResponse.messageKey` (or the stable error
 screens must not render `error.message` directly when a localized resolver is
 available; unknown historical codes may use the safe server fallback.
 
+Contextual mappings retain their own `messageKey`: account completion must
+describe an invalid link, not an expired login session, even when the stable
+authorization code is shared. The boundary mapper must not overwrite a
+contextual key with the generic code fallback.
+
 All new browser-facing text, including labels, placeholders, empty and loading
 states, confirmation copy, tooltips and accessible names, belongs in
 `packages/web/src/app/i18n/AppLocaleStore.ts` for every supported locale. The

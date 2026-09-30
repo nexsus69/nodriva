@@ -1,3 +1,4 @@
+/** Verifies password hashing compatibility and timing-safe verification outcomes. */
 import { describe, it, expect } from 'vitest';
 import { PasswordHasher } from './PasswordHasher.js';
 

@@ -24,7 +24,7 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
 
   it('reads one entity summary with the same actor-bound ACL predicate', async () => {
     const get = vi.fn().mockReturnValue({ id: 'entity-1' });
-    const database = { get } as unknown as SqliteDatabase;
+    const database = { get, protectAsyncMethods: vi.fn() } as unknown as SqliteDatabase;
     await expect(new AdminContentCatalogQueryPortSqlite(database).findEntitySummary('actor', 'entity-1'))
       .resolves.toEqual({ id: 'entity-1' });
     expect(get).toHaveBeenCalledWith(expect.stringContaining('e.id=?'), ['entity-1', 'actor', 'entity.read', 'entity.read']);
@@ -32,7 +32,7 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
 
   it('reads one node summary with the same actor-bound ACL predicate', async () => {
     const get = vi.fn().mockReturnValue({ id: 'node-1' });
-    const database = { get } as unknown as SqliteDatabase;
+    const database = { get, protectAsyncMethods: vi.fn() } as unknown as SqliteDatabase;
     await expect(new AdminContentCatalogQueryPortSqlite(database).findNodeSummary('actor', 'node-1'))
       .resolves.toEqual({ id: 'node-1' });
     expect(get).toHaveBeenCalledWith(expect.stringContaining('n.id=?'), ['node-1', 'actor', 'node.read', 'node.read']);
@@ -41,7 +41,7 @@ describe('AdminContentCatalogQueryPortSqlite', () => {
   it('applies ACL, count, stable order and limit to one causal recycle-bin page', async () => {
     const get = vi.fn().mockReturnValue({ total: 51 });
     const all = vi.fn().mockReturnValue([{ id: 'entity-26', kind: 'entity', name: 'Task', detail: 'Task type', deletedAt: '2026-01-02T00:00:00.000Z', rowVersion: 2, affectedNodeCount: 0, affectedEntityCount: 1 }]);
-    const database = { get, all } as unknown as SqliteDatabase;
+    const database = { get, all, protectAsyncMethods: vi.fn() } as unknown as SqliteDatabase;
     const page = await new AdminContentCatalogQueryPortSqlite(database).findRecycleBinPage({ actorUserId: 'actor', page: 2, pageSize: 25 });
     expect(page).toMatchObject({ total: 51, page: 2, pageCount: 3, items: [{ id: 'entity-26', kind: 'entity' }] });
     expect(all).toHaveBeenCalledWith(expect.stringContaining('ORDER BY deletedAt DESC,id DESC LIMIT ? OFFSET ?'), ['actor', 'node.restore', 'node.restore', 'actor', 'entity.restore', 'entity.restore', 25, 25]);

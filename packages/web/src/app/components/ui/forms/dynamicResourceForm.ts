@@ -2,6 +2,7 @@
 
 import type { DynamicField } from './DynamicFieldsForm';
 import { uploadResourceAttachment, validateResourceAttachmentFile } from '../../../attachments/attachmentClient';
+import { acquireLockAction, releaseLockAction } from '../../../actions/lockActions';
 
 const NUMBER_TYPES = new Set(['number', 'integer', 'decimal', 'numeric', 'float', 'double']);
 const ATTACHMENT_TYPES = new Set(['file', 'image']);
@@ -49,8 +50,36 @@ export async function validateDynamicAttachments(fields: readonly DynamicField[]
   }
 }
 
-export async function uploadDynamicAttachments(resourceType: 'node' | 'entity', resourceId: string, fields: readonly DynamicField[], filesByField: Readonly<Record<string, readonly File[]>>): Promise<void> {
-  for (const field of fields.filter(isAttachmentField)) for (const file of filesByField[field.fieldKey] ?? []) {
-    await uploadResourceAttachment({ resourceType, resourceId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
+interface AttachmentUploadOptions {
+  expectedRowVersion: number;
+  acquireLock?: boolean;
+  completedFiles?: Set<File>;
+  onUploaded?: (version: number, fieldKey: string, file: File) => void;
+}
+
+export async function uploadDynamicAttachments(
+  resourceType: 'node' | 'entity',
+  resourceId: string,
+  fields: readonly DynamicField[],
+  filesByField: Readonly<Record<string, readonly File[]>>,
+  options: AttachmentUploadOptions,
+): Promise<number> {
+  const pending = fields.filter(isAttachmentField).flatMap((field) => (filesByField[field.fieldKey] ?? []).filter((file) => !options.completedFiles?.has(file)).map((file) => ({ field, file })));
+  let version = options.expectedRowVersion;
+  if (pending.length === 0) return version;
+  if (options.acquireLock) {
+    const result = await acquireLockAction(resourceType, resourceId);
+    if (!result.success) throw Object.assign(new Error(result.message), { code: result.error });
+  }
+  try {
+    for (const { field, file } of pending) {
+      const result = await uploadResourceAttachment({ resourceType, resourceId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file, expectedRowVersion: version });
+      version = result.rowVersion;
+      options.completedFiles?.add(file);
+      options.onUploaded?.(version, field.fieldKey, file);
+    }
+    return version;
+  } finally {
+    if (options.acquireLock) await releaseLockAction(resourceType, resourceId);
   }
 }

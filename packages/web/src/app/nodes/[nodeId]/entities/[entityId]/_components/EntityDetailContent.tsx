@@ -26,6 +26,8 @@ interface EntityDetailContentProps {
   isMyLock: boolean;
   isPending: boolean;
   formStale: boolean;
+  attachmentVersion?: number;
+  onAttachmentVersionChanged?: (version: number) => void;
   setPayload: Dispatch<SetStateAction<Record<string, unknown>>>;
   setAttachmentsByField: Dispatch<SetStateAction<Record<string, readonly File[]>>>;
   setName: (value: string) => void;
@@ -198,7 +200,9 @@ export function EntityDetailContent(props: EntityDetailContentProps) {
             fieldKey={field.fieldKey}
             kind={field.dataType.toLowerCase() as 'file' | 'image'}
             tone="light"
-            canDelete={props.isMyLock}
+            canDelete={props.isMyLock && !props.formStale && !props.isPending}
+            expectedRowVersion={props.attachmentVersion}
+            onVersionChanged={props.onAttachmentVersionChanged}
           />
         </Panel>
       ))}

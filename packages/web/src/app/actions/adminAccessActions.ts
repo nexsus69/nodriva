@@ -39,11 +39,11 @@ const ADMIN_PERMISSIONS = [
 const SCOPED_CONTENT_PERMISSIONS = [
   'node.read',
   'node.create',
-  'node.update',
+  'node.edit',
   'node.delete',
   'entity.read',
   'entity.create',
-  'entity.update',
+  'entity.edit',
   'entity.delete',
 ] as const;
 

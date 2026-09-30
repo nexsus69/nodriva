@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AccountRecoveryApplicationService } from '../application/services/AccountRecoveryApplicationService.js';
 import { AccountActionDeliveryDrainer } from '../application/services/AccountActionDeliveryDrainer.js';
 import { User } from '../domain/models/User.js';
-import { PasswordHasher } from '../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from './crypto/PasswordHasher.js';
 import { SqliteInfrastructure } from './sqlite/SqliteInfrastructure.js';
 import { PgExecutor } from './postgres/PgExecutor.js';
 import { TransactionPortPostgres } from './postgres/TransactionPortPostgres.js';
@@ -42,7 +42,7 @@ async function harness(profile: 'sqlite' | 'postgres') {
   const email = `${userId}@recovery-contract.test`;
   await users.createUser(User.create(actorId, `${actorId}@recovery-contract.test`, 'unused', true));
   await users.createUser(User.create(userId, email, 'old-hash'));
-  const service = new AccountRecoveryApplicationService(tokens, users, sessions, audit, transactions, access, undefined, delivery, outbox, cipher, drainer);
+  const service = new AccountRecoveryApplicationService(PasswordHasher, tokens, users, sessions, audit, transactions, access, undefined, delivery, outbox, cipher, drainer);
   return {
     service, transactions, users, sessions, audit, access, tokens, drain, actorId, userId,
     revoke: async () => {

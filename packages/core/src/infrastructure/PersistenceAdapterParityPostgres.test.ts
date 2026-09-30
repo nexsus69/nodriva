@@ -34,6 +34,10 @@ import { NodeTypeRepositoryPostgres } from './postgres/NodeTypeRepositoryPostgre
 import { EntityTypeRepositoryPostgres } from './postgres/EntityTypeRepositoryPostgres.js';
 import { AccessControlPortPostgres } from './postgres/AccessControlPortPostgres.js';
 import { EntitySubtreeQueryPortPostgres } from './postgres/EntitySubtreeQueryPortPostgres.js';
+import { AttachmentApplicationService, type AttachmentApplicationDependencies } from '../application/services/AttachmentApplicationService.js';
+import { NodeApplicationService } from '../application/services/NodeApplicationService.js';
+import { LockService } from '../application/services/LockService.js';
+import { LtreeNodePathPolicy } from '../domain/policies/LtreeNodePathPolicy.js';
 
 const integrationDatabaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const integrationDatabaseName = integrationDatabaseUrl ? new URL(integrationDatabaseUrl).pathname.slice(1) : '';
@@ -432,6 +436,54 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       deleteResponse: { deleted: true, parentNodeId: ids.root, persistedParentId: ids.root, deletedNodeId: ids.child },
     });
   }, 30_000);
+
+  it('enforces attachment quota and upload limits for simultaneous requests on both adapters', async () => {
+    for (const harness of [postgres, sqlite]) {
+      await harness.attachmentRepository.delete(ids.attachmentOne);
+      await harness.attachmentRepository.delete(ids.attachmentTwo);
+      const record = { resourceType: 'node' as const, resourceId: ids.root, fieldKey: 'document', kind: 'file' as const, fileName: 'concurrent.txt', mimeType: 'text/plain', sizeBytes: 6, storageKey: 'quota-test', checksum: 'test', createdBy: ids.actor };
+      const results = await Promise.all([
+        harness.attachmentRepository.createWithinQuota({ ...record, id: ids.attachmentOne, storageKey: 'quota-one' }, 10),
+        harness.attachmentRepository.createWithinQuota({ ...record, id: ids.attachmentTwo, storageKey: 'quota-two' }, 10),
+      ]);
+      expect(results.sort()).toEqual([false, true]);
+      expect(await harness.attachmentRepository.getResourceQuota('node', ids.root)).toBe(6);
+      const rates = await Promise.all(Array.from({ length: 8 }, () => harness.attachmentRateLimitPort.consume(ids.actor, 2, new Date('2030-01-01T00:00:00Z'))));
+      expect(rates.filter(Boolean)).toHaveLength(2);
+    }
+  });
+
+  it('rolls back attachment metadata and aggregate version when durable enqueue fails on either adapter', async () => {
+    for (const harness of [postgres, sqlite]) {
+      await harness.attachmentRepository.delete(ids.attachmentOne);
+      await harness.attachmentRepository.delete(ids.attachmentTwo);
+      const node = (await harness.nodeRepository.findById(ids.root))!;
+      const audit = { record: async () => undefined };
+      const lockService = new LockService(harness.lockRepository, {} as never, { generate: () => ids.lockOne }, 1800);
+      const nodeMutations = new NodeApplicationService(harness.nodeRepository, harness.nodeTypeRepository, harness.accessControlPort, lockService, audit, { recordNodeRevision: async () => undefined } as never, { isCapabilityEnabled: async () => true, getSetting: async (_key, fallback) => fallback }, { generate: () => ids.attachmentOne }, new LtreeNodePathPolicy(), harness.transactionPort);
+      await harness.lockRepository.acquire(new Lock(ids.lockOne, { resourceType: 'node', resourceId: ids.root }, ids.actor, ids.session, new Date(), new Date(Date.now() + 60_000)));
+      const service = new AttachmentApplicationService({
+        attachments: harness.attachmentRepository, transactions: harness.transactionPort,
+        nodes: harness.nodeRepository, entities: harness.entityRepository,
+        nodeTypes: harness.nodeTypeRepository, entityTypes: harness.entityTypeRepository,
+        access: harness.accessControlPort, nodeMutations, entityMutations: {} as never,
+        types: { readDefinition: async () => ({ fields: [{ fieldKey: 'document', dataType: 'file' }] }) } as never,
+        security: { resolve: async () => ({ encryptionEnabled: false, antivirusEnabled: false }) } as never,
+        rateLimiter: { consume: async () => true }, scanner: undefined,
+        ids: { generate: () => ids.attachmentOne }, audit,
+        storage: { put: async (storageKey, content) => ({ storageKey, sizeBytes: content.byteLength, checksum: 'test' }), get: async () => null, delete: async () => undefined },
+        cleanup: { scheduleUploadStaging: async () => undefined, cancel: async () => undefined } as never,
+        enqueueChange: async () => { throw new Error('durable enqueue failed'); },
+      } satisfies AttachmentApplicationDependencies);
+      const command = { actorUserId: ids.actor, actorSessionId: ids.session, expectedRowVersion: node.rowVersion, resourceType: 'node' as const, resourceId: ids.root, fieldKey: 'document', kind: 'file' as const, fileName: 'test.txt', mimeType: 'text/plain', content: new TextEncoder().encode('test') };
+      await expect(service.upload({ ...command, actorSessionId: ids.otherSession })).rejects.toMatchObject({ code: 'LOCK_CONFLICT' });
+      await expect(service.upload({ ...command, expectedRowVersion: node.rowVersion + 1 })).rejects.toMatchObject({ code: 'ROW_VERSION_MISMATCH' });
+      await expect(service.upload(command)).rejects.toThrow('durable enqueue failed');
+      expect((await harness.nodeRepository.findById(ids.root))!.rowVersion).toBe(node.rowVersion);
+      expect(await harness.attachmentRepository.getById(ids.attachmentOne)).toBeNull();
+      await harness.lockRepository.release({ resourceType: 'node', resourceId: ids.root }, ids.actor, ids.session);
+    }
+  });
 
   it('returns the same ACL-filtered paginated subtree pages for both adapters', async () => {
     const observePages = async (harness: AdapterHarness) => {

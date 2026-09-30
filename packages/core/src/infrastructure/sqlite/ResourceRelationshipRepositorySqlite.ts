@@ -25,7 +25,9 @@ interface RelationshipRow {
 
 /** SQLite implementation of the canonical relationship-edge store. */
 export class ResourceRelationshipRepositorySqlite implements ResourceRelationshipRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listOutgoing(sourceDomain: TypeDomain, sourceResourceId: string): Promise<ResourceRelationshipEdge[]> {
     return this.database.all<RelationshipRow>(

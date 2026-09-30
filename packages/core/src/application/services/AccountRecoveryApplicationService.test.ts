@@ -1,3 +1,4 @@
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 /** Verifies atomic account recovery issuance and completion behavior. */
 import { describe, expect, it, vi } from 'vitest';
 import crypto from 'node:crypto';
@@ -54,7 +55,7 @@ function createService() {
   const delivery: AccountActionDeliveryPort = { deliver: vi.fn() };
   const drainer = { drain: vi.fn().mockResolvedValue(0) } as unknown as AccountActionDeliveryDrainer;
   return {
-    service: new AccountRecoveryApplicationService(tokens, users, sessions, audit, transactions, access, mfa, delivery, outbox, cipher, drainer),
+    service: new AccountRecoveryApplicationService(PasswordHasher, tokens, users, sessions, audit, transactions, access, mfa, delivery, outbox, cipher, drainer),
     tokens, users, sessions, mfa, audit, transactions, access, delivery, outbox, cipher, drainer,
   };
 }
@@ -81,7 +82,7 @@ describe('AccountRecoveryApplicationService', () => {
   it('preserves authorization denials when delivery is not configured', async () => {
     const context = createService();
     vi.mocked(context.access.assertIsSuperAdmin).mockRejectedValue(new ForbiddenError());
-    const service = new AccountRecoveryApplicationService(
+    const service = new AccountRecoveryApplicationService(PasswordHasher,
       context.tokens, context.users, context.sessions, context.audit, context.transactions, context.access,
     );
     await expect(service.issue('operator', 'recipient', 'password_reset')).rejects.toMatchObject({ code: 'ACCESS_FORBIDDEN' });
@@ -149,7 +150,7 @@ describe('AccountRecoveryApplicationService', () => {
     const context = createService();
     vi.mocked(context.users.findById).mockResolvedValue(user);
     vi.mocked(context.audit.record).mockRejectedValue(new Error('audit unavailable'));
-    const service = new AccountRecoveryApplicationService(
+    const service = new AccountRecoveryApplicationService(PasswordHasher,
       new AccountActionTokenPortSqlite(database), context.users, context.sessions, context.audit,
       new TransactionPortSqlite(database), context.access, context.mfa, context.delivery, new AccountActionDeliveryOutboxSqlite(database), context.cipher, context.drainer,
     );
@@ -173,7 +174,7 @@ describe('AccountRecoveryApplicationService', () => {
     database.exec(`CREATE TRIGGER recovery_complete_audit_fault BEFORE INSERT ON audit_logs
       WHEN NEW.resource_id='${user.id}' AND NEW.action_key='user.password_reset_completed'
       BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END`);
-    const service = new AccountRecoveryApplicationService(
+    const service = new AccountRecoveryApplicationService(PasswordHasher,
       new AccountActionTokenPortSqlite(database), users, new SessionRepositorySqlite(database), new AuditPortSqlite(database),
       new TransactionPortSqlite(database), createService().access,
     );

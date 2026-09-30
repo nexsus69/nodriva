@@ -5,7 +5,9 @@ const identifier = (value: string): string => { if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.
 
 /** SQLite keeps dynamic fields in entity JSON; this adapter persists the field schema metadata. */
 export class StorageTableManagementSqlite implements StorageTableManagementPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
   async createStorageTable(storageTable: string): Promise<void> { identifier(storageTable); }
   async addColumn(storageTable: string, columnName: string, dataType: string, isRequired: boolean, isUnique: boolean, defaultValueText: string | null): Promise<void> { const table = identifier(storageTable); const type = identifier(columnName); const entityType = this.database.get<{ id: string }>('SELECT id FROM entity_types WHERE storage_table=?', [table]); if (!entityType) throw new Error(`Entity type storage '${table}' was not found.`); this.database.run('INSERT INTO entity_type_fields (entity_type_id,field_key,column_name,data_type,is_required,is_unique,default_value) VALUES (?,?,?,?,?,?,?) ON CONFLICT(entity_type_id,field_key) DO UPDATE SET column_name=excluded.column_name,data_type=excluded.data_type,is_required=excluded.is_required,is_unique=excluded.is_unique,default_value=excluded.default_value', [entityType.id, type, type, dataType, isRequired ? 1 : 0, isUnique ? 1 : 0, defaultValueText]); }
   async updateColumnNullability(storageTable: string, columnName: string, isRequired: boolean): Promise<void> { this.update(storageTable, columnName, 'is_required', isRequired ? 1 : 0); }

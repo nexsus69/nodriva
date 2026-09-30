@@ -36,7 +36,7 @@ for (const profile of ['sqlite', 'postgres'] as const) {
         const submitButton = page.getByRole('button', { name: 'Imposta password' });
         await expect(submitButton).toBeEnabled();
         await submitButton.click();
-        await expect(page.getByRole('status')).toHaveText('Il link non è valido, è scaduto o è già stato utilizzato.');
+        await expect(page.getByRole('alert').filter({ hasText: 'Il link non è valido, è scaduto o è già stato utilizzato.' })).toBeVisible();
         await page.goto(`${baseUrl}/account/complete?token=${token}`);
         await page.getByPlaceholder('Nuova password', { exact: true }).fill(password);
         await page.getByPlaceholder('Ripeti la password').fill(password);
@@ -53,13 +53,13 @@ for (const profile of ['sqlite', 'postgres'] as const) {
         }
         await expect(submitButton).toBeEnabled();
         await submitButton.click();
-        await expect(page.getByRole('status')).toHaveText('Si è verificato un errore interno. Riprova più tardi.');
+        await expect(page.getByRole('alert').filter({ hasText: 'Si è verificato un errore interno. Riprova più tardi.' })).toBeVisible();
         await expect(page.getByPlaceholder('Nuova password', { exact: true })).toHaveValue(password);
         await expect(page.getByPlaceholder('Ripeti la password')).toHaveValue(password);
         await dropFault();
         await expect(submitButton).toBeEnabled();
         await submitButton.click();
-        await expect(page.getByRole('status')).toHaveText('Password impostata e sessioni precedenti revocate.');
+        await expect(page.getByRole('main').getByRole('status')).toHaveText('Password impostata e sessioni precedenti revocate.');
         await expect(page.getByRole('link', { name: 'Vai al login' })).toBeVisible();
       } finally {
         await dropFault();

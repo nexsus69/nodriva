@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthApplicationService } from './AuthApplicationService.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { UserRepository } from '../ports/UserRepository.js';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 import { AppError } from '../../domain/errors/AppError.js';
 import { User } from '../../domain/models/User.js';
 import type { LoginRateLimitPort } from '../ports/LoginRateLimitPort.js';
@@ -52,19 +52,19 @@ describe('AuthApplicationService', () => {
       runInTransaction: vi.fn((work) => work()),
       runInAuthorizationMutation: vi.fn((work) => work()),
     };
-    authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, undefined, transactionMock, accessControlMock);
+    authService = new AuthApplicationService(PasswordHasher, sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, undefined, transactionMock, accessControlMock);
   });
 
   describe('login', () => {
     it('should generate a token for valid credentials', async () => {
       const hash = PasswordHasher.hash('correct_password');
-      
+
       vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(
         new User('user-1', 'test@test.com', hash, true, false, 1, new Date(), new Date())
       );
 
       const result = await authService.login('test@test.com', 'correct_password');
-      
+
       expect(result.sessionId).toBe('session-1');
       expect(typeof result.token).toBe('string');
       expect(sessionRepoMock.createSession).toHaveBeenCalledWith('user-1', expect.any(String), expect.any(Date));
@@ -76,7 +76,7 @@ describe('AuthApplicationService', () => {
 
     it('should throw UNAUTHORIZED if user not found', async () => {
       vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(null);
-      
+
       await expect(authService.login('test@test.com', 'pwd')).rejects.toThrow(AppError);
       expect(rateLimitMock.recordFailure).toHaveBeenCalledWith(expect.any(String), expect.any(Date));
     });
@@ -85,7 +85,7 @@ describe('AuthApplicationService', () => {
       vi.mocked(userRepositoryMock.findByEmail).mockResolvedValueOnce(
         new User('user-1', 'test@test.com', 'hash', false, false, 1, new Date(), new Date())
       );
-      
+
       await expect(authService.login('test@test.com', 'pwd')).rejects.toThrow(AppError);
     });
 
@@ -111,7 +111,7 @@ describe('AuthApplicationService', () => {
       const user = new User('user-1', 'test@test.com', 'hash', true, false, 1, new Date(), new Date());
       vi.mocked(userRepositoryMock.findById).mockResolvedValueOnce(user);
       const audit = { record: vi.fn() };
-      authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, audit, transactionMock, accessControlMock);
+      authService = new AuthApplicationService(PasswordHasher, sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, audit, transactionMock, accessControlMock);
 
       await authService.releaseUserLoginRateLimit('admin-1', user.id);
 
@@ -124,7 +124,7 @@ describe('AuthApplicationService', () => {
     it('reads and releases a source address only for a security administrator', async () => {
       vi.mocked(rateLimitMock.getBlockedUntil).mockResolvedValueOnce(new Date('2026-01-01T00:15:00.000Z'));
       const audit = { record: vi.fn() };
-      authService = new AuthApplicationService(sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, audit, transactionMock, accessControlMock);
+      authService = new AuthApplicationService(PasswordHasher, sessionRepoMock, userRepositoryMock, 300, rateLimitMock, undefined, audit, transactionMock, accessControlMock);
 
       await expect(authService.getSourceAddressRateLimitStatus('admin-1', '203.0.113.1')).resolves.toEqual({ blockedUntil: '2026-01-01T00:15:00.000Z' });
       await authService.releaseSourceAddressLoginRateLimit('admin-1', '203.0.113.1');

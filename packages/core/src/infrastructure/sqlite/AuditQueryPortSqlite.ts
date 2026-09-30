@@ -34,7 +34,9 @@ const parsePayload = (value: string | null): Record<string, unknown> | null => {
 };
 
 export class AuditQueryPortSqlite implements AuditQueryPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listFilterCatalog(): Promise<AuditFilterCatalogDto> {
     const actions = this.database.all<{ value: string }>('SELECT DISTINCT action_key AS value FROM audit_logs ORDER BY action_key ASC LIMIT 250');

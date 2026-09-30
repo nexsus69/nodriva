@@ -1,4 +1,6 @@
+/** Owns SQLite connection access, including asynchronous adapter isolation. */
 import { createRequire } from 'node:module';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 interface DatabaseSyncLike {
   exec(sql: string): void;
@@ -22,6 +24,48 @@ export interface SqliteRunResult {
 export class SqliteDatabase {
   private readonly database: DatabaseSyncLike;
   private savepointSequence = 0;
+  private readonly ownership = new AsyncLocalStorage<{ active: boolean }>();
+  private owner: { active: boolean } | undefined;
+  private tail: Promise<void> = Promise.resolve();
+
+  /** Serializes independent operations while preserving nested adapter calls. */
+  async exclusive<T>(work: () => Promise<T>): Promise<T> {
+    const context = this.ownership.getStore();
+    if (context?.active && context === this.owner) return work();
+    let release!: () => void;
+    const previous = this.tail;
+    this.tail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    const owner = { active: true };
+    this.owner = owner;
+    try {
+      return await this.ownership.run(owner, work);
+    } finally {
+      owner.active = false;
+      this.owner = undefined;
+      release();
+    }
+  }
+
+  /** Native async port implementations share this connection's gate; sync helpers stay synchronous. */
+  protectAsyncMethods(adapter: object): void {
+    const prototype = Object.getPrototypeOf(adapter) as object;
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+      const method: unknown = Reflect.get(prototype, name);
+      if (typeof method !== 'function' || method.constructor.name !== 'AsyncFunction') continue;
+      Object.defineProperty(adapter, name, {
+        configurable: true,
+        value: (...args: unknown[]) => this.exclusive(() => Reflect.apply(method, adapter, args) as Promise<unknown>),
+      });
+    }
+  }
+
+  private assertOwnership(): void {
+    const context = this.ownership.getStore();
+    if ((this.owner && context !== this.owner) || (context && !context.active)) {
+      throw new Error('SQLite connection access requires its active asynchronous owner.');
+    }
+  }
 
   constructor(location: string = ':memory:') {
     this.database = new DatabaseSync(location);
@@ -32,10 +76,12 @@ export class SqliteDatabase {
   }
 
   exec(sql: string): void {
+    this.assertOwnership();
     this.database.exec(sql);
   }
 
   run(sql: string, parameters: readonly unknown[] = []): SqliteRunResult {
+    this.assertOwnership();
     const result = this.database.prepare(sql).run(...parameters);
     return {
       changes: Number(result.changes),
@@ -45,6 +91,7 @@ export class SqliteDatabase {
 
   /** Executes synchronous work atomically, including when the caller already has a transaction open. */
   transaction<T>(work: () => T): T {
+    this.assertOwnership();
     const savepoint = `sqlite_adapter_${this.savepointSequence += 1}`;
     this.database.exec(`SAVEPOINT ${savepoint}`);
     try {
@@ -62,6 +109,7 @@ export class SqliteDatabase {
     sql: string,
     parameters: readonly unknown[] = [],
   ): T | undefined {
+    this.assertOwnership();
     const row = this.database.prepare(sql).get(...parameters) as T | undefined;
     return row ? { ...row } : undefined;
   }
@@ -70,6 +118,7 @@ export class SqliteDatabase {
     sql: string,
     parameters: readonly unknown[] = [],
   ): T[] {
+    this.assertOwnership();
     const rows = this.database.prepare(sql).all(...parameters) as T[];
     return rows.map((row) => ({ ...row }));
   }
@@ -84,6 +133,7 @@ export class SqliteDatabase {
   }
 
   close(): void {
+    this.assertOwnership();
     this.database.close();
   }
 }

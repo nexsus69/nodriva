@@ -1,9 +1,12 @@
+/** Implements RealtimeOutboxSqlite within its adapter or regression boundary. */
 import type { RealtimeDataChangedEvent } from '../../application/ports/RealtimeEventBus.js';
 import type { RealtimeOutboxOperationalStats, RealtimeOutboxPort } from '../../application/ports/RealtimeOutboxPort.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class RealtimeOutboxSqlite implements RealtimeOutboxPort {
-  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {}
+  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {
+    this.database.protectAsyncMethods(this);
+  }
   async enqueue(event: RealtimeDataChangedEvent): Promise<void> { this.database.run('INSERT OR IGNORE INTO realtime_event_outbox (event_id,event_payload) VALUES (?,?)', [event.eventId, JSON.stringify(event)]); }
   async claimPending(workerId: string, limit: number): Promise<RealtimeDataChangedEvent[]> { const now = this.now().toISOString(); const rows = this.database.all<{ event_payload: string }>('SELECT event_payload FROM realtime_event_outbox WHERE published_at IS NULL AND (next_attempt_at IS NULL OR next_attempt_at<=?) AND (locked_at IS NULL OR locked_at<?) ORDER BY created_at LIMIT ?', [now, new Date(this.now().getTime() - 5 * 60_000).toISOString(), limit]); const events = rows.map((row) => JSON.parse(row.event_payload) as RealtimeDataChangedEvent); for (const event of events) this.database.run('UPDATE realtime_event_outbox SET locked_at=?,locked_by=? WHERE event_id=? AND published_at IS NULL', [now, workerId, event.eventId]); return events; }
   async markPublished(eventId: string, workerId: string): Promise<void> { this.database.run('UPDATE realtime_event_outbox SET published_at=?,locked_at=NULL,locked_by=NULL,last_error=NULL WHERE event_id=? AND locked_by=?', [this.now().toISOString(), eventId, workerId]); }

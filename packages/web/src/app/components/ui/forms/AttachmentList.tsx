@@ -13,10 +13,12 @@ export interface AttachmentListProps {
   kind: 'file' | 'image';
   tone?: 'dark' | 'light';
   canDelete?: boolean;
+  expectedRowVersion?: number;
+  onVersionChanged?: (version: number) => void;
 }
 
-export function AttachmentList({ resourceType, resourceId, fieldKey, kind, tone = 'dark', canDelete = false }: AttachmentListProps) {
-  const collection = useAttachmentCollection({ resourceType, resourceId, fieldKey, kind });
+export function AttachmentList({ resourceType, resourceId, fieldKey, kind, tone = 'dark', canDelete = false, expectedRowVersion, onVersionChanged }: AttachmentListProps) {
+  const collection = useAttachmentCollection({ resourceType, resourceId, fieldKey, kind, expectedRowVersion, onVersionChanged });
   const { t } = useAppLocale();
 
   if (!collection.hasLoaded) return <SkeletonState label={t('attachments.loading')} className="space-y-2">{[0, 1].map((row) => <div key={row} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${tone === 'light' ? 'border-slate-200' : 'border-slate-800'}`}><Skeleton className="h-3 w-2/5" /><Skeleton className="h-3 w-14" /></div>)}</SkeletonState>;

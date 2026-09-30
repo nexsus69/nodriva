@@ -7,14 +7,14 @@ import type { UserRepository } from '../ports/UserRepository.js';
 import type { CreateScopedUserCommand} from '../commands/ScopedUserCommands.js';
 import { CreateScopedUserCommandSchema } from '../commands/ScopedUserCommands.js';
 import { User } from '../../domain/models/User.js';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import type { PasswordHasherPort } from '../ports/PasswordHasherPort.js';
 import { UserEmailAlreadyExistsError, UserAdminValidationError } from '../../domain/errors/UserAdminErrors.js';
 import { RoleNotFoundError } from '../../domain/errors/SecurityAdminErrors.js';
 import { withRequiredBaselineRole } from './UserRoleAssignmentPolicy.js';
 
 /** Creates an identity and its first local grants atomically. */
 export class ScopedUserProvisioningService {
-  constructor(
+  constructor(private readonly passwords: PasswordHasherPort,
     private readonly users: UserRepository,
     private readonly security: SecurityRepository,
     private readonly audit: AuditPort,
@@ -41,7 +41,7 @@ export class ScopedUserProvisioningService {
         );
       }
       if (await this.users.findByEmail(value.email)) throw new UserEmailAlreadyExistsError(value.email);
-      const user = User.create(this.ids.generate(), value.email, PasswordHasher.hash(value.password));
+      const user = User.create(this.ids.generate(), value.email, this.passwords.hash(value.password));
       // Default reader is inert without a scope; local access is supplied only
       // by the assignments below.
       await this.users.createUser(user, await withRequiredBaselineRole(this.users, []));

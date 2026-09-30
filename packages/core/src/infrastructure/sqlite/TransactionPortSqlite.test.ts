@@ -1,8 +1,54 @@
+/** Verifies connection isolation, rollback and post-commit reentrancy. */
 import { describe, expect, it, vi } from 'vitest';
 import { SqliteDatabase } from './SqliteDatabase.js';
 import { TransactionPortSqlite } from './TransactionPortSqlite.js';
 
 describe('TransactionPortSqlite', () => {
+  it('queues independent adapter reads and writes until rollback and rejects raw interleaving', async () => {
+    const database = new SqliteDatabase();
+    database.exec('CREATE TABLE records (value TEXT)');
+    const transactions = new TransactionPortSqlite(database);
+    class Repository {
+      constructor() { database.protectAsyncMethods(this); }
+      async read() { return database.all('SELECT value FROM records'); }
+      async write() { database.run("INSERT INTO records VALUES ('independent')"); }
+    }
+    const repository = new Repository();
+    let entered!: () => void;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { entered = resolve; });
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const pending = transactions.runInTransaction(async () => {
+      database.run("INSERT INTO records VALUES ('uncommitted')");
+      entered();
+      await gate;
+      throw new Error('rollback');
+    });
+    const rejected = expect(pending).rejects.toThrow('rollback');
+    await ready;
+    expect(() => database.all('SELECT * FROM records')).toThrow('active asynchronous owner');
+    const read = repository.read();
+    const write = repository.write();
+    release();
+    await rejected;
+    expect(await read).toEqual([]);
+    await write;
+    expect(await repository.read()).toEqual([{ value: 'independent' }]);
+    database.close();
+  });
+
+  it('releases the connection before an after-commit effect opens another transaction', async () => {
+    const database = new SqliteDatabase();
+    const transactions = new TransactionPortSqlite(database);
+    database.exec('CREATE TABLE records (value TEXT)');
+    await transactions.runInTransaction(async () => {
+      transactions.afterCommit(() => transactions.runInTransaction(async () => {
+        database.run("INSERT INTO records VALUES ('effect')");
+      }));
+    });
+    expect(database.all('SELECT * FROM records')).toEqual([{ value: 'effect' }]);
+    database.close();
+  });
   it('commits nested work and runs afterCommit once', async () => {
     const database = new SqliteDatabase();
     database.exec('CREATE TABLE records (id INTEGER PRIMARY KEY, value TEXT NOT NULL)');

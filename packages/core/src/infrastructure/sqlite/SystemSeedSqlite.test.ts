@@ -5,8 +5,23 @@ import { SqliteDatabase } from './SqliteDatabase.js';
 import { ensureSqliteSchema } from './SqliteSchema.js';
 import { SystemSeedSqlite } from './SystemSeedSqlite.js';
 import { RuntimeConfigurationPortSqlite } from './RuntimeConfigurationPortSqlite.js';
+import { SqliteInfrastructure } from './SqliteInfrastructure.js';
 
 describe('SystemSeedSqlite', () => {
+  it('does not attempt implicit bootstrap with incomplete deployment credentials', () => {
+    const password = process.env.SEED_ADMIN_PASSWORD;
+    const email = process.env.SEED_ADMIN_EMAIL;
+    process.env.SEED_ADMIN_PASSWORD = 'Test-password-2026!';
+    delete process.env.SEED_ADMIN_EMAIL;
+    try {
+      const infrastructure = new SqliteInfrastructure();
+      expect(infrastructure.database.get('SELECT 1 FROM users')).toBeUndefined();
+      infrastructure.close();
+    } finally {
+      if (password === undefined) delete process.env.SEED_ADMIN_PASSWORD; else process.env.SEED_ADMIN_PASSWORD = password;
+      if (email === undefined) delete process.env.SEED_ADMIN_EMAIL; else process.env.SEED_ADMIN_EMAIL = email;
+    }
+  });
   it('requires an explicit administrator email', async () => {
     const database = new SqliteDatabase();
     ensureSqliteSchema(database);

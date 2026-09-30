@@ -10,7 +10,9 @@ interface NodeRow { id: string; parent_id: string | null; path: string; path_lab
 
 /** SQLite node repository. Hierarchy queries use parent_id and recursive CTEs, not ltree. */
 export class NodeRepositorySqlite implements NodeRepository {
-  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {}
+  constructor(private readonly database: SqliteDatabase, private readonly accessControl?: AccessControlPortSqlite, private readonly fieldEncryption?: FieldEncryptionServiceSqlite) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listActiveReferenceLabels(ids: readonly string[]): Promise<{ id: string; type: string; name: string; parentNodeId: string | null }[]> {
     if (ids.length === 0) return [];

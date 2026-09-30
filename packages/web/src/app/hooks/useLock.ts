@@ -137,7 +137,8 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   /** Releases an owned lock through the same Server Action boundary used for acquisition. */
   const releaseLock = useCallback(async (): Promise<void> => {
     cancelScheduledLockRelease({ resourceType, resourceId });
-    if (!ownsLockRef.current) return;
+    // Explicit release is a server command, not a cache decision. A delayed
+    // read-model/realtime snapshot may temporarily hide our persisted lock.
     await new Promise<void>((resolve) => {
       startLockTransition(() => {
         void mutation.execute(async () => {

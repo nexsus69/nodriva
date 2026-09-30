@@ -41,7 +41,9 @@ export class EntitySubtreeQueryPortSqlite implements EntitySubtreeQueryPort {
     private readonly database: SqliteDatabase,
     private readonly accessControl?: AccessControlPort,
     private readonly fieldEncryption?: FieldEncryptionServiceSqlite,
-  ) {}
+  ) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async findSubtreeEntitiesPaginated(params: EntitySubtreeQueryParams): Promise<EntitySubtreePaginatedResult> {
     const base = this.database.get<PathRow>('SELECT path FROM nodes WHERE id=? AND deleted_at IS NULL', [params.baseNodeId]);

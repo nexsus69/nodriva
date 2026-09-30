@@ -28,6 +28,8 @@ export function useCreateChildNode(parentNodeId: string) {
   const mutation = useUserMutation();
   const [attachments, setAttachments] = useState<Record<string, readonly File[]>>({});
   const createdId = useRef<string | null>(null);
+  const attachmentVersion = useRef(1);
+  const uploadedFiles = useRef(new Set<File>());
   const [initialPayload, setInitialPayload] = useState<Record<string, unknown>>({});
   const [hasCreatedResource, setHasCreatedResource] = useState(false);
   const submitting = useRef(false);
@@ -68,7 +70,7 @@ export function useCreateChildNode(parentNodeId: string) {
         const resourceId = createdId.current ?? (await AppCache.createNode({ parentNodeId, nodeTypeKey: selectedTypeKey, name, description, payload: coerceDynamicPayload(fields, payload) })).id;
         createdId.current = resourceId;
         setHasCreatedResource(true);
-        await uploadDynamicAttachments('node', resourceId, fields, attachments);
+        await uploadDynamicAttachments('node', resourceId, fields, attachments, { expectedRowVersion: attachmentVersion.current, acquireLock: true, completedFiles: uploadedFiles.current, onUploaded: (version) => { attachmentVersion.current = version; } });
         navigationGuard.allowNavigation();
         router.push(returnTo);
       }, undefined, { successKey: 'mutation.nodeCreated' });

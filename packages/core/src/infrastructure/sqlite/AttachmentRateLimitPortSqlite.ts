@@ -1,8 +1,11 @@
+/** Implements AttachmentRateLimitPortSqlite within its adapter or regression boundary. */
 import type { AttachmentRateLimitPort } from '../../application/ports/AttachmentRateLimitPort.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AttachmentRateLimitPortSqlite implements AttachmentRateLimitPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async consume(actorId: string, limit: number, now = new Date()): Promise<boolean> {
     const windowStart = new Date(now.getTime() - 60 * 60 * 1000).toISOString();

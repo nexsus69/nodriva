@@ -24,6 +24,8 @@ export interface AttachmentCollectionTarget {
   resourceId: string;
   fieldKey: string;
   kind: 'file' | 'image';
+  expectedRowVersion?: number;
+  onVersionChanged?: (version: number) => void;
 }
 
 function errorMessage(error: unknown, fallback: string): string {
@@ -82,11 +84,13 @@ export function useAttachmentCollection(target: AttachmentCollectionTarget) {
       requestVersion.current += 1;
       AppCache.setAttachmentCollection(cacheTarget, beginAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
       try {
-        await deleteResourceAttachment({
+        const version = await deleteResourceAttachment({
           id: attachment.id,
           resourceType: target.resourceType,
           resourceId: target.resourceId,
+          expectedRowVersion: target.expectedRowVersion ?? 0,
         });
+        target.onVersionChanged?.(version);
         AppCache.setAttachmentCollection(cacheTarget, completeAttachmentDeletion(AppCache.getAttachmentCollection(cacheTarget), attachment.id));
       } catch (error) {
         AppCache.setAttachmentCollection(
@@ -96,7 +100,7 @@ export function useAttachmentCollection(target: AttachmentCollectionTarget) {
         throw error;
       }
     });
-  }, [cacheTarget, mutation, target.resourceId, target.resourceType]);
+  }, [cacheTarget, mutation, target.resourceId, target.resourceType, target.expectedRowVersion, target.onVersionChanged]);
 
   return { ...state, refresh, remove, mutationFailure: mutation.failure, retryMutation: () => void mutation.retry() };
 }

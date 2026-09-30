@@ -141,7 +141,13 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
         // The local mutation response is authoritative. Advance the editing
         // snapshot before the asynchronous lock release can trigger a render.
         setEditLifecycle(acceptConcurrentEditVersion(updatedEntity.rowVersion));
-        await uploadDynamicAttachments('entity', entityId, fields, attachments);
+        await uploadDynamicAttachments('entity', entityId, fields, attachments, {
+          expectedRowVersion: updatedEntity.rowVersion,
+          onUploaded: (version, fieldKey, file) => {
+            setEditLifecycle(acceptConcurrentEditVersion(version));
+            setAttachments((current) => ({ ...current, [fieldKey]: (current[fieldKey] ?? []).filter((candidate) => candidate !== file) }));
+          },
+        });
         setAttachments({});
         await lock.releaseLock();
         publishMutationSuccess('mutation.updated');
@@ -194,5 +200,5 @@ export function useEntityDetailController(entityId: string, parentNodeId: string
     confirmDelete();
   };
 
-  return { ...detail, siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage: formStale ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.' : errorMessage, deleteRestriction, attachments, setAttachments, formStale, reloadFresh, lock, enumOption, related, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
+  return { ...detail, attachmentVersion: reconciledEditLifecycle.baselineRowVersion ?? detail.entity?.rowVersion, acceptAttachmentVersion: (version: number) => setEditLifecycle(acceptConcurrentEditVersion(version)), siblingEntities, entityTypesList, entityType, isPending, name, setName, description, setDescription, fields, payload, setPayload, errorMessage: formStale ? 'I dati sono cambiati in un’altra sessione. Ricaricali prima di salvare.' : errorMessage, deleteRestriction, attachments, setAttachments, formStale, reloadFresh, lock, enumOption, related, beginEditing, cancelEditing, save, confirmDelete, requestDelete };
 }

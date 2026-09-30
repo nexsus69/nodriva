@@ -1,4 +1,5 @@
-import crypto from 'crypto';
+/** Implements the password hashing port with Node scrypt and timing-safe comparison. */
+import crypto from 'node:crypto';
 
 export class PasswordHasher {
   private static readonly KEY_LENGTH = 64;

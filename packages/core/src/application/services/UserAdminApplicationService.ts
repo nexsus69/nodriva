@@ -22,14 +22,14 @@ import {
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import { ForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { z } from 'zod';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import type { PasswordHasherPort } from '../ports/PasswordHasherPort.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { SecurityRepository } from '../ports/SecurityRepository.js';
 import type { MfaTotpPort } from '../ports/MfaTotpPort.js';
 import { withRequiredBaselineRole } from './UserRoleAssignmentPolicy.js';
 
 export class UserAdminApplicationService {
-  constructor(
+  constructor(private readonly passwords: PasswordHasherPort,
     private readonly userRepository: UserRepository,
     private readonly auditPort: AuditPort,
     private readonly transactionPort: TransactionPort,
@@ -89,7 +89,7 @@ export class UserAdminApplicationService {
       const user = User.create(
         userId,
         v.email,
-        PasswordHasher.hash(v.password),
+        this.passwords.hash(v.password),
         v.isSuperAdmin ?? false
       );
 
@@ -293,7 +293,7 @@ export class UserAdminApplicationService {
         throw new RowVersionMismatchError(v.expectedRowVersion, user.rowVersion);
       }
 
-      const updated = user.changePassword(PasswordHasher.hash(v.newPassword));
+      const updated = user.changePassword(this.passwords.hash(v.newPassword));
       await this.userRepository.updateUser(updated);
       await this.sessionRepository.deleteSessionsForUser(user.id);
       await this.mfa?.deleteForUser(user.id);

@@ -6,7 +6,7 @@ import type { AuditPort } from '../ports/AuditPort.js';
 import type { SessionRepositoryPort } from '../ports/SessionRepositoryPort.js';
 import type { TransactionPort } from '../ports/TransactionPort.js';
 import type { UserRepository } from '../ports/UserRepository.js';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import type { PasswordHasherPort } from '../ports/PasswordHasherPort.js';
 import { UnauthorizedError } from '../../domain/errors/ApplicationErrors.js';
 import { User } from '../../domain/models/User.js';
 import { UserPasswordSchema } from '../commands/UserAdminCommands.js';
@@ -18,7 +18,7 @@ import type { AccountActionTokenCipherPort } from '../ports/AccountActionTokenCi
 import type { AccountActionDeliveryDrainer } from './AccountActionDeliveryDrainer.js';
 
 export class AccountRecoveryApplicationService {
-  constructor(private readonly tokens: AccountActionTokenPort, private readonly users: UserRepository,
+  constructor(private readonly passwords: PasswordHasherPort, private readonly tokens: AccountActionTokenPort, private readonly users: UserRepository,
     private readonly sessions: SessionRepositoryPort, private readonly audit: AuditPort,
     private readonly transactions: TransactionPort, private readonly access: AccessControlPort,
     private readonly mfa?: MfaTotpPort, private readonly delivery?: AccountActionDeliveryPort,
@@ -59,7 +59,7 @@ export class AccountRecoveryApplicationService {
       if (!action) throw new UnauthorizedError('Invalid or expired account action');
       const user = await this.users.findById(action.userId);
       if (!user) throw new UnauthorizedError('Invalid or expired account action');
-      const updated = new User(user.id, user.email, PasswordHasher.hash(parsedPassword.data), true, user.isSuperAdmin,
+      const updated = new User(user.id, user.email, this.passwords.hash(parsedPassword.data), true, user.isSuperAdmin,
         user.rowVersion + 1, user.createdAt, new Date(), user.deletedAt);
       await this.users.updateUser(updated);
       await this.sessions.deleteSessionsForUser(user.id);

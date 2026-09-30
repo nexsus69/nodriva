@@ -5,7 +5,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 interface MfaRow { user_id: string; secret_ciphertext: string; enabled_at: string | null; recovery_code_hashes: string; pending_secret_ciphertext: string | null; pending_expires_at: string | null }
 
 export class MfaTotpPortSqlite implements MfaTotpPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
   async findByUserId(userId: string): Promise<MfaTotpRecord | null> { const row = this.database.get<MfaRow>('SELECT * FROM user_mfa_totp WHERE user_id=?', [userId]); return row ? { userId: row.user_id, secretCiphertext: row.secret_ciphertext, enabledAt: row.enabled_at ? new Date(row.enabled_at) : null, recoveryCodeHashes: JSON.parse(row.recovery_code_hashes) as string[], pendingSecretCiphertext: row.pending_secret_ciphertext, pendingExpiresAt: row.pending_expires_at ? new Date(row.pending_expires_at) : null } : null; }
   async savePending(userId: string, secretCiphertext: string, expiresAt: Date): Promise<void> { this.database.run('INSERT INTO user_mfa_totp (user_id,secret_ciphertext,enabled_at,recovery_code_hashes,pending_secret_ciphertext,pending_expires_at,updated_at) VALUES (?,?,NULL,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET pending_secret_ciphertext=excluded.pending_secret_ciphertext,pending_expires_at=excluded.pending_expires_at,updated_at=excluded.updated_at', [userId, secretCiphertext, '[]', secretCiphertext, expiresAt.toISOString(), new Date().toISOString()]); }
   async promotePending(userId: string, recoveryCodeHashes: string[], enabledAt: Date): Promise<boolean> { return this.database.run('UPDATE user_mfa_totp SET secret_ciphertext=pending_secret_ciphertext,enabled_at=?,recovery_code_hashes=?,pending_secret_ciphertext=NULL,pending_expires_at=NULL,updated_at=? WHERE user_id=? AND pending_secret_ciphertext IS NOT NULL AND pending_expires_at>?', [enabledAt.toISOString(), JSON.stringify(recoveryCodeHashes), enabledAt.toISOString(), userId, enabledAt.toISOString()]).changes === 1; }

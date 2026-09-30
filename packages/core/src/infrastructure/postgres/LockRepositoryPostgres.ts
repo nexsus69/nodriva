@@ -1,7 +1,9 @@
+/** Implements LockRepositoryPostgres within its adapter or regression boundary. */
 import type { LockRepository } from '../../application/ports/LockRepository.js';
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockNotFoundError, LockForbiddenError } from '../../domain/errors/ApplicationErrors.js';
 import type { PgExecutor } from './PgExecutor.js';
+import { PgTransactionContext } from './PgTransactionContext.js';
 import type { ResourceKind, ResourceReference } from '../../domain/models/ResourceReference.js';
 
 interface LockRow {
@@ -21,8 +23,8 @@ export class LockRepositoryPostgres implements LockRepository {
     const query = `
       INSERT INTO locks (id, resource_type, resource_id, user_id, session_id, acquired_at, expires_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (resource_type, resource_id) 
-      DO UPDATE SET 
+      ON CONFLICT (resource_type, resource_id)
+      DO UPDATE SET
         id = EXCLUDED.id,
         user_id = EXCLUDED.user_id,
         session_id = EXCLUDED.session_id,
@@ -55,13 +57,13 @@ export class LockRepositoryPostgres implements LockRepository {
       WHERE resource_type = $2 AND resource_id = $3 AND user_id = $4 AND session_id = $5 AND expires_at >= now()
       RETURNING id
     `;
-    
+
     const result = await this.executor.query(query, [newExpiresAt, resource.resourceType, resource.resourceId, userId, sessionId]);
     if (result.rowCount === 0) {
       // Se non aggiorna, controlliamo il motivo per lanciare l'errore specifico
       const checkQuery = `SELECT user_id, session_id, expires_at FROM locks WHERE resource_type = $1 AND resource_id = $2`;
       const checkRes = await this.executor.query<{user_id: string; session_id: string; expires_at: Date}>(checkQuery, [resource.resourceType, resource.resourceId]);
-      
+
       const row = checkRes.rows[0];
       if (!checkRes.rowCount || !row || row.expires_at < new Date()) {
         throw new LockNotFoundError(resource.resourceType, resource.resourceId);
@@ -77,13 +79,13 @@ export class LockRepositoryPostgres implements LockRepository {
       WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3 AND session_id = $4
       RETURNING id
     `;
-    
+
     const result = await this.executor.query(query, [resource.resourceType, resource.resourceId, userId, sessionId]);
     if (result.rowCount === 0) {
       // Controlliamo perché non ha cancellato
       const checkQuery = `SELECT user_id, session_id FROM locks WHERE resource_type = $1 AND resource_id = $2`;
       const checkRes = await this.executor.query<{user_id: string; session_id: string}>(checkQuery, [resource.resourceType, resource.resourceId]);
-      
+
       const row = checkRes.rows[0];
       if ((checkRes.rowCount ?? 0) > 0 && row && (row.user_id !== userId || row.session_id !== sessionId)) {
         throw new LockForbiddenError(resource.resourceType, resource.resourceId);
@@ -115,11 +117,12 @@ export class LockRepositoryPostgres implements LockRepository {
       SELECT id, resource_type, resource_id, user_id, session_id, acquired_at, expires_at
       FROM locks
       WHERE resource_type = $1 AND resource_id = $2
+      ${PgTransactionContext.getClient() ? 'FOR UPDATE' : ''}
     `;
     const result = await this.executor.query<LockRow>(query, [resource.resourceType, resource.resourceId]);
-    
+
     if (!result.rowCount || result.rows.length === 0) return null;
-    
+
     return this.toLock(result.rows[0]!);
   }
 

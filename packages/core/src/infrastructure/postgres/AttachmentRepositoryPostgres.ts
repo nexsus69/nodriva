@@ -1,8 +1,14 @@
+/** Persists attachments and serializes quota checks before taking their read snapshot. */
 import type { AttachmentRecord, AttachmentRepository } from '../../application/ports/AttachmentRepository.js';
 import type { PgExecutor } from './PgExecutor.js';
 
 export class AttachmentRepositoryPostgres implements AttachmentRepository {
   constructor(private readonly executor: PgExecutor) {}
+
+  async lockMutationPolicy(): Promise<void> {
+    // Shared table locks protect absent overrides too; policy writes wait for commit.
+    await this.executor.query('LOCK TABLE system_settings, runtime_capabilities, runtime_capability_overrides, service_configurations, node_type_attachment_policies, node_types, entity_types, node_type_fields, entity_type_fields IN SHARE MODE');
+  }
 
   async list(resourceType: AttachmentRecord['resourceType'], resourceId: string, fieldKey?: string): Promise<AttachmentRecord[]> {
     const result = await this.executor.query<AttachmentRecord>(
@@ -27,20 +33,21 @@ export class AttachmentRepositoryPostgres implements AttachmentRepository {
   }
 
   async createWithinQuota(record: AttachmentRecord, maximumResourceBytes: number): Promise<boolean> {
-    const result = await this.executor.query<{ id: string }>(
-      `WITH resource_lock AS MATERIALIZED (
-         SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || $2::text, 0))
-       ), quota AS (
-         SELECT COALESCE(SUM(size_bytes),0) AS used_bytes FROM resource_attachments, resource_lock
-         WHERE resource_type=$1 AND resource_id=$2::uuid
-       )
-       INSERT INTO resource_attachments (id,resource_type,resource_id,field_key,kind,file_name,mime_type,size_bytes,storage_key,checksum,created_by)
-       SELECT $3,$1,$2::uuid,$4,$5,$6,$7,$8::bigint,$9,$10,$11 FROM quota
-       WHERE quota.used_bytes + $8::bigint <= $12::bigint
-       RETURNING id`,
-      [record.resourceType, record.resourceId, record.id, record.fieldKey, record.kind, record.fileName, record.mimeType, record.sizeBytes, record.storageKey, record.checksum, record.createdBy, maximumResourceBytes],
-    );
-    return result.rows.length === 1;
+    return this.executor.runInTransaction(async () => {
+      await this.executor.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${record.resourceType}:${record.resourceId}`]);
+      const result = await this.executor.query<{ id: string }>(
+        `WITH quota AS (
+           SELECT COALESCE(SUM(size_bytes),0) AS used_bytes FROM resource_attachments
+           WHERE resource_type=$1 AND resource_id=$2::uuid
+         )
+         INSERT INTO resource_attachments (id,resource_type,resource_id,field_key,kind,file_name,mime_type,size_bytes,storage_key,checksum,created_by)
+         SELECT $3,$1,$2::uuid,$4,$5,$6,$7,$8::bigint,$9,$10,$11 FROM quota
+         WHERE quota.used_bytes + $8::bigint <= $12::bigint
+         RETURNING id`,
+        [record.resourceType, record.resourceId, record.id, record.fieldKey, record.kind, record.fileName, record.mimeType, record.sizeBytes, record.storageKey, record.checksum, record.createdBy, maximumResourceBytes],
+      );
+      return result.rows.length === 1;
+    });
   }
 
   async delete(id: string): Promise<void> { await this.executor.query('DELETE FROM resource_attachments WHERE id=$1', [id]); }

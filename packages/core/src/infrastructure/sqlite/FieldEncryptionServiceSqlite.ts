@@ -1,3 +1,4 @@
+/** Implements FieldEncryptionServiceSqlite within its adapter or regression boundary. */
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { ConfigService } from '../../application/services/ConfigService.js';
 import { EncryptionKeyring } from '../crypto/EncryptionKeyring.js';
@@ -31,7 +32,7 @@ export class FieldEncryptionServiceSqlite {
     keyHex?: string,
     keyringSpec?: string,
     activeVersion = 'v1',
-  ) {
+  ) { this.database.protectAsyncMethods(this);
     this.keyring = new EncryptionKeyring(keyHex, keyringSpec, activeVersion, 'FIELD_ENCRYPTION_KEY');
   }
 

@@ -6,7 +6,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 import { hasSqlitePermissionCoverage } from './SqlitePermissionCoverage.js';
 
 export class AccessControlPortSqlite implements AccessControlPort {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   /**
    * Canonical scoped-read predicate for SQLite query ports. The access policy

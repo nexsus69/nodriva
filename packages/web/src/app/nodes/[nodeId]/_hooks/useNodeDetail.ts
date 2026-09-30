@@ -8,7 +8,7 @@ import { useSemanticMetadata } from '../../../hooks/useSemanticMetadata';
 import { useCacheNode } from '../../../hooks/useCacheNode';
 import { useLock } from '../../../hooks/useLock';
 import { AppCache, isRowVersionMismatch } from '../../../cache/GlobalCacheClient';
-import { uploadResourceAttachment } from '../../../attachments/attachmentClient';
+import { uploadDynamicAttachments } from '../../../components/ui/forms/dynamicResourceForm';
 import { checkNodeReadAccessAction } from '../../../actions/nodeActions';
 import { useUnsavedChanges } from '../../../navigation/NavigationBlocker';
 import { areFormValuesEqual, hasSelectedFiles } from '../../../navigation/unsavedChanges';
@@ -166,11 +166,13 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
         // The local mutation response is authoritative. Advance the editing
         // snapshot before the asynchronous lock release can trigger a render.
         setEditLifecycle(acceptConcurrentEditVersion(updatedNode.rowVersion));
-        for (const field of dynamicNodeFields.filter((candidate) => ['file', 'image'].includes(candidate.dataType.toLowerCase()))) {
-          for (const file of attachmentsByField[field.fieldKey] ?? []) {
-            await uploadResourceAttachment({ resourceType: 'node', resourceId: nodeId, fieldKey: field.fieldKey, kind: field.dataType.toLowerCase() as 'file' | 'image', file });
-          }
-        }
+        await uploadDynamicAttachments('node', nodeId, dynamicNodeFields, attachmentsByField, {
+          expectedRowVersion: updatedNode.rowVersion,
+          onUploaded: (version, fieldKey, file) => {
+            setEditLifecycle(acceptConcurrentEditVersion(version));
+            setAttachmentsByField((current) => ({ ...current, [fieldKey]: (current[fieldKey] ?? []).filter((candidate) => candidate !== file) }));
+          },
+        });
         setAttachmentsByField({});
         await lock.releaseLock();
         publishMutationSuccess('mutation.updated');
@@ -231,6 +233,8 @@ export function useNodeDetail(nodeId: string, navigation?: NodeDetailNavigation)
     || nodeError?.message.includes('does not have permission');
 
   return {
+    attachmentVersion: reconciledEditLifecycle.baselineRowVersion ?? currentNode?.rowVersion,
+    acceptAttachmentVersion: (version: number) => setEditLifecycle(acceptConcurrentEditVersion(version)),
     nodeAccess, retryNodeAccess, nodeAccessDenied, currentNode, childNodes, nodeEntities, entityTypes, nodeTypes, entityDefinitions,
     isChildrenLoading, isEntitiesLoading, isNodeLoading: isLoadingNode || !currentNode, displayedError, deleteRestriction,
     dynamicNodeFields, dynamicNodePayload, attachmentsByField, nodeName, nodeDescription, isSavingNode, formStale, reloadFresh,

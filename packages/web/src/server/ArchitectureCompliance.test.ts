@@ -31,13 +31,20 @@ import * as nodeActions from '../app/actions/nodeActions';
 import * as entityActions from '../app/actions/entityActions';
 
 describe('Architecture Compliance - Phase 1', () => {
+  it('keeps canonical attachments and the existing browser regressions in the CI parity command', () => {
+    const root = path.resolve(__dirname, '../../../..');
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    for (const spec of ['canonical-vertical-parity', 'admin-node-tree-select', 'dynamic-entity-schema', 'unsaved-changes']) {
+      expect(manifest.scripts['e2e:parity']).toContain(`e2e/${spec}.spec.ts`);
+    }
+  });
   let gc: CacheGarbageCollectorService;
 
   beforeEach(() => {
     // Reset singleton state
     GlobalViewStore['views'].clear();
     GlobalPolicyRegistry['leases'] = [];
-    
+
     // We create a fresh GC instance for testing to avoid timer side effects
     gc = new CacheGarbageCollectorService();
     vi.useFakeTimers();
@@ -54,13 +61,13 @@ describe('Architecture Compliance - Phase 1', () => {
   describe('Garbage Collector Lifecycle', () => {
     it('should start and run sweep on interval', () => {
       const sweepSpy = vi.spyOn(gc, 'sweep');
-      
+
       gc.start(30000, 5000);
       expect(sweepSpy).not.toHaveBeenCalled();
-      
+
       vi.advanceTimersByTime(30000);
       expect(sweepSpy).toHaveBeenCalledTimes(1);
-      
+
       vi.advanceTimersByTime(30000);
       expect(sweepSpy).toHaveBeenCalledTimes(2);
     });
@@ -85,7 +92,7 @@ describe('Architecture Compliance - Phase 1', () => {
       GlobalPolicyRegistry['leases'][0].releasedAt = Date.now() - 10000;
 
       const result = gc.sweep(5000);
-      
+
       expect(result.evictedKeys).toContain(viewKey);
       expect(GlobalViewStore.get(viewKey)).toBeNull();
     });
@@ -123,7 +130,7 @@ describe('Architecture Compliance - Phase 1', () => {
     it('should allow deletion of view from ViewStore upon entity delete intent', () => {
       const parentNodeId = 'node_1';
       const listKey = ViewKeyBuilder.build({ viewType: 'SUBTREE_LIST', baseNodeId: parentNodeId });
-      
+
       GlobalViewStore.set(listKey, {
         viewKey: listKey,
         status: 'success',
@@ -150,7 +157,7 @@ describe('Architecture Compliance - Phase 1', () => {
 
       const input: CreateNodeInput = { parentNodeId: 'root', nodeTypeKey: 'test', name: 'Test Node' };
       const result = await AppCache.createNode(input);
-      
+
       expect(result.id).toBe('node_new');
       expect(AppCache.nodes.get('node_new')).toEqual({ id: 'node_new', name: 'Test Node', parentId: 'root' });
     });
@@ -160,7 +167,7 @@ describe('Architecture Compliance - Phase 1', () => {
 
       const input: UpdateNodeInput = { nodeId: 'node_1', name: 'Updated Node', expectedRowVersion: 1 };
       const result = await AppCache.updateNode(input);
-      
+
       expect(result.name).toBe('Updated Node');
       expect(AppCache.nodes.get('node_1')).toBeDefined();
       expect(AppCache.nodes.get('node_1')?.name).toBe('Updated Node');
@@ -185,7 +192,7 @@ describe('Architecture Compliance - Phase 1', () => {
 
       const input: MoveNodeInput = { nodeId: 'node_1', newParentNodeId: 'new_parent', expectedNodeRowVersion: 2 };
       const result = await AppCache.moveNode(input);
-      
+
       expect(result?.parentId).toBe('new_parent');
       expect(AppCache.nodes.get('node_1')?.parentId).toBe('new_parent');
     });
@@ -197,9 +204,9 @@ describe('Architecture Compliance - Phase 1', () => {
       vi.mocked(nodeActions.listChildrenAction).mockResolvedValue(mockNodes as unknown as never);
 
       const intent = { type: 'resolve', params: { viewType: 'NODE_CHILDREN_LIST', baseNodeId: 'root' }, requireComplete: true } as const;
-      
+
       const view = await ViewResolver.resolve(intent);
-      
+
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
       expect(view?.pages[0].items[0]).toMatchObject({
@@ -215,9 +222,9 @@ describe('Architecture Compliance - Phase 1', () => {
       AppCache.metadata.inject('entity', { id: 'test-type', typeKey: 'test_type', name: 'Test type', description: '', storageTable: 'entity_test_type', currentSchemaVersion: 1 });
 
       const intent = { type: 'resolve', params: { viewType: 'NODE_ENTITY_COLLECTION', baseNodeId: 'node_1' }, requireComplete: true } as const;
-      
+
       const view = await ViewResolver.resolve(intent);
-      
+
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
       expect(view?.pages[0].items[0]).toMatchObject({
@@ -232,9 +239,9 @@ describe('Architecture Compliance - Phase 1', () => {
       vi.mocked(nodeActions.listNodeTypesAction).mockResolvedValue(mockTypes as unknown as never);
 
       const intent = { type: 'resolve', params: { viewType: 'METADATA_LIST', metadataType: 'node' }, requireComplete: true } as const;
-      
+
       const view = await ViewResolver.resolve(intent);
-      
+
       expect(view?.satisfactionStatus).toBe('satisfied');
       expect(view?.pages.length).toBe(1);
       expect(AppCache.metadata.get('node', 'type_1')).toBeDefined();
@@ -285,7 +292,7 @@ describe('Architecture Compliance - Phase 1', () => {
       for (const routeFile of routeFiles) {
         const source = fs.readFileSync(routeFile, 'utf8');
         // Keep route boundaries thin while allowing concise inline feedback actions.
-        expect(source.split('\n').length, path.relative(appDirectory, routeFile)).toBeLessThanOrEqual(70);
+        expect(source.split('\n').length, path.relative(appDirectory, routeFile)).toBeLessThanOrEqual(60);
         expect(source, path.relative(appDirectory, routeFile)).not.toMatch(/\buse(?:State|Effect|Reducer|Transition)\b/);
       }
     });

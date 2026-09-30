@@ -158,7 +158,9 @@ export function NodeEditorPanel({ nodeId, controller }: NodeEditorPanelProps) {
             fieldKey={field.fieldKey}
             kind={field.dataType.toLowerCase() as 'file' | 'image'}
             tone="light"
-            canDelete={controller.isMyLock}
+            canDelete={controller.isMyLock && !controller.formStale && !controller.isSavingNode}
+            expectedRowVersion={controller.attachmentVersion}
+            onVersionChanged={controller.acceptAttachmentVersion}
           />
         </Panel>
       ))}

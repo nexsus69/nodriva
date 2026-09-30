@@ -1,4 +1,7 @@
+/** Sends versioned attachment commands and reconciles authoritative resource responses. */
 import { AppCache } from '../cache/GlobalCacheClient';
+import type { ClientNode, ClientEntity } from '../types/models';
+import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
 
 export interface AttachmentItem {
   id: string;
@@ -25,7 +28,11 @@ export async function validateResourceAttachmentFile(
 
 async function readResponse(response: Response): Promise<unknown> {
   const body = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(typeof body === 'object' && body && 'error' in body ? String(body.error) : 'Operazione allegato fallita.');
+  if (!response.ok) {
+    if (response.status === 401) AppCache.purgeAll();
+    const code = typeof body === 'object' && body && 'error' in body ? String(body.error) : 'INTERNAL_ERROR';
+    throw Object.assign(new Error(code), { code });
+  }
   return body;
 }
 
@@ -35,14 +42,18 @@ export async function uploadResourceAttachment(input: {
   fieldKey: string;
   kind: 'file' | 'image';
   file: File;
-}): Promise<AttachmentItem> {
+  expectedRowVersion: number;
+}): Promise<AttachmentItem & { rowVersion: number }> {
   const form = new FormData();
   form.set('resourceType', input.resourceType);
   form.set('resourceId', input.resourceId);
   form.set('fieldKey', input.fieldKey);
   form.set('kind', input.kind);
   form.set('file', input.file);
-  const attachment = await readResponse(await fetch('/api/attachments', { method: 'POST', body: form })) as AttachmentItem;
+  form.set('expectedRowVersion', String(input.expectedRowVersion));
+  const attachment = await AppCache.mutations.run(`${input.resourceType}:${input.resourceId}`, async (mutationId) =>
+    await readResponse(await fetch('/api/attachments', { method: 'POST', headers: { 'X-Mutation-Id': mutationId }, body: form })) as AttachmentItem & { rowVersion: number; resource: ClientNode | ClientEntity },
+  (result) => acceptAttachmentResource(result.resource));
   AppCache.notifyAttachmentCollectionChanged(input);
   return attachment;
 }
@@ -52,8 +63,16 @@ export async function listResourceAttachments(resourceType: 'node' | 'entity', r
   return await readResponse(await fetch(`/api/attachments?${query.toString()}`, { cache: 'no-store' })) as AttachmentItem[];
 }
 
-export async function deleteResourceAttachment(input: { id: string; resourceType: 'node' | 'entity'; resourceId: string }): Promise<void> {
-  await readResponse(await fetch(`/api/attachments/${input.id}`, { method: 'DELETE' }));
+export async function deleteResourceAttachment(input: { id: string; resourceType: 'node' | 'entity'; resourceId: string; expectedRowVersion: number }): Promise<number> {
+  const result = await AppCache.mutations.run(`${input.resourceType}:${input.resourceId}`, async (mutationId) =>
+    await readResponse(await fetch(`/api/attachments/${input.id}`, { method: 'DELETE', headers: { 'If-Match': String(input.expectedRowVersion), 'X-Mutation-Id': mutationId } })) as { rowVersion: number; resource: ClientNode | ClientEntity },
+  (value) => acceptAttachmentResource(value.resource));
   AppCache.notifyAttachmentCollectionChanged(input);
+  return result.rowVersion;
 }
-import { defaultAttachmentSecurityPolicy, detectAttachmentType } from '@dashboard/core/browser';
+
+function acceptAttachmentResource(resource: ClientNode | ClientEntity): void {
+  const cache = 'entityTypeId' in resource ? AppCache.getEntityCache(resource.entityTypeId) : AppCache.nodes;
+  const current = cache.get(resource.id);
+  if (!current || current.rowVersion <= resource.rowVersion) cache.inject(resource.id, resource);
+}

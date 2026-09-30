@@ -3,7 +3,9 @@ import type { AttachmentCleanupPort, PendingAttachmentCleanup } from '../../appl
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AttachmentCleanupPortSqlite implements AttachmentCleanupPort {
-  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {}
+  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {
+    this.database.protectAsyncMethods(this);
+  }
   async schedule(storageKey: string, notBefore: Date): Promise<void> { this.database.run('INSERT INTO attachment_cleanup_outbox(storage_key,next_attempt_at) VALUES(?,?) ON CONFLICT(storage_key) DO UPDATE SET next_attempt_at=excluded.next_attempt_at,locked_at=NULL,locked_by=NULL', [storageKey, notBefore.toISOString()]); }
   async cancel(storageKey: string): Promise<void> { this.database.run('DELETE FROM attachment_cleanup_outbox WHERE storage_key=?', [storageKey]); }
   async claimPending(workerId: string, limit: number): Promise<PendingAttachmentCleanup[]> { const now = this.now(); const expired = new Date(now.getTime() - 5 * 60_000).toISOString(); return this.database.transaction(() => { const rows = this.database.all<PendingAttachmentCleanup>('SELECT storage_key AS storageKey FROM attachment_cleanup_outbox WHERE next_attempt_at<=? AND (locked_at IS NULL OR locked_at<?) ORDER BY next_attempt_at,storage_key LIMIT ?', [now.toISOString(), expired, limit]); return rows.filter((row) => this.database.run('UPDATE attachment_cleanup_outbox SET locked_at=?,locked_by=? WHERE storage_key=? AND (locked_at IS NULL OR locked_at<?)', [now.toISOString(), workerId, row.storageKey, expired]).changes === 1); }); }

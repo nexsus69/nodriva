@@ -28,6 +28,33 @@ viola queste regole non e' pronta per il merge, anche se compila.
 
 ## Checklist obbligatoria
 
+### SQLite connection ownership
+
+`SqliteDatabase` owns the single-connection asynchronous access queue. Every
+asynchronous adapter method and every application transaction enters that same
+reentrant queue. Synchronous adapter helpers may run only while the connection
+is idle or in its owning asynchronous context; an unrelated synchronous access
+fails before executing SQL. Ownership expires when work completes, including
+for detached callbacks. After-commit effects run after releasing ownership.
+This protects sessions, workers and reads as well as ordinary mutations.
+
+### Attachment mutation ownership
+
+`AttachmentApplicationService` owns attachment upload and deletion in the
+Entity/Governance application boundary. It depends on application ports and
+the existing lock policy, never HTTP or SQL. Commands carry authenticated
+user/session identity and the expected aggregate version. With locking enabled,
+an existing resource requires an owned lock, including uploads immediately after
+creation (the client acquires and releases that lock explicitly).
+
+Blob staging/scanning precedes the final transaction. That transaction repeats
+ACL, field and security-policy checks, verifies lock ownership and conditionally
+advances the aggregate version, then persists attachment metadata, audit and
+realtime outbox together. A changed security policy rejects the staged upload.
+Blob cleanup and delivery occur after commit. Responses return the resulting
+aggregate version so multiple uploads can chain conditional writes without
+silently refreshing away a stale form. Routes only decode HTTP and map outcomes.
+
 Per ogni modifica dichiarare policy owner, port, call site, adapter e test di
 parita'. Prima del merge verificare call site indiretti, test negativi di
 divergenza, rollback e `git diff --check`.

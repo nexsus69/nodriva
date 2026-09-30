@@ -1,3 +1,4 @@
+/** Implements LockRepositorySqlite within its adapter or regression boundary. */
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockForbiddenError, LockNotFoundError } from '../../domain/errors/ApplicationErrors.js';
 import type { LockRepository } from '../../application/ports/LockRepository.js';
@@ -7,7 +8,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 interface LockRow { id: string; resource_type: string; resource_id: string; user_id: string; session_id: string; acquired_at: string; expires_at: string; }
 
 export class LockRepositorySqlite implements LockRepository {
-  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {}
+  constructor(private readonly database: SqliteDatabase, private readonly now: () => Date = () => new Date()) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async acquire(lock: Lock): Promise<void> {
     const result = this.database.run(`INSERT INTO locks (id,resource_type,resource_id,user_id,session_id,acquired_at,expires_at) VALUES (?,?,?,?,?,?,?) ON CONFLICT(resource_type,resource_id) DO UPDATE SET id=excluded.id,user_id=excluded.user_id,session_id=excluded.session_id,acquired_at=excluded.acquired_at,expires_at=excluded.expires_at WHERE locks.expires_at < ? OR locks.session_id = excluded.session_id`, [lock.id, lock.resourceType, lock.resourceId, lock.userId, lock.sessionId, lock.acquiredAt.toISOString(), lock.expiresAt.toISOString(), this.now().toISOString()]);

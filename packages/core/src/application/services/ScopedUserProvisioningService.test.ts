@@ -1,3 +1,4 @@
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 /** Verifies atomic, coverage-bound provisioning of scoped users. */
 import { describe, expect, it, vi } from 'vitest';
 import { ScopedUserProvisioningService } from './ScopedUserProvisioningService.js';
@@ -24,7 +25,7 @@ function setup() {
     assertHasPermissionCoverage: vi.fn().mockResolvedValue(undefined),
     assertHasPermissionCoverageBatch: vi.fn().mockResolvedValue(undefined),
   };
-  return { users, security, audit, transactions, ids, access, service: new ScopedUserProvisioningService(users as never, security as never, audit as never, transactions as never, ids, access as never) };
+  return { users, security, audit, transactions, ids, access, service: new ScopedUserProvisioningService(PasswordHasher, users as never, security as never, audit as never, transactions as never, ids, access as never) };
 }
 
 describe('ScopedUserProvisioningService', () => {

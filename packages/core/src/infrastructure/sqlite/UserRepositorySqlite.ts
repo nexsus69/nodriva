@@ -8,7 +8,9 @@ import { hasSqlitePermissionCoverage } from './SqlitePermissionCoverage.js';
 interface UserRow { id: string; email: string; password_hash: string; is_active: number; is_super_admin: number; row_version: number; created_at: string; updated_at: string; deleted_at: string | null; }
 
 export class UserRepositorySqlite implements UserRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
   async findById(id: string): Promise<User | null> { const row = this.database.get<UserRow>('SELECT * FROM users WHERE id=? AND deleted_at IS NULL', [id]); return row ? this.map(row) : null; }
   async findByEmail(email: string): Promise<User | null> { const row = this.database.get<UserRow>('SELECT * FROM users WHERE lower(email)=lower(?) AND deleted_at IS NULL', [email.trim()]); return row ? this.map(row) : null; }
   async listUsers(): Promise<UserListItemDto[]> { return this.list(); }

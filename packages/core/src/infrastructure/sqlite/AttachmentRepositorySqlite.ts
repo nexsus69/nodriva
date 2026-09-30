@@ -2,7 +2,12 @@ import type { AttachmentRecord, AttachmentRepository } from '../../application/p
 import type { SqliteDatabase } from './SqliteDatabase.js';
 
 export class AttachmentRepositorySqlite implements AttachmentRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
+
+  /** BEGIN IMMEDIATE and connection ownership already protect policy writes. */
+  async lockMutationPolicy(): Promise<void> {}
 
   async list(resourceType: AttachmentRecord['resourceType'], resourceId: string, fieldKey?: string): Promise<AttachmentRecord[]> {
     return this.database.all<AttachmentRecord>('SELECT id,resource_type AS resourceType,resource_id AS resourceId,field_key AS fieldKey,kind,file_name AS fileName,mime_type AS mimeType,size_bytes AS sizeBytes,storage_key AS storageKey,checksum,created_by AS createdBy FROM resource_attachments WHERE resource_type=? AND resource_id=? AND (?=\'\' OR field_key=?) ORDER BY created_at DESC', [resourceType, resourceId, fieldKey ?? '', fieldKey ?? '']);

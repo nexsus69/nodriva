@@ -1,3 +1,4 @@
+/** Implements ConfigurationRepositorySqlite within its adapter or regression boundary. */
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { ConfigurationRecord, ConfigurationRepository } from '../../application/ports/ConfigurationRepository.js';
 import type { SqliteDatabase } from './SqliteDatabase.js';
@@ -5,7 +6,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 interface SettingRow { setting_key: string; value_type: string; value_text: string | null; value_json: string | null; row_version: number; updated_at: string; }
 
 export class ConfigurationRepositorySqlite implements ConfigurationRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
   async get(key: string): Promise<ConfigurationRecord | null> { const row = this.database.get<SettingRow>('SELECT * FROM system_settings WHERE setting_key=? AND deleted_at IS NULL', [key]); return row ? this.map(row) : null; }
   async set(key: string, value: unknown, expectedVersion: number): Promise<ConfigurationRecord> {
     const type = typeof value === 'boolean' ? 'boolean' : typeof value === 'number' ? (Number.isInteger(value) ? 'integer' : 'decimal') : typeof value === 'string' ? 'string' : 'json';

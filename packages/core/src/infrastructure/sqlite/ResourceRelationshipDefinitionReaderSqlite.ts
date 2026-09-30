@@ -20,7 +20,9 @@ interface IncomingDefinitionRow {
 
 /** SQLite metadata reader with the same observable result as PostgreSQL. */
 export class ResourceRelationshipDefinitionReaderSqlite implements ResourceRelationshipDefinitionReader {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listIncomingDefinitions(
     targetDomain: TypeDomain,

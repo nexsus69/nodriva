@@ -23,7 +23,9 @@ const isSqliteConstraintError = (error: unknown): boolean =>
   error instanceof Error && /SQLITE_CONSTRAINT|constraint failed/i.test(error.message);
 
 export class SecurityRepositorySqlite implements SecurityRepository {
-  constructor(private readonly database: SqliteDatabase, private readonly onRealtimePolicyChanged: (userId?: string) => void = () => undefined) {}
+  constructor(private readonly database: SqliteDatabase, private readonly onRealtimePolicyChanged: (userId?: string) => void = () => undefined) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async listRoles(): Promise<RoleListItemDto[]> {
     return this.database.all<RoleListRow>(`SELECT r.*,COUNT(rp.permission_id) AS permissionCount FROM roles r LEFT JOIN role_permissions rp ON rp.role_id=r.id WHERE r.deleted_at IS NULL GROUP BY r.id ORDER BY r.name`).map((row) => ({

@@ -26,7 +26,9 @@ const bool = (value: unknown): boolean => Boolean(Number(value));
 const date = (value: string | Date): string => new Date(value).toISOString();
 
 export class TypeDefinitionAdminRepositorySqlite implements TypeDefinitionAdminRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async findTypeById(domain: TypeDomain, id: string): Promise<ManagedTypeDefinition | null> { return this.readType(domain, 'id = ?', id); }
   async findTypeByKey(domain: TypeDomain, key: string): Promise<ManagedTypeDefinition | null> { return this.readType(domain, 'type_key = ? AND deleted_at IS NULL', key); }

@@ -36,7 +36,7 @@ test('propagates locks and a committed node update without reloading the observe
 
     await editor.getByRole('button', { name: 'Modifica', exact: true }).click();
     await expect(editor.getByText('Modalità modifica', { exact: true })).toBeVisible();
-    await expect(observer.getByText("Modifica già in corso da un'altra sessione")).toBeVisible();
+    await expect(observer.getByText(/Modifica già in corso da un[’']altra sessione/)).toBeVisible();
     await expect.poll(() => received.some((frame) => frame.includes('lock:acquired') && frame.includes(nodeId))).toBe(true);
     await editor.getByRole('button', { name: 'Esci dalla modifica' }).click();
     await expect(observer.getByRole('button', { name: 'Modifica', exact: true })).toBeVisible();
@@ -45,7 +45,7 @@ test('propagates locks and a committed node update without reloading the observe
     await editor.getByRole('button', { name: 'Modifica', exact: true }).click();
     await editor.locator('textarea[name="description"]').fill('Realtime browser update');
     await editor.getByRole('button', { name: 'Salva modifiche' }).click();
-    await expect(editor.getByText('Nodo aggiornato con successo.', { exact: false })).toBeVisible();
+    await expect(editor.getByText('Salvataggio completato.', { exact: true })).toBeVisible();
     await expect.poll(async () => (await pool.query(
       "SELECT event_payload FROM realtime_event_outbox WHERE event_payload->>'resourceId'=$1 AND event_payload->>'changeType'='updated' ORDER BY created_at DESC LIMIT 1", [nodeId],
     )).rows[0]?.event_payload).toMatchObject({

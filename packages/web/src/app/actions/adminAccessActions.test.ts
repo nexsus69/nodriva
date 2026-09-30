@@ -24,6 +24,16 @@ vi.mock('./auth/AuthResolver', () => ({
 import { checkAdminAccessAction } from './adminAccessActions';
 
 describe('checkAdminAccessAction', () => {
+  it('projects the canonical edit permission keys rather than nonexistent update keys', async () => {
+    mocks.resolveActorUserId.mockResolvedValue('actor-1');
+    mocks.listRealtimeVirtualRootNodeIds.mockResolvedValue(['node-1']);
+    mocks.listRealtimeScopeAssignments.mockResolvedValue([]);
+    mocks.assertHasPermission.mockImplementation(async (_actor, permission, node) => {
+      if (node === 'node-1' && ['node.edit', 'entity.edit'].includes(permission)) return;
+      throw new ForbiddenError();
+    });
+    await expect(checkAdminAccessAction()).resolves.toEqual({ allowed: true, permissions: ['node.edit', 'entity.edit'] });
+  });
   beforeEach(() => {
     mocks.resolveActorUserId.mockReset();
     mocks.assertHasPermission.mockReset();

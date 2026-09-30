@@ -1,6 +1,7 @@
 /** Exposes the public Core API consumed by composition roots and external packages. */
 // ─── Domain Models ───────────────────────────────────────────────────────────
-export { PasswordHasher } from "./domain/policies/PasswordHasher.js";
+export { PasswordHasher } from "./infrastructure/crypto/PasswordHasher.js";
+export type { PasswordHasherPort } from './application/ports/PasswordHasherPort.js';
 export {
   USER_PASSWORD_POLICY,
   getUnmetUserPasswordRequirements,
@@ -699,3 +700,5 @@ export { ResourcePurgeRepositoryPostgres } from "./infrastructure/postgres/Resou
 export { ResourcePurgeRepositorySqlite } from "./infrastructure/sqlite/ResourcePurgeRepositorySqlite.js";
 export { TypeDefinitionReaderSqlite } from "./infrastructure/sqlite/TypeDefinitionReaderSqlite.js";
 export { MfaTotpPortSqlite } from "./infrastructure/sqlite/MfaTotpPortSqlite.js";
+export { AttachmentApplicationService } from './application/services/AttachmentApplicationService.js';
+export type { AttachmentApplicationDependencies, AttachmentChange } from './application/services/AttachmentApplicationService.js';

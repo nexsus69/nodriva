@@ -2,6 +2,8 @@
 
 import pg from 'pg';
 import {
+  PasswordHasher,
+  AttachmentApplicationService,
   PgExecutor,
   NodeApplicationService,
   EntityApplicationService,
@@ -481,7 +483,7 @@ export const typeAdminService = new TypeAdminApplicationService(
   configService,
 );
 
-export const userAdminService = new UserAdminApplicationService(
+export const userAdminService = new UserAdminApplicationService(PasswordHasher,
   userRepository,
   auditPort,
   transactionPort,
@@ -492,14 +494,14 @@ export const userAdminService = new UserAdminApplicationService(
   mfaTotpPort,
 );
 
-export const currentAccountService = new CurrentAccountApplicationService(
+export const currentAccountService = new CurrentAccountApplicationService(PasswordHasher,
   userRepository,
   sessionRepository,
   auditPort,
   transactionPort,
 );
 
-export const scopedUserProvisioningService = new ScopedUserProvisioningService(
+export const scopedUserProvisioningService = new ScopedUserProvisioningService(PasswordHasher,
   userRepository,
   securityRepository,
   auditPort,
@@ -543,7 +545,7 @@ export const systemSeedService = sqliteMode
     process.env.SEED_ADMIN_EMAIL,
   );
 
-export const authApplicationService = new AuthApplicationService(
+export const authApplicationService = new AuthApplicationService(PasswordHasher,
   sessionRepository,
   userRepository,
   configService,
@@ -559,7 +561,28 @@ export const humanActivityService = new HumanActivityService(
   transactionPort,
   configService,
 );
-export const accountRecoveryService = new AccountRecoveryApplicationService(
+export const accountRecoveryService = new AccountRecoveryApplicationService(PasswordHasher,
   accountActionTokenPort, userRepository, sessionRepository, auditPort, transactionPort, accessControlPort,
   mfaTotpPort, accountActionDelivery, accountActionDeliveryOutbox, accountActionTokenCipher, accountActionDeliveryDrainer,
 );
+
+/** Attachment mutations reuse aggregate edit policy and enqueue resource events before commit. */
+export const attachmentService = new AttachmentApplicationService({
+  attachments: attachmentRepository, storage: attachmentStorage, scanner: attachmentScanner,
+  rateLimiter: attachmentRateLimiter, security: resourceSecurityPolicyResolver,
+  transactions: transactionPort, access: accessControlPort, nodes: nodeRepository,
+  entities: entityRepository, nodeTypes: nodeTypeRepository, entityTypes: entityTypeRepository,
+  types: typeReader, nodeMutations: nodeService, entityMutations: entityService,
+  audit: auditPort, ids: idGenerator, cleanup: attachmentCleanupService,
+  enqueueChange: async (change) => {
+    if (!await isRealtimeCapabilityEnabled()) return;
+    const { buildRealtimeEvent } = await import('./realtime');
+    await realtimeOutbox.enqueue(await buildRealtimeEvent({
+      resourceType: change.resourceType, resourceId: change.resourceId,
+      changeType: 'updated', actorUserId: change.actorUserId,
+      parentNodeId: change.resourceType === 'entity' ? change.scopeNodeId : null,
+      resourceVersion: change.rowVersion, subresourceKind: 'attachment', originSessionId: change.actorSessionId,
+      entityTypeId: change.entityTypeId, mutationId: change.mutationId,
+    }));
+  },
+});

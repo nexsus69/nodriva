@@ -12,6 +12,10 @@ function listSourceFiles(directory: string): string[] {
 }
 
 describe('Architecture layer compliance', () => {
+  it('keeps cryptographic implementations out of Domain', () => {
+    const root = path.resolve(__dirname, '../domain');
+    expect(listSourceFiles(root).filter((file) => /from\s+['"](?:node:)?crypto['"]/.test(fs.readFileSync(file, 'utf8')))).toEqual([]);
+  });
   it('keeps Domain and Application independent from PostgreSQL infrastructure', () => {
     const srcRoot = path.resolve(__dirname, '..');
     const forbiddenImport = /from\s+['"].*(?:infrastructure|pg|PgExecutor)/;

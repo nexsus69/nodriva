@@ -1,6 +1,6 @@
 /** Bootstraps the shared PostgreSQL system catalogue and explicit administrator identity. */
 import crypto from 'node:crypto';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 import type { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
 import type { TransactionPort } from '../../application/ports/TransactionPort.js';
 import {

@@ -1,3 +1,4 @@
+/** Implements ServiceConfigurationRepositorySqlite within its adapter or regression boundary. */
 import { RowVersionMismatchError } from '../../domain/errors/DomainErrors.js';
 import type { ServiceConfigurationKey } from '../../application/config/ServiceConfigurationRegistry.js';
 import type {
@@ -9,7 +10,9 @@ import type { SqliteDatabase } from './SqliteDatabase.js';
 type ServiceRow = { serviceKey: ServiceConfigurationKey; providerKey: string; runtimeValues: string; version: number; updatedAt: string };
 
 export class ServiceConfigurationRepositorySqlite implements ServiceConfigurationRepository {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async get(serviceKey: ServiceConfigurationKey): Promise<ServiceRuntimeConfigurationRecord | null> {
     const row = this.database.get<ServiceRow>(

@@ -50,7 +50,9 @@ interface EnumOptionRow {
 }
 
 export class TypeDefinitionReaderSqlite implements TypeDefinitionReader {
-  constructor(private readonly database: SqliteDatabase) {}
+  constructor(private readonly database: SqliteDatabase) {
+    this.database.protectAsyncMethods(this);
+  }
   async readDefinition(domain: TypeDomain, typeKey: string): Promise<TypeDefinition | null> {
     const types = domain === 'node' ? 'node_types' : 'entity_types';
     const fields = domain === 'node' ? 'node_type_fields' : 'entity_type_fields';

@@ -17,14 +17,14 @@ describe('account completion error boundary', () => {
   it('maps a rejected token to the public link message', async () => {
     complete.mockRejectedValue(new UnauthorizedError('Invalid or expired account action'));
     await expect(completeAccountActionAction('token', 'password')).resolves.toEqual({
-      success: false, error: { code: 'AUTH_UNAUTHORIZED', message: 'Il link non è valido, è scaduto o è già stato utilizzato.', messageKey: 'errors.authUnauthorized' },
+      success: false, error: { code: 'AUTH_UNAUTHORIZED', message: 'Il link non è valido, è scaduto o è già stato utilizzato.', messageKey: 'accountCompletion.invalidLink' },
     });
   });
 
   it('recognizes password validation by domain code rather than message text', async () => {
     complete.mockRejectedValue(new ValidationError('Different internal wording', { password: ['weak'] }));
     await expect(completeAccountActionAction('token', 'password')).resolves.toEqual({
-      success: false, error: { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.', messageKey: 'admin.validationFailed' },
+      success: false, error: { code: 'VALIDATION_ERROR', message: 'La password non rispetta i requisiti indicati.', messageKey: 'account.passwordRequirementsNotMet' },
     });
   });
 

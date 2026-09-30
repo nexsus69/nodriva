@@ -95,7 +95,13 @@ specifica sessione autenticata:
   ritardato di una vecchia sessione non cancella un lock acquisito nel frattempo
   da un'altra.
 
-L'uscita dalla modalità modifica tenta il rilascio esplicito. Il logout
+L'uscita dalla modalità modifica tenta il rilascio esplicito.
+Il rilascio esplicito non viene saltato se la cache locale mostra
+temporaneamente un lock assente: la sessione e la proprietà sono verificate
+dal backend. La cache resta un'indicazione per la UI, non l'autorità che decide
+se inviare il comando di rilascio.
+
+Il logout
 volontario rilascia e pubblica gli eventi per tutti i lock della sessione prima
 di eliminare la sessione. La foreign key
 `locks.session_id -> user_sessions.id ON DELETE CASCADE` è la garanzia finale

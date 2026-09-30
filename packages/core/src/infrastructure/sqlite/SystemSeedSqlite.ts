@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { PasswordHasher } from '../../domain/policies/PasswordHasher.js';
+import { PasswordHasher } from '../../infrastructure/crypto/PasswordHasher.js';
 import type { SystemSeedPort } from '../../application/ports/SystemSeedPort.js';
 import {
   BOOTSTRAP_ADMIN_ID,
@@ -17,7 +17,9 @@ export class SystemSeedSqlite implements SystemSeedPort {
     private readonly database: SqliteDatabase,
     private readonly seedAdminPassword?: string,
     private readonly seedAdminEmail?: string,
-  ) {}
+  ) {
+    this.database.protectAsyncMethods(this);
+  }
 
   async checkSeeded(): Promise<boolean> {
     return Boolean(
@@ -29,6 +31,11 @@ export class SystemSeedSqlite implements SystemSeedPort {
   }
 
   async seedDatabase(): Promise<void> {
+    return this.database.exclusive(async () => this.seedSynchronously());
+  }
+
+  /** Used only during synchronous composition, before serving requests. */
+  seedSynchronously(): void {
     if (!this.seedAdminPassword) throw new Error('SEED_ADMIN_PASSWORD must be configured before bootstrapping the database.');
     if (!this.seedAdminEmail) throw new Error('SEED_ADMIN_EMAIL must be configured before bootstrapping the database.');
     this.database.transaction(() => this.bootstrap());
