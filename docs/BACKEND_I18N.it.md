@@ -4,29 +4,45 @@
 
 Il backend supporta inglese (`en`) e italiano (`it`). Domain e Application
 restano indipendenti dalla lingua: espongono codici errore stabili e dettagli
-strutturati, non testo UI scelto per l'utente.
+strutturati, mai testo UI scelto per un utente.
 
-Ai confini API un messaggio può contenere `messageKey`, `messageParams` e un
-fallback sicuro `message`. La lingua è scelta prima dalla preferenza dell'utente,
-poi da `Accept-Language`, con inglese come fallback deterministico. I tag sono
-normalizzati dal contratto Core condiviso.
+Ai confini API un messaggio può contenere:
 
-I nuovi errori devono introdurre prima codice/chiave e parametri stabili. Le
-stringhe italiane esistenti restano fallback di compatibilità durante la
-migrazione incrementale.
+- `messageKey`: chiave stabile del catalogo;
+- `messageParams`: valori primitivi per l'interpolazione;
+- `message`: fallback sicuro per client che non usano ancora il catalogo.
+
+La lingua viene negoziata prima dalla preferenza esplicita dell'utente, poi
+dall'header `Accept-Language`, con inglese come fallback deterministico. I tag
+sono normalizzati tramite il contratto Core condiviso in
+`application/i18n/Locale.ts`.
+
+Un nuovo errore deve aggiungere codice/chiave e parametri stabili prima del
+testo tradotto. Le stringhe italiane esistenti restano fallback di
+compatibilità mentre il mapper del boundary viene migrato al catalogo in modo
+incrementale.
 
 ## Presentazione Web
 
-Il client risolve `messageKey` tramite l'unico resolver
-`localizeApiError`; form e schermate non devono renderizzare direttamente
-`error.message` quando è disponibile una traduzione. Le mappature contestuali
-conservano la propria chiave e non devono essere sostituite dal fallback generico.
+Il client risolve `ApiErrorResponse.messageKey` (o il fallback del codice errore
+stabile) tramite l'unico resolver `localizeApiError` in
+`packages/web/src/app/errors/localizeApiError.ts`. Form e schermate Admin non
+devono renderizzare direttamente `error.message` quando è disponibile un
+resolver localizzato; i codici storici sconosciuti possono usare il fallback
+sicuro restituito dal server.
 
-Ogni testo rivolto al browser appartiene a `AppLocaleStore.ts` per entrambe le
-lingue. `pnpm i18n:guard`, incluso in `pnpm check`, rifiuta nuovi testi hardcoded.
-Chiavi tecniche, URL, SQL, contenuti dell'utente e fixture di test sono esclusi
-intenzionalmente da questa regola.
+Le mappature contestuali conservano la propria `messageKey`: il completamento
+dell'account deve descrivere un link non valido, non una sessione scaduta,
+anche quando il codice di autorizzazione stabile è condiviso. Il mapper del
+boundary non deve sovrascrivere la chiave contestuale con il fallback generico.
 
-I rifiuti di validazione non sono eventi audit: si registrano solo mutation
-effettivamente persistite. Telemetria di autorizzazione o abuso, se introdotta,
-usa un contratto separato di eventi sicurezza.
+Ogni nuovo testo rivolto al browser, incluse etichette, placeholder, stati
+vuoto e caricamento, conferme, tooltip e nomi accessibili, appartiene a
+`packages/web/src/app/i18n/AppLocaleStore.ts` per ogni lingua supportata. Il
+comando `pnpm i18n:guard`, incluso in `pnpm check`, rifiuta nuovi testi
+hardcoded fuori dal catalogo. Chiavi tecniche, URL, SQL, contenuti scritti
+dall'utente e fixture di test sono esclusi intenzionalmente da questa regola.
+
+I rifiuti di validazione non sono eventi audit: si registrano solo mutazioni
+effettivamente persistite nel flusso audit. Eventuale telemetria di
+autorizzazione o abuso deve usare un contratto separato di eventi di sicurezza.
