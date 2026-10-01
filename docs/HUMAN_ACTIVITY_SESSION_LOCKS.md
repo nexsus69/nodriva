@@ -12,10 +12,9 @@ intervalli sono derivati, quindi non devono essere introdotti timer applicativi
 hardcoded per sessione, heartbeat, lock o polling.
 
 Prima della produzione, la durata deve diventare una configurazione backend
-autorevole e modificabile a runtime, distribuita al client senza rebuild. Il
-lavoro ancora aperto è tracciato nella sezione **Runtime session policy** di
-Le verifiche applicabili sono riepilogate nella checklist di accettazione e
-nelle procedure di sviluppo del repository.
+autorevole e modificabile a runtime, distribuita al client senza rebuild. Le
+verifiche applicabili sono riepilogate nella checklist di accettazione e nelle
+procedure di sviluppo del repository.
 
 Con il valore predefinito attuale di 1800 secondi:
 
