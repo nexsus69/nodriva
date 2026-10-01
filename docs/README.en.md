@@ -20,7 +20,7 @@ identifiers, routes and technical keys remain unchanged in both versions.
 - [Backup and restore](BACKUP_RESTORE.en.md) · [Italian](BACKUP_RESTORE.md)
 - [Backup operations](BACKUP_OPERATIONS.en.md) · [Italian](BACKUP_OPERATIONS.md)
 - [Secret management](SECRET_MANAGEMENT.en.md) · [Italian](SECRET_MANAGEMENT.md)
-- [Security operations](SECURITY_OPERATIONS.en.md) · [Italian](SECURITY_OPERATIONS.md)
+- [Security operations](SECURITY_OPERATIONS.md) · [Italian](SECURITY_OPERATIONS.it.md)
 
 ## Technical contracts
 
@@ -43,7 +43,7 @@ identifiers, routes and technical keys remain unchanged in both versions.
 
 ## Administration and frontend
 
-- [Admin information architecture](ADMIN_INFORMATION_ARCHITECTURE.en.md) · [Italian](ADMIN_INFORMATION_ARCHITECTURE.it.md)
+- [Admin information architecture](ADMIN_INFORMATION_ARCHITECTURE.md) · [Italian](ADMIN_INFORMATION_ARCHITECTURE.it.md)
 - [Semantic catalogues](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md) · [Italian](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.it.md)
 - [Workspace state](ADMIN_WORKSPACE_STATE.md) · [Italian](ADMIN_WORKSPACE_STATE.it.md)
 - [Realtime collections](ADMIN_REALTIME_COLLECTIONS.en.md) · [Italian](ADMIN_REALTIME_COLLECTIONS.md)

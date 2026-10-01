@@ -21,7 +21,7 @@ nelle due versioni.
 - [Backup e restore](BACKUP_RESTORE.md) · [English](BACKUP_RESTORE.en.md)
 - [Operazioni backup](BACKUP_OPERATIONS.md) · [English](BACKUP_OPERATIONS.en.md)
 - [Gestione segreti](SECRET_MANAGEMENT.md) · [English](SECRET_MANAGEMENT.en.md)
-- [Sicurezza operativa](SECURITY_OPERATIONS.md) · [English](SECURITY_OPERATIONS.en.md)
+- [Sicurezza operativa](SECURITY_OPERATIONS.it.md) · [English](SECURITY_OPERATIONS.md)
 
 ## Contratti tecnici
 
@@ -44,7 +44,7 @@ nelle due versioni.
 
 ## Amministrazione e frontend
 
-- [Architettura informativa Admin](ADMIN_INFORMATION_ARCHITECTURE.md) · [English](ADMIN_INFORMATION_ARCHITECTURE.en.md)
+- [Architettura informativa Admin](ADMIN_INFORMATION_ARCHITECTURE.it.md) · [English](ADMIN_INFORMATION_ARCHITECTURE.md)
 - [Cataloghi semantici](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.it.md) · [English](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md)
 - [Stato workspace](ADMIN_WORKSPACE_STATE.it.md) · [English](ADMIN_WORKSPACE_STATE.md)
 - [Collection realtime](ADMIN_REALTIME_COLLECTIONS.md) · [English](ADMIN_REALTIME_COLLECTIONS.en.md)

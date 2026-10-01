@@ -5,7 +5,7 @@
 Applicare le migrazioni nell'ordine dei nomi a un database inizializzato da
 `Specifiche/dashboard_v4_schema_corrected.sql`. Schema e migrazioni non creano
 il primo amministratore: completare il bootstrap esplicito
-`SystemSeedPostgres` nella [guida di installazione](../docs/INSTALLATION.it.md)
+`SystemSeedPostgres` nella [guida di installazione](../docs/INSTALLATION.md)
 prima di avviare il Web. Compose esegue lo stesso passaggio tramite `db-seed`;
 nessuno dei due percorsi carica nodi, entità o tipi demo.
 
@@ -28,4 +28,4 @@ ruolo ristretto. È distruttivo solo per quel database temporaneo e non deve mai
 essere usato sul database operativo.
 
 Per la procedura completa e i comandi di verifica consultare la versione
-[inglese](README.en.md) e [`docs/BACKUP_RESTORE.it.md`](../docs/BACKUP_RESTORE.it.md).
+[inglese](README.en.md) e [`docs/BACKUP_RESTORE.md`](../docs/BACKUP_RESTORE.md).
