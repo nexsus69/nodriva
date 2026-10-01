@@ -50,8 +50,8 @@ The Web composition uses the shared PostgreSQL limiter for both a normalized
 account key and the trusted proxy source address. Configure the proxy to replace
 (`not append to`) its client-IP header. Account-action delivery is fail-closed:
 set `ACCOUNT_ACTION_DELIVERY_WEBHOOK_URL`, `ACCOUNT_ACTION_PUBLIC_BASE_URL` and
-the optional bearer secret. `ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS` imposta il
-timeout della richiesta (10 secondi se omesso). The HTTPS endpoint receives
+the optional bearer secret. `ACCOUNT_ACTION_DELIVERY_TIMEOUT_MS` sets the
+request timeout (10 seconds when omitted). The HTTPS endpoint receives
 `to`, `template`, `actionUrl` and `expiresAt` and must send the corresponding
 email.
 
