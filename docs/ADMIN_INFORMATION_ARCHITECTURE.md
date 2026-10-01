@@ -36,59 +36,53 @@ through the `--admin-accent-*` tokens on `.admin-page`. Navigation, buttons,
 focus rings, pagination, toolbars and dashboard cards must consume this shared
 accent contract; a component must not introduce a separate purple/blue palette.
 
-## Dettagli amministrativi delle risorse
+## Administrative resource details
 
-Le collection `Content → Nodes` e `Content → Entities` aprono dettagli figli
-nelle route `/admin/content/nodes/:nodeId` e
-`/admin/content/entities/:parentNodeId/:entityId`. Le route sono superfici di
-consultazione e intervento amministrativo, non moduli autonomi della sidebar:
-mantengono contesto, ritorno e azioni dentro `Admin → Content`.
+The `Content → Nodes` and `Content → Entities` collections open child details
+at `/admin/content/nodes/:nodeId` and
+`/admin/content/entities/:parentNodeId/:entityId`. These routes are surfaces for
+administrative inspection and action, not independent sidebar modules: they
+keep context, return navigation and actions inside `Admin → Content`.
 
-Il dettaglio amministrativo usa la stessa lettura autorizzata, lo stesso
-controller di lock/bozza e gli stessi comandi applicativi di nodo o entità del
-workspace operativo. Non esiste un secondo controllo ACL, lock, `rowVersion`,
-deletion policy, allegati o audit nel pannello Admin. `NodeApplicationService`,
-`EntityApplicationService` e i relativi confini transazionali restano gli owner
-di tali policy; il controller Admin possiede solo composizione, navigazione e
-stato di presentazione.
+The administrative detail uses the same authorized read, lock/draft controller
+and application commands as the operational node or entity workspace. Admin
+does not introduce a second ACL, lock, `rowVersion`, deletion, attachment or
+audit policy. `NodeApplicationService`, `EntityApplicationService` and their
+transaction boundaries remain the owners; the Admin controller only owns
+composition, navigation and presentation state.
 
-Un amministratore vede una risorsa solo se la normale lettura node-bound o
-entity-bound la autorizza nel suo scope. La route non trasforma
-`system.config.read`, il ruolo Admin o la presenza nella lista in un permesso
-aggiuntivo. Un diniego espone la stessa semantica di accesso negato della
-superficie operativa, senza rivelare dati o esistenza della risorsa fuori scope.
+An administrator sees a resource only when the normal node-bound or
+entity-bound read authorizes it in the administrator's scope. The route does
+not turn `system.config.read`, the Admin role or list membership into an extra
+permission. A denial has the same forbidden semantics as the operational
+surface and does not reveal data or existence outside scope.
 
-La schermata mostra identità, tipo, path o contenitore, `rowVersion`, stato del
-lock, campi dinamici, relazioni e allegati. Le modifiche sono intenzionali:
-prima acquisiscono il lock e mantengono bozza, conflitto di versione e
-invalidazione realtime con il lifecycle condiviso. Una cancellazione riuscita
-torna alla rispettiva collection Admin; non reindirizza al workspace operativo.
+The screen shows identity, type, path or container, `rowVersion`, lock state,
+dynamic fields, relationships and attachments. Mutations first acquire the
+lock and preserve the draft, version conflict and realtime invalidation through
+the shared lifecycle. A successful deletion returns to the relevant Admin
+collection instead of redirecting to the operational workspace.
 
-Le collection Admin dichiarano una navigazione `Apri dettaglio amministrativo`;
-l'eventuale collegamento al workspace operativo resta un'azione secondaria ed
-esplicita. Testare per nodi ed entità: mapping riga→route, lettura in scope,
-diniego fuori scope, modifica con lock e `rowVersion`, ritorno dopo
-cancellazione, invalidazione realtime e parità SQLite/PostgreSQL.
+Admin collections expose an `Open administrative detail` action; a link to the
+operational workspace remains secondary and explicit. Test nodes and entities
+for row-to-route mapping, in-scope reads, out-of-scope denial, lock and
+`rowVersion` edits, return after deletion, realtime invalidation and
+SQLite/PostgreSQL parity.
 
-Le azioni di aggiornamento amministrative usano sempre `AdminRefreshButton`.
-Il componente centralizza icona, etichetta, callback, accessibilità e
-dimensionamento: mostra sempre l'etichetta localizzata insieme all'icona e
-mantiene una larghezza compatta uniforme anche dentro le toolbar. Le schermate
-non devono ricreare un pulsante di refresh con una variante locale.
+Administrative refresh actions always use `AdminRefreshButton`. The component
+centralizes icon, label, callback, accessibility and sizing: it renders the
+localized label with the icon and keeps a compact width in toolbars. Screens
+must not recreate a local refresh-button variant.
 
-Date e identificativi tecnici nelle superfici amministrative passano dai
-formatter condivisi in `packages/web/src/adminPanel/adminFormatters.ts`. Le
-date ISO persistite sono convertite nella lingua attiva con anno a quattro
-cifre; gli identificativi lunghi sono abbreviati solo nella resa visiva,
-conservando il valore completo nel contratto dati e rendendolo copiabile dal
-dettaglio audit; il tooltip è solo un aiuto aggiuntivo su desktop. Un UUID non
-deve essere usato come unica descrizione umana quando il record contiene una
-`resourceLabel`: l'etichetta precede l'identificativo; per gli audit storici o
-le risorse senza etichetta il fallback tecnico resta esplicito e non ambiguo.
-La composition root applica `DescriptiveAuditPort`, che ricava una label dai
-payload dell'evento quando il servizio applicativo non ne fornisce una
-esplicita; i componenti Web non implementano mapping per singolo tipo di
-risorsa.
+Dates and technical identifiers use the shared formatters in
+`packages/web/src/adminPanel/adminFormatters.ts`. Persisted ISO dates use the
+active locale and four-digit years; long identifiers are abbreviated only
+visually while the data contract keeps the full value copyable from audit
+details. A tooltip is only a desktop aid. When a record has `resourceLabel`, an
+UUID is not its only human description: the label precedes it, with an explicit
+technical fallback for historical audits and unlabeled resources. The
+composition root applies `DescriptiveAuditPort`; Web components do not map each
+resource type independently.
 
 ## Settings ownership and optional capabilities
 
@@ -109,28 +103,27 @@ disabled or unsupported optional capability must render as its normal runtime
 state (or an authorized empty state), never as a client error. The capability
 catalogue remains under Platform → Runtime and integrations.
 
-`Platform → Integrations` (`/admin/platform/integrations`) raggruppa realtime,
-scansione allegati, consegne account e osservabilità. Mostra provider
-sanitizzato, disponibilità, fallback, dipendenze e lifecycle e può richiedere
-un healthcheck non mutante. Topologia di deployment, endpoint, porte,
-riferimenti secret e valori secret non sono né renderizzati né editabili.
+`Platform → Integrations` (`/admin/platform/integrations`) groups realtime,
+attachment scanning, account delivery and observability. It shows the sanitized
+provider, availability, fallback, dependencies and lifecycle and may request a
+non-mutating healthcheck. Deployment topology, endpoints, ports, secret
+references and secret values are neither rendered nor editable.
 
-`Platform → Data & recovery` (`/admin/platform/data-recovery`) raggruppa
-database, storage allegati, backup e materiale di chiavi necessario al
-recovery. Espone soltanto l'evidenza sanitizzata dell'ultimo backup verificato:
-provider, data, checksum, dimensione, versione schema, restore verification e
-dipendenze di recovery. Il manifest è opzionale: se il deployment non lo rende
-leggibile, la vista mostra `non disponibile` senza rendere inutilizzabile
-l'Admin. Non avvia backup e non esegue restore.
+`Platform → Data & recovery` (`/admin/platform/data-recovery`) groups the
+database, attachment storage, backups and key material required for recovery.
+It exposes only sanitized evidence for the last verified backup: provider,
+date, checksum, size, schema version, restore verification and recovery
+dependencies. The manifest is optional; if deployment cannot read it, the view
+shows `unavailable` without disabling Admin. It neither starts backups nor
+performs restores.
 
-`Platform → Health & observability` (`/admin/platform/health`) presenta lo
-stesso catalogo completo per l'intento operativo di health. `disabled` è uno
-stato intenzionale distinto da `non disponibile`; il refresh invoca solo probe
-non mutanti autorizzati.
+`Platform → Health & observability` (`/admin/platform/health`) presents the full
+catalog for the health intent. `disabled` is an intentional state distinct from
+`unavailable`; refresh invokes only authorized non-mutating probes.
 
-`Platform → Backup` possiede la policy runtime `backup.scheduledEnabled`.
-Sospende soltanto l'esecuzione automatica del job di deployment, con audit e
-stato esplicito; non controlla container, cron/systemd o restore operativo.
+`Platform → Backup` owns the `backup.scheduledEnabled` runtime policy. It only
+pauses the deployment job's automatic execution, with audit and explicit state;
+it does not control containers, cron/systemd or operational restore.
 
 ## Controlled route break
 
