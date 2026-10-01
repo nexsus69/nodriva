@@ -5,7 +5,8 @@ il pannello amministrativo, le Server Actions e gli endpoint HTTP.
 
 La documentazione generale del progetto e le istruzioni per lo stack completo
 sono nel [README principale](../../README.md). Per il flusso dati frontend
-consultare [`src/app/cache/ARCHITECTURE.md`](src/app/cache/ARCHITECTURE.md).
+consultare [`src/app/cache/ARCHITECTURE.md`](src/app/cache/ARCHITECTURE.md) o
+l'[edizione inglese](src/app/cache/ARCHITECTURE.en.md).
 
 ## Sviluppo locale
 

@@ -4,7 +4,7 @@ Questo documento è la fonte canonica per l'architettura di cache e fetch del fr
 Ogni nuova implementazione, refactoring o estensione deve rispettare questi vincoli.
 
 Le regole trasversali di reattività applicabili a tutti i componenti Web sono
-definite in [`docs/FRONTEND_DATA_FLOW_STANDARD.md`](../../../../docs/FRONTEND_DATA_FLOW_STANDARD.md),
+definite in [`docs/FRONTEND_DATA_FLOW_STANDARD.md`](../../../../../docs/FRONTEND_DATA_FLOW_STANDARD.md),
 nella sezione **Contratto trasversale di reattività dei componenti**. Questo
 documento disciplina la cache; quello standard disciplina il percorso completo
 fino al render e ha precedenza per i contratti di aggiornamento UI.
