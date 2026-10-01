@@ -3,8 +3,12 @@
 [English](ENCRYPTION_ROTATION.en.md) | [Italiano](ENCRYPTION_ROTATION.md)
 
 `encryption:rotate` runs outside the HTTP lifecycle in bounded batches. It
-processes encrypted field sidecars and local attachment files using the same
-application contract for PostgreSQL and SQLite.
+processes both `resource_field_ciphertexts` and local attachment files. The
+PostgreSQL and SQLite profiles use the same application contract for fields
+marked `encrypted`: plaintext does not remain in the primary payload storage,
+is kept in the `resource_field_ciphertexts` sidecar, restored on read through
+application repositories/read models that expose the payload, and redacted in
+revision snapshots.
 
 ## Prerequisites
 
@@ -29,9 +33,11 @@ Never commit this configuration.
 ENCRYPTION_ROTATION_BATCH_SIZE=100 pnpm encryption:rotate
 ```
 
-The job records progress in `encryption_rotation_jobs` and emits
-`security.encryption_rotation.*` audit events. A failed job can be retried;
-items already on the active version are skipped, making retries idempotent.
+The job creates a row in `encryption_rotation_jobs`, updates counters and emits
+`security.encryption_rotation.*` audit events. On failure it marks the job
+`failed`; it can be retried after the cause is corrected. Items already on the
+active version are skipped, making retries idempotent and effectively resuming
+from the reached point.
 
 Do not remove the old key immediately after completion. First reconcile counts,
 restore a backup with the new key and read sample data and attachments. Revoke
