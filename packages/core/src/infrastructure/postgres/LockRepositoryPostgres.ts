@@ -73,25 +73,27 @@ export class LockRepositoryPostgres implements LockRepository {
     }
   }
 
-  async release(resource: ResourceReference, userId: string, sessionId: string): Promise<void> {
+  async release(resource: ResourceReference, userId: string, sessionId: string, lockId?: string): Promise<boolean> {
     const query = `
       DELETE FROM locks
-      WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3 AND session_id = $4
+      WHERE ${lockId ? 'id = $1 AND resource_type = $2 AND resource_id = $3 AND user_id = $4 AND session_id = $5' : 'resource_type = $1 AND resource_id = $2 AND user_id = $3 AND session_id = $4'}
       RETURNING id
     `;
 
-    const result = await this.executor.query(query, [resource.resourceType, resource.resourceId, userId, sessionId]);
+    const result = await this.executor.query(query, lockId ? [lockId, resource.resourceType, resource.resourceId, userId, sessionId] : [resource.resourceType, resource.resourceId, userId, sessionId]);
     if (result.rowCount === 0) {
       // Controlliamo perché non ha cancellato
-      const checkQuery = `SELECT user_id, session_id FROM locks WHERE resource_type = $1 AND resource_id = $2`;
-      const checkRes = await this.executor.query<{user_id: string; session_id: string}>(checkQuery, [resource.resourceType, resource.resourceId]);
+      const checkQuery = `SELECT id, user_id, session_id FROM locks WHERE resource_type = $1 AND resource_id = $2`;
+      const checkRes = await this.executor.query<{id: string; user_id: string; session_id: string}>(checkQuery, [resource.resourceType, resource.resourceId]);
 
       const row = checkRes.rows[0];
-      if ((checkRes.rowCount ?? 0) > 0 && row && (row.user_id !== userId || row.session_id !== sessionId)) {
+      if ((checkRes.rowCount ?? 0) > 0 && row && (row.user_id !== userId || row.session_id !== sessionId || !lockId || row.id === lockId)) {
         throw new LockForbiddenError(resource.resourceType, resource.resourceId);
       }
       // Se non esiste, non facciamo nulla (idempotenza).
+      return false;
     }
+    return true;
   }
 
   async releaseAllForSession(sessionId: string): Promise<Lock[]> {

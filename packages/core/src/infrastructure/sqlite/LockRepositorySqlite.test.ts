@@ -18,4 +18,19 @@ describe('LockRepositorySqlite', () => {
     await expect(repository.getLock(resource)).resolves.toBeNull();
     database.close();
   });
+
+  it('does not let a stale lock release remove a newer lock from the same session', async () => {
+    const database = new SqliteDatabase(); ensureSqliteSchema(database);
+    const repository = new LockRepositorySqlite(database, () => new Date('2026-01-01T00:00:00Z'));
+    const resource = { resourceType: 'entity' as const, resourceId: 'entity-1' };
+    await repository.acquire(new Lock('lock-old', resource, 'user-1', 'session-1', new Date('2026-01-01T00:00:00Z'), new Date('2026-01-01T00:01:00Z')));
+    await repository.acquire(new Lock('lock-new', resource, 'user-1', 'session-1', new Date('2026-01-01T00:00:01Z'), new Date('2026-01-01T00:01:01Z')));
+
+    await repository.release(resource, 'user-1', 'session-1', 'lock-old');
+
+    await expect(repository.getLock(resource)).resolves.toMatchObject({ id: 'lock-new' });
+    await repository.release(resource, 'user-1', 'session-1', 'lock-new');
+    await expect(repository.getLock(resource)).resolves.toBeNull();
+    database.close();
+  });
 });

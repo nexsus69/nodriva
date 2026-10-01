@@ -75,11 +75,11 @@ export async function refreshLockAction(resourceType: string, resourceId: string
   }
 }
 
-export async function releaseLockAction(resourceType: string, resourceId: string) {
+export async function releaseLockAction(resourceType: string, resourceId: string, lockId?: string) {
   try {
     const actor = await resolveAuthorizedActor(resourceType, resourceId, { allowSoftDeletedEntity: true });
     const { lockService } = await import('../../server/db');
-    await lockService.unlock(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId });
+    await lockService.unlock(resourceReference(actor.resourceType, resourceId), actor.actorUserId, actor.actorSessionId, { scopeNodeId: actor.scopeNodeId }, lockId);
     return { success: true as const };
   } catch (error) {
     console.error('[LockActions] Failed to release lock:', error);

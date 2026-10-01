@@ -25,11 +25,17 @@ export class LockRepositorySqlite implements LockRepository {
     throw new LockConflictError(resource.resourceType, resource.resourceId);
   }
 
-  async release(resource: ResourceReference, userId: string, sessionId: string): Promise<void> {
-    const result = this.database.run('DELETE FROM locks WHERE resource_type=? AND resource_id=? AND user_id=? AND session_id=?', [resource.resourceType, resource.resourceId, userId, sessionId]);
-    if (result.changes > 0) return;
+  async release(resource: ResourceReference, userId: string, sessionId: string, lockId?: string): Promise<boolean> {
+    const result = this.database.run(
+      lockId
+        ? 'DELETE FROM locks WHERE id=? AND resource_type=? AND resource_id=? AND user_id=? AND session_id=?'
+        : 'DELETE FROM locks WHERE resource_type=? AND resource_id=? AND user_id=? AND session_id=?',
+      lockId ? [lockId, resource.resourceType, resource.resourceId, userId, sessionId] : [resource.resourceType, resource.resourceId, userId, sessionId],
+    );
+    if (result.changes > 0) return true;
     const row = this.database.get<LockRow>('SELECT * FROM locks WHERE resource_type=? AND resource_id=?', [resource.resourceType, resource.resourceId]);
-    if (row && (row.user_id !== userId || row.session_id !== sessionId)) throw new LockForbiddenError(resource.resourceType, resource.resourceId);
+    if (row && (row.user_id !== userId || row.session_id !== sessionId || !lockId || row.id === lockId)) throw new LockForbiddenError(resource.resourceType, resource.resourceId);
+    return false;
   }
 
   async releaseAllForSession(sessionId: string): Promise<Lock[]> {

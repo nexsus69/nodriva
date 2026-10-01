@@ -19,7 +19,7 @@ const scheduledLockReleases = new Map<string, ReturnType<typeof setTimeout>>();
 export const LOCK_RELEASE_ENDPOINT = '/api/locks/release';
 
 /** Preserves a server-confirmed browser ownership across a Next.js route refresh. */
-const confirmedBrowserLockSessions = new Map<string, string>();
+const confirmedBrowserLocks = new Map<string, { sessionId: string; lockId: string }>();
 
 function lockReleaseKey({ resourceType, resourceId }: ResourceReference): string {
   return `${resourceType}:${resourceId}`;
@@ -33,16 +33,19 @@ function cancelScheduledLockRelease(reference: ResourceReference): void {
   scheduledLockReleases.delete(key);
 }
 
-function rememberBrowserLock(reference: ResourceReference, sessionId: string): void {
-  confirmedBrowserLockSessions.set(lockReleaseKey(reference), sessionId);
+function rememberBrowserLock(reference: ResourceReference, sessionId: string, lockId: string): void {
+  confirmedBrowserLocks.set(lockReleaseKey(reference), { sessionId, lockId });
 }
 
-function forgetBrowserLock(reference: ResourceReference): void {
-  confirmedBrowserLockSessions.delete(lockReleaseKey(reference));
+function forgetBrowserLock(reference: ResourceReference, expectedLockId?: string): void {
+  const key = lockReleaseKey(reference);
+  if (!expectedLockId || confirmedBrowserLocks.get(key)?.lockId === expectedLockId) {
+    confirmedBrowserLocks.delete(key);
+  }
 }
 
-function getRememberedBrowserLockSession(reference: ResourceReference): string | undefined {
-  return confirmedBrowserLockSessions.get(lockReleaseKey(reference));
+function getRememberedBrowserLock(reference: ResourceReference): { sessionId: string; lockId: string } | undefined {
+  return confirmedBrowserLocks.get(lockReleaseKey(reference));
 }
 
 /**
@@ -60,8 +63,8 @@ function scheduleLockRelease(reference: ResourceReference, release: () => void):
 }
 
 /** Releases a lock through the stable HTTP endpoint, safe across Server Action deployments. */
-export function releaseLockThroughApi(reference: ResourceReference, preferBeacon = false): void {
-  const body = JSON.stringify(reference);
+export function releaseLockThroughApi(reference: ResourceReference, preferBeacon = false, lockId?: string): void {
+  const body = JSON.stringify(lockId ? { ...reference, lockId } : reference);
   const payload = new Blob([body], { type: 'application/json' });
   const sent = preferBeacon
     && typeof navigator.sendBeacon === 'function'
@@ -106,6 +109,8 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
   );
   const mutation = useUserMutation();
   const [acquiredSessionId, setAcquiredSessionId] = useState<string>();
+  const [acquiredLockId, setAcquiredLockId] = useState<string>();
+  const acquiredLockIdRef = useRef<string | undefined>(undefined);
   const ownsLockRef = useRef(false);
   const { registerActiveLock } = useHumanActivity();
   const [, startLockTransition] = useTransition();
@@ -121,7 +126,9 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
           // The server action is authoritative. The session returned here can be
           // available before the client session provider finishes synchronizing.
           setAcquiredSessionId(result.lock.sessionId);
-          rememberBrowserLock({ resourceType, resourceId }, result.lock.sessionId);
+          setAcquiredLockId(result.lock.id);
+          acquiredLockIdRef.current = result.lock.id;
+          rememberBrowserLock({ resourceType, resourceId }, result.lock.sessionId, result.lock.id);
           ownsLockRef.current = true;
           AppCache.setLockState(resourceType, resourceId, {
             locked: true,
@@ -142,16 +149,21 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     await new Promise<void>((resolve) => {
       startLockTransition(() => {
         void mutation.execute(async () => {
-          const result = await releaseLockAction(resourceType, resourceId);
+          const lockId = acquiredLockId ?? getRememberedBrowserLock({ resourceType, resourceId })?.lockId;
+          const result = lockId
+            ? await releaseLockAction(resourceType, resourceId, lockId)
+            : await releaseLockAction(resourceType, resourceId);
           if (!result.success) throw result.details;
 
           setAcquiredSessionId(undefined);
+          setAcquiredLockId(undefined);
+          acquiredLockIdRef.current = undefined;
           forgetBrowserLock({ resourceType, resourceId });
           AppCache.setLockState(resourceType, resourceId, { locked: false });
         }, undefined, { notifySuccess: false }).then(() => resolve());
       });
     });
-  }, [mutation, resourceId, resourceType, startLockTransition]);
+  }, [acquiredLockId, mutation, resourceId, resourceType, startLockTransition]);
 
   useEffect(() => {
     void AppCache.hydrateLockState(resourceType, resourceId);
@@ -161,7 +173,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
     () => isOwnedLock(
       lockState,
       currentSessionId,
-      acquiredSessionId ?? getRememberedBrowserLockSession({ resourceType, resourceId }),
+      acquiredSessionId ?? getRememberedBrowserLock({ resourceType, resourceId })?.sessionId,
     ),
     [acquiredSessionId, currentSessionId, lockState, resourceId, resourceType],
   );
@@ -184,7 +196,7 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       if (!ownsLockRef.current) return;
       cancelScheduledLockRelease({ resourceType, resourceId });
       forgetBrowserLock({ resourceType, resourceId });
-      releaseLockThroughApi({ resourceType, resourceId }, true);
+      releaseLockThroughApi({ resourceType, resourceId }, true, acquiredLockIdRef.current ?? getRememberedBrowserLock({ resourceType, resourceId })?.lockId);
       ownsLockRef.current = false;
     };
 
@@ -193,11 +205,12 @@ export function useLock({ resourceType, resourceId }: UseLockProps) {
       window.removeEventListener('pagehide', releaseOnPageExit);
       if (ownsLockRef.current) {
         ownsLockRef.current = false;
+        const lockId = acquiredLockIdRef.current ?? getRememberedBrowserLock({ resourceType, resourceId })?.lockId;
         scheduleLockRelease(
           { resourceType, resourceId },
           () => {
-            forgetBrowserLock({ resourceType, resourceId });
-            releaseLockThroughApi({ resourceType, resourceId });
+            forgetBrowserLock({ resourceType, resourceId }, lockId);
+            releaseLockThroughApi({ resourceType, resourceId }, false, lockId);
             AppCache.setLockState(resourceType, resourceId, { locked: false });
           },
         );

@@ -19,8 +19,12 @@ export const POST = auth(async (request) => {
 
   const resourceType = body && typeof body === 'object' ? Reflect.get(body, 'resourceType') : undefined;
   const resourceId = body && typeof body === 'object' ? Reflect.get(body, 'resourceId') : undefined;
+  const lockId = body && typeof body === 'object' ? Reflect.get(body, 'lockId') : undefined;
   if (typeof resourceType !== 'string' || typeof resourceId !== 'string') {
     return NextResponse.json({ error: 'INVALID_RESOURCE' }, { status: 400 });
+  }
+  if (lockId !== undefined && (typeof lockId !== 'string' || lockId.length > 200)) {
+    return NextResponse.json({ error: 'INVALID_LOCK' }, { status: 400 });
   }
 
   let validatedType: ReturnType<typeof validateLockResource>;
@@ -32,7 +36,7 @@ export const POST = auth(async (request) => {
 
   try {
     const { lockService } = await import('../../../../server/db');
-    await lockService.unlock(resourceReference(validatedType, resourceId), userId, sessionId);
+    await lockService.unlock(resourceReference(validatedType, resourceId), userId, sessionId, undefined, lockId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[LockRelease] Failed to release page-exit lock:', error);

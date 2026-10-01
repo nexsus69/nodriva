@@ -90,11 +90,17 @@ export class LockService {
   /**
    * Releases a lock held by a specific user.
    */
-  async unlock(resource: ResourceReference, userId: string, sessionId: string, scope?: LockEventScope): Promise<void> {
-    await this.inTransaction(async () => {
-      await this.lockRepository.release(resource, userId, sessionId);
-      await this.recordAuditStrict(userId, 'lock.release', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, { sessionId }, null);
+  async unlock(resource: ResourceReference, userId: string, sessionId: string, scope?: LockEventScope, lockId?: string): Promise<void> {
+    const released = await this.inTransaction(async () => {
+      const released = await this.lockRepository.release(resource, userId, sessionId, lockId);
+      // A stale page-exit release may legitimately target an older lock
+      // generation. Do not emit an event or audit entry for a lock that was
+      // intentionally left in place.
+      if (released === false) return false;
+      await this.recordAuditStrict(userId, 'lock.release', resource.resourceType, resource.resourceId, scope?.scopeNodeId ?? null, { sessionId, ...(lockId ? { lockId } : {}) }, null);
+      return true;
     });
+    if (released === false) return;
     this.publishGracefully(() => this.lockEventBus.publishLockReleased(resource, userId, sessionId, scope));
   }
 

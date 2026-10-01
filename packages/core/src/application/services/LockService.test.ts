@@ -20,7 +20,7 @@ function createService(lock: Lock | null) {
   const repository: LockRepository = {
     acquire: vi.fn(),
     refresh: vi.fn(),
-    release: vi.fn(),
+    release: vi.fn().mockResolvedValue(true),
     forceRelease: vi.fn(),
     getLock: vi.fn().mockResolvedValue(lock),
     releaseAllForSession: vi.fn().mockResolvedValue([]),
@@ -139,6 +139,16 @@ describe('LockService audit events', () => {
       attemptedSessionId: ACTOR_SESSION_ID,
       reason: 'active_lock',
     });
+  });
+
+  it('does not publish a release event for a stale lock generation', async () => {
+    const context = createService(null);
+    vi.mocked(context.repository.release).mockResolvedValue(false);
+
+    await context.service.unlock({ resourceType: 'entity', resourceId: RESOURCE_ID }, ACTOR_ID, ACTOR_SESSION_ID, undefined, 'stale-lock-id');
+
+    expect(context.auditPort.record).not.toHaveBeenCalled();
+    expect(context.eventBus.publishLockReleased).not.toHaveBeenCalled();
   });
 
   it('audits administrative force release', async () => {

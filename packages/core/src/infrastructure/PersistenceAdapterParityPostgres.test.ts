@@ -110,7 +110,7 @@ interface AdapterBehavior {
   deletedEntityVisibility: { admin: string[]; inactive: string[] };
   staleEntityRestoreError: string;
   restoredEntityVersion: number;
-  lock: { owner: string | null; conflictError: string; forbiddenReleaseError: string; released: boolean };
+  lock: { owner: string | null; conflictError: string; forbiddenReleaseError: string; released: boolean; newerLockSurvivesStaleRelease: boolean };
   deletedSubtree: { ids: string[]; entityWasDeleted: boolean; visibleNodes: string[]; hiddenNodes: string[] };
   staleNodeRestoreError: string;
   restoredSubtree: { ids: string[]; entityWasRestored: boolean };
@@ -205,6 +205,11 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
   const forbiddenReleaseError = await errorName(() => harness.lockRepository.release(resource, ids.otherActor, ids.otherSession));
   await harness.lockRepository.release(resource, ids.actor, ids.session);
   const released = (await harness.lockRepository.getLock(resource)) === null;
+  await harness.lockRepository.acquire(new Lock(ids.lockOne, resource, ids.actor, ids.session, acquiredAt, expiresAt));
+  await harness.lockRepository.acquire(new Lock(ids.lockTwo, resource, ids.actor, ids.session, acquiredAt, expiresAt));
+  await harness.lockRepository.release(resource, ids.actor, ids.session, ids.lockOne);
+  const newerLockSurvivesStaleRelease = (await harness.lockRepository.getLock(resource))?.id === ids.lockTwo;
+  await harness.lockRepository.release(resource, ids.actor, ids.session, ids.lockTwo);
 
   // This is the persistence projection used by the server action after a
   // successful delete: capture the parent before the mutation, then verify
@@ -271,7 +276,7 @@ async function observe(harness: AdapterHarness): Promise<AdapterBehavior> {
     nodeRoundTrip, duplicateNodeError, staleNodeDeleteError, entityOrder, entityRoundTrip,
     staleEntityUpdateError, staleEntityDeleteError, deletedEntityVersion, deletedEntityVisibility,
     staleEntityRestoreError, restoredEntityVersion,
-    lock: { owner, conflictError, forbiddenReleaseError, released },
+    lock: { owner, conflictError, forbiddenReleaseError, released, newerLockSurvivesStaleRelease },
     deletedSubtree, staleNodeRestoreError, restoredSubtree, pathReuseAllowed, transactionRolledBack,
     attachmentQuota, rateLimit, encryption, deleteResponse,
   };
@@ -424,7 +429,7 @@ describeIntegration('SQLite/PostgreSQL persistence adapter E2E parity', () => {
       deletedEntityVisibility: { admin: [ids.alphaEntity], inactive: [] },
       staleEntityRestoreError: 'RowVersionMismatchError',
       restoredEntityVersion: 4,
-      lock: { owner: ids.actor, conflictError: 'LockConflictError', forbiddenReleaseError: 'LockForbiddenError', released: true },
+      lock: { owner: ids.actor, conflictError: 'LockConflictError', forbiddenReleaseError: 'LockForbiddenError', released: true, newerLockSurvivesStaleRelease: true },
       deletedSubtree: { ids: [ids.child, ids.grandchild], entityWasDeleted: true, visibleNodes: [ids.child], hiddenNodes: [] },
       staleNodeRestoreError: 'RowVersionMismatchError',
       restoredSubtree: { ids: [ids.child, ids.grandchild], entityWasRestored: true },
