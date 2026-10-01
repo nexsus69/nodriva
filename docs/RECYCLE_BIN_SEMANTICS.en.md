@@ -1,17 +1,34 @@
-# Recycle-bin semantics
+# Recycle bin: causal operations
 
 [English](RECYCLE_BIN_SEMANTICS.en.md) | [Italiano](RECYCLE_BIN_SEMANTICS.md)
 
-Deletion is soft unless an explicitly authorized purge is requested. A deleted
-node or entity is hidden from normal reads while its metadata, audit and
-relationships remain available to the governed recovery flow.
+## Normative status
 
-Incoming active relationships apply the `restrict` policy. Outgoing edges are
-suspended and can be restored with the resource or deletion batch. Subtree
-restore uses deletion-batch provenance and does not resurrect records deleted
-independently before the cascade.
+The recycle bin represents user deletion intents, not a flat list of every
+record that became a consequence.
 
-Restore and purge are separate permissions and application services. Scope,
-lock, `rowVersion`, audit and relationship policy are checked again in the same
-transaction as the mutation. Permanent purge is irreversible and must never be
-used by tests against an operational database.
+## Deleting a node
+
+Soft deletion of a node creates an immutable `deletionBatchId`. The batch
+contains the root node, every descendant node and active entity contained in
+the subtree at the time of the operation. It is one user operation.
+
+The UI shows only the batch root with the number of affected nodes and entities.
+Descendants and entities are operation details, not actionable rows. Restore
+and purge always act on the entire batch.
+
+## Deleting an entity
+
+An entity deleted directly has no `deletionBatchId` and is one independent
+recycle-bin operation. It may be restored or permanently deleted independently,
+subject to authorization, `rowVersion`, an active parent node and active type.
+
+## Authorization and states
+
+The backend remains authoritative for `node.restore`, `node.purge`,
+`entity.restore`, `entity.purge`, scope and locks. The UI does not offer actions
+on batch consequences, avoiding presentation of an action as independent when
+the backend applies it to the entire subtree.
+
+Every mutation invalidates all recycle-bin projections it may affect; a manual
+refresh is not required to align the observed result.
