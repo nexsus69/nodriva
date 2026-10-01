@@ -2,18 +2,30 @@
 
 [Italiano](CONTRIBUTING.it.md) | [English](CONTRIBUTING.md)
 
-Nodriva è una piattaforma generica: una modifica non deve trasformarla
-silenziosamente in un prodotto per un solo dominio.
+Grazie per il contributo. Nodriva è una piattaforma generica: le modifiche non
+devono trasformarla silenziosamente in un prodotto per un solo dominio.
 
-Prima di una pull request:
+Docker Compose è un profilo di riferimento/test, non un requisito
+dell'applicazione. I contributi devono preservare SQLite standalone e PostgreSQL
+gestito dall'operatore e non rendere le integrazioni opzionali dipendenze
+implicite.
 
-1. leggere [l'architettura](ARCHITECTURE.it.md) e i documenti applicabili;
-2. mantenere separati Domain, Application, Infrastructure e Web;
-3. preservare il contratto osservabile comune PostgreSQL/SQLite;
-4. aggiungere un test di regressione o dell'invariante per ogni correzione;
-5. non committare credenziali, `.env`, dump, allegati o backup.
+## Prima di aprire una pull request
 
-Eseguire i controlli pertinenti:
+1. Leggere [l'architettura](ARCHITECTURE.it.md) e i documenti applicabili in
+   `docs/`.
+2. Mantenere separati Domain, Application, Infrastructure e Web. Autorizzazione
+   backend, lock, validazione e `rowVersion` sono autorevoli; UI e cache no.
+3. Preservare il contratto osservabile dei profili PostgreSQL e SQLite per il
+   comportamento comune.
+4. Aggiungere un test mirato di regressione o dell'invariante per ogni fix
+   comportamentale.
+5. Non committare credenziali, file `.env`, dump database, payload allegati o
+   archivi di backup.
+
+## Verifica locale
+
+Eseguire i controlli pertinenti prima dell'invio:
 
 ```bash
 pnpm check
@@ -21,7 +33,13 @@ pnpm test:postgres:local
 pnpm e2e:parity
 ```
 
-Usare per i test distruttivi soltanto database isolati con nome contenente
-`test`. La pull request deve descrivere intento, owner architetturale, test,
-impatto sui due adapter e modifiche operative/documentali. CI verde e worktree
-coerente sono necessari prima del merge.
+Per i controlli PostgreSQL distruttivi usare solo un database isolato il cui
+nome contiene `test`. Consultare README e `docs/` per comandi mirati di test e
+deployment.
+
+## Pull request
+
+Mantenere piccola ogni pull request e descrivere intento visibile all'utente,
+owner architetturale, test eseguiti, impatto PostgreSQL/SQLite ed eventuali
+modifiche operative o documentali. Non unire refactoring estranei a una
+modifica comportamentale. La CI deve essere verde prima del merge.
