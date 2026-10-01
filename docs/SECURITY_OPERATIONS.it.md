@@ -84,7 +84,7 @@ pianificato o con una procedura dedicata di ricifratura dati.
 Un enrollment sostitutivo resta in colonne pending separate per dieci minuti.
 Fattore attivo e codici di recupero restano validi finché un codice corretto non
 promuove il segreto pending. Promozione, eliminazione del fattore e consumo dei
-codici commit-tano con l'audit richiesto nella stessa transazione; un enrollment
+codici eseguono il commit con l'audit richiesto nella stessa transazione; un enrollment
 scaduto o consumato concorrente non può sostituire il fattore.
 
 Le claim di consegna delle azioni account usano lease esclusiva e recupero
