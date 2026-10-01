@@ -23,7 +23,7 @@ identifiers, routes and technical keys remain unchanged in both versions.
 
 ## Technical contracts
 
-- [Architectural governance](ARCHITECTURAL_GOVERNANCE.md)
+- [Architectural governance](ARCHITECTURAL_GOVERNANCE.en.md) · [Italian](ARCHITECTURAL_GOVERNANCE.md)
 - [Architectural portability](ARCHITECTURAL_PORTABILITY.md) · [Italian](ARCHITECTURAL_PORTABILITY.it.md)
 - [Runtime configuration](RUNTIME_CONFIGURATION_CATALOG.md)
 - [Service configuration](SERVICE_CONFIGURATION_ARCHITECTURE.md)
@@ -43,9 +43,9 @@ identifiers, routes and technical keys remain unchanged in both versions.
 ## Administration and frontend
 
 - [Admin information architecture](ADMIN_INFORMATION_ARCHITECTURE.md)
-- [Semantic catalogues](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md)
+- [Semantic catalogues](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md) · [Italian](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.it.md)
 - [Workspace state](ADMIN_WORKSPACE_STATE.md) · [Italian](ADMIN_WORKSPACE_STATE.it.md)
-- [Realtime collections](ADMIN_REALTIME_COLLECTIONS.md)
+- [Realtime collections](ADMIN_REALTIME_COLLECTIONS.en.md) · [Italian](ADMIN_REALTIME_COLLECTIONS.md)
 - [Frontend data flow](FRONTEND_DATA_FLOW_STANDARD.md)
 - [Responsive UI](RESPONSIVE_UI.md)
 
@@ -54,8 +54,8 @@ identifiers, routes and technical keys remain unchanged in both versions.
 - [Development workflow](DEVELOPMENT_WORKFLOW.md)
 - [Documentation governance](DOCUMENTATION_GOVERNANCE.md)
 - [Acceptance checklist](NODRIVA_ACCEPTANCE_CHECKLIST.md)
-- [Contributing](../CONTRIBUTING.md)
-- [Security policy](../SECURITY.md)
+- [Contributing](../CONTRIBUTING.md) · [Italian](../CONTRIBUTING.it.md)
+- [Security policy](../SECURITY.md) · [Italian](../SECURITY.it.md)
 
 Historical documents, project drafts, archived ADRs and analysis reports are
 not part of the published documentation and are excluded from Git. The only

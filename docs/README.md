@@ -24,7 +24,7 @@ nelle due versioni.
 
 ## Contratti tecnici
 
-- [Governance architetturale](ARCHITECTURAL_GOVERNANCE.md)
+- [Governance architetturale](ARCHITECTURAL_GOVERNANCE.md) · [English](ARCHITECTURAL_GOVERNANCE.en.md)
 - [Portabilità architetturale](ARCHITECTURAL_PORTABILITY.it.md) · [English](ARCHITECTURAL_PORTABILITY.md)
 - [Configurazione runtime](RUNTIME_CONFIGURATION_CATALOG.md)
 - [Configurazione servizi](SERVICE_CONFIGURATION_ARCHITECTURE.md)
@@ -44,9 +44,9 @@ nelle due versioni.
 ## Amministrazione e frontend
 
 - [Architettura informativa Admin](ADMIN_INFORMATION_ARCHITECTURE.md)
-- [Cataloghi semantici](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md)
+- [Cataloghi semantici](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.it.md) · [English](ADMINISTRATIVE_UX_SEMANTIC_CATALOGS.md)
 - [Stato workspace](ADMIN_WORKSPACE_STATE.it.md) · [English](ADMIN_WORKSPACE_STATE.md)
-- [Collection realtime](ADMIN_REALTIME_COLLECTIONS.md)
+- [Collection realtime](ADMIN_REALTIME_COLLECTIONS.md) · [English](ADMIN_REALTIME_COLLECTIONS.en.md)
 - [Flusso dati frontend](FRONTEND_DATA_FLOW_STANDARD.md)
 - [Responsive UI](RESPONSIVE_UI.md)
 
@@ -55,8 +55,9 @@ nelle due versioni.
 - [Workflow di sviluppo](DEVELOPMENT_WORKFLOW.md)
 - [Governance documentazione](DOCUMENTATION_GOVERNANCE.md)
 - [Checklist accettazione](NODRIVA_ACCEPTANCE_CHECKLIST.md)
-- [Contributi](../CONTRIBUTING.md)
-- [Policy sicurezza](../SECURITY.md)
+- [Architettura](../ARCHITECTURE.it.md) · [English](../ARCHITECTURE.md)
+- [Contributi](../CONTRIBUTING.it.md) · [English](../CONTRIBUTING.md)
+- [Policy sicurezza](../SECURITY.it.md) · [English](../SECURITY.md)
 
 I documenti storici, le bozze di progetto, gli ADR archiviati e i report di
 analisi non fanno parte della documentazione pubblicata e sono esclusi da Git.
