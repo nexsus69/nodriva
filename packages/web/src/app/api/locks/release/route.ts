@@ -1,3 +1,4 @@
+/** Releases only the authenticated browser session's current lock generation. */
 import { NextResponse } from 'next/server';
 import { auth } from '../../../../auth';
 import { resourceReference } from '@dashboard/core';

@@ -1,3 +1,4 @@
+/** Verifies SQLite lock ownership and stale-generation release semantics. */
 import { describe, expect, it } from 'vitest';
 import { Lock } from '../../domain/models/Lock.js';
 import { LockConflictError, LockForbiddenError } from '../../domain/errors/ApplicationErrors.js';
