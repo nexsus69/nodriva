@@ -25,7 +25,7 @@ nelle due versioni.
 ## Contratti tecnici
 
 - [Governance architetturale](ARCHITECTURAL_GOVERNANCE.md)
-- [Portabilità architetturale](ARCHITECTURAL_PORTABILITY.md)
+- [Portabilità architetturale](ARCHITECTURAL_PORTABILITY.it.md) · [English](ARCHITECTURAL_PORTABILITY.md)
 - [Configurazione runtime](RUNTIME_CONFIGURATION_CATALOG.md)
 - [Configurazione servizi](SERVICE_CONFIGURATION_ARCHITECTURE.md)
 - [Ciclo realtime](REALTIME_MUTATION_LIFECYCLE.md)
@@ -35,11 +35,11 @@ nelle due versioni.
 - [Storage allegati](ATTACHMENT_STORAGE_FORMAT.it.md) · [English](ATTACHMENT_STORAGE_FORMAT.md)
 - [Internazionalizzazione backend](BACKEND_I18N.it.md) · [English](BACKEND_I18N.md)
 - [Rotazione cifratura](ENCRYPTION_ROTATION.md) · [English](ENCRYPTION_ROTATION.en.md)
-- [Relazioni](RESOURCE_RELATIONSHIP_ARCHITECTURE.md)
+- [Relazioni](RESOURCE_RELATIONSHIP_ARCHITECTURE.it.md) · [English](RESOURCE_RELATIONSHIP_ARCHITECTURE.md)
 - [Tipi e metadati](RESOURCE_METADATA_FORMS.md)
 - [Enum](MANAGED_ENUMS.md) · [English](MANAGED_ENUMS.en.md)
 - [Ciclo di vita tipi](TYPE_LIFECYCLE.md)
-- [Workflow](WORKFLOW_EVENT_ENGINE.md)
+- [Workflow](WORKFLOW_EVENT_ENGINE.it.md) · [English](WORKFLOW_EVENT_ENGINE.md)
 
 ## Amministrazione e frontend
 

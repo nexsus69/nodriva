@@ -24,7 +24,7 @@ identifiers, routes and technical keys remain unchanged in both versions.
 ## Technical contracts
 
 - [Architectural governance](ARCHITECTURAL_GOVERNANCE.md)
-- [Architectural portability](ARCHITECTURAL_PORTABILITY.md)
+- [Architectural portability](ARCHITECTURAL_PORTABILITY.md) · [Italian](ARCHITECTURAL_PORTABILITY.it.md)
 - [Runtime configuration](RUNTIME_CONFIGURATION_CATALOG.md)
 - [Service configuration](SERVICE_CONFIGURATION_ARCHITECTURE.md)
 - [Realtime lifecycle](REALTIME_MUTATION_LIFECYCLE.md)
@@ -34,11 +34,11 @@ identifiers, routes and technical keys remain unchanged in both versions.
 - [Attachment storage](ATTACHMENT_STORAGE_FORMAT.md) · [Italian](ATTACHMENT_STORAGE_FORMAT.it.md)
 - [Backend internationalization](BACKEND_I18N.md) · [Italian](BACKEND_I18N.it.md)
 - [Encryption rotation](ENCRYPTION_ROTATION.en.md) · [Italian](ENCRYPTION_ROTATION.md)
-- [Relationships](RESOURCE_RELATIONSHIP_ARCHITECTURE.md)
+- [Relationships](RESOURCE_RELATIONSHIP_ARCHITECTURE.md) · [Italian](RESOURCE_RELATIONSHIP_ARCHITECTURE.it.md)
 - [Types and metadata](RESOURCE_METADATA_FORMS.md)
 - [Enums](MANAGED_ENUMS.en.md) · [Italian](MANAGED_ENUMS.md)
 - [Type lifecycle](TYPE_LIFECYCLE.md)
-- [Workflows](WORKFLOW_EVENT_ENGINE.md)
+- [Workflows](WORKFLOW_EVENT_ENGINE.md) · [Italian](WORKFLOW_EVENT_ENGINE.it.md)
 
 ## Administration and frontend
 
