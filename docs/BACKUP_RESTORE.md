@@ -16,7 +16,7 @@ Il manifest JSON riporta provider, checksum, dimensione, versione schema e
 Per lo scheduling standalone usare `node scripts/sqlite-backup-maintenance.mjs`.
 Il wrapper applica lock esclusivo, retention e `last-status.json`, e rispetta
 la policy runtime `backup.scheduledEnabled`. Lo scheduler concreto resta una
-decisione del deployment (systemd, cron o provider gestito).
+decisione del deployment o del provider gestito.
 
 La procedura PostgreSQL fornita usa `pg_dump` in formato custom, checksum SHA-256 e un
 restore di verifica in un database temporaneo. Il database operativo non è mai

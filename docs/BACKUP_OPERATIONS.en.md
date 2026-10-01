@@ -1,51 +1,66 @@
-# Backup operations
+# Automatic backup operations
 
 [English](BACKUP_OPERATIONS.en.md) | [Italiano](BACKUP_OPERATIONS.md)
 
-Backup scheduling, destination, retention, encryption at rest, replication and
-alerts belong to the deployment. The scripts in this repository are reference
-implementations and must be adapted to the chosen operator or provider.
+These scripts and wrapper commands are optional operational tools supplied by
+the repository. Nodriva does not manage backups on the operator's behalf. A
+deployment may use equivalent procedures from its database provider, provided
+that it includes verified restore and the required coordinated artifacts.
 
-## PostgreSQL
+Verified backup can run automatically through
+`scripts/postgres-backup-maintenance.sh`. The wrapper:
 
-Use `scripts/postgres-backup-verify.sh` for a custom-format dump and disposable
-restore verification:
+- prevents concurrent runs with `flock`;
+- creates and verifies a PostgreSQL backup;
+- applies configured retention;
+- writes `last-status.json` with outcome and file references;
+- returns a non-zero code on failure so the deployment scheduler or monitoring
+  system can raise an alert.
 
-```bash
-POSTGRES_CONTAINER=nodriva-postgres-1 \
-BACKUP_ROOT=/protected/backups/postgres \
-./scripts/postgres-backup-verify.sh backup-verify
+Verification runs against a restored temporary database and never uses counts
+from the live database. It therefore remains valid during concurrent writes and
+for a historical archive.
+
+In the reference/test Compose profile the same wrapper runs in the `backup`
+service, connected directly to PostgreSQL over the Docker network; it does not
+require access to the host Docker socket.
+
+An administrator may pause scheduling from **Platform → Backup**. The
+`backup.scheduledEnabled` runtime policy does not stop a deployment service: the
+job records `paused` and does not create a dump. An operational manual backup
+remains possible; restore is not exposed by the panel.
+
+## Configuration
+
+Available variables:
+
+```text
+BACKUP_ROOT=/secure/backups/dashboard/postgres
+BACKUP_RETENTION_DAYS=30
+BACKUP_STATUS_FILE=/secure/backups/dashboard/postgres/last-status.json
+POSTGRES_CONTAINER=dashboard-db-pg17
+POSTGRES_DATABASE=dashboard
+POSTGRES_USER=postgres
 ```
 
-The output and checksum are mode `0600`. The verification database is temporary
-and its name contains `test`; the command never overwrites the source database.
-Use a database container or direct tools according to the deployment, and keep
-the archive, checksum and restore log in protected storage. A dump does not
-contain attachment bytes or encryption keys.
+The directory must be protected, encrypted and replicated off host. A backup
+contains application data and must not be exposed through Web.
 
-## SQLite
+For standalone SQLite use the equivalent
+`node scripts/sqlite-backup-maintenance.mjs`. It produces the same
+`completed|paused|failed` status, applies retention and creates verified
+snapshots in a temporary copy. `BACKUP_ROOT`, `BACKUP_RETENTION_DAYS` and
+`BACKUP_STATUS_FILE` have the same semantics; also set
+`SQLITE_DATABASE_PATH` to the operational file.
 
-Use `node scripts/sqlite-backup-verify.mjs backup-verify` for a consistent
-`VACUUM INTO` snapshot, SHA-256 manifest and temporary `PRAGMA integrity_check`.
-The operational file is never used as the restore destination. Schedule the
-wrapper only after selecting a persistent protected destination and retention.
+The manifest/status contains provider, format, checksum, size, verification
+restore result and recovery dependencies. Attachments and the keyring remain
+coordinated copies managed by deployment, not data exposed by the application.
 
-## Attachments and keys
+## External scheduler
 
-Database metadata, attachment payloads and every key version used by them are a
-single recovery set. Coordinate their capture at one recovery point, protect
-the payload archive separately from the key material, and verify checksum and
-decryption on a temporary restore. A database-only backup is not a complete
-recovery for a deployment using attachments or encrypted fields.
-
-## Status and monitoring
-
-The Web may read a redacted `last-status.json` manifest, but it does not create,
-modify or expose backup contents. Alert when the latest verified restore is
-missing, failed or older than the deployment RPO. Keep at least one copy
-off-host and test the actual restore procedure periodically.
-
-Never run destructive verification against an operational database. Use a
-dedicated database name containing `test`, synthetic credentials and disposable
-storage. See [backup and restore](BACKUP_RESTORE.en.md) for the complete recovery
-procedure and [operational readiness](OPERATIONS_READINESS.en.md) for release gates.
+The scheduler belongs to the deployment and is not configured by Nodriva. Run
+the wrapper with an explicit environment, redirect stdout/stderr to the log
+system and connect exit codes to external alerting. The wrapper still maintains
+locking, retention and status. A production installation must also check
+`completedAt`, disk space and the presence of the off-host copy.

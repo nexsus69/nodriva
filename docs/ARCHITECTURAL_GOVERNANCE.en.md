@@ -15,7 +15,7 @@ violates these rules is not ready for merge, even when it compiles.
    operation.
 4. **Adapter parity.** PostgreSQL and SQLite may differ internally but must
    produce the same outcomes, errors, ordering, rollback and constraints.
-5. **Deployment is not product.** Compose, systemd, CI and local hosts do not
+5. **Deployment is not product.** Compose, CI and local hosts do not
    define Nodriva policy or implicit runtime requirements.
 6. **Complete local suite.** Before declaring work complete and before every
    push, run all relevant tests, including PostgreSQL integration, contract,

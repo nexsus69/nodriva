@@ -263,8 +263,8 @@ must be declared explicitly to the Web process.
 | Metrics/observability | `PROMETHEUS_ENDPOINT` | not configured in the administrative catalogue |
 | Backup evidence in the UI | `BACKUP_ROOT` and Web-readable `BACKUP_STATUS_FILE` | “Status unavailable” |
 
-The process generating backup dumps/snapshots may be systemd, cron, Kubernetes,
-a managed provider or Compose. To display the outcome in Nodriva, it must write
+The process generating backup dumps/snapshots belongs to the scheduler, managed
+provider or orchestrator selected by the operator. To display the outcome in Nodriva, it must write
 a compatible `last-status.json` manifest and make only that file readable by
 Web. Web does not create, modify or expose the backup. See
 [BACKUP_OPERATIONS.md](BACKUP_OPERATIONS.md) and [BACKUP_RESTORE.md](BACKUP_RESTORE.md).

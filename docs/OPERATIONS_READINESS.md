@@ -56,8 +56,8 @@ Il contratto `pnpm test:compose`, eseguito in CI, verifica che lo stack base
 si renderizzi senza secret realtime e che l'attivazione esplicita includa tutti
 i servizi opzionali. Non avvia container: il boot completo resta una verifica
 operativa isolata. Per servizi esterni, la verifica operativa appartiene al
-relativo provider/orchestratore; Nodriva non richiede Docker né un timer
-systemd per funzionare.
+relativo provider/orchestratore; Nodriva non richiede Docker né uno scheduler
+del sistema operativo per funzionare.
 
 ## Verifiche CI isolate
 

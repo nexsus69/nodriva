@@ -67,7 +67,7 @@ controlli dell'orchestratore o del provider.
 | configurazione iniziale | `.env.example`, `.env.infisical.example` |
 | migrazioni e bootstrap PostgreSQL | `db/README.md`, `docker/db-migrate/`, `docker/db-seed/` |
 | immagini e processi forniti | `docker/*/Dockerfile`, `docker/web/runtime-entrypoint.sh`, `docker/realtime-worker/` |
-| backup e restore | `BACKUP_RESTORE.md`, `BACKUP_OPERATIONS.md`, `scripts/*backup*`, `ops/systemd/` |
+| backup e restore | `BACKUP_RESTORE.md`, `BACKUP_OPERATIONS.md`, `scripts/*backup*` |
 | sicurezza e secret | `SECURITY.md`, `SECURITY_OPERATIONS.md`, `SECRET_MANAGEMENT.md` |
 | healthcheck e osservabilita' | `OPERATIONS_READINESS.md`, `scripts/stack-healthcheck.sh`, `docker/prometheus/` |
 | configurazione Core/Web | `packages/core/src/application/config/`, `packages/web/src/server/EnvironmentServiceConfiguration.ts`, `packages/web/src/server/db.ts` |

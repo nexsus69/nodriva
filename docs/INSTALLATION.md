@@ -263,8 +263,8 @@ l'integrazione deve essere dichiarata esplicitamente al processo Web.
 | Metriche/observability | `PROMETHEUS_ENDPOINT` | non configurata nel catalogo amministrativo |
 | Evidenza backup nella UI | `BACKUP_ROOT` e `BACKUP_STATUS_FILE` leggibile dal Web | “Stato non disponibile” |
 
-Per il backup, il processo che genera dump/snapshot può essere systemd, cron,
-Kubernetes, un provider gestito o Compose. Per mostrare l'esito in Nodriva deve
+Per il backup, il processo che genera dump/snapshot appartiene allo scheduler,
+provider gestito o orchestratore scelto dall'operatore. Per mostrare l'esito in Nodriva deve
 scrivere un manifest compatibile `last-status.json` e rendere quel solo file
 leggibile dal Web. Il Web non crea, modifica né espone il backup. Consultare
 [BACKUP_OPERATIONS.md](BACKUP_OPERATIONS.md) e [BACKUP_RESTORE.md](BACKUP_RESTORE.md).

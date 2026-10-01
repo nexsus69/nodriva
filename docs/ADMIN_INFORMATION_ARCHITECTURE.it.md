@@ -121,7 +121,7 @@ disponibile`; il refresh invoca solo probe autorizzati non mutanti.
 
 `Platform → Backup` possiede `backup.scheduledEnabled`: sospende solo il job
 automatico di deployment, con audit e stato esplicito. Non controlla container,
-cron/systemd o restore operativo.
+scheduler del sistema operativo o restore operativo.
 
 ## Rottura controllata delle route
 

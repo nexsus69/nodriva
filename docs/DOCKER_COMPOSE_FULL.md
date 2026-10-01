@@ -79,7 +79,7 @@ capability e il provider sono abilitati dal deployment:
 | `realtime` | `NEXT_PUBLIC_REALTIME_ENABLED=true`, chiave pubblica Pusher, `PUSHER_SECRET`, `REALTIME_WORKER_SECRET`, `REALTIME_INTERNAL_HOST`, `REALTIME_INTERNAL_PORT`, `REALTIME_INTERNAL_SCHEME` e host pubblico browser. Per usare il container locale: `REALTIME_INTERNAL_HOST=soketi`. | endpoint Pusher/Soketi gestito, worker come processo separato con gli stessi URL e secret |
 | `antivirus` | `CLAMAV_HOST`, `CLAMAV_PORT`, `ATTACHMENTS_REQUIRE_SCAN=true` | daemon ClamAV remoto; senza daemon lasciare `CLAMAV_HOST` vuoto e la capability disabilitata |
 | `monitoring` | `PROMETHEUS_ENDPOINT` solo se l'endpoint deve comparire nel catalogo servizi | Prometheus/collector gestito che effettua scrape del Web |
-| `backup` | `BACKUP_ROOT=/backups/postgres`, `BACKUP_STATUS_FILE=/backups/postgres/last-status.json`, retention | job systemd/cron/orchestratore con storage protetto e manifest opzionalmente leggibile dal Web |
+| `backup` | `BACKUP_ROOT=/backups/postgres`, `BACKUP_STATUS_FILE=/backups/postgres/last-status.json`, retention | job dello scheduler o orchestratore scelto dall'operatore con storage protetto e manifest opzionalmente leggibile dal Web |
 
 `DASHBOARD_PUBLIC_URL` è l'origine HTTPS canonica usata da autenticazione,
 azioni account e healthcheck; `DASHBOARD_PUBLIC_HOST` è il solo hostname usato

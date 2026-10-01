@@ -123,7 +123,7 @@ catalog for the health intent. `disabled` is an intentional state distinct from
 
 `Platform → Backup` owns the `backup.scheduledEnabled` runtime policy. It only
 pauses the deployment job's automatic execution, with audit and explicit state;
-it does not control containers, cron/systemd or operational restore.
+it does not control containers, operating-system schedulers or operational restore.
 
 ## Controlled route break
 

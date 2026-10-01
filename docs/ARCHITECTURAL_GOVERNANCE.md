@@ -17,7 +17,7 @@ viola queste regole non e' pronta per il merge, anche se compila.
    operazione atomica.
 4. **Parita' adapter.** PostgreSQL e SQLite possono differire internamente ma
    devono produrre stessi esiti, errori, ordinamenti, rollback e vincoli.
-5. **Deployment non e' prodotto.** Compose, systemd, CI e host locali non
+5. **Deployment non e' prodotto.** Compose, CI e host locali non
    definiscono policy Nodriva e non sono requisiti impliciti del runtime.
 6. **Suite completa in locale.** Prima di dichiarare concluso un intervento e
    prima di ogni push devono essere eseguiti localmente tutti i test pertinenti,
