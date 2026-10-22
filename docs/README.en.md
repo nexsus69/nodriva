@@ -59,6 +59,5 @@ identifiers, routes and technical keys remain unchanged in both versions.
 - [Security policy](../SECURITY.md) · [Italian](../SECURITY.it.md)
 
 Historical documents, project drafts, archived ADRs and analysis reports are
-not part of the published documentation and are excluded from Git. The only
-exception is `Specifiche/dashboard_v4_schema_corrected.sql`, an executable
-schema still required by bootstrap and therefore versioned.
+not part of the published documentation and are excluded from Git. The initial
+executable schema is maintained in `db/schema/001_baseline_schema.sql`.

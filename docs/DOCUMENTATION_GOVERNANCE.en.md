@@ -10,9 +10,8 @@
    define the intended architecture and operating model.
 3. Historical requirements, design alternatives and product direction are
    private local archives, not executable API, schema or deployment contracts.
-   `Specifiche/dashboard_v4_schema_corrected.sql` is the sole exception:
-   despite its directory name, it is the executable installation schema and
-   remains versioned until a separately coordinated relocation.
+   The initial executable installation schema is maintained in
+   `db/schema/001_baseline_schema.sql`.
 
 When source and normative documentation diverge, treat it as a defect and
 update the implementation or normative document in the same change. When a

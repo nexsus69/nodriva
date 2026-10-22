@@ -30,7 +30,7 @@ if [[ "${existing_tables}" != "0" ]]; then
 fi
 
 psql "${INTEGRATION_DATABASE_ADMIN_URL}" -X -v ON_ERROR_STOP=1 \
-  -f "${workspace_dir}/Specifiche/dashboard_v4_schema_corrected.sql"
+  -f "${workspace_dir}/db/schema/001_baseline_schema.sql"
 
 for migration in "${workspace_dir}"/db/migrations/*.sql; do
   if [[ "$(basename "${migration}")" == 009_* ]]; then

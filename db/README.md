@@ -3,7 +3,7 @@
 [Italiano](README.md) | [English](README.en.md)
 
 Applicare le migrazioni nell'ordine dei nomi a un database inizializzato da
-`Specifiche/dashboard_v4_schema_corrected.sql`. Schema e migrazioni non creano
+`db/schema/001_baseline_schema.sql`. Schema e migrazioni non creano
 il primo amministratore: completare il bootstrap esplicito
 `SystemSeedPostgres` nella [guida di installazione](../docs/INSTALLATION.md)
 prima di avviare il Web. Compose esegue lo stesso passaggio tramite `db-seed`;

@@ -178,7 +178,7 @@ lessicografico usando esclusivamente l'identità amministrativa. Esempio:
 ```bash
 set -eu
 psql "$NODRIVA_POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 \
-  -f Specifiche/dashboard_v4_schema_corrected.sql
+  -f db/schema/001_baseline_schema.sql
 for migration in db/migrations/*.sql; do
   psql "$NODRIVA_POSTGRES_ADMIN_URL" -v ON_ERROR_STOP=1 -f "$migration"
 done

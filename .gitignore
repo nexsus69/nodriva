@@ -23,8 +23,7 @@ docs-italiano/
 # Private planning notes, AI prompts and historical internal audits.
 notes-local/
 adminOld/
-Specifiche/*
-!Specifiche/dashboard_v4_schema_corrected.sql
+Specifiche/
 docs/adr/
 docs/AUDIT_REMEDIATION_*.md
 

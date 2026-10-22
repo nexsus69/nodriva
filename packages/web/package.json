@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@dashboard/core": "workspace:*",
-    "next": "16.3.3",
+    "next": "16.3.8",
     "next-auth": "5.0.0-beta.32",
     "pg": "^8.11.0",
     "pusher": "^5.3.4",
@@ -31,7 +31,7 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.3.3",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^5.4.21",

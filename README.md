@@ -150,6 +150,13 @@ The code is distributed under the [Apache License 2.0](LICENSE). Third-party
 dependencies retain their respective licenses. The product name and logo are
 covered by the [name and logo policy](docs/TRADEMARK_POLICY.md).
 
+## AI-Assisted Creation
+
+Nodriva was conceived, architected, and directed by **Marco Sartini**, and developed
+through intensive pair programming with Advanced Artificial Intelligence models.
+The architecture, domain boundaries, contracts, and code were produced through
+agentic workflows under human guidance and rigorous verification.
+
 ## Project status
 
 Nodriva is under active development. PostgreSQL is the primary complete profile;

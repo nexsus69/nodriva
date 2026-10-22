@@ -1,8 +1,11 @@
 Nodriva
-Copyright 2026 Marco
+Copyright 2026 Marco Sartini
 
 This project is licensed under the Apache License, Version 2.0.
 Third-party dependencies retain their own licenses.
+
+This project was conceived, designed, and directed by Marco Sartini,
+and developed through pair programming with Advanced Artificial Intelligence models.
 
 The project name and logo are currently not registered trademarks. See
 docs/TRADEMARK_POLICY.md for the project naming and logo usage policy.

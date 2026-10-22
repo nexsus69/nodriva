@@ -11,14 +11,12 @@
 3. Requisiti storici, alternative progettuali e direzione prodotto sono archivi
    locali privati, non contratti eseguibili di API, schema o deployment.
    Sono esclusi da Git e non sono necessari per installare il progetto.
-   `Specifiche/dashboard_v4_schema_corrected.sql` è l'eccezione esplicita:
-   nonostante la directory, è lo schema eseguibile d'installazione e resta
-   versionato fino a una ricollocazione coordinata.
+   Lo schema eseguibile iniziale d'installazione è collocato in
+   `db/schema/001_baseline_schema.sql`.
 
 Note di pianificazione, prompt AI, handoff, audit datati e tracker conclusi
 sono materiale di lavoro privato e non fanno parte della documentazione
-pubblica. `.gitignore` esclude i file storici in `Specifiche/` tranne lo SQL
-eseguibile, la directory `docs/adr/` e i report datati
+pubblica. `.gitignore` esclude i file storici in `Specifiche/`, la directory `docs/adr/` e i report datati
 `docs/AUDIT_REMEDIATION_*.md`. Smettere di tracciare questi file conserva le
 copie locali e non cancella la loro presenza nei commit precedenti; riscrivere
 la storia del repository richiede un'operazione separata ed esplicita.

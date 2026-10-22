@@ -11,13 +11,12 @@
 3. Historical requirements, design alternatives and product direction are
    private local archives, not executable API, schema or deployment contracts.
    They are excluded from Git and are not required to install the project.
-   `Specifiche/dashboard_v4_schema_corrected.sql` is an explicit exception:
-   despite its directory name, it is the executable installation schema and
-   remains versioned until a separately coordinated relocation.
+   The initial executable installation schema is located in
+   `db/schema/001_baseline_schema.sql`.
 
 Planning notes, AI prompts, handoffs, dated audits and completed trackers are
 private working material and are not part of the public documentation set.
-`.gitignore` excludes historical files in `Specifiche/` except the executable
+`.gitignore` excludes historical files in `Specifiche/`.
 SQL above, the historical `docs/adr/` directory and dated
 `docs/AUDIT_REMEDIATION_*.md` reports. Untracking these files preserves local
 copies; it does not erase them from earlier commits. Rewriting repository

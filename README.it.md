@@ -146,6 +146,14 @@ Il codice è distribuito con [licenza Apache 2.0](LICENSE). Le dipendenze di ter
 parti mantengono le rispettive licenze. Nome e logo del prodotto sono coperti
 dalla [policy su nome e logo](docs/TRADEMARK_POLICY.md).
 
+## Sviluppo Assistito da Intelligenza Artificiale
+
+Nodriva è stato ideato, progettato e diretto da **Marco Sartini**, e sviluppato
+attraverso sessioni di pair programming con modelli avanzati di Intelligenza
+Artificiale. L'architettura, i confini di dominio, i contratti operativi e il
+codice sono stati prodotti mediante flussi agentici sotto continua guida e
+rigorosa verifica umana.
+
 ## Stato del progetto
 
 Nodriva è in sviluppo attivo. PostgreSQL è il profilo completo principale;

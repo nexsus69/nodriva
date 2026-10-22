@@ -3,7 +3,7 @@
 [English](README.en.md) | [Italiano](README.md)
 
 Apply migrations in filename order to a database initialized from
-`Specifiche/dashboard_v4_schema_corrected.sql`. Schema and migrations alone do
+`db/schema/001_baseline_schema.sql`. Schema and migrations alone do
 not create the first administrator; complete the explicit `SystemSeedPostgres`
 bootstrap in [the installation guide](../docs/INSTALLATION.en.md) first.
 Compose performs it through `db-seed`; neither path loads demo content.

@@ -62,5 +62,4 @@ nelle due versioni.
 
 I documenti storici, le bozze di progetto, gli ADR archiviati e i report di
 analisi non fanno parte della documentazione pubblicata e sono esclusi da Git.
-L'unica eccezione è `Specifiche/dashboard_v4_schema_corrected.sql`, schema SQL
-eseguibile ancora richiesto dai bootstrap e quindi versionato.
+Lo schema SQL eseguibile iniziale è collocato in `db/schema/001_baseline_schema.sql`.
