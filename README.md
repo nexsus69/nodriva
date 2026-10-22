@@ -3,6 +3,10 @@
 [English](README.md) | [Italiano](README.it.md)
 
 [![CI](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml/badge.svg)](https://github.com/nexsus69/nodriva/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black.svg?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%20%7C%20SQLite-336791.svg)](docs/ARCHITECTURAL_PORTABILITY.md)
 
 Nodriva is an open-source platform for defining and managing connected data
 structures without imposing a specific application domain. It provides generic
