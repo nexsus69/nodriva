@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { CurrentAccountMenu } from '../auth/CurrentAccountMenu';
 import { Skeleton } from '../ui/feedback';
 import { MobileDrawer } from '../ui/menu';
+import { AppFooter } from './AppFooter';
 import { AdminIcon } from '@/adminPanel/components/AdminIcon';
 import { useAppLocale } from '@/app/i18n/AppLocaleStore';
 
@@ -89,6 +90,7 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
             <div className="hidden items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {t('workspace.systemOperational')}</div>
           </header>
           <main className="flex-1 px-5 py-7 sm:px-8 lg:px-10"><div className="mx-auto w-full max-w-7xl">{children}</div></main>
+          <AppFooter />
         </div>
       </div>
     </div>

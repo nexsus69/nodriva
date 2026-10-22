@@ -16,6 +16,7 @@ import { AdminAuthorizationProvider } from "@/adminPanel/AdminAuthorizationConte
 import { AdminButton } from "@/adminPanel/components/AdminButton";
 import { AdminIcon } from "@/adminPanel/components/AdminIcon";
 import { Skeleton } from "@/app/components/ui/feedback";
+import { AppFooter } from "@/app/components/layout/AppFooter";
 
 /** Renders a stable Admin shell while access is resolved without flashing content. */
 function AdminShellSkeleton() {
@@ -174,7 +175,10 @@ export function AdminPanelShell({ children }: { children: React.ReactNode }) {
           onOpenSidebar={() => setSidebarOpen(true)}
         />
         <main className="flex-1 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-[90rem]">{children}</div>
+          <div className="mx-auto flex min-h-full max-w-[90rem] flex-col justify-between">
+            <div className="flex-1">{children}</div>
+            <AppFooter className="mt-8 border-slate-200 !px-0" />
+          </div>
         </main>
       </div>
       </div>
